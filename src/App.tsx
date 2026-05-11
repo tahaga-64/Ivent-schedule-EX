@@ -3,7 +3,7 @@ import { db, handleFirestoreError, OperationType } from './lib/firebase';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP } from './constants';
 import { Event } from './types';
-import { Search, Calendar, List, Menu, X, ChevronLeft, ChevronRight, MapPin, Building2, StickyNote, ClipboardList, Moon, Sun, Save, Plus, Filter } from 'lucide-react';
+import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, MapPin, Building2, StickyNote, ClipboardList, Moon, Sun, Save, Plus, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PreparationList from './components/PreparationList';
 import { useDebounce } from './hooks/useDebounce';
@@ -33,8 +33,14 @@ export default function App() {
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
   const [monthFilter, setMonthFilter] = useState(() => localStorage.getItem('monthFilter') || "すべて");
-  const [calYear, setCalYear] = useState(() => parseInt(localStorage.getItem('calYear') || "2026"));
-  const [calMonth, setCalMonth] = useState(() => parseInt(localStorage.getItem('calMonth') || "5"));
+  const [calYear, setCalYear] = useState(() => {
+    const val = parseInt(localStorage.getItem('calYear') || "2026");
+    return isNaN(val) ? 2026 : val;
+  });
+  const [calMonth, setCalMonth] = useState(() => {
+    const val = parseInt(localStorage.getItem('calMonth') || "5");
+    return isNaN(val) ? 5 : val;
+  });
   const [selected, setSelected] = useState<Event | null>(null);
   const [sideOpen, setSideOpen] = useState(true);
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
@@ -96,9 +102,9 @@ export default function App() {
   useEffect(() => {
     if (monthFilter !== "すべて") {
       const m = parseInt(monthFilter);
-      // カレンダー表示月をフィルターに合わせる
-      setCalMonth(m);
-      // 必要に応じて年も管理する場合はここで判定しますが、現状は2026年固定想定
+      if (!isNaN(m)) {
+        setCalMonth(m);
+      }
     }
   }, [monthFilter]);
 
@@ -121,9 +127,20 @@ export default function App() {
 
   const stats = useMemo(() => {
     const byRegion: Record<string, number> = {};
-    filtered.forEach(d => { byRegion[d.region] = (byRegion[d.region] || 0) + 1; });
-    return { total: filtered.length, byRegion };
-  }, [filtered]);
+    const byType: Record<string, number> = {};
+    const byStatus: Record<string, number> = { "準備中": 0, "入荷待ち": 0 };
+    
+    allEvents.forEach(d => { 
+      if (d.region) byRegion[d.region] = (byRegion[d.region] || 0) + 1;
+      if (d.type) byType[d.type] = (byType[d.type] || 0) + 1;
+    });
+
+    filtered.forEach(d => {
+      if (d.status) byStatus[d.status] = (byStatus[d.status] || 0) + 1;
+    });
+
+    return { total: allEvents.length, byRegion, byType, byStatus };
+  }, [allEvents, filtered]);
 
   const handleUpdateEvent = (id: string, updates: Partial<Event>) => {
     // 選択中のイベントをベースに更新
@@ -242,11 +259,20 @@ export default function App() {
               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WORKSPACE</div>
               <div className="flex flex-col gap-0.5">
                 {[
-                  { label: "すべてのイベント", icon: <Calendar size={14} />, count: 25, value: "すべて" },
-                  { label: "準備中", icon: <ClipboardList size={14} />, count: 12, value: "準備中" },
-                  { label: "入荷待ち", icon: <Building2 size={14} />, count: 4, value: "入荷待ち" },
+                  { label: "すべてのイベント", icon: <Calendar size={14} />, count: stats.total, value: "すべて" },
+                  { label: "準備中", icon: <ClipboardList size={14} />, count: stats.byStatus["準備中"], value: "準備中" },
+                  { label: "入荷待ち", icon: <Building2 size={14} />, count: stats.byStatus["入荷待ち"], value: "入荷待ち" },
                 ].map((item) => (
-                  <button key={item.label} className="group flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white hover:shadow-sm hover:border-slate-100 border border-transparent transition-all">
+                  <button 
+                    key={item.label} 
+                    onClick={() => {
+                      setRegionFilter("すべて");
+                      setTypeFilter("すべて");
+                      setMonthFilter("すべて");
+                      // ステータスフィルターがあればここに追加
+                    }}
+                    className="group flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white hover:shadow-sm hover:border-slate-100 border border-transparent transition-all"
+                  >
                     <div className="flex items-center gap-3">
                       <span className="text-indigo-600 opacity-60 group-hover:opacity-100">{item.icon}</span>
                       <span className="text-xs font-bold text-slate-600 group-hover:text-indigo-600 font-sans">{item.label}</span>
@@ -264,11 +290,11 @@ export default function App() {
               </div>
               <div className="flex flex-col gap-0.5">
                 {[
-                  { label: "すべて", count: "" },
-                  { label: "東日本", count: "14" },
-                  { label: "西日本", count: "7" },
-                  { label: "南日本", count: "3" },
-                  { label: "中日本", count: "1" },
+                  { label: "すべて" },
+                  { label: "東日本" },
+                  { label: "西日本" },
+                  { label: "南日本" },
+                  { label: "中日本" },
                 ].map((r) => (
                   <button 
                     key={r.label} 
@@ -284,7 +310,7 @@ export default function App() {
                       <span className="w-2 h-2 rounded-full" style={{ background: rs(r.label).dot }}></span>
                       <span className="text-xs font-bold font-sans">{r.label}</span>
                     </div>
-                    <span className="text-xs font-bold opacity-60 font-sans">{r.count}</span>
+                    <span className="text-xs font-bold opacity-60 font-sans">{r.label === "すべて" ? "" : (stats.byRegion[r.label] || 0)}</span>
                   </button>
                 ))}
               </div>
@@ -434,9 +460,9 @@ export default function App() {
                         <span className="w-1.5 h-1.5 rounded-full" style={{ background: rs(selected.region).dot }}></span>
                         {selected.region}{selected.dept ? ` · ${selected.dept}` : ""}
                       </span>
-                      <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black border bg-[var(--bg-app)] border-[var(--border)] text-[var(--text-secondary)]">
-                        {ts(selected.type).icon} {selected.type}
-                      </span>
+                        <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black border bg-[var(--bg-app)] border-[var(--border)] text-[var(--text-secondary)]">
+                          {ts(selected.type || "").icon} {selected.type || "その他"}
+                        </span>
                     </div>
                     <button onClick={() => { setSelected(null); setHasUnsavedChanges(false); }} className="w-10 h-10 rounded-full border border-[var(--border)] bg-[var(--surface)] flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--bg-app)] transition-colors">
                       <X size={18} />
@@ -651,8 +677,8 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
                     onClick={() => onSelect(ev)}
                     className="w-full text-left bg-blue-50/40 hover:bg-blue-50 transition-colors rounded-md p-1.5 flex items-center gap-2 border border-blue-100/50 group/item relative"
                   >
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400 rounded-l-md" style={{ background: rs(ev.region).dot }}></div>
-                    <span className="text-[11px] shrink-0">{ev.emoji || ts(ev.type).icon}</span>
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400 rounded-l-md" style={{ background: rs(ev.region || "").dot }}></div>
+                    <span className="text-[11px] shrink-0">{ev.emoji || ts(ev.type || "").icon}</span>
                     <span className="text-[10px] font-bold text-slate-700 truncate">{ev.venue}</span>
                   </button>
                 ))}
@@ -720,8 +746,8 @@ function ListView({ data, onSelect, lastEditedId }: any) {
                 </td>
                 <td className="px-8 py-7">
                   <span className="inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-[10px] font-black border bg-[var(--bg-app)] border-[var(--border)] text-[var(--text-secondary)] shadow-sm">
-                    <span className="text-base">{d.emoji || ts(d.type).icon}</span>
-                    <span className="uppercase tracking-widest">{d.type}</span>
+                    <span className="text-base">{d.emoji || ts(d.type || "").icon}</span>
+                    <span className="uppercase tracking-widest">{d.type || "その他"}</span>
                   </span>
                 </td>
                 <td className="px-8 py-7">
