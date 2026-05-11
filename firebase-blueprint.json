@@ -1,0 +1,49 @@
+{
+  "entities": {
+    "Event": {
+      "title": "Event",
+      "description": "An event with schedule information.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "start": { "type": "string", "format": "date" },
+        "end": { "type": "string", "format": "date" },
+        "region": { "type": "string" },
+        "dept": { "type": "string" },
+        "type": { "type": "string" },
+        "venue": { "type": "string" },
+        "client": { "type": "string" },
+        "note": { "type": "string" }
+      },
+      "required": ["id", "venue"]
+    },
+    "PreparationItem": {
+      "title": "Preparation Item",
+      "description": "An item in the preparation list for an event.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "quantity": { "type": "number" },
+        "unitPrice": { "type": "number" },
+        "amount": { "type": "number" },
+        "shippingFee": { "type": "number" },
+        "arrived": { "type": "boolean" },
+        "prepared": { "type": "boolean" },
+        "note": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["name", "quantity", "unitPrice"]
+    }
+  },
+  "firestore": {
+    "/events": {
+      "schema": "Event",
+      "description": "Collection of events."
+    },
+    "/events/{eventId}/preparationItems": {
+      "schema": "PreparationItem",
+      "description": "Subcollection of items needed for a specific event."
+    }
+  }
+}

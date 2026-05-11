@@ -1,0 +1,6 @@
+{
+  "name": "EX事業部 準備物リスト管理",
+  "description": "イベントのスケジュールと準備物リストを管理するアプリケーション。カレンダー表示や詳細な備品リスト（ExcelライクなUI）を搭載。",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
