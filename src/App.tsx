@@ -499,44 +499,28 @@ export default function App() {
                   {/* Header: タグ + 閉じるボタン */}
                   <div className="flex justify-between items-center mb-5">
                     <div className="flex gap-2 flex-wrap">
-                      {isEditMode ? (
-                        <>
-                          <select
-                            value={selected.dept || ""}
-                            onChange={e => {
-                              const dept = e.target.value;
-                              const region = DEPT_TO_REGION[dept] || selected.region;
-                              handleUpdateEvent(selected.id, { dept, region });
-                            }}
-                            className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                          >
-                            <option value="">地域を選択...</option>
-                            {DEPT_OPTIONS.map(d => (
-                              <option key={d} value={d}>{d}</option>
-                            ))}
-                          </select>
-                          <input
-                            type="text"
-                            value={selected.type || ""}
-                            onChange={e => handleUpdateEvent(selected.id, { type: e.target.value })}
-                            placeholder="種別を入力..."
-                            className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-36"
-                          />
-                        </>
-                      ) : (
-                        <>
-                          <span
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
-                            style={{ background: rs(selected.region).bg, color: rs(selected.region).text }}
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: rs(selected.region).dot }}></span>
-                            {selected.dept || selected.region}
-                          </span>
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-600">
-                            {ts(selected.type || "").icon} {selected.type || "その他"}
-                          </span>
-                        </>
-                      )}
+                      <select
+                        value={selected.dept || ""}
+                        onChange={e => {
+                          const dept = e.target.value;
+                          const region = DEPT_TO_REGION[dept] || selected.region;
+                          handleUpdateEvent(selected.id, { dept, region });
+                        }}
+                        className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        style={{ background: rs(selected.region).bg, color: rs(selected.region).text }}
+                      >
+                        <option value="">地域を選択...</option>
+                        {DEPT_OPTIONS.map(d => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        value={selected.type || ""}
+                        onChange={e => handleUpdateEvent(selected.id, { type: e.target.value })}
+                        placeholder="種別を入力..."
+                        className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-blue-50 text-blue-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-36"
+                      />
                     </div>
                     <button
                       onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); }}
