@@ -3,13 +3,14 @@ import { db, handleFirestoreError, OperationType } from './lib/firebase';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
 import { Event } from './types';
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, MapPin, Building2, StickyNote, ClipboardList, Moon, Sun, Save, Plus, Filter, Search, Camera, Image } from 'lucide-react';
+import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, MapPin, Building2, StickyNote, ClipboardList, Moon, Sun, Save, Plus, Filter, Search, Camera, Image, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PreparationList from './components/PreparationList';
 import PhotoUpload from './components/photos/PhotoUpload';
 import PhotoGallery from './components/photos/PhotoGallery';
 import MobilePhotoCapture from './components/photos/MobilePhotoCapture';
 import BulkActionBar from './components/bulk/BulkActionBar';
+import AnalyticsDashboard from './components/analytics/AnalyticsDashboard';
 import { useDebounce } from './hooks/useDebounce';
 import { useBulkSelection } from './hooks/useBulkSelection';
 
@@ -34,7 +35,7 @@ function eventCoversDate(ev: Event, y: number, m: number, day: number) {
 }
 
 export default function App() {
-  const [view, setView] = useState<"calendar" | "list">(() => (localStorage.getItem('viewMode') as any) || "calendar");
+  const [view, setView] = useState<"calendar" | "list" | "analytics">(() => (localStorage.getItem('viewMode') as any) || "calendar");
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
   const [monthFilter, setMonthFilter] = useState(() => localStorage.getItem('monthFilter') || "すべて");
@@ -268,6 +269,7 @@ export default function App() {
             {[
               { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
               { id: "list", icon: <List size={14} />, label: "リスト" },
+              { id: "analytics", icon: <BarChart3 size={14} />, label: "分析" },
             ].map(v => (
               <button
                 key={v.id}
@@ -478,6 +480,9 @@ export default function App() {
                   bulkSelection={bulkSelection}
                   onBulkSelectionChange={handleBulkUpdate}
                 />
+              )}
+              {view === "analytics" && (
+                <AnalyticsDashboard />
               )}
             </motion.div>
           </AnimatePresence>
