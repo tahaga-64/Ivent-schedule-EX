@@ -91,6 +91,9 @@ export default function App() {
   const [modalTab, setModalTab] = useState<'detail' | 'photos'>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('deletedIds') || '[]')); } catch { return new Set(); }
+  });
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -185,10 +188,10 @@ export default function App() {
   // 静的データとDBデータをマージ（Firestoreで新規作成したイベントも含む）
   const allEvents = useMemo(() => {
     const staticIds = new Set(DATA.map(d => d.id));
-    const merged = DATA.map(item => dbEvents[item.id] || item);
-    const firestoreOnly = Object.values(dbEvents).filter(e => !staticIds.has(e.id));
+    const merged = DATA.map(item => dbEvents[item.id] || item).filter(e => !deletedIds.has(e.id));
+    const firestoreOnly = Object.values(dbEvents).filter(e => !staticIds.has(e.id) && !deletedIds.has(e.id));
     return [...merged, ...firestoreOnly].sort((a, b) => (a.start || '9999') < (b.start || '9999') ? -1 : 1);
-  }, [dbEvents]);
+  }, [dbEvents, deletedIds]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -295,6 +298,18 @@ export default function App() {
         await Promise.allSettled(event.photos.map(p => deletePhoto(p)));
       }
 
+      // ローカルstateからも即座に削除
+      setDbEvents(prev => {
+        const next = { ...prev };
+        delete next[event.id];
+        return next;
+      });
+      setDeletedIds(prev => {
+        const next = new Set(prev);
+        next.add(event.id);
+        localStorage.setItem('deletedIds', JSON.stringify([...next]));
+        return next;
+      });
       setSelected(null);
       setShowPrepList(false);
       setIsEditMode(false);
