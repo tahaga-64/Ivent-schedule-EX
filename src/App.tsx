@@ -9,7 +9,9 @@ import PreparationList from './components/PreparationList';
 import PhotoUpload from './components/photos/PhotoUpload';
 import PhotoGallery from './components/photos/PhotoGallery';
 import MobilePhotoCapture from './components/photos/MobilePhotoCapture';
+import BulkActionBar from './components/bulk/BulkActionBar';
 import { useDebounce } from './hooks/useDebounce';
+import { useBulkSelection } from './hooks/useBulkSelection';
 
 /* ═══════════════════════════════════════
    ヘルパー
@@ -57,6 +59,14 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastEditedId, setLastEditedId] = useState<string | null>(() => localStorage.getItem('lastEditedId'));
+  
+  // Bulk selection
+  const bulkSelection = useBulkSelection();
+  
+  const handleBulkUpdate = useCallback(() => {
+    // Force refresh of events data
+    window.location.reload();
+  }, []);
   const [sidebarTypes, setSidebarTypes] = useState<{label: string, icon: string}[]>(() => {
     const saved = localStorage.getItem('sidebarTypes');
     return saved ? JSON.parse(saved) : [
@@ -461,13 +471,27 @@ export default function App() {
               )}
               {view === "list" && (
                 filtered.length === 0 ? <EmptyState /> :
-                <ListView data={filtered} onSelect={setSelected} lastEditedId={lastEditedId} />
+                <ListView 
+                  data={filtered} 
+                  onSelect={setSelected} 
+                  lastEditedId={lastEditedId}
+                  bulkSelection={bulkSelection}
+                  onBulkSelectionChange={handleBulkUpdate}
+                />
               )}
             </motion.div>
           </AnimatePresence>
           </div>
         </main>
       </div>
+
+      {/* Bulk Action Bar */}
+      <BulkActionBar
+        selectedEventIds={bulkSelection.selectedIds}
+        events={allEvents}
+        onClearSelection={bulkSelection.clearSelection}
+        onBulkUpdate={handleBulkUpdate}
+      />
 
       {/* Modals */}
       <AnimatePresence>
@@ -899,7 +923,48 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
 }
 
 
-function ListView({ data, onSelect, lastEditedId }: any) {
+function ListView({ 
+  data, 
+  onSelect, 
+  lastEditedId, 
+  bulkSelection,
+  onBulkSelectionChange 
+}: any) {
+  const eventIds = data.map((d: any) => d.id);
+  
+  const handleRowClick = (event: any, eventData: any) => {
+    if (event.ctrlKey || event.metaKey) {
+      // Ctrl/Cmd click for multi-select
+      bulkSelection.toggleSelection(eventData.id);
+      onBulkSelectionChange?.();
+    } else if (event.shiftKey && bulkSelection.selectedIds.length > 0) {
+      // Shift click for range select
+      const lastSelectedIndex = eventIds.indexOf(bulkSelection.selectedIds[bulkSelection.selectedIds.length - 1]);
+      const currentIndex = eventIds.indexOf(eventData.id);
+      
+      if (lastSelectedIndex !== -1) {
+        const start = Math.min(lastSelectedIndex, currentIndex);
+        const end = Math.max(lastSelectedIndex, currentIndex);
+        const rangeIds = eventIds.slice(start, end + 1);
+        bulkSelection.selectMultiple(rangeIds);
+        onBulkSelectionChange?.();
+      } else {
+        bulkSelection.toggleSelection(eventData.id);
+        onBulkSelectionChange?.();
+      }
+    } else {
+      // Normal click
+      if (bulkSelection.selectedIds.length > 0) {
+        // If in bulk mode, toggle selection
+        bulkSelection.toggleSelection(eventData.id);
+        onBulkSelectionChange?.();
+      } else {
+        // Open event modal
+        onSelect(eventData);
+      }
+    }
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -910,61 +975,89 @@ function ListView({ data, onSelect, lastEditedId }: any) {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-[var(--bg-app)]/50 border-b border-[var(--border)]">
+              <th className="px-6 py-5 w-12">
+                <input
+                  type="checkbox"
+                  checked={bulkSelection.isAllSelected(eventIds)}
+                  onChange={() => {
+                    bulkSelection.toggleAllSelection(eventIds);
+                    onBulkSelectionChange?.();
+                  }}
+                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                />
+              </th>
               {["日程", "本部", "種別", "会場"].map(h => (
                 <th key={h} className="px-8 py-5 font-black text-[10px] uppercase tracking-[0.2em] text-[var(--text-secondary)] opacity-60">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)]">
-            {data.map((d: any) => (
-              <tr 
-                key={d.id} 
-                onClick={() => onSelect(d)} 
-                className={`
-                  group cursor-pointer transition-all border-l-4
-                  ${d.id === lastEditedId 
-                    ? "bg-amber-500/[0.08] dark:bg-amber-500/[0.12] border-amber-500" 
-                    : "hover:bg-purple-accent/[0.02] border-transparent"}
-                `}
-              >
-                <td className="px-8 py-7">
-                  <div className="font-mono text-xs font-black text-[var(--text-primary)]">
-                    {fmtShort(d.start)}
-                    {d.start !== d.end && d.end && (
-                      <span className="mx-2 text-[var(--text-secondary)] opacity-40">→</span>
-                    )}
-                    {d.start !== d.end && d.end && fmtShort(d.end)}
-                  </div>
-                </td>
-                <td className="px-8 py-7">
-                  <span className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full text-[10px] font-black border border-transparent shadow-sm" style={{ background: rs(d.region).bg, color: rs(d.region).text }}>
-                    <span className="w-1.5 h-1.5 rounded-full shadow-inner" style={{ background: rs(d.region).dot }}></span>
-                    {d.region}
-                  </span>
-                </td>
-                <td className="px-8 py-7">
-                  <span className="inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-[10px] font-black border bg-[var(--bg-app)] border-[var(--border)] text-[var(--text-secondary)] shadow-sm">
-                    <span className="text-base">{d.emoji || ts(d.type || "").icon}</span>
-                    <span className="uppercase tracking-widest">{d.type || "その他"}</span>
-                  </span>
-                </td>
-                <td className="px-8 py-7">
-                  <div className="flex items-center gap-3">
-                    <div className="font-black text-[var(--text-primary)] text-[15px] tracking-tight group-hover:text-amber-500 transition-colors uppercase">{d.venue}</div>
-                    {d.id === lastEditedId && (
-                      <motion.span 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="px-2 py-0.5 bg-amber-500 text-white text-[8px] font-black rounded-md tracking-widest uppercase shadow-sm shadow-amber-500/20"
-                      >
-                        Updated
-                      </motion.span>
-                    )}
-                  </div>
-                  <div className="text-[11px] text-[var(--text-secondary)] mt-1.5 font-bold tracking-wide opacity-70">{d.client || "No Client Specified"}</div>
-                </td>
-              </tr>
-            ))}
+            {data.map((d: any) => {
+              const isSelected = bulkSelection.isSelected(d.id);
+              return (
+                <tr 
+                  key={d.id} 
+                  onClick={(e) => handleRowClick(e, d)}
+                  className={`
+                    group cursor-pointer transition-all border-l-4
+                    ${isSelected 
+                      ? "bg-indigo-50/50 dark:bg-indigo-900/20 border-indigo-500" 
+                      : d.id === lastEditedId 
+                        ? "bg-amber-500/[0.08] dark:bg-amber-500/[0.12] border-amber-500" 
+                        : "hover:bg-purple-accent/[0.02] border-transparent"}
+                  `}
+                >
+                  <td className="px-6 py-7">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        bulkSelection.toggleSelection(d.id);
+                        onBulkSelectionChange?.();
+                      }}
+                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    />
+                  </td>
+                  <td className="px-8 py-7">
+                    <div className="font-mono text-xs font-black text-[var(--text-primary)]">
+                      {fmtShort(d.start)}
+                      {d.start !== d.end && d.end && (
+                        <span className="mx-2 text-[var(--text-secondary)] opacity-40">→</span>
+                      )}
+                      {d.start !== d.end && d.end && fmtShort(d.end)}
+                    </div>
+                  </td>
+                  <td className="px-8 py-7">
+                    <span className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full text-[10px] font-black border border-transparent shadow-sm" style={{ background: rs(d.region).bg, color: rs(d.region).text }}>
+                      <span className="w-1.5 h-1.5 rounded-full shadow-inner" style={{ background: rs(d.region).dot }}></span>
+                      {d.region}
+                    </span>
+                  </td>
+                  <td className="px-8 py-7">
+                    <span className="inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-[10px] font-black border bg-[var(--bg-app)] border-[var(--border)] text-[var(--text-secondary)] shadow-sm">
+                      <span className="text-base">{d.emoji || ts(d.type || "").icon}</span>
+                      <span className="uppercase tracking-widest">{d.type || "その他"}</span>
+                    </span>
+                  </td>
+                  <td className="px-8 py-7">
+                    <div className="flex items-center gap-3">
+                      <div className="font-black text-[var(--text-primary)] text-[15px] tracking-tight group-hover:text-amber-500 transition-colors uppercase">{d.venue}</div>
+                      {d.id === lastEditedId && (
+                        <motion.span 
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="px-2 py-0.5 bg-amber-500 text-white text-[8px] font-black rounded-md tracking-widest uppercase shadow-sm shadow-amber-500/20"
+                        >
+                          Updated
+                        </motion.span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-[var(--text-secondary)] mt-1.5 font-bold tracking-wide opacity-70">{d.client || "No Client Specified"}</div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
