@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { PreparationItem, Event } from '../types';
-import { Trash2, Plus, ArrowLeft, CheckCircle2, PackageCheck, Loader2, Save } from 'lucide-react';
+import { Trash2, Plus, ArrowLeft, CheckCircle2, PackageCheck, Loader2, Save, Download } from 'lucide-react';
 import { useDebounce } from '../hooks/useDebounce';
 import { motion, AnimatePresence } from 'motion/react';
 
