@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { db, auth, loginWithGoogle, handleFirestoreError, OperationType } from './lib/firebase';
+import { db, auth, loginWithGoogle } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
@@ -132,6 +132,7 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [lastEditedId, setLastEditedId] = useState<string | null>(() => localStorage.getItem('lastEditedId'));
   const [sidebarTypes, setSidebarTypes] = useState<{label: string, icon: string}[]>(() => 
     safeGetItem('sidebarTypes', [
@@ -232,9 +233,12 @@ export default function App() {
     }
   }, [monthFilter]);
 
-  // 静的データとDBデータをマージ
+  // 静的データとDBデータをマージ（Firestore上に新規作成されたイベントも含める）
   const allEvents = useMemo(() => {
-    return DATA.map(item => dbEvents[item.id] || item);
+    const staticIds = new Set(DATA.map(d => d.id));
+    const merged = DATA.map(item => dbEvents[item.id] || item);
+    const firestoreOnly = Object.values(dbEvents).filter((e: Event) => !staticIds.has(e.id));
+    return [...merged, ...firestoreOnly];
   }, [dbEvents]);
 
   const filtered = useMemo(() => {
@@ -287,25 +291,42 @@ export default function App() {
     }
   };
 
+  // Firestoreエラーを日本語のユーザー向けメッセージに整形
+  const formatSaveError = (error: unknown): string => {
+    const raw = error instanceof Error ? error.message : String(error);
+    const lower = raw.toLowerCase();
+    if (lower.includes('permission') || lower.includes('insufficient') || lower.includes('missing or insufficient')) {
+      return '保存に失敗しました：権限がありません。編集権限のあるGoogleアカウントでログインしているか確認してください。';
+    }
+    if (lower.includes('unavailable') || lower.includes('offline') || lower.includes('network')) {
+      return '保存に失敗しました：ネットワークに接続できません。接続を確認してから再試行してください。';
+    }
+    return '保存に失敗しました。もう一度お試しください。';
+  };
+
   const handleSaveEvent = async (): Promise<boolean> => {
     if (!selected) return false;
-    
+
     // バリデーション実行
     const errors = validateEvent(selected);
     setValidationErrors(errors);
     if (errors.length > 0) {
       return false;
     }
-    
+
     setIsSaving(true);
+    setSaveError(null);
     try {
       await setDoc(doc(db, "events", selected.id), selected);
+      // 楽観的にローカルキャッシュも更新（onSnapshot反映までのラグ対策）
+      setDbEvents(prev => ({ ...prev, [selected.id]: selected }));
       setHasUnsavedChanges(false);
       setLastEditedId(selected.id);
-      setTimeout(() => setIsSaving(false), 800);
+      setIsSaving(false);
       return true;
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `events/${selected.id}`);
+      console.error('Firestore save error:', error);
+      setSaveError(formatSaveError(error));
       setIsSaving(false);
       return false;
     }
@@ -325,12 +346,23 @@ export default function App() {
       note: "",
       emoji: initialData.emoji || "📅"
     };
+    setSaveError(null);
+    // 楽観的にUIへ反映（保存完了前にも一覧 / モーダルに表示）
+    setDbEvents(prev => ({ ...prev, [id]: newEvent }));
+    setSelected(newEvent);
+    setLastEditedId(id);
     try {
       await setDoc(doc(db, "events", id), newEvent);
-      setSelected(newEvent);
-      setLastEditedId(id);
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `events/${id}`);
+      console.error('Firestore create error:', error);
+      setSaveError(formatSaveError(error));
+      // 失敗したらローカルキャッシュからロールバック
+      setDbEvents(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      setSelected(null);
     }
   };
 
@@ -572,14 +604,15 @@ export default function App() {
         {/* Main Content */}
         <main className="flex-1 bg-white relative overflow-hidden flex flex-col">
           <div className="p-4 lg:p-8 pb-20 lg:pb-8 flex-1 overflow-y-auto">
-          {/* Sync Indicator */}
+          {/* Sync / Error Indicator */}
           <AnimatePresence>
             {isSaving && (
               <motion.div 
+                key="sync"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                className="fixed bottom-10 right-10 z-[100] flex items-center gap-3 bg-zinc-900 dark:bg-amber-500 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
+                className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-center gap-3 bg-zinc-900 dark:bg-amber-500 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
               >
                 <div className="relative flex items-center justify-center">
                   <motion.div 
@@ -590,6 +623,24 @@ export default function App() {
                   <div className="relative w-1.5 h-1.5 bg-white rounded-full" />
                 </div>
                 <span className="text-[10px] font-black uppercase tracking-[0.2em]">Cloud Syncing...</span>
+              </motion.div>
+            )}
+            {saveError && (
+              <motion.div
+                key="error"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                role="alert"
+                onClick={() => setSaveError(null)}
+                className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-start gap-3 bg-red-600 text-white px-5 py-3 rounded-2xl shadow-2xl max-w-sm cursor-pointer"
+              >
+                <span className="text-base leading-none mt-0.5">⚠️</span>
+                <div className="flex-1">
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] mb-1">保存エラー</div>
+                  <div className="text-xs font-bold leading-snug">{saveError}</div>
+                  <div className="text-[10px] opacity-70 mt-1">タップで閉じる</div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

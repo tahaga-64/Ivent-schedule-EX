@@ -1,14 +1,25 @@
 import { useState, useEffect, useMemo } from 'react';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { PreparationItem, Event } from '../types';
-import { Trash2, Plus, ArrowLeft, CheckCircle2, PackageCheck, Loader2, Save, Download } from 'lucide-react';
-import { useDebounce } from '../hooks/useDebounce';
-import { motion, AnimatePresence } from 'motion/react';
+import { Trash2, Plus, ArrowLeft, Save, Download } from 'lucide-react';
+import { motion } from 'motion/react';
 
 interface Props {
   event: Event;
   onBack: () => void;
+}
+
+function formatSaveError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  const lower = raw.toLowerCase();
+  if (lower.includes('permission') || lower.includes('insufficient')) {
+    return '保存に失敗しました：権限がありません。編集権限のあるアカウントでログインしているか確認してください。';
+  }
+  if (lower.includes('unavailable') || lower.includes('offline') || lower.includes('network')) {
+    return '保存に失敗しました：ネットワーク接続を確認してください。';
+  }
+  return '保存に失敗しました。もう一度お試しください。';
 }
 
 export default function PreparationList({ event, onBack }: Props) {
@@ -16,6 +27,7 @@ export default function PreparationList({ event, onBack }: Props) {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     const path = `events/${event.id}/preparationItems`;
@@ -34,21 +46,24 @@ export default function PreparationList({ event, onBack }: Props) {
       }
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, path);
+      console.error('PreparationList load error:', error);
+      setLoading(false);
     });
     return () => unsubscribe();
   }, [event.id, hasChanges]);
 
   const handleSaveAll = async () => {
     setIsSaving(true);
+    setSaveError(null);
     try {
       await Promise.all(items.map(item =>
         setDoc(doc(db, `events/${event.id}/preparationItems`, item.id), item)
       ));
       setHasChanges(false);
-      setTimeout(() => setIsSaving(false), 800);
+      setIsSaving(false);
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `events/${event.id}/preparationItems`);
+      console.error('PreparationList save error:', error);
+      setSaveError(formatSaveError(error));
       setIsSaving(false);
     }
   };
@@ -74,12 +89,14 @@ export default function PreparationList({ event, onBack }: Props) {
   const removeItem = async (id: string) => {
     if (items.length <= 1) return;
     setIsSaving(true);
+    setSaveError(null);
     try {
       await deleteDoc(doc(db, `events/${event.id}/preparationItems`, id));
       setItems(prev => prev.filter(i => i.id !== id));
-      setTimeout(() => setIsSaving(false), 600);
+      setIsSaving(false);
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `events/${event.id}/preparationItems/${id}`);
+      console.error('PreparationList delete error:', error);
+      setSaveError(formatSaveError(error));
       setIsSaving(false);
     }
   };
@@ -109,6 +126,17 @@ export default function PreparationList({ event, onBack }: Props) {
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
+      {saveError && (
+        <div
+          role="alert"
+          onClick={() => setSaveError(null)}
+          className="px-6 py-3 bg-red-50 border-b border-red-100 text-red-700 text-xs font-bold flex items-center gap-2 cursor-pointer"
+        >
+          <span>⚠️</span>
+          <span className="flex-1">{saveError}</span>
+          <span className="text-[10px] opacity-60">タップで閉じる</span>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-100 shrink-0">
         <div className="flex items-center gap-3">
