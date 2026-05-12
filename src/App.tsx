@@ -3,9 +3,12 @@ import { db, handleFirestoreError, OperationType } from './lib/firebase';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
 import { Event } from './types';
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, MapPin, Building2, StickyNote, ClipboardList, Moon, Sun, Save, Plus, Filter, Search } from 'lucide-react';
+import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, MapPin, Building2, StickyNote, ClipboardList, Moon, Sun, Save, Plus, Filter, Search, Camera, Image } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PreparationList from './components/PreparationList';
+import PhotoUpload from './components/photos/PhotoUpload';
+import PhotoGallery from './components/photos/PhotoGallery';
+import MobilePhotoCapture from './components/photos/MobilePhotoCapture';
 import { useDebounce } from './hooks/useDebounce';
 
 /* ═══════════════════════════════════════
@@ -47,6 +50,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showPrepList, setShowPrepList] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [modalTab, setModalTab] = useState<'details' | 'photos' | 'camera'>('details');
+  const [showMobileCamera, setShowMobileCamera] = useState(false);
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -472,7 +477,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); }}
+              onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); setModalTab('details'); setShowMobileCamera(false); }}
               className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" 
             />
             <motion.div
@@ -495,9 +500,9 @@ export default function App() {
                   onBack={() => setShowPrepList(false)}
                 />
               ) : (
-                <div className="p-8">
+                <div className="flex flex-col h-full max-h-[90vh]">
                   {/* Header: タグ + 閉じるボタン */}
-                  <div className="flex justify-between items-center mb-5">
+                  <div className="flex justify-between items-center p-6 border-b border-gray-100">
                     <div className="flex gap-2 flex-wrap">
                       {isEditMode ? (
                         <>
@@ -539,17 +544,56 @@ export default function App() {
                       )}
                     </div>
                     <button
-                      onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); }}
+                      onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); setModalTab('details'); setShowMobileCamera(false); }}
                       className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
                     >
                       <X size={18} />
                     </button>
                   </div>
 
-                  <div className="h-px bg-gray-100 mb-6"></div>
+                  {/* Tab Navigation */}
+                  <div className="flex border-b border-gray-100">
+                    <button
+                      onClick={() => setModalTab('details')}
+                      className={`px-6 py-3 text-sm font-medium transition-colors relative ${
+                        modalTab === 'details'
+                          ? 'text-indigo-600 border-b-2 border-indigo-600'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      <StickyNote size={16} className="inline mr-2" />
+                      詳細
+                    </button>
+                    <button
+                      onClick={() => setModalTab('photos')}
+                      className={`px-6 py-3 text-sm font-medium transition-colors relative ${
+                        modalTab === 'photos'
+                          ? 'text-indigo-600 border-b-2 border-indigo-600'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      <Image size={16} className="inline mr-2" />
+                      写真 {selected.photos?.length ? `(${selected.photos.length})` : ''}
+                    </button>
+                    <button
+                      onClick={() => setModalTab('camera')}
+                      className={`px-6 py-3 text-sm font-medium transition-colors relative md:hidden ${
+                        modalTab === 'camera'
+                          ? 'text-indigo-600 border-b-2 border-indigo-600'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      <Camera size={16} className="inline mr-2" />
+                      カメラ
+                    </button>
+                  </div>
 
-                  {/* フィールド */}
-                  <div className="space-y-5">
+                  {/* Tab Content */}
+                  <div className="flex-1 overflow-y-auto">
+                    {modalTab === 'details' && (
+                      <div className="p-6">
+                        {/* フィールド */}
+                        <div className="space-y-5">
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">VENUE・会場</label>
                       {isEditMode ? (
@@ -676,6 +720,44 @@ export default function App() {
                       <ClipboardList size={18} />
                       準備物リストを開く
                     </button>
+                  </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {modalTab === 'photos' && (
+                      <div className="p-6 space-y-6">
+                        <PhotoUpload 
+                          eventId={selected.id}
+                          onPhotoUploaded={() => {
+                            // Force re-fetch of event data to get updated photos
+                            window.location.reload();
+                          }}
+                        />
+                        <PhotoGallery 
+                          eventId={selected.id}
+                          photos={selected.photos || []}
+                          onPhotosChange={() => {
+                            // Force re-fetch of event data
+                            window.location.reload();
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {modalTab === 'camera' && (
+                      <div className="h-full">
+                        <MobilePhotoCapture 
+                          eventId={selected.id}
+                          onPhotoUploaded={() => {
+                            setModalTab('photos');
+                            // Force re-fetch of event data
+                            window.location.reload();
+                          }}
+                          onClose={() => setModalTab('details')}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <AnimatePresence>
