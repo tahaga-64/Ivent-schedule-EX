@@ -225,14 +225,9 @@ export default function App() {
   }, [allEvents, filtered]);
 
   const handleUpdateEvent = (id: string, updates: Partial<Event>) => {
-    // 選択中のイベントをベースに更新
     if (!selected || selected.id !== id) return;
-    
     const newEvent = { ...selected, ...updates };
-
-    // モーダルの表示（state）を即座に更新して入力をサクサクにする
     setSelected(newEvent);
-    // 変更ありフラグを立てる
     setHasUnsavedChanges(true);
   };
 
@@ -267,14 +262,21 @@ export default function App() {
       note: "",
       emoji: initialData.emoji || "📅"
     };
+    // 即座にUIに反映（楽観的更新）
+    setDbEvents(prev => ({ ...prev, [id]: newEvent }));
+    setSelected(newEvent);
+    setIsEditMode(true);
+    setSaveError(null);
     try {
       await setDoc(doc(db, "events", id), newEvent);
-      setSelected(newEvent);
-      setIsEditMode(true);
       setLastEditedId(id);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      setSaveError(msg.includes('permission') || msg.includes('PERMISSION') ? '作成失敗: Firestoreルールを確認してください。' : 'イベントの作成に失敗しました。');
+      const isPermission = msg.includes('permission') || msg.includes('PERMISSION') || msg.includes('Missing');
+      setSaveError(isPermission
+        ? '⚠️ Firestoreへの保存に失敗（権限エラー）。Firebase Console → Firestore Database → ルール を確認してください。'
+        : '⚠️ 保存に失敗しました。ネット接続を確認してください。'
+      );
     }
   };
 
@@ -282,16 +284,13 @@ export default function App() {
     if (!isEditor) return;
     if (!confirm(`「${event.venue}」を削除しますか？\n準備物リストも含めすべて削除されます。`)) return;
     try {
-      // 準備物サブコレクションを削除
-      const prepSnap = await import('firebase/firestore').then(({ getDocs }) =>
-        getDocs(collection(db, `events/${event.id}/preparationItems`))
-      );
+      const { getDocs } = await import('firebase/firestore');
+      const prepSnap = await getDocs(collection(db, `events/${event.id}/preparationItems`));
       const batch = writeBatch(db);
       prepSnap.docs.forEach(d => batch.delete(d.ref));
       batch.delete(doc(db, "events", event.id));
       await batch.commit();
 
-      // Storage写真を削除
       if (event.photos?.length) {
         await Promise.allSettled(event.photos.map(p => deletePhoto(p)));
       }
@@ -317,7 +316,6 @@ export default function App() {
     <div className="flex flex-col min-h-screen transition-colors duration-300">
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-slate-100 sticky top-0 z-30 gap-4">
-        {/* 左: ハンバーガー + ロゴ */}
         <div className="flex items-center gap-2.5 shrink-0">
           <button onClick={() => setSideOpen(v => !v)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors">
             <Menu size={18} />
@@ -333,7 +331,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* 中央: 検索バー */}
         <div className="flex-1 max-w-md">
           <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
             <Search size={13} className="text-slate-400 shrink-0" />
@@ -348,7 +345,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* 右: ビュー切替 + 新規 + アバター */}
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="flex bg-slate-100 p-1 rounded-xl">
             {[
@@ -399,7 +395,6 @@ export default function App() {
         {/* Sidebar */}
         {sideOpen && <aside className="w-72 flex flex-col flex-shrink-0 bg-white border-r border-slate-100 overflow-y-auto hidden lg:flex">
           <div className="p-6 space-y-8">
-            {/* TODAY Section */}
             <div className="space-y-2 pb-4 border-b border-slate-100">
               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TODAY</div>
               <div className="text-4xl font-black text-slate-800 tracking-tighter leading-none">
@@ -410,7 +405,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* WORKSPACE Section */}
             <div className="space-y-3">
               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WORKSPACE</div>
               <div className="flex flex-col gap-0.5">
@@ -425,7 +419,6 @@ export default function App() {
                       setRegionFilter("すべて");
                       setTypeFilter("すべて");
                       setMonthFilter("すべて");
-                      // ステータスフィルターがあればここに追加
                     }}
                     className="group flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white hover:shadow-sm hover:border-slate-100 border border-transparent transition-all"
                   >
@@ -439,7 +432,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* REGION Section */}
             <div className="space-y-3">
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-black text-slate-700">本部</span>
@@ -473,7 +465,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* TYPE Section */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-black text-slate-700">種別</span>
@@ -542,6 +533,17 @@ export default function App() {
                 <span className="text-[10px] font-black uppercase tracking-[0.2em]">保存中...</span>
               </motion.div>
             )}
+            {saveError && !selected && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-center gap-3 bg-red-600 text-white px-5 py-3 rounded-2xl shadow-2xl max-w-sm cursor-pointer"
+                onClick={() => setSaveError(null)}
+              >
+                <span className="text-xs font-bold">{saveError}</span>
+              </motion.div>
+            )}
           </AnimatePresence>
 
           <AnimatePresence mode="wait">
@@ -552,7 +554,6 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
             >
-              {/* Desktop: Calendar grid / Mobile: Timeline list */}
               {view === "calendar" && (
                 <>
                   <div className="hidden lg:block">
@@ -620,7 +621,6 @@ export default function App() {
                 />
               ) : (
                 <div className="p-6 lg:p-8 overflow-y-auto">
-                  {/* Header: タグ + 閉じるボタン */}
                   <div className="flex justify-between items-center mb-5">
                     <div className="flex gap-2 flex-wrap">
                       {isEditMode ? (
@@ -992,18 +992,15 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
   const daysInMonth = new Date(year, month, 0).getDate();
   const cells = [];
   
-  // 前月のパディング
   const prevMonthLastDay = new Date(year, month - 1, 0).getDate();
   for (let i = firstDay - 1; i >= 0; i--) {
     cells.push({ day: prevMonthLastDay - i, current: false });
   }
   
-  // 今月の実データ
   for (let d = 1; d <= daysInMonth; d++) {
     cells.push({ day: d, current: true });
   }
   
-  // 次月のパディング
   const remaining = (7 - (cells.length % 7)) % 7;
   for (let i = 1; i <= remaining; i++) {
     cells.push({ day: i, current: false });
@@ -1101,7 +1098,6 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
 function ListView({ data, onSelect, lastEditedId }: any) {
   return (
     <div className="flex flex-col">
-      {/* タイトル */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-baseline gap-2">
           All events
@@ -1109,7 +1105,6 @@ function ListView({ data, onSelect, lastEditedId }: any) {
         </h2>
       </div>
 
-      {/* テーブル */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1215,11 +1210,11 @@ function FilterGroup({ label, options, value, onChange }: any) {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-24 text-slate-300 dark:text-zinc-700">
-      <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-zinc-900 flex items-center justify-center mb-6">
+    <div className="flex flex-col items-center justify-center py-24 text-slate-300">
+      <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-6">
         <Calendar size={32} />
       </div>
-      <div className="text-sm font-bold text-slate-400 dark:text-zinc-600">イベントが見つかりません</div>
+      <div className="text-sm font-bold text-slate-400">イベントが見つかりません</div>
     </div>
   );
 }
