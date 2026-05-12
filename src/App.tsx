@@ -11,8 +11,10 @@ import PhotoGallery from './components/photos/PhotoGallery';
 import MobilePhotoCapture from './components/photos/MobilePhotoCapture';
 import BulkActionBar from './components/bulk/BulkActionBar';
 import AnalyticsDashboard from './components/analytics/AnalyticsDashboard';
+import NotificationCenter from './components/notifications/NotificationCenter';
 import { useDebounce } from './hooks/useDebounce';
 import { useBulkSelection } from './hooks/useBulkSelection';
+import { notifyEventCreated, notifyEventUpdated } from './lib/notifications';
 
 /* ═══════════════════════════════════════
    ヘルパー
@@ -199,9 +201,23 @@ export default function App() {
     if (!selected) return;
     setIsSaving(true);
     try {
+      const isNewEvent = !allEvents.some(event => event.id === selected.id);
+      
       await setDoc(doc(db, "events", selected.id), selected);
       setHasUnsavedChanges(false);
       setLastEditedId(selected.id);
+      
+      // Send notification
+      try {
+        if (isNewEvent) {
+          await notifyEventCreated(selected.id, selected.venue || 'New Event');
+        } else {
+          await notifyEventUpdated(selected.id, selected.venue || 'Event', ['詳細']);
+        }
+      } catch (notifError) {
+        console.warn('Failed to send notification:', notifError);
+      }
+      
       setTimeout(() => setIsSaving(false), 800);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `events/${selected.id}`);
@@ -292,6 +308,8 @@ export default function App() {
             <Plus size={14} strokeWidth={3} />
             <span className="hidden sm:inline">新規イベント</span>
           </button>
+
+          <NotificationCenter />
 
           <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white">T</div>
         </div>
