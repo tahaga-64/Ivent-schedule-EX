@@ -342,10 +342,10 @@ export default function App() {
                     key={r.label}
                     onClick={() => setRegionFilter(r.label)}
                     className={`
-                      group flex items-center justify-between px-3 py-2 rounded-xl transition-all border
+                      group flex items-center justify-between px-3 py-2 rounded-lg transition-all
                       ${regionFilter === r.label
-                        ? "bg-white border-slate-100 shadow-sm text-indigo-600"
-                        : "border-transparent text-slate-500 hover:bg-white hover:border-slate-100"}
+                        ? "bg-indigo-50 text-indigo-700"
+                        : "text-slate-600 hover:bg-slate-100/70"}
                     `}
                   >
                     <div className="flex items-center gap-3">
@@ -382,24 +382,24 @@ export default function App() {
                 <button 
                   onClick={() => setTypeFilter("すべて")}
                   className={`
-                    group flex items-center gap-3 px-3 py-2 rounded-xl transition-all border
-                    ${typeFilter === "すべて" 
-                      ? "bg-white border-slate-100 shadow-sm text-indigo-600" 
-                      : "border-transparent text-slate-500 hover:bg-white hover:border-slate-100"}
+                    group flex items-center gap-3 px-3 py-2 rounded-lg transition-all
+                    ${typeFilter === "すべて"
+                      ? "bg-indigo-50 text-indigo-700"
+                      : "text-slate-600 hover:bg-slate-100/70"}
                   `}
                 >
                   <span className="text-sm">📁</span>
                   <span className="text-xs font-bold font-sans">すべて</span>
                 </button>
                 {sidebarTypes.map((type) => (
-                  <button 
-                    key={type.label} 
+                  <button
+                    key={type.label}
                     onClick={() => setTypeFilter(type.label)}
                     className={`
-                      group flex items-center gap-3 px-3 py-2 rounded-xl transition-all border
-                      ${typeFilter === type.label 
-                        ? "bg-white border-slate-100 shadow-sm text-indigo-600" 
-                        : "border-transparent text-slate-500 hover:bg-white hover:border-slate-100"}
+                      group flex items-center gap-3 px-3 py-2 rounded-lg transition-all
+                      ${typeFilter === type.label
+                        ? "bg-indigo-50 text-indigo-700"
+                        : "text-slate-600 hover:bg-slate-100/70"}
                     `}
                   >
                     <span className="text-sm">{type.icon}</span>
@@ -787,20 +787,23 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
               </div>
               
               <div className="space-y-1">
-                {dayEvents.map((ev: any) => (
+                {dayEvents.slice(0, 3).map((ev: any) => (
                   <button
                     key={ev.id}
                     onClick={() => onSelect(ev)}
-                    className="w-full text-left bg-blue-50/40 hover:bg-blue-50 transition-colors rounded-md p-1.5 flex items-center gap-2 border border-blue-100/50 group/item relative"
+                    className="w-full text-left bg-slate-50 hover:bg-slate-100 transition-colors rounded-md py-1 pl-2 pr-1.5 flex items-center gap-1.5 relative overflow-hidden"
                   >
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400 rounded-l-md" style={{ background: rs(ev.region || "").dot }}></div>
-                    <span className="text-[11px] shrink-0">{ev.emoji || ts(ev.type || "").icon}</span>
+                    <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: rs(ev.region || "").dot }}></div>
+                    <span className="text-[11px] shrink-0 ml-1">{ev.emoji || ts(ev.type || "").icon}</span>
                     <span className="text-[10px] font-bold text-slate-700 truncate">{ev.venue}</span>
                   </button>
                 ))}
-                
-                {cell.current && (
-                  <button 
+                {dayEvents.length > 3 && (
+                  <div className="text-[10px] font-bold text-slate-400 pl-2">+{dayEvents.length - 3} more</div>
+                )}
+
+                {cell.current && dayEvents.length === 0 && (
+                  <button
                     onClick={() => onCreateEvent({ start: `${year}-${String(month).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}` })}
                     className="w-full py-2 opacity-0 group-hover:opacity-100 border border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-300 hover:border-indigo-300 hover:text-indigo-400 transition-all"
                   >
@@ -819,74 +822,99 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
 
 function ListView({ data, onSelect, lastEditedId }: any) {
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-[var(--surface)] rounded-[2rem] border border-[var(--border)] shadow-2xl overflow-hidden transition-all"
-    >
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-[var(--bg-app)]/50 border-b border-[var(--border)]">
-              {["日程", "本部", "種別", "会場"].map(h => (
-                <th key={h} className="px-8 py-5 font-black text-[10px] uppercase tracking-[0.2em] text-[var(--text-secondary)] opacity-60">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border)]">
-            {data.map((d: any) => (
-              <tr 
-                key={d.id} 
-                onClick={() => onSelect(d)} 
-                className={`
-                  group cursor-pointer transition-all border-l-4
-                  ${d.id === lastEditedId 
-                    ? "bg-amber-500/[0.08] dark:bg-amber-500/[0.12] border-amber-500" 
-                    : "hover:bg-purple-accent/[0.02] border-transparent"}
-                `}
-              >
-                <td className="px-8 py-7">
-                  <div className="font-mono text-xs font-black text-[var(--text-primary)]">
-                    {fmtShort(d.start)}
-                    {d.start !== d.end && d.end && (
-                      <span className="mx-2 text-[var(--text-secondary)] opacity-40">→</span>
-                    )}
-                    {d.start !== d.end && d.end && fmtShort(d.end)}
-                  </div>
-                </td>
-                <td className="px-8 py-7">
-                  <span className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full text-[10px] font-black border border-transparent shadow-sm" style={{ background: rs(d.region).bg, color: rs(d.region).text }}>
-                    <span className="w-1.5 h-1.5 rounded-full shadow-inner" style={{ background: rs(d.region).dot }}></span>
-                    {d.region}
-                  </span>
-                </td>
-                <td className="px-8 py-7">
-                  <span className="inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-[10px] font-black border bg-[var(--bg-app)] border-[var(--border)] text-[var(--text-secondary)] shadow-sm">
-                    <span className="text-base">{d.emoji || ts(d.type || "").icon}</span>
-                    <span className="uppercase tracking-widest">{d.type || "その他"}</span>
-                  </span>
-                </td>
-                <td className="px-8 py-7">
-                  <div className="flex items-center gap-3">
-                    <div className="font-black text-[var(--text-primary)] text-[15px] tracking-tight group-hover:text-amber-500 transition-colors uppercase">{d.venue}</div>
-                    {d.id === lastEditedId && (
-                      <motion.span 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="px-2 py-0.5 bg-amber-500 text-white text-[8px] font-black rounded-md tracking-widest uppercase shadow-sm shadow-amber-500/20"
-                      >
-                        Updated
-                      </motion.span>
-                    )}
-                  </div>
-                  <div className="text-[11px] text-[var(--text-secondary)] mt-1.5 font-bold tracking-wide opacity-70">{d.client || "No Client Specified"}</div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="flex flex-col">
+      {/* タイトル + フィルター・並び替え */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-baseline gap-2">
+          All events
+          <span className="text-slate-400 text-sm font-bold">· {data.length}</span>
+        </h2>
+        <div className="flex items-center gap-2">
+          <button className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+            <Filter size={14} className="text-slate-400" />
+            <span>フィルター</span>
+          </button>
+          <button className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+            <span>並び替え</span>
+          </button>
+        </div>
       </div>
-    </motion.div>
+
+      {/* テーブル */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white border border-slate-100 rounded-2xl overflow-hidden"
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50 border-b border-slate-100">
+                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">DATE</th>
+                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">本部</th>
+                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">種別</th>
+                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">会場</th>
+                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">状態</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {data.map((d: any) => (
+                <tr
+                  key={d.id}
+                  onClick={() => onSelect(d)}
+                  className={`
+                    group cursor-pointer transition-colors
+                    ${d.id === lastEditedId ? "bg-amber-50/50" : "hover:bg-slate-50/50"}
+                  `}
+                >
+                  <td className="px-6 py-4 align-middle">
+                    <div className="text-xs font-bold text-slate-700">
+                      {fmtShort(d.start)}
+                      {d.end && d.start !== d.end ? `-${fmtShort(d.end)}` : ""}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 align-middle">
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap"
+                      style={{ background: rs(d.region).bg, color: rs(d.region).text }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: rs(d.region).dot }}></span>
+                      {d.region}{d.dept ? `・${d.dept}` : ""}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 align-middle">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 whitespace-nowrap">
+                      <span>{d.emoji || ts(d.type || "").icon}</span>
+                      {d.type || "その他"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 align-middle">
+                    <div className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                      {d.venue}
+                      {d.id === lastEditedId && (
+                        <motion.span
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-black rounded tracking-widest uppercase"
+                        >
+                          Updated
+                        </motion.span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5 font-medium">{d.client || "—"}</div>
+                  </td>
+                  <td className="px-6 py-4 align-middle text-right">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      {d.status || "SCHEDULED"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
