@@ -689,13 +689,16 @@ export default function App() {
                               <option key={d} value={d}>{d}</option>
                             ))}
                           </select>
-                          <input
-                            type="text"
+                          <select
                             value={selected.type || ""}
                             onChange={e => handleUpdateEvent(selected.id, { type: e.target.value })}
-                            placeholder="種別を入力..."
-                            className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-36"
-                          />
+                            className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                          >
+                            <option value="">種別を選択...</option>
+                            {sidebarTypes.map(t => (
+                              <option key={t.label} value={t.label}>{t.icon} {t.label}</option>
+                            ))}
+                          </select>
                         </>
                       ) : (
                         <>
