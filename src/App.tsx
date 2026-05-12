@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import { db, auth, loginWithGoogle, handleFirestoreError, OperationType } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
 import { Event } from './types';
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera } from 'lucide-react';
+import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, BarChart2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PreparationList from './components/PreparationList';
 import NotificationCenter from './components/notifications/NotificationCenter';
@@ -13,6 +13,7 @@ import PhotoUpload from './components/photos/PhotoUpload';
 import PhotoGallery from './components/photos/PhotoGallery';
 import { useAnalytics } from './hooks/useAnalytics';
 import { usePhotos } from './hooks/usePhotos';
+import { deletePhoto } from './lib/photoStorage';
 
 const EDITOR_EMAILS = ['taoki0183@gmail.com'];
 
@@ -90,6 +91,7 @@ export default function App() {
   const [modalTab, setModalTab] = useState<'detail' | 'photos'>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastEditedId, setLastEditedId] = useState<string | null>(() => localStorage.getItem('lastEditedId'));
@@ -180,9 +182,12 @@ export default function App() {
     }
   }, [monthFilter]);
 
-  // 静的データとDBデータをマージ
+  // 静的データとDBデータをマージ（Firestoreで新規作成したイベントも含む）
   const allEvents = useMemo(() => {
-    return DATA.map(item => dbEvents[item.id] || item);
+    const staticIds = new Set(DATA.map(d => d.id));
+    const merged = DATA.map(item => dbEvents[item.id] || item);
+    const firestoreOnly = Object.values(dbEvents).filter(e => !staticIds.has(e.id));
+    return [...merged, ...firestoreOnly].sort((a, b) => (a.start || '9999') < (b.start || '9999') ? -1 : 1);
   }, [dbEvents]);
 
   const filtered = useMemo(() => {
@@ -234,18 +239,21 @@ export default function App() {
   const handleSaveEvent = async () => {
     if (!selected) return;
     setIsSaving(true);
+    setSaveError(null);
     try {
       await setDoc(doc(db, "events", selected.id), selected);
       setHasUnsavedChanges(false);
       setLastEditedId(selected.id);
-      setTimeout(() => setIsSaving(false), 800);
+      setIsSaving(false);
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `events/${selected.id}`);
+      const msg = error instanceof Error ? error.message : String(error);
+      setSaveError(msg.includes('permission') || msg.includes('PERMISSION') ? '保存失敗: 権限がありません。Firestoreルールを確認してください。' : '保存に失敗しました。再試行してください。');
       setIsSaving(false);
     }
   };
 
   const handleCreateEvent = async (initialData: Partial<Event> = {}) => {
+    if (!isEditor) return;
     const id = crypto.randomUUID();
     const newEvent: Event = {
       id,
@@ -262,9 +270,39 @@ export default function App() {
     try {
       await setDoc(doc(db, "events", id), newEvent);
       setSelected(newEvent);
+      setIsEditMode(true);
       setLastEditedId(id);
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `events/${id}`);
+      const msg = error instanceof Error ? error.message : String(error);
+      setSaveError(msg.includes('permission') || msg.includes('PERMISSION') ? '作成失敗: Firestoreルールを確認してください。' : 'イベントの作成に失敗しました。');
+    }
+  };
+
+  const handleDeleteEvent = async (event: Event) => {
+    if (!isEditor) return;
+    if (!confirm(`「${event.venue}」を削除しますか？\n準備物リストも含めすべて削除されます。`)) return;
+    try {
+      // 準備物サブコレクションを削除
+      const prepSnap = await import('firebase/firestore').then(({ getDocs }) =>
+        getDocs(collection(db, `events/${event.id}/preparationItems`))
+      );
+      const batch = writeBatch(db);
+      prepSnap.docs.forEach(d => batch.delete(d.ref));
+      batch.delete(doc(db, "events", event.id));
+      await batch.commit();
+
+      // Storage写真を削除
+      if (event.photos?.length) {
+        await Promise.allSettled(event.photos.map(p => deletePhoto(p)));
+      }
+
+      setSelected(null);
+      setShowPrepList(false);
+      setIsEditMode(false);
+      setHasUnsavedChanges(false);
+      setModalTab('detail');
+    } catch (error) {
+      setSaveError('削除に失敗しました。再試行してください。');
     }
   };
 
@@ -491,24 +529,17 @@ export default function App() {
         {/* Main Content */}
         <main className="flex-1 bg-white relative overflow-hidden flex flex-col">
           <div className="p-4 lg:p-8 pb-20 lg:pb-8 flex-1 overflow-y-auto">
-          {/* Sync Indicator */}
+          {/* Sync / Error Toast */}
           <AnimatePresence>
             {isSaving && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                className="fixed bottom-10 right-10 z-[100] flex items-center gap-3 bg-zinc-900 dark:bg-amber-500 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
+                className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-center gap-3 bg-zinc-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
               >
-                <div className="relative flex items-center justify-center">
-                  <motion.div 
-                    animate={{ scale: [1, 1.5, 1], opacity: [1, 0, 1] }} 
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute w-2 h-2 bg-white rounded-full blur-[2px]"
-                  />
-                  <div className="relative w-1.5 h-1.5 bg-white rounded-full" />
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Cloud Syncing...</span>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em]">保存中...</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -800,6 +831,16 @@ export default function App() {
                     </button>
                   </div>
 
+                  {isEditor && (
+                    <button
+                      onClick={() => handleDeleteEvent(selected)}
+                      className="mt-3 w-full py-3 rounded-2xl border border-red-200 text-red-500 text-xs font-bold flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                      このイベントを削除
+                    </button>
+                  )}
+
                   <AnimatePresence>
                     {hasUnsavedChanges && isEditMode && (
                       <motion.p
@@ -809,6 +850,16 @@ export default function App() {
                         className="text-[10px] text-center text-amber-500 mt-4 font-bold tracking-widest"
                       >
                         ⚠️ 未保存の変更があります
+                      </motion.p>
+                    )}
+                    {saveError && (
+                      <motion.p
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 6 }}
+                        className="text-[11px] text-center text-red-500 mt-3 font-bold"
+                      >
+                        ❌ {saveError}
                       </motion.p>
                     )}
                   </AnimatePresence>

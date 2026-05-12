@@ -32,7 +32,7 @@ export function useAnalytics(staticEvents: Event[]) {
 
     staticEvents.forEach(event => {
       const unsub = onSnapshot(
-        collection(db, 'events', event.id, 'prepItems'),
+        collection(db, 'events', event.id, 'preparationItems'),
         snap => {
           prepByEvent[event.id] = snap.docs.map(d => ({ id: d.id, ...d.data() } as PreparationItem));
           resolved++;
