@@ -43,3 +43,16 @@ export const TYPE_STYLE: Record<string, any> = {
 };
 
 export const DAYS_JP = ["日","月","火","水","木","金","土"];
+
+export const DEPT_OPTIONS = ["北海道", "東北", "関東", "中部", "近畿", "四国", "九州", "沖縄"] as const;
+
+export const DEPT_TO_REGION: Record<string, string> = {
+  "北海道": "東日本",
+  "東北":   "東日本",
+  "関東":   "東日本",
+  "中部":   "中日本",
+  "近畿":   "西日本",
+  "四国":   "西日本",
+  "九州":   "南日本",
+  "沖縄":   "南日本",
+};

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { db, handleFirestoreError, OperationType } from './lib/firebase';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
-import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP } from './constants';
+import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
 import { Event } from './types';
 import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, MapPin, Building2, StickyNote, ClipboardList, Moon, Sun, Save, Plus, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -45,6 +45,8 @@ export default function App() {
   const [sideOpen, setSideOpen] = useState(true);
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
   const [showPrepList, setShowPrepList] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -87,6 +89,26 @@ export default function App() {
       localStorage.setItem('theme', 'light');
     }
   }, [isDark]);
+
+  // 選択イベントの準備物統計をリアルタイム購読
+  useEffect(() => {
+    if (!selected) {
+      setEventStats({ itemCount: 0, preparedCount: 0, budget: 0 });
+      return;
+    }
+    const unsubscribe = onSnapshot(
+      collection(db, `events/${selected.id}/preparationItems`),
+      (snapshot) => {
+        const items = snapshot.docs.map(d => d.data() as any);
+        setEventStats({
+          itemCount: items.length,
+          preparedCount: items.filter((i: any) => i.prepared).length,
+          budget: items.reduce((s: number, i: any) => s + (i.amount || 0) + (i.shippingFee || 0), 0),
+        });
+      }
+    );
+    return () => unsubscribe();
+  }, [selected?.id]);
 
   useEffect(() => {
     localStorage.setItem('viewMode', view);
@@ -427,14 +449,14 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setSelected(null); setShowPrepList(false); setHasUnsavedChanges(false); }}
+              onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); }}
               className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" 
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ 
-                opacity: 1, 
-                scale: 1, 
+              animate={{
+                opacity: 1,
+                scale: 1,
                 y: 0,
                 width: showPrepList ? '95%' : '520px',
                 height: showPrepList ? '90%' : 'auto',
@@ -442,138 +464,209 @@ export default function App() {
               }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               onPointerDown={(e) => e.stopPropagation()}
-              className="bg-[var(--surface)] rounded-[2.5rem] shadow-2xl relative z-10 overflow-hidden flex flex-col border border-[var(--border)]"
+              className="bg-white rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100"
             >
               {showPrepList ? (
-                <PreparationList 
-                  event={selected} 
-                  onBack={() => setShowPrepList(false)} 
+                <PreparationList
+                  event={selected}
+                  onBack={() => setShowPrepList(false)}
                 />
               ) : (
-                <div className="p-10">
-                  <div className="flex justify-between items-start mb-8">
+                <div className="p-8">
+                  {/* Header: タグ + 閉じるボタン */}
+                  <div className="flex justify-between items-center mb-5">
                     <div className="flex gap-2 flex-wrap">
-                      <span 
-                        className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tight shadow-sm"
-                        style={{ background: rs(selected.region).bg, color: rs(selected.region).text }}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: rs(selected.region).dot }}></span>
-                        {selected.region}{selected.dept ? ` · ${selected.dept}` : ""}
-                      </span>
-                        <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black border bg-[var(--bg-app)] border-[var(--border)] text-[var(--text-secondary)]">
-                          {ts(selected.type || "").icon} {selected.type || "その他"}
-                        </span>
+                      {isEditMode ? (
+                        <>
+                          <select
+                            value={selected.dept || ""}
+                            onChange={e => {
+                              const dept = e.target.value;
+                              const region = DEPT_TO_REGION[dept] || selected.region;
+                              handleUpdateEvent(selected.id, { dept, region });
+                            }}
+                            className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                          >
+                            <option value="">地域を選択...</option>
+                            {DEPT_OPTIONS.map(d => (
+                              <option key={d} value={d}>{d}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            value={selected.type || ""}
+                            onChange={e => handleUpdateEvent(selected.id, { type: e.target.value })}
+                            placeholder="種別を入力..."
+                            className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-36"
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <span
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                            style={{ background: rs(selected.region).bg, color: rs(selected.region).text }}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: rs(selected.region).dot }}></span>
+                            {selected.dept || selected.region}
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-600">
+                            {ts(selected.type || "").icon} {selected.type || "その他"}
+                          </span>
+                        </>
+                      )}
                     </div>
-                    <button onClick={() => { setSelected(null); setHasUnsavedChanges(false); }} className="w-10 h-10 rounded-full border border-[var(--border)] bg-[var(--surface)] flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--bg-app)] transition-colors">
+                    <button
+                      onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); }}
+                      className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                    >
                       <X size={18} />
                     </button>
                   </div>
 
-                  <div className="space-y-6 mb-8">
-                    <div className="flex gap-4">
-                      <div className="w-24">
-                        <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest mb-2 px-2">絵文字</div>
-                        <input 
-                          className="w-full bg-[var(--bg-app)] border-none rounded-2xl px-2 py-4 text-3xl text-center focus:ring-2 focus:ring-purple-accent outline-none font-bold"
-                          value={selected.emoji || "📅"}
-                          onChange={e => handleUpdateEvent(selected.id, { emoji: e.target.value })}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest mb-2 px-2">会場名</div>
-                        <input 
-                          className="w-full bg-[var(--bg-app)] border-none rounded-2xl px-5 py-4 text-base font-black text-[var(--text-primary)] focus:ring-2 focus:ring-purple-accent outline-none"
+                  <div className="h-px bg-gray-100 mb-6"></div>
+
+                  {/* フィールド */}
+                  <div className="space-y-5">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">VENUE・会場</label>
+                      {isEditMode ? (
+                        <input
+                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           value={selected.venue}
                           placeholder="会場を入力..."
                           onChange={e => handleUpdateEvent(selected.id, { venue: e.target.value })}
                         />
-                      </div>
+                      ) : (
+                        <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800">
+                          {selected.venue || "—"}
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest mb-2 px-2">開始日</div>
-                        <input 
-                          type="date"
-                          className="w-full bg-[var(--bg-app)] border-none rounded-2xl px-5 py-4 text-sm font-mono font-black text-[var(--text-primary)] focus:ring-2 focus:ring-purple-accent outline-none"
-                          value={selected.start}
-                          onChange={e => handleUpdateEvent(selected.id, { start: e.target.value })}
-                        />
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">START</label>
+                        {isEditMode ? (
+                          <input
+                            type="date"
+                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            value={selected.start}
+                            onChange={e => handleUpdateEvent(selected.id, { start: e.target.value })}
+                          />
+                        ) : (
+                          <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800">
+                            {selected.start || "—"}
+                          </div>
+                        )}
                       </div>
                       <div>
-                        <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest mb-2 px-2">終了日</div>
-                        <input 
-                          type="date"
-                          className="w-full bg-[var(--bg-app)] border-none rounded-2xl px-5 py-4 text-sm font-mono font-black text-[var(--text-primary)] focus:ring-2 focus:ring-purple-accent outline-none"
-                          value={selected.end}
-                          onChange={e => handleUpdateEvent(selected.id, { end: e.target.value })}
-                        />
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">END</label>
+                        {isEditMode ? (
+                          <input
+                            type="date"
+                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            value={selected.end}
+                            onChange={e => handleUpdateEvent(selected.id, { end: e.target.value })}
+                          />
+                        ) : (
+                          <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800">
+                            {selected.end || "—"}
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     <div>
-                      <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest mb-2 px-2">クライアント</div>
-                      <input 
-                        className="w-full bg-[var(--bg-app)] border-none rounded-2xl px-5 py-4 text-base font-bold text-[var(--text-primary)] focus:ring-2 focus:ring-purple-accent outline-none"
-                        value={selected.client}
-                        placeholder="クライアント名を入力..."
-                        onChange={e => handleUpdateEvent(selected.id, { client: e.target.value })}
-                      />
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">CLIENT・クライアント</label>
+                      {isEditMode ? (
+                        <input
+                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          value={selected.client}
+                          placeholder="クライアント名を入力..."
+                          onChange={e => handleUpdateEvent(selected.id, { client: e.target.value })}
+                        />
+                      ) : (
+                        <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800">
+                          {selected.client || "—"}
+                        </div>
+                      )}
                     </div>
 
                     <div>
-                      <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest mb-2 px-2">備考</div>
-                      <textarea 
-                        className="w-full bg-[var(--bg-app)] border-none rounded-2xl px-5 py-4 text-sm font-bold text-[var(--text-primary)] focus:ring-2 focus:ring-purple-accent outline-none min-h-[100px]"
-                        value={selected.note}
-                        placeholder="メモ..."
-                        onChange={e => handleUpdateEvent(selected.id, { note: e.target.value })}
-                      />
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">NOTES・備考</label>
+                      {isEditMode ? (
+                        <textarea
+                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px] resize-none"
+                          value={selected.note}
+                          placeholder="メモ..."
+                          onChange={e => handleUpdateEvent(selected.id, { note: e.target.value })}
+                        />
+                      ) : (
+                        <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 min-h-[60px]">
+                          {selected.note || "—"}
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex gap-4 items-center mt-8">
-                    <button 
-                      disabled={!hasUnsavedChanges || isSaving}
-                      onClick={handleSaveEvent}
-                      className={`
-                        flex-1 flex items-center justify-center gap-3 py-5 rounded-[2rem] font-black transition-all shadow-xl
-                        ${hasUnsavedChanges 
-                          ? "bg-amber-500 text-white hover:scale-[1.02] active:scale-[0.98] shadow-amber-500/30" 
-                          : "bg-slate-200 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500 cursor-not-allowed border border-[var(--border)]"}
-                      `}
-                    >
-                      <Save size={20} className={hasUnsavedChanges ? "text-white" : "text-slate-400"} />
-                      <span className={hasUnsavedChanges ? "text-white" : "text-slate-400"}>
-                        {isSaving ? "保存中..." : hasUnsavedChanges ? "変更を保存する" : "変更はありません"}
-                      </span>
-                    </button>
+                  {/* 統計パネル */}
+                  <div className="mt-6 bg-gray-50 rounded-2xl p-5 grid grid-cols-3 divide-x divide-gray-200">
+                    <div className="pr-5">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">ITEMS</div>
+                      <div className="text-2xl font-black text-gray-800">{eventStats.itemCount}</div>
+                    </div>
+                    <div className="px-5">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">PREPARED</div>
+                      <div className="text-2xl font-black text-indigo-600">
+                        {eventStats.preparedCount}/{eventStats.itemCount}
+                      </div>
+                    </div>
+                    <div className="pl-5">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">BUDGET</div>
+                      <div className="text-2xl font-black text-gray-800">¥{eventStats.budget.toLocaleString()}</div>
+                    </div>
+                  </div>
 
-                    <button 
+                  {/* ボタン */}
+                  <div className="mt-6 flex gap-3">
+                    {isEditMode ? (
+                      <button
+                        onClick={async () => { await handleSaveEvent(); setIsEditMode(false); }}
+                        disabled={isSaving}
+                        className="flex-1 py-4 rounded-2xl bg-amber-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-amber-600 disabled:opacity-60 transition-colors shadow-lg shadow-amber-500/20"
+                      >
+                        <Save size={16} />
+                        {isSaving ? "保存中..." : "保存する"}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setIsEditMode(true)}
+                        className="flex-1 py-4 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        編集
+                      </button>
+                    )}
+                    <button
                       onClick={() => setShowPrepList(true)}
-                      className="flex-1 bg-amber-500 text-white flex items-center justify-center gap-3 py-5 rounded-[2rem] font-black hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-amber-500/30"
+                      className="flex-1 py-4 rounded-2xl bg-indigo-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20"
                     >
-                      <ClipboardList size={22} />
-                      準備物リスト
+                      <ClipboardList size={18} />
+                      準備物リストを開く
                     </button>
                   </div>
+
                   <AnimatePresence>
-                    {hasUnsavedChanges && (
-                      <motion.p 
-                        initial={{ opacity: 0, y: 10 }}
+                    {hasUnsavedChanges && isEditMode && (
+                      <motion.p
+                        initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        className="text-[10px] text-center text-red-500 mt-6 font-black uppercase tracking-widest"
+                        exit={{ opacity: 0, y: 6 }}
+                        className="text-[10px] text-center text-amber-500 mt-4 font-bold tracking-widest"
                       >
                         ⚠️ 未保存の変更があります
                       </motion.p>
                     )}
                   </AnimatePresence>
-                  {!hasUnsavedChanges && (
-                    <p className="text-[10px] text-center text-[var(--text-secondary)] mt-6 font-bold tracking-widest opacity-60 uppercase">
-                      Cloud Synced
-                    </p>
-                  )}
                 </div>
               )}
             </motion.div>
