@@ -4,9 +4,15 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
 import { Event } from './types';
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut } from 'lucide-react';
+import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PreparationList from './components/PreparationList';
+import NotificationCenter from './components/notifications/NotificationCenter';
+import AnalyticsDashboard from './components/analytics/AnalyticsDashboard';
+import PhotoUpload from './components/photos/PhotoUpload';
+import PhotoGallery from './components/photos/PhotoGallery';
+import { useAnalytics } from './hooks/useAnalytics';
+import { usePhotos } from './hooks/usePhotos';
 
 const EDITOR_EMAILS = ['taoki0183@gmail.com'];
 
@@ -63,7 +69,7 @@ function LoginScreen() {
 
 export default function App() {
   const [user, setUser] = useState<any>(undefined);
-  const [view, setView] = useState<"calendar" | "list">(() => (localStorage.getItem('viewMode') as any) || "calendar");
+  const [view, setView] = useState<"calendar" | "list" | "analytics">(() => (localStorage.getItem('viewMode') as any) || "calendar");
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
   const [monthFilter, setMonthFilter] = useState(() => localStorage.getItem('monthFilter') || "すべて");
@@ -81,6 +87,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showPrepList, setShowPrepList] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [modalTab, setModalTab] = useState<'detail' | 'photos'>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -191,6 +198,9 @@ export default function App() {
       return true;
     }).sort((a, b) => (a.start || "9999") < (b.start || "9999") ? -1 : 1);
   }, [allEvents, regionFilter, typeFilter, monthFilter, searchQuery]);
+
+  const { data: analyticsData, loading: analyticsLoading } = useAnalytics(allEvents);
+  const { uploading: photoUploading, error: photoError, uploadPhoto, deleteEventPhoto, updatePhotoCaption } = usePhotos(selected?.id || '');
 
   const stats = useMemo(() => {
     const byRegion: Record<string, number> = {};
@@ -306,6 +316,7 @@ export default function App() {
             {[
               { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
               { id: "list", icon: <List size={14} />, label: "リスト" },
+              { id: "analytics", icon: <BarChart2 size={14} />, label: "分析" },
             ].map(v => (
               <button
                 key={v.id}
@@ -328,6 +339,8 @@ export default function App() {
             <Plus size={14} strokeWidth={3} />
             <span className="hidden sm:inline">新規イベント</span>
           </button>
+
+          <NotificationCenter />
 
           <div className="flex items-center gap-2">
             {user.photoURL ? (
@@ -533,6 +546,12 @@ export default function App() {
                 filtered.length === 0 ? <EmptyState /> :
                 <ListView data={filtered} onSelect={setSelected} lastEditedId={lastEditedId} />
               )}
+              {view === "analytics" && analyticsData && (
+                <AnalyticsDashboard data={analyticsData} loading={analyticsLoading} />
+              )}
+              {view === "analytics" && !analyticsData && analyticsLoading && (
+                <AnalyticsDashboard data={{ totalEvents: 0, completedEvents: 0, totalBudget: 0, avgBudget: 0, completionRate: 0, onTimeRate: 0, avgPreparationDays: 0, activeRegions: 0, topVenues: [], topRegion: '', busiestMonth: '', monthlyTrends: [], regionStats: [], typeStats: [], clientStats: [] }} loading={true} />
+              )}
             </motion.div>
           </AnimatePresence>
           </div>
@@ -547,7 +566,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); }}
+              onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); setModalTab('detail'); }}
               className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" 
             />
             <motion.div
@@ -613,17 +632,49 @@ export default function App() {
                       )}
                     </div>
                     <button
-                      onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); }}
+                      onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); setModalTab('detail'); }}
                       className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
                     >
                       <X size={18} />
                     </button>
                   </div>
 
-                  <div className="h-px bg-gray-100 mb-6"></div>
+                  <div className="h-px bg-gray-100 mb-4"></div>
+
+                  {/* タブ切替 */}
+                  <div className="flex bg-slate-100 rounded-xl p-1 mb-5">
+                    {[
+                      { id: 'detail', label: '詳細' },
+                      { id: 'photos', label: `写真${selected.photos?.length ? ` (${selected.photos.length})` : ''}` },
+                    ].map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => setModalTab(t.id as any)}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${modalTab === t.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 写真タブ */}
+                  {modalTab === 'photos' && (
+                    <div className="space-y-4">
+                      {isEditor && (
+                        <PhotoUpload onUpload={async (file) => { await uploadPhoto(file); }} uploading={photoUploading} />
+                      )}
+                      {photoError && <p className="text-xs text-red-500 font-bold">{photoError}</p>}
+                      <PhotoGallery
+                        photos={selected.photos || []}
+                        onDelete={photo => deleteEventPhoto(photo, selected.photos || [])}
+                        onUpdateCaption={(photo, caption) => updatePhotoCaption(photo, caption, selected.photos || [])}
+                        canEdit={!!isEditor}
+                      />
+                    </div>
+                  )}
 
                   {/* フィールド */}
-                  <div className="space-y-5">
+                  {modalTab === 'detail' && <><div className="space-y-5">
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">VENUE・会場</label>
                       {isEditMode ? (
@@ -761,6 +812,7 @@ export default function App() {
                       </motion.p>
                     )}
                   </AnimatePresence>
+                  </>}
                 </div>
               )}
             </motion.div>
@@ -771,14 +823,14 @@ export default function App() {
       {/* Mobile Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around pb-safe z-20 lg:hidden">
         {[
-          { id: "calendar", icon: <Calendar size={22} />, label: "カレンダー" },
-          { id: "list",     icon: <List size={22} />,     label: "リスト" },
-          { id: "prep",     icon: <ClipboardList size={22} />, label: "準備物" },
-          { id: "settings", icon: <Settings size={22} />, label: "設定" },
+          { id: "calendar",  icon: <Calendar size={22} />,    label: "カレンダー" },
+          { id: "list",      icon: <List size={22} />,        label: "リスト" },
+          { id: "analytics", icon: <BarChart2 size={22} />,   label: "分析" },
+          { id: "prep",      icon: <ClipboardList size={22} />, label: "準備物" },
         ].map(tab => (
           <button
             key={tab.id}
-            onClick={() => { if (tab.id !== "settings" && tab.id !== "prep") setView(tab.id as any); }}
+            onClick={() => { if (tab.id !== "prep") setView(tab.id as any); }}
             className={`flex flex-col items-center gap-0.5 px-4 py-3 text-[10px] font-bold transition-colors ${
               view === tab.id ? "text-indigo-600" : "text-slate-400"
             }`}
