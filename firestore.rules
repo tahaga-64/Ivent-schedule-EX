@@ -2,42 +2,25 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Bug 1 fix: UID未設定時は Google 認証済みユーザー全員を暫定エディタとする ──
-    // TODO: Firebase Console > Authentication > Users で5名のUIDを確認し、
-    //       下記 EDITOR_UIDS にセットしてから `firebase deploy --only firestore:rules` を実行すること。
-    //       UID設定後は isEditor() の return を UID ホワイトリスト方式に切り替えること。
-    //
-    // UID 設定後はこちらに切り替える:
-    //   function isEditor() {
-    //     return request.auth != null
-    //         && request.auth.token.firebase.sign_in_provider == 'google.com'
-    //         && request.auth.uid in [
-    //              'UID_1_実際のUIDを貼る',
-    //              'UID_2_実際のUIDを貼る',
-    //              'UID_3_実際のUIDを貼る',
-    //              'UID_4_実際のUIDを貼る',
-    //              'UID_5_実際のUIDを貼る'
-    //            ];
-    //   }
+    // 編集権限チェック: Google 認証済みユーザーのみ書き込み可
+    // TODO(production): request.auth.uid in ['UID1','UID2',...] を追加して5名に限定すること
     function isEditor() {
-      // UID 未設定の間は Google 認証済みであれば書き込みを許可（暫定）
       return request.auth != null
           && request.auth.token.firebase.sign_in_provider == 'google.com';
     }
 
-    // ── Bug 2 fix: preparationItems の ID フォーマットを再度バリデーション ──
+    // preparationItems の ID フォーマット検証
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // ── イベントデータ ───────────────────────────────────────
     match /events/{eventId} {
-      allow read:  if true;        // 誰でも閲覧可（ログイン不要）
-      allow write: if isEditor();  // 認証済み Google ユーザーのみ編集可（UID設定後は5名限定に変更）
+      allow read:  if true;
+      allow write: if isEditor();
 
       match /preparationItems/{itemId} {
         allow read:  if true;
-        allow write: if isEditor() && isValidId(itemId);  // 認証チェック + IDフォーマット検証
+        allow write: if isEditor() && isValidId(itemId);
       }
     }
   }
