@@ -1,12 +1,14 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { db, handleFirestoreError, OperationType } from './lib/firebase';
+import { useState, useMemo, useEffect } from 'react';
+import { db, auth, loginWithGoogle, handleFirestoreError, OperationType } from './lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
 import { Event } from './types';
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, MapPin, Building2, StickyNote, ClipboardList, Moon, Sun, Save, Plus, Filter, Search } from 'lucide-react';
+import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PreparationList from './components/PreparationList';
-import { useDebounce } from './hooks/useDebounce';
+
+const EDITOR_EMAILS = ['taoki0183@gmail.com'];
 
 /* ═══════════════════════════════════════
    ヘルパー
@@ -28,7 +30,39 @@ function eventCoversDate(ev: Event, y: number, m: number, day: number) {
   return t.getTime() === s.getTime();
 }
 
+function LoginScreen() {
+  const [loading, setLoading] = useState(false);
+  const handleLogin = async () => {
+    setLoading(true);
+    try { await loginWithGoogle(); } finally { setLoading(false); }
+  };
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl p-10 shadow-xl max-w-sm w-full text-center">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-indigo-200 shadow-xl mx-auto mb-6">EX</div>
+        <h1 className="text-2xl font-black text-slate-800 mb-1">Ivent Manager</h1>
+        <p className="text-sm text-slate-500 mb-8">EX事業部 イベント管理システム</p>
+        <button
+          onClick={handleLogin}
+          disabled={loading}
+          className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-3 hover:bg-indigo-700 transition-colors disabled:opacity-60"
+        >
+          <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          {loading ? 'ログイン中...' : 'Googleでログイン'}
+        </button>
+        <p className="text-[11px] text-slate-400 mt-6">Googleアカウントでのみアクセス可能です</p>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  const [user, setUser] = useState<any>(undefined);
   const [view, setView] = useState<"calendar" | "list">(() => (localStorage.getItem('viewMode') as any) || "calendar");
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
@@ -67,6 +101,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('sidebarTypes', JSON.stringify(sidebarTypes));
   }, [sidebarTypes]);
+
+  // Auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u ?? null));
+    return () => unsubscribe();
+  }, []);
+
+  const isEditor = user && EDITOR_EMAILS.includes(user.email);
 
   // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {
@@ -216,19 +258,30 @@ export default function App() {
     }
   };
 
+  if (user === undefined) return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+  if (!user) return <LoginScreen />;
+
   return (
     <div className="flex flex-col min-h-screen transition-colors duration-300">
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-slate-100 sticky top-0 z-30 gap-4">
         {/* 左: ハンバーガー + ロゴ */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <button className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors">
+          <button onClick={() => setSideOpen(v => !v)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors">
             <Menu size={18} />
           </button>
           <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-indigo-200 shadow-md">EX</div>
           <div className="hidden sm:block">
             <div className="font-bold text-sm text-slate-800 leading-tight">Ivent Manager</div>
             <div className="text-[10px] text-slate-400 font-bold tracking-tight">Preparation & Scheduling</div>
+          </div>
+          <div className="sm:hidden flex flex-col">
+            <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{calYear}年{calMonth}月</div>
+            <div className="font-black text-sm text-slate-800 leading-tight">イベント一覧</div>
           </div>
         </div>
 
@@ -276,13 +329,24 @@ export default function App() {
             <span className="hidden sm:inline">新規イベント</span>
           </button>
 
-          <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white">T</div>
+          <div className="flex items-center gap-2">
+            {user.photoURL ? (
+              <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-white" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white">
+                {user.displayName?.[0] || 'U'}
+              </div>
+            )}
+            <button onClick={() => auth.signOut()} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-red-400 transition-colors" title="ログアウト">
+              <LogOut size={15} />
+            </button>
+          </div>
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-72 flex flex-col flex-shrink-0 bg-slate-50/50 border-r border-slate-100 overflow-y-auto hidden lg:flex">
+        {sideOpen && <aside className="w-72 flex flex-col flex-shrink-0 bg-white border-r border-slate-100 overflow-y-auto hidden lg:flex">
           <div className="p-6 space-y-8">
             {/* TODAY Section */}
             <div className="space-y-2 pb-4 border-b border-slate-100">
@@ -409,11 +473,11 @@ export default function App() {
               </div>
             </div>
           </div>
-        </aside>
+        </aside>}
 
         {/* Main Content */}
         <main className="flex-1 bg-white relative overflow-hidden flex flex-col">
-          <div className="p-8 flex-1 overflow-y-auto">
+          <div className="p-4 lg:p-8 pb-20 lg:pb-8 flex-1 overflow-y-auto">
           {/* Sync Indicator */}
           <AnimatePresence>
             {isSaving && (
@@ -444,15 +508,26 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
             >
+              {/* Desktop: Calendar grid / Mobile: Timeline list */}
               {view === "calendar" && (
-                <CalendarView
-                  events={filtered}
-                  year={calYear} month={calMonth}
-                  setYear={setCalYear} setMonth={setCalMonth}
-                  onSelect={setSelected}
-                  onCreateEvent={handleCreateEvent}
-                  lastEditedId={lastEditedId}
-                />
+                <>
+                  <div className="hidden lg:block">
+                    <CalendarView
+                      events={filtered}
+                      year={calYear} month={calMonth}
+                      setYear={setCalYear} setMonth={setCalMonth}
+                      onSelect={setSelected}
+                      onCreateEvent={handleCreateEvent}
+                      lastEditedId={lastEditedId}
+                    />
+                  </div>
+                  <div className="lg:hidden">
+                    <MobileWeekStrip year={calYear} month={calMonth} events={filtered} />
+                    <div className="mt-4">
+                      {filtered.length === 0 ? <EmptyState /> : <MobileTimelineView events={filtered} onSelect={setSelected} />}
+                    </div>
+                  </div>
+                </>
               )}
               {view === "list" && (
                 filtered.length === 0 ? <EmptyState /> :
@@ -467,7 +542,7 @@ export default function App() {
       {/* Modals */}
       <AnimatePresence>
         {selected && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center lg:p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -476,18 +551,17 @@ export default function App() {
               className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" 
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, y: 40 }}
               animate={{
                 opacity: 1,
-                scale: 1,
                 y: 0,
-                width: showPrepList ? '95%' : '520px',
-                height: showPrepList ? '90%' : 'auto',
-                maxWidth: showPrepList ? '1600px' : '520px'
+                width: showPrepList ? '95vw' : undefined,
+                height: showPrepList ? '90vh' : undefined,
               }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              exit={{ opacity: 0, y: 40 }}
               onPointerDown={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100"
+              className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[520px] lg:max-w-[520px] max-h-[92vh] lg:max-h-[90vh]"
+              style={showPrepList ? { width: '95vw', maxWidth: '1600px', height: '90vh' } : {}}
             >
               {showPrepList ? (
                 <PreparationList
@@ -495,7 +569,7 @@ export default function App() {
                   onBack={() => setShowPrepList(false)}
                 />
               ) : (
-                <div className="p-8">
+                <div className="p-6 lg:p-8 overflow-y-auto">
                   {/* Header: タグ + 閉じるボタン */}
                   <div className="flex justify-between items-center mb-5">
                     <div className="flex gap-2 flex-wrap">
@@ -601,34 +675,22 @@ export default function App() {
 
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">CLIENT・クライアント</label>
-                      {isEditMode ? (
-                        <input
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          value={selected.client}
-                          placeholder="クライアント名を入力..."
-                          onChange={e => handleUpdateEvent(selected.id, { client: e.target.value })}
-                        />
-                      ) : (
-                        <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800">
-                          {selected.client || "—"}
-                        </div>
-                      )}
+                      <input
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={selected.client}
+                        placeholder="クライアント名を入力..."
+                        onChange={e => handleUpdateEvent(selected.id, { client: e.target.value })}
+                      />
                     </div>
 
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">NOTES・備考</label>
-                      {isEditMode ? (
-                        <textarea
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px] resize-none"
-                          value={selected.note}
-                          placeholder="メモ..."
-                          onChange={e => handleUpdateEvent(selected.id, { note: e.target.value })}
-                        />
-                      ) : (
-                        <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 min-h-[60px]">
-                          {selected.note || "—"}
-                        </div>
-                      )}
+                      <textarea
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px] resize-none"
+                        value={selected.note}
+                        placeholder="メモ..."
+                        onChange={e => handleUpdateEvent(selected.id, { note: e.target.value })}
+                      />
                     </div>
                   </div>
 
@@ -652,7 +714,16 @@ export default function App() {
 
                   {/* ボタン */}
                   <div className="mt-6 flex gap-3">
-                    {isEditMode ? (
+                    {hasUnsavedChanges ? (
+                      <button
+                        onClick={async () => { await handleSaveEvent(); setIsEditMode(false); }}
+                        disabled={isSaving}
+                        className="flex-1 py-4 rounded-2xl bg-amber-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-amber-600 disabled:opacity-60 transition-colors shadow-lg shadow-amber-500/20"
+                      >
+                        <Save size={16} />
+                        {isSaving ? "保存中..." : "保存する"}
+                      </button>
+                    ) : isEditMode ? (
                       <button
                         onClick={async () => { await handleSaveEvent(); setIsEditMode(false); }}
                         disabled={isSaving}
@@ -696,13 +767,122 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around pb-safe z-20 lg:hidden">
+        {[
+          { id: "calendar", icon: <Calendar size={22} />, label: "カレンダー" },
+          { id: "list",     icon: <List size={22} />,     label: "リスト" },
+          { id: "prep",     icon: <ClipboardList size={22} />, label: "準備物" },
+          { id: "settings", icon: <Settings size={22} />, label: "設定" },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => { if (tab.id !== "settings" && tab.id !== "prep") setView(tab.id as any); }}
+            className={`flex flex-col items-center gap-0.5 px-4 py-3 text-[10px] font-bold transition-colors ${
+              view === tab.id ? "text-indigo-600" : "text-slate-400"
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
 
 /* ═══════════════════════════════════════
-   サブコンポーネント (Updated for Dark Mode)
+   サブコンポーネント
 ═══════════════════════════════════════ */
+
+function MobileTimelineView({ events, onSelect }: any) {
+  const fmtGroup = (d: string) => {
+    if (!d) return "—";
+    const [, m, day] = d.split("-");
+    const date = new Date(d);
+    const dow = ["日","月","火","水","木","金","土"][date.getDay()];
+    return `${parseInt(m)}/${parseInt(day)} ${dow}`;
+  };
+
+  const grouped = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    events.forEach((ev: any) => {
+      const key = ev.start || "未定";
+      if (!map[key]) map[key] = [];
+      map[key].push(ev);
+    });
+    return Object.entries(map).sort(([a], [b]) => a < b ? -1 : 1);
+  }, [events]);
+
+  return (
+    <div className="space-y-6 pb-2">
+      {grouped.map(([date, evs]: [string, any[]]) => (
+        <div key={date}>
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-black text-slate-700">{fmtGroup(date)}</span>
+            <div className="flex-1 h-px bg-slate-100" />
+            <span className="text-xs font-bold text-slate-400">{evs.length}</span>
+          </div>
+          <div className="space-y-2">
+            {evs.map((ev: any) => (
+              <button
+                key={ev.id}
+                onClick={() => onSelect(ev)}
+                className="w-full bg-white border border-slate-100 rounded-2xl flex items-center gap-3 text-left shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+              >
+                <div className="w-1 self-stretch rounded-l-2xl shrink-0" style={{ background: rs(ev.region || "").dot }} />
+                <span className="text-xl py-4 shrink-0">{ev.emoji || ts(ev.type || "").icon}</span>
+                <div className="flex-1 py-4 min-w-0">
+                  <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    {ev.region}{ev.dept ? `・${ev.dept}` : ""}・{ev.type || "その他"}
+                  </div>
+                </div>
+                {ev.end && ev.end !== ev.start && (
+                  <span className="text-[11px] text-slate-400 font-bold pr-4 shrink-0">→{fmtShort(ev.end)}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MobileWeekStrip({ year, month, events }: any) {
+  const today = new Date();
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay());
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(startOfWeek);
+    d.setDate(startOfWeek.getDate() + i);
+    return d;
+  });
+  const dayLabels = ["S", "M", "T", "W", "T", "F", "S"];
+
+  return (
+    <div className="flex justify-between px-1 mb-2">
+      {days.map((d, i) => {
+        const isToday = d.toDateString() === today.toDateString();
+        const hasEvent = events.some((ev: any) => ev.start && new Date(ev.start).toDateString() === d.toDateString());
+        return (
+          <div key={i} className="flex flex-col items-center gap-1">
+            <span className={`text-[10px] font-bold ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-slate-400"}`}>{dayLabels[i]}</span>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black transition-all ${
+              isToday ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-600"
+            }`}>
+              {d.getDate()}
+            </div>
+            {hasEvent && !isToday && <div className="w-1 h-1 rounded-full bg-indigo-400" />}
+            {!hasEvent && <div className="w-1 h-1" />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCreateEvent, lastEditedId }: any) {
   const firstDay = new Date(year, month - 1, 1).getDay();
@@ -743,12 +923,7 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
         </div>
         
         <div className="flex items-center gap-4">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
-            <Filter size={14} className="text-slate-400" />
-            <span>フィルター</span>
-          </button>
-          
-          <div className="flex items-center gap-1 ml-2">
+          <div className="flex items-center gap-1">
             <button onClick={prevMonth} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ChevronLeft size={20} /></button>
             <button onClick={setToday} className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm ml-1 mr-1">今日</button>
             <button onClick={nextMonth} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ChevronRight size={20} /></button>
@@ -786,20 +961,20 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
                 </span>
               </div>
               
-              <div className="space-y-1">
-                {dayEvents.slice(0, 3).map((ev: any) => (
+              <div className="space-y-0.5">
+                {dayEvents.slice(0, 4).map((ev: any) => (
                   <button
                     key={ev.id}
                     onClick={() => onSelect(ev)}
-                    className="w-full text-left bg-slate-50 hover:bg-slate-100 transition-colors rounded-md py-1 pl-2 pr-1.5 flex items-center gap-1.5 relative overflow-hidden"
+                    className="w-full text-left bg-slate-50 hover:bg-slate-100 transition-colors rounded py-0.5 pl-1.5 pr-1 flex items-center gap-1 relative overflow-hidden"
                   >
-                    <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: rs(ev.region || "").dot }}></div>
-                    <span className="text-[11px] shrink-0 ml-1">{ev.emoji || ts(ev.type || "").icon}</span>
-                    <span className="text-[10px] font-bold text-slate-700 truncate">{ev.venue}</span>
+                    <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ background: rs(ev.region || "").dot }}></div>
+                    <span className="text-[9px] shrink-0 ml-0.5">{ev.emoji || ts(ev.type || "").icon}</span>
+                    <span className="text-[9px] font-bold text-slate-700 truncate leading-tight">{ev.venue}</span>
                   </button>
                 ))}
-                {dayEvents.length > 3 && (
-                  <div className="text-[10px] font-bold text-slate-400 pl-2">+{dayEvents.length - 3} more</div>
+                {dayEvents.length > 4 && (
+                  <div className="text-[9px] font-bold text-slate-400 pl-1.5">+{dayEvents.length - 4} more</div>
                 )}
 
                 {cell.current && dayEvents.length === 0 && (
@@ -823,21 +998,12 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
 function ListView({ data, onSelect, lastEditedId }: any) {
   return (
     <div className="flex flex-col">
-      {/* タイトル + フィルター・並び替え */}
+      {/* タイトル */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-baseline gap-2">
           All events
           <span className="text-slate-400 text-sm font-bold">· {data.length}</span>
         </h2>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
-            <Filter size={14} className="text-slate-400" />
-            <span>フィルター</span>
-          </button>
-          <button className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
-            <span>並び替え</span>
-          </button>
-        </div>
       </div>
 
       {/* テーブル */}
