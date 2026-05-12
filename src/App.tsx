@@ -3,7 +3,7 @@ import { db, handleFirestoreError, OperationType } from './lib/firebase';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
 import { Event } from './types';
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, MapPin, Building2, StickyNote, ClipboardList, Moon, Sun, Save, Plus, Filter } from 'lucide-react';
+import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, MapPin, Building2, StickyNote, ClipboardList, Moon, Sun, Save, Plus, Filter, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PreparationList from './components/PreparationList';
 import { useDebounce } from './hooks/useDebounce';
@@ -44,6 +44,7 @@ export default function App() {
   const [selected, setSelected] = useState<Event | null>(null);
   const [sideOpen, setSideOpen] = useState(true);
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
+  const [searchQuery, setSearchQuery] = useState("");
   const [showPrepList, setShowPrepList] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
@@ -136,6 +137,7 @@ export default function App() {
   }, [dbEvents]);
 
   const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
     return allEvents.filter(d => {
       if (regionFilter !== "すべて" && d.region !== regionFilter) return false;
       if (typeFilter !== "すべて" && d.type !== typeFilter) return false;
@@ -143,9 +145,10 @@ export default function App() {
         const m = parseInt(monthFilter);
         if (getMonth(d.start) !== m && getMonth(d.end) !== m) return false;
       }
+      if (q && !d.venue.toLowerCase().includes(q) && !(d.client || "").toLowerCase().includes(q)) return false;
       return true;
     }).sort((a, b) => (a.start || "9999") < (b.start || "9999") ? -1 : 1);
-  }, [allEvents, regionFilter, typeFilter, monthFilter]);
+  }, [allEvents, regionFilter, typeFilter, monthFilter, searchQuery]);
 
   const stats = useMemo(() => {
     const byRegion: Record<string, number> = {};
@@ -216,46 +219,64 @@ export default function App() {
   return (
     <div className="flex flex-col min-h-screen transition-colors duration-300">
       {/* Header */}
-      <header className="h-16 flex items-center justify-between px-6 bg-white border-b border-gray-100 sticky top-0 z-30">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-sm shadow-indigo-200 shadow-lg">EX</div>
-            <div>
-              <div className="font-bold text-sm text-slate-800 leading-tight">Ivent Manager</div>
-              <div className="text-[10px] text-slate-400 font-bold tracking-tight">Preparation & Scheduling</div>
-            </div>
+      <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-slate-100 sticky top-0 z-30 gap-4">
+        {/* 左: ハンバーガー + ロゴ */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors">
+            <Menu size={18} />
+          </button>
+          <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-indigo-200 shadow-md">EX</div>
+          <div className="hidden sm:block">
+            <div className="font-bold text-sm text-slate-800 leading-tight">Ivent Manager</div>
+            <div className="text-[10px] text-slate-400 font-bold tracking-tight">Preparation & Scheduling</div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
+        {/* 中央: 検索バー */}
+        <div className="flex-1 max-w-md">
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+            <Search size={13} className="text-slate-400 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="会場・クライアントを検索..."
+              className="flex-1 bg-transparent text-xs text-slate-600 placeholder-slate-400 outline-none"
+            />
+            <kbd className="hidden sm:block text-[10px] text-slate-400 font-medium bg-slate-200 px-1.5 py-0.5 rounded">⌘K</kbd>
+          </div>
+        </div>
+
+        {/* 右: ビュー切替 + 新規 + アバター */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex bg-slate-100 p-1 rounded-xl">
             {[
-              { id: "calendar", icon: <Calendar size={15} />, label: "カレンダー" },
-              { id: "list", icon: <List size={15} />, label: "リスト" },
+              { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
+              { id: "list", icon: <List size={14} />, label: "リスト" },
             ].map(v => (
               <button
                 key={v.id}
                 onClick={() => setView(v.id as any)}
                 className={`
-                  flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all
-                  ${view === v.id ? 'bg-white text-slate-800 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-800'}
+                  flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all
+                  ${view === v.id ? 'bg-white text-slate-800 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700'}
                 `}
               >
                 {v.icon}
-                <span>{v.label}</span>
+                <span className="hidden md:inline">{v.label}</span>
               </button>
             ))}
           </div>
 
-          <button 
+          <button
             onClick={() => handleCreateEvent()}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-black transition-all shadow-indigo-200 shadow-lg"
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black transition-all shadow-indigo-200 shadow-md"
           >
-            <Plus size={16} strokeWidth={3} />
-            <span>新規イベント</span>
+            <Plus size={14} strokeWidth={3} />
+            <span className="hidden sm:inline">新規イベント</span>
           </button>
 
-          <div className="w-9 h-9 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white ml-2">T</div>
+          <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white">T</div>
         </div>
       </header>
 
@@ -264,15 +285,13 @@ export default function App() {
         <aside className="w-72 flex flex-col flex-shrink-0 bg-slate-50/50 border-r border-slate-100 overflow-y-auto hidden lg:flex">
           <div className="p-6 space-y-8">
             {/* TODAY Section */}
-            <div className="space-y-4">
+            <div className="space-y-2 pb-4 border-b border-slate-100">
               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TODAY</div>
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
-                <div className="text-4xl font-black text-slate-800 tracking-tighter leading-none">
-                  {new Date().getDate()}
-                </div>
-                <div className="text-xs font-bold text-slate-500">
-                  {new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'long' })}
-                </div>
+              <div className="text-4xl font-black text-slate-800 tracking-tighter leading-none">
+                {new Date().getDate()}
+              </div>
+              <div className="text-xs font-bold text-slate-500">
+                {new Date().toLocaleDateString('ja-JP', { month: 'long', weekday: 'long' })}
               </div>
             </div>
 
@@ -307,8 +326,9 @@ export default function App() {
 
             {/* REGION Section */}
             <div className="space-y-3">
-              <div className="text-[10px] items-center flex justify-between font-black text-slate-400 uppercase tracking-widest px-1">
-                <span>REGION</span>
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-black text-slate-700">本部</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">REGION</span>
               </div>
               <div className="flex flex-col gap-0.5">
                 {[
@@ -318,32 +338,34 @@ export default function App() {
                   { label: "南日本" },
                   { label: "中日本" },
                 ].map((r) => (
-                  <button 
-                    key={r.label} 
+                  <button
+                    key={r.label}
                     onClick={() => setRegionFilter(r.label)}
                     className={`
                       group flex items-center justify-between px-3 py-2 rounded-xl transition-all border
-                      ${regionFilter === r.label 
-                        ? "bg-white border-slate-100 shadow-sm text-indigo-600" 
+                      ${regionFilter === r.label
+                        ? "bg-white border-slate-100 shadow-sm text-indigo-600"
                         : "border-transparent text-slate-500 hover:bg-white hover:border-slate-100"}
                     `}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="w-2 h-2 rounded-full" style={{ background: rs(r.label).dot }}></span>
+                      <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: rs(r.label).dot }}></span>
                       <span className="text-xs font-bold font-sans">{r.label}</span>
                     </div>
-                    <span className="text-xs font-bold opacity-60 font-sans">{r.label === "すべて" ? "" : (stats.byRegion[r.label] || 0)}</span>
+                    <span className="text-xs font-bold text-slate-400 font-sans">{r.label === "すべて" ? "" : (stats.byRegion[r.label] || 0)}</span>
                   </button>
                 ))}
               </div>
             </div>
 
             {/* TYPE Section */}
-            <div className="space-y-3 pt-4">
-              <div className="text-[10px] items-center flex justify-between font-black text-slate-400 uppercase tracking-widest px-1">
-                <span>TYPE</span>
-                <button 
-                  onClick={() => {
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-black text-slate-700">種別</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TYPE</span>
+                  <button
+                    onClick={() => {
                     const newType = prompt("新しい案件種別を入力してください:");
                     if (newType) {
                       const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
@@ -354,6 +376,7 @@ export default function App() {
                 >
                   <Plus size={12} />
                 </button>
+                </div>
               </div>
               <div className="flex flex-col gap-0.5">
                 <button 
@@ -757,7 +780,7 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
               <div className="flex justify-between items-start mb-2">
                 <span className={`
                   text-[11px] font-bold px-1.5 py-0.5 rounded
-                  ${!cell.current ? "text-slate-300" : isToday ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : isSun ? "text-red-500" : "text-indigo-600"}
+                  ${!cell.current ? "text-slate-300" : isToday ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : isSun ? "text-red-500" : "text-slate-700"}
                 `}>
                   {cell.day}
                 </span>
