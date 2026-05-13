@@ -1,20 +1,56 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { db, handleFirestoreError, OperationType } from './lib/firebase';
+import { db, auth, loginWithGoogle } from './lib/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
-import { REGION_STYLE, TYPE_STYLE, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
-import { Event } from './types';
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, StickyNote, ClipboardList, Save, Plus, Filter, Search, Camera, Image, BarChart3, Package, ArrowUpDown } from 'lucide-react';
+import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
+import { Event, PreparationItem } from './types';
+import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PreparationList from './components/PreparationList';
+import NotificationCenter from './components/notifications/NotificationCenter';
+import AnalyticsDashboard from './components/analytics/AnalyticsDashboard';
 import PhotoUpload from './components/photos/PhotoUpload';
 import PhotoGallery from './components/photos/PhotoGallery';
-import MobilePhotoCapture from './components/photos/MobilePhotoCapture';
-import BulkActionBar from './components/bulk/BulkActionBar';
-import AnalyticsDashboard from './components/analytics/AnalyticsDashboard';
-import NotificationCenter from './components/notifications/NotificationCenter';
-import { useDebounce } from './hooks/useDebounce';
-import { useBulkSelection } from './hooks/useBulkSelection';
-import { notifyEventCreated, notifyEventUpdated } from './lib/notifications';
+import { useAnalytics } from './hooks/useAnalytics';
+import { usePhotos } from './hooks/usePhotos';
+
+// 安全なlocalStorage読み込み
+function safeGetItem<T>(key: string, fallback: T): T {
+  try {
+    const item = localStorage.getItem(key);
+    if (item === null) return fallback;
+    return JSON.parse(item) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+// イベントバリデーション
+interface ValidationError {
+  field: string;
+  message: string;
+}
+
+function validateEvent(event: Partial<Event>): ValidationError[] {
+  const errors: ValidationError[] = [];
+  
+  if (!event.venue || event.venue.trim().length === 0) {
+    errors.push({ field: 'venue', message: '会場名は必須です' });
+  }
+  if (event.venue && event.venue.length > 500) {
+    errors.push({ field: 'venue', message: '会場名は500文字以内にしてください' });
+  }
+  if (!event.start) {
+    errors.push({ field: 'start', message: '開始日は必須です' });
+  }
+  if (event.start && event.end && event.start > event.end) {
+    errors.push({ field: 'end', message: '終了日は開始日以降にしてください' });
+  }
+  
+  return errors;
+}
+
+const EDITOR_EMAILS = ['taoki0183@gmail.com'];
 
 /* ═══════════════════════════════════════
    ヘルパー
@@ -22,17 +58,13 @@ import { notifyEventCreated, notifyEventUpdated } from './lib/notifications';
 const rs = (r: string) => REGION_STYLE[r] || { bg: "#f1f5f9", text: "#334155", dot: "#94a3b8", calBg: "rgba(241, 245, 249, 0.4)", calBorder: "#cbd5e1" };
 const ts = (t: string) => TYPE_STYLE[t] || { bg: "#f8fafc", border: "#e2e8f0", text: "#64748b", icon: "📋" };
 const fmtShort = (d: string) => { if (!d) return "—"; const [, m, day] = d.split("-"); return `${parseInt(m)}/${parseInt(day)}`; };
-const fmtRange = (start: string, end?: string) => {
-  if (!start) return "—";
-  if (!end || start === end) return fmtShort(start);
-  return `${fmtShort(start)}-${fmtShort(end)}`;
-};
 const getMonth = (d: string) => { if (!d) return null; return parseInt(d.split("-")[1]); };
 
-function eventCoversDay(ev: Event, day: Date) {
+function eventCoversDate(ev: Event, y: number, m: number, day: number) {
   if (!ev.start) return false;
-  const t = new Date(day); t.setHours(0, 0, 0, 0);
   const s = new Date(ev.start); s.setHours(0, 0, 0, 0);
+  const t = new Date(y, m - 1, day);
+  
   if (ev.end) {
     const e = new Date(ev.end); e.setHours(23, 59, 59, 999);
     return t >= s && t <= e;
@@ -40,53 +72,53 @@ function eventCoversDay(ev: Event, day: Date) {
   return t.getTime() === s.getTime();
 }
 
-function assignEventLanes(segments: { ev: Event; start: number; end: number }[]) {
-  const sorted = [...segments].sort((a, b) => a.start - b.start || a.end - b.end);
-  const lanes: typeof segments[] = [];
-  const placed: { seg: (typeof segments)[0]; lane: number }[] = [];
-  for (const seg of sorted) {
-    let laneIdx = -1;
-    for (let i = 0; i < lanes.length; i++) {
-      const ok = lanes[i].every((s) => seg.end < s.start || seg.start > s.end);
-      if (ok) {
-        laneIdx = i;
-        break;
-      }
-    }
-    if (laneIdx === -1) {
-      lanes.push([seg]);
-      laneIdx = lanes.length - 1;
-    } else {
-      lanes[laneIdx].push(seg);
-    }
-    placed.push({ seg, lane: laneIdx });
-  }
-  return placed;
-}
-
-function statusDisplay(ev: Event): string {
-  const s = ev.status;
-  if (!s || s === "planning") return "SCHEDULED";
-  if (s === "preparing") return "PREPARING";
-  if (s === "in-progress") return "IN PROGRESS";
-  if (s === "completed") return "COMPLETED";
-  if (s === "cancelled") return "CANCELLED";
-  return String(s).toUpperCase();
+function LoginScreen() {
+  const [loading, setLoading] = useState(false);
+  const handleLogin = async () => {
+    setLoading(true);
+    try { await loginWithGoogle(); } finally { setLoading(false); }
+  };
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl p-10 shadow-xl max-w-sm w-full text-center">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-indigo-200 shadow-xl mx-auto mb-6">EX</div>
+        <h1 className="text-2xl font-black text-slate-800 mb-1">Ivent Manager</h1>
+        <p className="text-sm text-slate-500 mb-8">EX事業部 イベント管理システム</p>
+        <button
+          onClick={handleLogin}
+          disabled={loading}
+          className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-3 hover:bg-indigo-700 transition-colors disabled:opacity-60"
+        >
+          <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          {loading ? 'ログイン中...' : 'Googleでログイン'}
+        </button>
+        <p className="text-[11px] text-slate-400 mt-6">Googleアカウントでのみアクセス可能です</p>
+      </div>
+    </div>
+  );
 }
 
 export default function App() {
-  const [view, setView] = useState<"calendar" | "list" | "analytics">(() => (localStorage.getItem('viewMode') as any) || "calendar");
-  const [workspaceFilter, setWorkspaceFilter] = useState<"all" | "prep" | "stock">("all");
+  const [user, setUser] = useState<User | null | undefined>(undefined);
+  const [view, setView] = useState<"calendar" | "list" | "analytics">(() => {
+    const saved = localStorage.getItem('viewMode');
+    return (saved === 'calendar' || saved === 'list' || saved === 'analytics') ? saved : 'calendar';
+  });
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
   const [monthFilter, setMonthFilter] = useState(() => localStorage.getItem('monthFilter') || "すべて");
   const [calYear, setCalYear] = useState(() => {
-    const val = parseInt(localStorage.getItem('calYear') || "2026");
-    return isNaN(val) ? 2026 : val;
+    const val = parseInt(localStorage.getItem('calYear') || String(new Date().getFullYear()));
+    return isNaN(val) ? new Date().getFullYear() : val;
   });
   const [calMonth, setCalMonth] = useState(() => {
-    const val = parseInt(localStorage.getItem('calMonth') || "5");
-    return isNaN(val) ? 5 : val;
+    const val = parseInt(localStorage.getItem('calMonth') || String(new Date().getMonth() + 1));
+    return isNaN(val) ? new Date().getMonth() + 1 : val;
   });
   const [selected, setSelected] = useState<Event | null>(null);
   const [sideOpen, setSideOpen] = useState(true);
@@ -94,36 +126,49 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showPrepList, setShowPrepList] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [modalTab, setModalTab] = useState<'details' | 'photos' | 'camera'>('details');
-  const [showMobileCamera, setShowMobileCamera] = useState(false);
+  const [modalTab, setModalTab] = useState<'detail' | 'photos'>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [lastEditedId, setLastEditedId] = useState<string | null>(() => localStorage.getItem('lastEditedId'));
-  
-  // Bulk selection
-  const bulkSelection = useBulkSelection();
-  
-  const handleBulkUpdate = useCallback(() => {
-    // Force refresh of events data
-    window.location.reload();
-  }, []);
-  const [sidebarTypes, setSidebarTypes] = useState<{label: string, icon: string}[]>(() => {
-    const saved = localStorage.getItem('sidebarTypes');
-    return saved ? JSON.parse(saved) : [
+  const [sidebarTypes, setSidebarTypes] = useState<{label: string, icon: string}[]>(() => 
+    safeGetItem('sidebarTypes', [
       { label: "職業体験", icon: "🎓" },
       { label: "水族館", icon: "🐟" },
       { label: "忍者", icon: "🥷" },
       { label: "DJI", icon: "🚁" },
       { label: "超メタフェス", icon: "🎆" },
       { label: "ワークショップ", icon: "🔨" },
-    ];
-  });
+    ])
+  );
 
   useEffect(() => {
     localStorage.setItem('sidebarTypes', JSON.stringify(sidebarTypes));
   }, [sidebarTypes]);
+
+  // 未保存変更の警告（ブラウザを閉じる・リロード時）
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '未保存の変更があります。ページを離れますか？';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u ?? null));
+    return () => unsubscribe();
+  }, []);
+
+  const isEditor = user && EDITOR_EMAILS.includes(user.email);
 
   // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {
@@ -157,11 +202,11 @@ export default function App() {
     const unsubscribe = onSnapshot(
       collection(db, `events/${selected.id}/preparationItems`),
       (snapshot) => {
-        const items = snapshot.docs.map(d => d.data() as any);
+        const items = snapshot.docs.map(d => d.data() as PreparationItem);
         setEventStats({
           itemCount: items.length,
-          preparedCount: items.filter((i: any) => i.prepared).length,
-          budget: items.reduce((s: number, i: any) => s + (i.amount || 0) + (i.shippingFee || 0), 0),
+          preparedCount: items.filter(i => i.prepared).length,
+          budget: items.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0),
         });
       }
     );
@@ -188,23 +233,17 @@ export default function App() {
     }
   }, [monthFilter]);
 
-  // Firestoreのイベントデータをソートして取得
-  const allEvents = useMemo((): Event[] => {
-    return (Object.values(dbEvents) as Event[]).sort((a, b) =>
-      (a.start || '9999') < (b.start || '9999') ? -1 : 1
-    );
+  // 静的データとDBデータをマージ（Firestore上に新規作成されたイベントも含める）
+  const allEvents = useMemo(() => {
+    const staticIds = new Set(DATA.map(d => d.id));
+    const merged = DATA.map(item => dbEvents[item.id] || item);
+    const firestoreOnly = Object.values(dbEvents).filter((e: Event) => !staticIds.has(e.id));
+    return [...merged, ...firestoreOnly];
   }, [dbEvents]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return allEvents.filter(d => {
-      if (workspaceFilter === "prep") {
-        const s = d.status;
-        if (!(s === "preparing" || s === "planning" || s === undefined)) return false;
-      }
-      if (workspaceFilter === "stock") {
-        if (d.status !== "in-progress") return false;
-      }
       if (regionFilter !== "すべて" && d.region !== regionFilter) return false;
       if (typeFilter !== "すべて" && d.type !== typeFilter) return false;
       if (monthFilter !== "すべて") {
@@ -214,24 +253,27 @@ export default function App() {
       if (q && !d.venue.toLowerCase().includes(q) && !(d.client || "").toLowerCase().includes(q)) return false;
       return true;
     }).sort((a, b) => (a.start || "9999") < (b.start || "9999") ? -1 : 1);
-  }, [allEvents, workspaceFilter, regionFilter, typeFilter, monthFilter, searchQuery]);
+  }, [allEvents, regionFilter, typeFilter, monthFilter, searchQuery]);
+
+  const { data: analyticsData, loading: analyticsLoading } = useAnalytics(allEvents);
+  const { uploading: photoUploading, error: photoError, uploadPhoto, deleteEventPhoto, updatePhotoCaption } = usePhotos(selected?.id || '');
 
   const stats = useMemo(() => {
     const byRegion: Record<string, number> = {};
     const byType: Record<string, number> = {};
-    let prepCount = 0;
-    let stockCount = 0;
-
-    allEvents.forEach(d => {
+    const byStatus: Record<string, number> = { "準備中": 0, "入荷待ち": 0 };
+    
+    allEvents.forEach(d => { 
       if (d.region) byRegion[d.region] = (byRegion[d.region] || 0) + 1;
       if (d.type) byType[d.type] = (byType[d.type] || 0) + 1;
-      const s = d.status;
-      if (s === "preparing" || s === "planning" || s === undefined) prepCount++;
-      if (s === "in-progress") stockCount++;
     });
 
-    return { total: allEvents.length, byRegion, byType, prepCount, stockCount };
-  }, [allEvents]);
+    filtered.forEach(d => {
+      if (d.status) byStatus[d.status] = (byStatus[d.status] || 0) + 1;
+    });
+
+    return { total: allEvents.length, byRegion, byType, byStatus };
+  }, [allEvents, filtered]);
 
   const handleUpdateEvent = (id: string, updates: Partial<Event>) => {
     // 選択中のイベントをベースに更新
@@ -243,33 +285,50 @@ export default function App() {
     setSelected(newEvent);
     // 変更ありフラグを立てる
     setHasUnsavedChanges(true);
+    // バリデーションエラーをクリア
+    if (validationErrors.length > 0) {
+      setValidationErrors([]);
+    }
   };
 
-  const handleSaveEvent = async () => {
-    if (!selected) return;
+  // Firestoreエラーを日本語のユーザー向けメッセージに整形
+  const formatSaveError = (error: unknown): string => {
+    const raw = error instanceof Error ? error.message : String(error);
+    const lower = raw.toLowerCase();
+    if (lower.includes('permission') || lower.includes('insufficient') || lower.includes('missing or insufficient')) {
+      return '保存に失敗しました：権限がありません。編集権限のあるGoogleアカウントでログインしているか確認してください。';
+    }
+    if (lower.includes('unavailable') || lower.includes('offline') || lower.includes('network')) {
+      return '保存に失敗しました：ネットワークに接続できません。接続を確認してから再試行してください。';
+    }
+    return '保存に失敗しました。もう一度お試しください。';
+  };
+
+  const handleSaveEvent = async (): Promise<boolean> => {
+    if (!selected) return false;
+
+    // バリデーション実行
+    const errors = validateEvent(selected);
+    setValidationErrors(errors);
+    if (errors.length > 0) {
+      return false;
+    }
+
     setIsSaving(true);
+    setSaveError(null);
     try {
-      const isNewEvent = !allEvents.some(event => event.id === selected.id);
-      
       await setDoc(doc(db, "events", selected.id), selected);
+      // 楽観的にローカルキャッシュも更新（onSnapshot反映までのラグ対策）
+      setDbEvents(prev => ({ ...prev, [selected.id]: selected }));
       setHasUnsavedChanges(false);
       setLastEditedId(selected.id);
-      
-      // Send notification
-      try {
-        if (isNewEvent) {
-          await notifyEventCreated(selected.id, selected.venue || 'New Event');
-        } else {
-          await notifyEventUpdated(selected.id, selected.venue || 'Event', ['詳細']);
-        }
-      } catch (notifError) {
-        console.warn('Failed to send notification:', notifError);
-      }
-      
-      setTimeout(() => setIsSaving(false), 800);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `events/${selected.id}`);
       setIsSaving(false);
+      return true;
+    } catch (error) {
+      console.error('Firestore save error:', error);
+      setSaveError(formatSaveError(error));
+      setIsSaving(false);
+      return false;
     }
   };
 
@@ -287,281 +346,273 @@ export default function App() {
       note: "",
       emoji: initialData.emoji || "📅"
     };
+    setSaveError(null);
+    // 楽観的にUIへ反映（保存完了前にも一覧 / モーダルに表示）
+    setDbEvents(prev => ({ ...prev, [id]: newEvent }));
+    setSelected(newEvent);
+    setLastEditedId(id);
     try {
       await setDoc(doc(db, "events", id), newEvent);
-      setSelected(newEvent);
-      setLastEditedId(id);
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `events/${id}`);
+      console.error('Firestore create error:', error);
+      setSaveError(formatSaveError(error));
+      // 失敗したらローカルキャッシュからロールバック
+      setDbEvents(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      setSelected(null);
     }
   };
 
+  // モーダルを閉じる（未保存の変更がある場合は確認）
+  const handleCloseModal = useCallback(() => {
+    if (hasUnsavedChanges) {
+      if (!window.confirm('未保存の変更があります。破棄しますか？')) {
+        return;
+      }
+    }
+    setSelected(null);
+    setShowPrepList(false);
+    setIsEditMode(false);
+    setHasUnsavedChanges(false);
+    setValidationErrors([]);
+    setModalTab('detail');
+  }, [hasUnsavedChanges]);
+
+  if (user === undefined) return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+  if (!user) return <LoginScreen />;
+
   return (
-    <div className="flex flex-col min-h-screen bg-[#F8F9FA] text-slate-800 transition-colors duration-300">
+    <div className="flex flex-col min-h-screen transition-colors duration-300">
       {/* Header */}
-      <header className="h-[56px] shrink-0 flex items-center justify-between gap-4 px-4 lg:px-6 bg-white border-b border-[#E5E7EB] sticky top-0 z-30">
-        {/* Left: menu (mobile) + logo */}
-        <div className="flex items-center gap-3 shrink-0 min-w-0">
-          <button type="button" className="lg:hidden p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors" aria-label="メニュー">
+      <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-slate-100 sticky top-0 z-30 gap-4">
+        {/* 左: ハンバーガー + ロゴ */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button onClick={() => setSideOpen(v => !v)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors">
             <Menu size={18} />
           </button>
-          <div className="w-9 h-9 rounded-lg bg-[#4F46E5] flex items-center justify-center text-white font-bold text-xs shrink-0">EX</div>
-          <div className="hidden sm:block min-w-0">
-            <div className="font-bold text-[15px] text-slate-900 leading-tight tracking-tight">Ivent Manager</div>
-            <div className="text-[11px] text-slate-400 font-medium leading-tight">Preparation & Scheduling</div>
+          <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-indigo-200 shadow-md">EX</div>
+          <div className="hidden sm:block">
+            <div className="font-bold text-sm text-slate-800 leading-tight">Ivent Manager</div>
+            <div className="text-[10px] text-slate-400 font-bold tracking-tight">Preparation & Scheduling</div>
+          </div>
+          <div className="sm:hidden flex flex-col">
+            <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{calYear}年{calMonth}月</div>
+            <div className="font-black text-sm text-slate-800 leading-tight">イベント一覧</div>
           </div>
         </div>
 
-        {/* Center: search */}
-        <div className="flex-1 flex justify-center max-w-2xl mx-auto min-w-0 px-2">
-          <div className="flex items-center gap-2.5 w-full bg-white border border-[#E5E7EB] rounded-xl px-3.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-            <Search size={16} className="text-slate-400 shrink-0 stroke-[1.75]" />
+        {/* 中央: 検索バー */}
+        <div className="flex-1 max-w-md">
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+            <Search size={13} className="text-slate-400 shrink-0" />
             <input
-              type="search"
+              type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="会場・クライアントを検索..."
-              className="flex-1 min-w-0 bg-transparent text-[13px] text-slate-700 placeholder:text-slate-400 outline-none"
+              className="flex-1 bg-transparent text-xs text-slate-600 placeholder-slate-400 outline-none"
             />
-            <kbd className="hidden sm:inline text-[11px] text-slate-400 font-medium bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/80">⌘K</kbd>
+            <kbd className="hidden sm:block text-[10px] text-slate-400 font-medium bg-slate-200 px-1.5 py-0.5 rounded">⌘K</kbd>
           </div>
         </div>
 
-        {/* Right: views + CTA + notifications + avatar */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <div className="flex items-center gap-1">
-            <div className="flex bg-[#F3F4F6] p-1 rounded-xl border border-[#E5E7EB]/80">
-              {([
-                { id: "calendar" as const, icon: <Calendar size={15} strokeWidth={1.75} />, label: "カレンダー" },
-                { id: "list" as const, icon: <List size={15} strokeWidth={1.75} />, label: "リスト" },
-              ]).map(v => (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => setView(v.id)}
-                  className={`
-                  flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold transition-all
-                  ${view === v.id ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.06]" : "text-slate-500 hover:text-slate-700"}
-                `}
-                >
-                  {v.icon}
-                  <span className="hidden md:inline">{v.label}</span>
-                </button>
-              ))}
+        {/* 右: ビュー切替 + 新規 + アバター */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+            {[
+              { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
+              { id: "list", icon: <List size={14} />, label: "リスト" },
+              { id: "analytics", icon: <BarChart2 size={14} />, label: "分析" },
+            ].map(v => (
               <button
-                type="button"
-                onClick={() => setView("analytics")}
+                key={v.id}
+                onClick={() => setView(v.id as any)}
                 className={`
-                  lg:hidden flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold transition-all
-                  ${view === "analytics" ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.06]" : "text-slate-500 hover:text-slate-700"}
+                  flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all
+                  ${view === v.id ? 'bg-white text-slate-800 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700'}
                 `}
               >
-                <BarChart3 size={15} strokeWidth={1.75} />
-                <span className="hidden md:inline">分析</span>
+                {v.icon}
+                <span className="hidden md:inline">{v.label}</span>
               </button>
-            </div>
-            <button
-              type="button"
-              aria-label="分析"
-              onClick={() => setView("analytics")}
-              className={`hidden lg:inline-flex items-center justify-center w-10 h-10 rounded-xl border transition-colors ${
-                view === "analytics"
-                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.06] border-[#E5E7EB]"
-                  : "border-transparent text-slate-500 hover:bg-white hover:border-[#E5E7EB] hover:text-slate-700"
-              }`}
-            >
-              <BarChart3 size={17} strokeWidth={1.75} />
-            </button>
+            ))}
           </div>
 
           <button
-            type="button"
             onClick={() => handleCreateEvent()}
-            className="sm:hidden w-10 h-10 items-center justify-center rounded-xl bg-[#4F46E5] text-white shadow-sm shadow-indigo-500/25"
-            aria-label="新規イベント"
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black transition-all shadow-indigo-200 shadow-md"
           >
-            <Plus size={18} strokeWidth={2.5} />
-          </button>
-          <button
-            type="button"
-            onClick={() => handleCreateEvent()}
-            className="hidden sm:flex items-center gap-1.5 bg-[#4F46E5] hover:bg-[#4338CA] text-white px-4 py-2 rounded-xl text-[12px] font-semibold transition-colors shadow-sm shadow-indigo-500/20"
-          >
-            <Plus size={15} strokeWidth={2.5} />
-            <span className="font-semibold tracking-tight">+ 新規イベント</span>
+            <Plus size={14} strokeWidth={3} />
+            <span className="hidden sm:inline">新規イベント</span>
           </button>
 
           <NotificationCenter />
 
-          <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold text-[13px] ring-2 ring-white border border-[#E5E7EB]">
-            T
+          <div className="flex items-center gap-2">
+            {user.photoURL ? (
+              <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-white" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white">
+                {user.displayName?.[0] || 'U'}
+              </div>
+            )}
+            <button onClick={() => auth.signOut()} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-red-400 transition-colors" title="ログアウト">
+              <LogOut size={15} />
+            </button>
           </div>
         </div>
       </header>
 
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Sidebar — desktop */}
-        <aside className="w-[272px] flex-col flex-shrink-0 bg-white border-r border-[#E5E7EB] overflow-y-auto hidden lg:flex">
-          <div className="p-5 space-y-6">
-            {/* TODAY */}
-            <div className="rounded-xl bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] ring-1 ring-[#E5E7EB]/80">
-              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.12em]">TODAY</div>
-              <div className="text-[42px] font-bold text-slate-900 tracking-tight leading-none mt-1 tabular-nums">
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        {sideOpen && <aside className="w-72 flex flex-col flex-shrink-0 bg-white border-r border-slate-100 overflow-y-auto hidden lg:flex">
+          <div className="p-6 space-y-8">
+            {/* TODAY Section */}
+            <div className="space-y-2 pb-4 border-b border-slate-100">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TODAY</div>
+              <div className="text-4xl font-black text-slate-800 tracking-tighter leading-none">
                 {new Date().getDate()}
               </div>
-              <div className="text-[13px] font-medium text-slate-500 mt-1">
-                {new Date().toLocaleDateString("ja-JP", { month: "long", weekday: "long" })}
+              <div className="text-xs font-bold text-slate-500">
+                {new Date().toLocaleDateString('ja-JP', { month: 'long', weekday: 'long' })}
               </div>
             </div>
 
-            {/* WORKSPACE */}
-            <div>
-              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.14em] mb-2 px-1">WORKSPACE</div>
+            {/* WORKSPACE Section */}
+            <div className="space-y-3">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WORKSPACE</div>
               <div className="flex flex-col gap-0.5">
-                {([
-                  {
-                    label: "すべてのイベント",
-                    icon: <Calendar size={16} strokeWidth={1.75} className="text-[#4F46E5]" />,
-                    count: stats.total,
-                    onClick: () => {
-                      setWorkspaceFilter("all");
+                {[
+                  { label: "すべてのイベント", icon: <Calendar size={14} />, count: stats.total, value: "すべて" },
+                  { label: "準備中", icon: <ClipboardList size={14} />, count: stats.byStatus["準備中"], value: "準備中" },
+                  { label: "入荷待ち", icon: <Building2 size={14} />, count: stats.byStatus["入荷待ち"], value: "入荷待ち" },
+                ].map((item) => (
+                  <button 
+                    key={item.label} 
+                    onClick={() => {
                       setRegionFilter("すべて");
                       setTypeFilter("すべて");
                       setMonthFilter("すべて");
-                    },
-                    active: workspaceFilter === "all",
-                  },
-                  {
-                    label: "準備中",
-                    icon: <ClipboardList size={16} strokeWidth={1.75} className="text-[#4F46E5]" />,
-                    count: stats.prepCount,
-                    onClick: () => setWorkspaceFilter("prep"),
-                    active: workspaceFilter === "prep",
-                  },
-                  {
-                    label: "入荷待ち",
-                    icon: <Package size={16} strokeWidth={1.75} className="text-[#4F46E5]" />,
-                    count: stats.stockCount,
-                    onClick: () => setWorkspaceFilter("stock"),
-                    active: workspaceFilter === "stock",
-                  },
-                ]).map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={item.onClick}
-                    className={`group flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
-                      item.active ? "bg-[#EDE9FE] text-[#5B21B6]" : "text-slate-600 hover:bg-slate-50"
-                    }`}
+                      // ステータスフィルターがあればここに追加
+                    }}
+                    className="group flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white hover:shadow-sm hover:border-slate-100 border border-transparent transition-all"
                   >
-                    <span className="flex items-center gap-3 min-w-0">
-                      <span className={item.active ? "text-[#6D28D9]" : "text-[#4F46E5]/70"}>{item.icon}</span>
-                      <span className={`text-[13px] font-semibold truncate ${item.active ? "text-[#5B21B6]" : ""}`}>{item.label}</span>
-                    </span>
-                    <span className={`text-[12px] font-semibold tabular-nums shrink-0 ml-2 ${item.active ? "text-[#7C3AED]" : "text-slate-400"}`}>
-                      {item.count}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-indigo-600 opacity-60 group-hover:opacity-100">{item.icon}</span>
+                      <span className="text-xs font-bold text-slate-600 group-hover:text-indigo-600 font-sans">{item.label}</span>
+                    </div>
+                    <span className="text-xs font-bold text-slate-400">{item.count}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* REGION */}
-            <div>
-              <div className="flex items-baseline justify-between gap-2 px-1 mb-2">
-                <span className="text-[11px] font-bold text-slate-700">本部</span>
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.14em]">REGION</span>
+            {/* REGION Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-black text-slate-700">本部</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">REGION</span>
               </div>
               <div className="flex flex-col gap-0.5">
-                {(["すべて", "東日本", "西日本", "南日本", "中日本"] as const).map((r) => (
+                {[
+                  { label: "すべて" },
+                  { label: "東日本" },
+                  { label: "西日本" },
+                  { label: "南日本" },
+                  { label: "中日本" },
+                ].map((r) => (
                   <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRegionFilter(r)}
-                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
-                      regionFilter === r ? "bg-[#EDE9FE] text-[#5B21B6]" : "text-slate-600 hover:bg-slate-50"
-                    }`}
+                    key={r.label}
+                    onClick={() => setRegionFilter(r.label)}
+                    className={`
+                      group flex items-center justify-between px-3 py-2 rounded-lg transition-all
+                      ${regionFilter === r.label
+                        ? "bg-indigo-50 text-indigo-700"
+                        : "text-slate-600 hover:bg-slate-100/70"}
+                    `}
                   >
-                    <span className="flex items-center gap-3 min-w-0">
-                      <span
-                        className="w-2.5 h-2.5 rounded-sm shrink-0 ring-1 ring-black/[0.06]"
-                        style={{ background: rs(r).dot }}
-                      />
-                      <span className={`text-[13px] font-semibold truncate ${regionFilter === r ? "text-[#5B21B6]" : ""}`}>{r}</span>
-                    </span>
-                    {r !== "すべて" && (
-                      <span className={`text-[12px] font-semibold tabular-nums shrink-0 ml-2 ${regionFilter === r ? "text-[#7C3AED]" : "text-slate-400"}`}>
-                        {stats.byRegion[r] ?? 0}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-3">
+                      <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: rs(r.label).dot }}></span>
+                      <span className="text-xs font-bold font-sans">{r.label}</span>
+                    </div>
+                    <span className="text-xs font-bold text-slate-400 font-sans">{r.label === "すべて" ? "" : (stats.byRegion[r.label] || 0)}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* TYPE */}
-            <div>
-              <div className="flex items-center justify-between px-1 mb-2 gap-2">
-                <span className="text-[11px] font-bold text-slate-700 shrink-0">種別</span>
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.14em]">TYPE</span>
+            {/* TYPE Section */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-black text-slate-700">種別</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TYPE</span>
                   <button
-                    type="button"
                     onClick={() => {
-                      const newType = prompt("新しい案件種別を入力してください:");
-                      if (newType) {
-                        const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
-                        setSidebarTypes((prev) => [...prev, { label: newType, icon }]);
-                      }
-                    }}
-                    className="p-1 rounded-lg text-[#4F46E5]/60 hover:bg-[#EDE9FE] hover:text-[#5B21B6] transition-colors shrink-0"
-                    aria-label="種別を追加"
-                  >
-                    <Plus size={14} strokeWidth={2} />
-                  </button>
+                    const newType = prompt("新しい案件種別を入力してください:");
+                    if (newType) {
+                      const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
+                      setSidebarTypes(prev => [...prev, { label: newType, icon }]);
+                    }
+                  }}
+                  className="p-1 hover:bg-indigo-50 rounded text-indigo-400 hover:text-indigo-600 transition-colors"
+                >
+                  <Plus size={12} />
+                </button>
                 </div>
               </div>
               <div className="flex flex-col gap-0.5">
-                <button
-                  type="button"
+                <button 
                   onClick={() => setTypeFilter("すべて")}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
-                    typeFilter === "すべて" ? "bg-[#EDE9FE] text-[#5B21B6]" : "text-slate-600 hover:bg-slate-50"
-                  }`}
+                  className={`
+                    group flex items-center gap-3 px-3 py-2 rounded-lg transition-all
+                    ${typeFilter === "すべて"
+                      ? "bg-indigo-50 text-indigo-700"
+                      : "text-slate-600 hover:bg-slate-100/70"}
+                  `}
                 >
-                  <span className="text-base leading-none">📁</span>
-                  <span className={`text-[13px] font-semibold ${typeFilter === "すべて" ? "text-[#5B21B6]" : ""}`}>すべて</span>
+                  <span className="text-sm">📁</span>
+                  <span className="text-xs font-bold font-sans">すべて</span>
                 </button>
                 {sidebarTypes.map((type) => (
                   <button
                     key={type.label}
-                    type="button"
                     onClick={() => setTypeFilter(type.label)}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
-                      typeFilter === type.label ? "bg-[#EDE9FE] text-[#5B21B6]" : "text-slate-600 hover:bg-slate-50"
-                    }`}
+                    className={`
+                      group flex items-center gap-3 px-3 py-2 rounded-lg transition-all
+                      ${typeFilter === type.label
+                        ? "bg-indigo-50 text-indigo-700"
+                        : "text-slate-600 hover:bg-slate-100/70"}
+                    `}
                   >
-                    <span className="text-base leading-none w-6 text-center">{type.icon}</span>
-                    <span className={`text-[13px] font-semibold truncate ${typeFilter === type.label ? "text-[#5B21B6]" : ""}`}>{type.label}</span>
+                    <span className="text-sm">{type.icon}</span>
+                    <span className="text-xs font-bold font-sans">{type.label}</span>
                   </button>
                 ))}
               </div>
             </div>
           </div>
-        </aside>
+        </aside>}
 
-        {/* Main */}
-        <main className="flex-1 min-w-0 min-h-0 bg-[#F8F9FA] flex flex-col lg:p-5 overflow-hidden">
-          <div className="flex-1 min-h-0 flex flex-col bg-white lg:rounded-2xl lg:border lg:border-[#E5E7EB] lg:shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-5 sm:p-8">
-          {/* Sync Indicator */}
+        {/* Main Content */}
+        <main className="flex-1 bg-white relative overflow-hidden flex flex-col">
+          <div className="p-4 lg:p-8 pb-20 lg:pb-8 flex-1 overflow-y-auto">
+          {/* Sync / Error Indicator */}
           <AnimatePresence>
             {isSaving && (
               <motion.div 
+                key="sync"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                className="fixed bottom-10 right-10 z-[100] flex items-center gap-3 bg-zinc-900 dark:bg-amber-500 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
+                className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-center gap-3 bg-zinc-900 dark:bg-amber-500 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
               >
                 <div className="relative flex items-center justify-center">
                   <motion.div 
@@ -574,77 +625,94 @@ export default function App() {
                 <span className="text-[10px] font-black uppercase tracking-[0.2em]">Cloud Syncing...</span>
               </motion.div>
             )}
+            {saveError && (
+              <motion.div
+                key="error"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                role="alert"
+                onClick={() => setSaveError(null)}
+                className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-start gap-3 bg-red-600 text-white px-5 py-3 rounded-2xl shadow-2xl max-w-sm cursor-pointer"
+              >
+                <span className="text-base leading-none mt-0.5">⚠️</span>
+                <div className="flex-1">
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] mb-1">保存エラー</div>
+                  <div className="text-xs font-bold leading-snug">{saveError}</div>
+                  <div className="text-[10px] opacity-70 mt-1">タップで閉じる</div>
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
 
           <AnimatePresence mode="wait">
             <motion.div
-              key={view + regionFilter + typeFilter + monthFilter + workspaceFilter}
+              key={view + regionFilter + typeFilter + monthFilter}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
             >
+              {/* Desktop: Calendar grid / Mobile: Timeline list */}
               {view === "calendar" && (
-                <CalendarView
-                  events={filtered}
-                  year={calYear} month={calMonth}
-                  setYear={setCalYear} setMonth={setCalMonth}
-                  onSelect={setSelected}
-                  onCreateEvent={handleCreateEvent}
-                />
+                <>
+                  <div className="hidden lg:block">
+                    <CalendarView
+                      events={filtered}
+                      year={calYear} month={calMonth}
+                      setYear={setCalYear} setMonth={setCalMonth}
+                      onSelect={setSelected}
+                      onCreateEvent={handleCreateEvent}
+                      lastEditedId={lastEditedId}
+                    />
+                  </div>
+                  <div className="lg:hidden">
+                    <MobileWeekStrip year={calYear} month={calMonth} events={filtered} />
+                    <div className="mt-4">
+                      {filtered.length === 0 ? <EmptyState /> : <MobileTimelineView events={filtered} onSelect={setSelected} />}
+                    </div>
+                  </div>
+                </>
               )}
               {view === "list" && (
                 filtered.length === 0 ? <EmptyState /> :
-                <ListView 
-                  data={filtered} 
-                  onSelect={setSelected} 
-                  lastEditedId={lastEditedId}
-                  bulkSelection={bulkSelection}
-                  onBulkSelectionChange={handleBulkUpdate}
-                />
+                <ListView data={filtered} onSelect={setSelected} lastEditedId={lastEditedId} />
               )}
-              {view === "analytics" && (
-                <AnalyticsDashboard />
+              {view === "analytics" && analyticsData && (
+                <AnalyticsDashboard data={analyticsData} loading={analyticsLoading} />
+              )}
+              {view === "analytics" && !analyticsData && analyticsLoading && (
+                <AnalyticsDashboard data={{ totalEvents: 0, completedEvents: 0, totalBudget: 0, avgBudget: 0, completionRate: 0, onTimeRate: 0, avgPreparationDays: 0, activeRegions: 0, topVenues: [], topRegion: '', busiestMonth: '', monthlyTrends: [], regionStats: [], typeStats: [], clientStats: [] }} loading={true} />
               )}
             </motion.div>
           </AnimatePresence>
-            </div>
           </div>
         </main>
       </div>
 
-      {/* Bulk Action Bar */}
-      <BulkActionBar
-        selectedEventIds={bulkSelection.selectedIds}
-        events={allEvents}
-        onClearSelection={bulkSelection.clearSelection}
-        onBulkUpdate={handleBulkUpdate}
-      />
-
       {/* Modals */}
       <AnimatePresence>
         {selected && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center lg:p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); setModalTab('details'); setShowMobileCamera(false); }}
+              onClick={handleCloseModal}
               className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" 
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, y: 40 }}
               animate={{
                 opacity: 1,
-                scale: 1,
                 y: 0,
-                width: showPrepList ? '95%' : '520px',
-                height: showPrepList ? '90%' : 'auto',
-                maxWidth: showPrepList ? '1600px' : '520px'
+                width: showPrepList ? '95vw' : undefined,
+                height: showPrepList ? '90vh' : undefined,
               }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              exit={{ opacity: 0, y: 40 }}
               onPointerDown={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100"
+              className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[520px] lg:max-w-[520px] max-h-[92vh] lg:max-h-[90vh]"
+              style={showPrepList ? { width: '95vw', maxWidth: '1600px', height: '90vh' } : {}}
             >
               {showPrepList ? (
                 <PreparationList
@@ -652,9 +720,9 @@ export default function App() {
                   onBack={() => setShowPrepList(false)}
                 />
               ) : (
-                <div className="flex flex-col h-full max-h-[90vh]">
+                <div className="p-6 lg:p-8 overflow-y-auto">
                   {/* Header: タグ + 閉じるボタン */}
-                  <div className="flex justify-between items-center p-6 border-b border-gray-100">
+                  <div className="flex justify-between items-center mb-5">
                     <div className="flex gap-2 flex-wrap">
                       {isEditMode ? (
                         <>
@@ -672,13 +740,16 @@ export default function App() {
                               <option key={d} value={d}>{d}</option>
                             ))}
                           </select>
-                          <input
-                            type="text"
+                          <select
                             value={selected.type || ""}
                             onChange={e => handleUpdateEvent(selected.id, { type: e.target.value })}
-                            placeholder="種別を入力..."
-                            className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-36"
-                          />
+                            className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                          >
+                            <option value="">種別を選択...</option>
+                            {sidebarTypes.map(t => (
+                              <option key={t.label} value={t.label}>{t.icon} {t.label}</option>
+                            ))}
+                          </select>
                         </>
                       ) : (
                         <>
@@ -696,56 +767,49 @@ export default function App() {
                       )}
                     </div>
                     <button
-                      onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); setModalTab('details'); setShowMobileCamera(false); }}
+                      onClick={handleCloseModal}
                       className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
                     >
                       <X size={18} />
                     </button>
                   </div>
 
-                  {/* Tab Navigation */}
-                  <div className="flex border-b border-gray-100">
-                    <button
-                      onClick={() => setModalTab('details')}
-                      className={`px-6 py-3 text-sm font-medium transition-colors relative ${
-                        modalTab === 'details'
-                          ? 'text-indigo-600 border-b-2 border-indigo-600'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      <StickyNote size={16} className="inline mr-2" />
-                      詳細
-                    </button>
-                    <button
-                      onClick={() => setModalTab('photos')}
-                      className={`px-6 py-3 text-sm font-medium transition-colors relative ${
-                        modalTab === 'photos'
-                          ? 'text-indigo-600 border-b-2 border-indigo-600'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      <Image size={16} className="inline mr-2" />
-                      写真 {selected.photos?.length ? `(${selected.photos.length})` : ''}
-                    </button>
-                    <button
-                      onClick={() => setModalTab('camera')}
-                      className={`px-6 py-3 text-sm font-medium transition-colors relative md:hidden ${
-                        modalTab === 'camera'
-                          ? 'text-indigo-600 border-b-2 border-indigo-600'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      <Camera size={16} className="inline mr-2" />
-                      カメラ
-                    </button>
+                  <div className="h-px bg-gray-100 mb-4"></div>
+
+                  {/* タブ切替 */}
+                  <div className="flex bg-slate-100 rounded-xl p-1 mb-5">
+                    {[
+                      { id: 'detail', label: '詳細' },
+                      { id: 'photos', label: `写真${selected.photos?.length ? ` (${selected.photos.length})` : ''}` },
+                    ].map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => setModalTab(t.id as any)}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${modalTab === t.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
                   </div>
 
-                  {/* Tab Content */}
-                  <div className="flex-1 overflow-y-auto">
-                    {modalTab === 'details' && (
-                      <div className="p-6">
-                        {/* フィールド */}
-                        <div className="space-y-5">
+                  {/* 写真タブ */}
+                  {modalTab === 'photos' && (
+                    <div className="space-y-4">
+                      {isEditor && (
+                        <PhotoUpload onUpload={async (file) => { await uploadPhoto(file); }} uploading={photoUploading} />
+                      )}
+                      {photoError && <p className="text-xs text-red-500 font-bold">{photoError}</p>}
+                      <PhotoGallery
+                        photos={selected.photos || []}
+                        onDelete={photo => deleteEventPhoto(photo, selected.photos || [])}
+                        onUpdateCaption={(photo, caption) => updatePhotoCaption(photo, caption, selected.photos || [])}
+                        canEdit={!!isEditor}
+                      />
+                    </div>
+                  )}
+
+                  {/* フィールド */}
+                  {modalTab === 'detail' && <><div className="space-y-5">
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">VENUE・会場</label>
                       {isEditMode ? (
@@ -797,34 +861,22 @@ export default function App() {
 
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">CLIENT・クライアント</label>
-                      {isEditMode ? (
-                        <input
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          value={selected.client}
-                          placeholder="クライアント名を入力..."
-                          onChange={e => handleUpdateEvent(selected.id, { client: e.target.value })}
-                        />
-                      ) : (
-                        <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800">
-                          {selected.client || "—"}
-                        </div>
-                      )}
+                      <input
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={selected.client}
+                        placeholder="クライアント名を入力..."
+                        onChange={e => handleUpdateEvent(selected.id, { client: e.target.value })}
+                      />
                     </div>
 
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">NOTES・備考</label>
-                      {isEditMode ? (
-                        <textarea
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px] resize-none"
-                          value={selected.note}
-                          placeholder="メモ..."
-                          onChange={e => handleUpdateEvent(selected.id, { note: e.target.value })}
-                        />
-                      ) : (
-                        <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 min-h-[60px]">
-                          {selected.note || "—"}
-                        </div>
-                      )}
+                      <textarea
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px] resize-none"
+                        value={selected.note}
+                        placeholder="メモ..."
+                        onChange={e => handleUpdateEvent(selected.id, { note: e.target.value })}
+                      />
                     </div>
                   </div>
 
@@ -848,7 +900,16 @@ export default function App() {
 
                   {/* ボタン */}
                   <div className="mt-6 flex gap-3">
-                    {isEditMode ? (
+                    {hasUnsavedChanges ? (
+                      <button
+                        onClick={async () => { await handleSaveEvent(); setIsEditMode(false); }}
+                        disabled={isSaving}
+                        className="flex-1 py-4 rounded-2xl bg-amber-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-amber-600 disabled:opacity-60 transition-colors shadow-lg shadow-amber-500/20"
+                      >
+                        <Save size={16} />
+                        {isSaving ? "保存中..." : "保存する"}
+                      </button>
+                    ) : isEditMode ? (
                       <button
                         onClick={async () => { await handleSaveEvent(); setIsEditMode(false); }}
                         disabled={isSaving}
@@ -873,46 +934,23 @@ export default function App() {
                       準備物リストを開く
                     </button>
                   </div>
-                      </div>
-                    )}
-
-                    {modalTab === 'photos' && (
-                      <div className="p-6 space-y-6">
-                        <PhotoUpload 
-                          eventId={selected.id}
-                          onPhotoUploaded={() => {
-                            // Force re-fetch of event data to get updated photos
-                            window.location.reload();
-                          }}
-                        />
-                        <PhotoGallery 
-                          eventId={selected.id}
-                          photos={selected.photos || []}
-                          onPhotosChange={() => {
-                            // Force re-fetch of event data
-                            window.location.reload();
-                          }}
-                        />
-                      </div>
-                    )}
-
-                    {modalTab === 'camera' && (
-                      <div className="h-full">
-                        <MobilePhotoCapture 
-                          eventId={selected.id}
-                          onPhotoUploaded={() => {
-                            setModalTab('photos');
-                            // Force re-fetch of event data
-                            window.location.reload();
-                          }}
-                          onClose={() => setModalTab('details')}
-                        />
-                      </div>
-                    )}
-                  </div>
 
                   <AnimatePresence>
-                    {hasUnsavedChanges && isEditMode && (
+                    {validationErrors.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 6 }}
+                        className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl"
+                      >
+                        {validationErrors.map((err, i) => (
+                          <p key={i} className="text-xs text-red-600 font-bold">
+                            ⚠️ {err.message}
+                          </p>
+                        ))}
+                      </motion.div>
+                    )}
+                    {hasUnsavedChanges && isEditMode && validationErrors.length === 0 && (
                       <motion.p
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -923,402 +961,371 @@ export default function App() {
                       </motion.p>
                     )}
                   </AnimatePresence>
+                  </>}
                 </div>
               )}
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around pb-safe z-20 lg:hidden">
+        {[
+          { id: "calendar",  icon: <Calendar size={22} />,    label: "カレンダー" },
+          { id: "list",      icon: <List size={22} />,        label: "リスト" },
+          { id: "analytics", icon: <BarChart2 size={22} />,   label: "分析" },
+          { id: "prep",      icon: <ClipboardList size={22} />, label: "準備物" },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => { if (tab.id !== "prep") setView(tab.id as any); }}
+            className={`flex flex-col items-center gap-0.5 px-4 py-3 text-[10px] font-bold transition-colors ${
+              view === tab.id ? "text-indigo-600" : "text-slate-400"
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
 
 /* ═══════════════════════════════════════
-   サブコンポーネント (Updated for Dark Mode)
+   サブコンポーネント
 ═══════════════════════════════════════ */
 
-function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCreateEvent }: any) {
-  const firstDay = new Date(year, month - 1, 1).getDay();
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const cells: { day: number; current: boolean; fullDate: Date }[] = [];
+interface MobileTimelineViewProps {
+  events: Event[];
+  onSelect: (event: Event) => void;
+}
 
-  const prevMonthLastDay = new Date(year, month - 1, 0).getDate();
-  for (let i = firstDay - 1; i >= 0; i--) {
-    const day = prevMonthLastDay - i;
-    cells.push({ day, current: false, fullDate: new Date(year, month - 2, day) });
-  }
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ day: d, current: true, fullDate: new Date(year, month - 1, d) });
-  }
-
-  const remaining = (7 - (cells.length % 7)) % 7;
-  for (let i = 1; i <= remaining; i++) {
-    cells.push({ day: i, current: false, fullDate: new Date(year, month, i) });
-  }
-
-  const weeks: (typeof cells)[] = [];
-  for (let i = 0; i < cells.length; i += 7) {
-    weeks.push(cells.slice(i, i + 7));
-  }
-
-  const prevMonth = () => {
-    if (month === 1) {
-      setYear((y: number) => y - 1);
-      setMonth(12);
-    } else setMonth((m: number) => m - 1);
-  };
-  const nextMonth = () => {
-    if (month === 12) {
-      setYear((y: number) => y + 1);
-      setMonth(1);
-    } else setMonth((m: number) => m + 1);
-  };
-  const goToday = () => {
-    const d = new Date();
-    setYear(d.getFullYear());
-    setMonth(d.getMonth() + 1);
+function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps) {
+  const fmtGroup = (d: string) => {
+    if (!d) return "—";
+    const [, m, day] = d.split("-");
+    const date = new Date(d);
+    const dow = ["日","月","火","水","木","金","土"][date.getDay()];
+    return `${parseInt(m)}/${parseInt(day)} ${dow}`;
   };
 
-  const today = new Date();
-  const sameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-
-  const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-  const segmentsForWeek = (weekCells: typeof cells) => {
-    const segments: { ev: Event; start: number; end: number }[] = [];
-    for (const ev of events as Event[]) {
-      let start = -1;
-      let end = -1;
-      weekCells.forEach((cell, idx) => {
-        if (!eventCoversDay(ev, cell.fullDate)) return;
-        if (start === -1) start = idx;
-        end = idx;
-      });
-      if (start !== -1) segments.push({ ev, start, end });
-    }
-    return assignEventLanes(segments);
-  };
-
-  const laneH = 26;
+  const grouped = useMemo(() => {
+    const map: Record<string, Event[]> = {};
+    events.forEach((ev) => {
+      const key = ev.start || "未定";
+      if (!map[key]) map[key] = [];
+      map[key].push(ev);
+    });
+    return Object.entries(map).sort(([a], [b]) => a < b ? -1 : 1);
+  }, [events]);
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6 shrink-0">
-        <h2 className="text-[26px] font-bold text-slate-900 tracking-tight">
-          {monthNames[month]} <span className="text-slate-400 font-semibold">{year}</span>
-        </h2>
+    <div className="space-y-6 pb-2">
+      {grouped.map(([date, evs]) => (
+        <div key={date}>
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-black text-slate-700">{fmtGroup(date)}</span>
+            <div className="flex-1 h-px bg-slate-100" />
+            <span className="text-xs font-bold text-slate-400">{evs.length}</span>
+          </div>
+          <div className="space-y-2">
+            {evs.map((ev) => (
+              <button
+                key={ev.id}
+                onClick={() => onSelect(ev)}
+                className="w-full bg-white border border-slate-100 rounded-2xl flex items-center gap-3 text-left shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+              >
+                <div className="w-1 self-stretch rounded-l-2xl shrink-0" style={{ background: rs(ev.region || "").dot }} />
+                <span className="text-xl py-4 shrink-0">{ev.emoji || ts(ev.type || "").icon}</span>
+                <div className="flex-1 py-4 min-w-0">
+                  <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    {ev.region}{ev.dept ? `・${ev.dept}` : ""}・{ev.type || "その他"}
+                  </div>
+                </div>
+                {ev.end && ev.end !== ev.start && (
+                  <span className="text-[11px] text-slate-400 font-bold pr-4 shrink-0">→{fmtShort(ev.end)}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-[12px] font-semibold text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:bg-slate-50 transition-colors"
-          >
-            <Filter size={15} strokeWidth={1.75} className="text-slate-400" />
-            フィルター
-          </button>
+interface MobileWeekStripProps {
+  year: number;
+  month: number;
+  events: Event[];
+}
 
-          <div className="flex items-center rounded-xl border border-[#E5E7EB] bg-white p-0.5 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
-            <button type="button" onClick={prevMonth} className="p-2 text-slate-400 hover:text-[#4F46E5] transition-colors rounded-lg hover:bg-slate-50" aria-label="前月">
-              <ChevronLeft size={20} strokeWidth={2} />
-            </button>
-            <button type="button" onClick={goToday} className="px-4 py-2 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
-              今日
-            </button>
-            <button type="button" onClick={nextMonth} className="p-2 text-slate-400 hover:text-[#4F46E5] transition-colors rounded-lg hover:bg-slate-50" aria-label="翌月">
-              <ChevronRight size={20} strokeWidth={2} />
-            </button>
+function MobileWeekStrip({ year, month, events }: MobileWeekStripProps) {
+  const today = new Date();
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay());
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(startOfWeek);
+    d.setDate(startOfWeek.getDate() + i);
+    return d;
+  });
+  const dayLabels = ["S", "M", "T", "W", "T", "F", "S"];
+
+  return (
+    <div className="flex justify-between px-1 mb-2">
+      {days.map((d, i) => {
+        const isToday = d.toDateString() === today.toDateString();
+        const hasEvent = events.some((ev) => ev.start && new Date(ev.start).toDateString() === d.toDateString());
+        return (
+          <div key={i} className="flex flex-col items-center gap-1">
+            <span className={`text-[10px] font-bold ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-slate-400"}`}>{dayLabels[i]}</span>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black transition-all ${
+              isToday ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-600"
+            }`}>
+              {d.getDate()}
+            </div>
+            {hasEvent && !isToday && <div className="w-1 h-1 rounded-full bg-indigo-400" />}
+            {!hasEvent && <div className="w-1 h-1" />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+interface CalendarViewProps {
+  events: Event[];
+  year: number;
+  month: number;
+  setYear: (year: number) => void;
+  setMonth: (month: number) => void;
+  onSelect: (event: Event) => void;
+  onCreateEvent: (data?: Partial<Event>) => void;
+  lastEditedId: string | null;
+}
+
+function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCreateEvent, lastEditedId }: CalendarViewProps) {
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const cells = [];
+  
+  // 前月のパディング
+  const prevMonthLastDay = new Date(year, month - 1, 0).getDate();
+  for (let i = firstDay - 1; i >= 0; i--) {
+    cells.push({ day: prevMonthLastDay - i, current: false });
+  }
+  
+  // 今月の実データ
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ day: d, current: true });
+  }
+  
+  // 次月のパディング
+  const remaining = (7 - (cells.length % 7)) % 7;
+  for (let i = 1; i <= remaining; i++) {
+    cells.push({ day: i, current: false });
+  }
+
+  const prevMonth = () => { if (month === 1) { setYear(year - 1); setMonth(12); } else setMonth(month - 1); };
+  const nextMonth = () => { if (month === 12) { setYear(year + 1); setMonth(1); } else setMonth(month + 1); };
+  const setToday = () => { const d = new Date(); setYear(d.getFullYear()); setMonth(d.getMonth() + 1); };
+
+  const today = new Date();
+  const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+            {monthNames[month]} <span className="text-slate-400 font-bold ml-1">{year}</span>
+          </h2>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1">
+            <button onClick={prevMonth} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ChevronLeft size={20} /></button>
+            <button onClick={setToday} className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm ml-1 mr-1">今日</button>
+            <button onClick={nextMonth} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ChevronRight size={20} /></button>
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-[#E5E7EB] overflow-hidden bg-white flex-1 flex flex-col min-h-[480px]">
-        <div className="grid grid-cols-7 border-b border-[#E5E7EB] bg-[#FAFAFB]">
-          {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d, i) => (
-            <div key={d} className="py-2.5 px-3 border-r border-[#E5E7EB] last:border-r-0">
-              <span
-                className={`text-[10px] font-semibold uppercase tracking-[0.08em] ${
-                  i === 0 ? "text-[#DC2626]" : i === 6 ? "text-[#2563EB]" : "text-slate-400"
-                }`}
-              >
-                {d}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex flex-col">
-          {weeks.map((week, wi) => {
-            const placed = segmentsForWeek(week);
-            const maxLane = placed.reduce((m, p) => Math.max(m, p.lane), -1);
-            const lanesUsed = maxLane + 1;
-            const rowMin = Math.max(152, 44 + Math.max(1, lanesUsed) * laneH + 52);
-
-            return (
-              <div
-                key={wi}
-                className="relative grid grid-cols-7 border-b border-[#E5E7EB] last:border-b-0"
-                style={{ minHeight: rowMin }}
-              >
-                {week.map((cell, di) => {
-                  const isSat = di === 6;
-                  const isSun = di === 0;
-                  const isToday = sameDay(cell.fullDate, today);
-
-                  let dayNumClass = "text-[12px] font-semibold tabular-nums ";
-                  if (!cell.current) dayNumClass += "text-slate-300";
-                  else if (isToday) dayNumClass += "text-white";
-                  else if (isSun) dayNumClass += "text-[#DC2626]";
-                  else if (isSat) dayNumClass += "text-[#2563EB]";
-                  else dayNumClass += "text-slate-800";
-
-                  return (
-                    <div
-                      key={`${wi}-${di}`}
-                      className={`relative z-[1] flex flex-col border-r border-[#E5E7EB] last:border-r-0 group/cell ${cell.current ? "bg-white" : "bg-[#FAFAFB]"}`}
-                    >
-                      <div className="flex items-start justify-start px-2 pt-2">
-                        <span
-                          className={`inline-flex h-7 min-w-[28px] items-center justify-center rounded-full px-1 ${isToday && cell.current ? "bg-[#8B5CF6] shadow-sm" : ""}`}
-                        >
-                          <span className={dayNumClass}>{cell.day}</span>
-                        </span>
-                      </div>
-
-                      <div className="flex-1 min-h-[88px]" />
-
-                      <div className="p-2 pt-0 mt-auto">
-                        {cell.current && (
-                          <button
-                            type="button"
-                            title="イベントを追加"
-                            onClick={() =>
-                              onCreateEvent({
-                                start: `${year}-${String(month).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`,
-                              })
-                            }
-                            className="flex w-full items-center justify-center rounded-lg border border-dashed border-[#E5E7EB] py-2 text-slate-300 opacity-0 transition-all hover:border-[#C4B5FD] hover:text-[#7C3AED] group-hover/cell:opacity-100"
-                          >
-                            <Plus size={14} strokeWidth={2} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                <div className="pointer-events-none absolute left-0 right-0 top-[38px] bottom-11 z-[2] px-1">
-                  {placed.map(({ seg, lane }) => {
-                    const accent = rs(seg.ev.region || "").dot || ts(seg.ev.type || "").border || "#94a3b8";
-                    const span = seg.end - seg.start + 1;
-                    return (
-                      <button
-                        key={`${seg.ev.id}-${wi}-${lane}-${seg.start}`}
-                        type="button"
-                        onClick={() => onSelect(seg.ev)}
-                        style={{
-                          top: lane * laneH,
-                          left: `calc(${(seg.start / 7) * 100}% + 6px)`,
-                          width: `calc(${(span / 7) * 100}% - 12px)`,
-                        }}
-                        className="pointer-events-auto absolute flex h-[22px] items-center gap-1.5 overflow-hidden rounded-md border border-[#E5E7EB] bg-[#F3F4F6] pl-2 pr-2 text-left shadow-[0_1px_0_rgba(15,23,42,0.04)] transition-colors hover:bg-[#EEF2FF]"
-                      >
-                        <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-md" style={{ background: accent }} />
-                        <span className="relative z-[1] ml-1 shrink-0 text-[12px] leading-none">{seg.ev.emoji || ts(seg.ev.type || "").icon}</span>
-                        <span className="relative z-[1] truncate text-[11px] font-semibold text-slate-700">{seg.ev.venue}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+      <div className="flex-1 grid grid-cols-7 border-t border-l border-slate-100">
+        {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d, i) => (
+          <div key={d} className="border-r border-b border-slate-100 bg-slate-50/10 py-2 px-3">
+            <span className={`text-[9px] font-black uppercase tracking-widest ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-slate-400"}`}>{d}</span>
+          </div>
+        ))}
+        
+        {cells.map((cell, idx) => {
+          const isSun = idx % 7 === 0;
+          const isToday = cell.current && today.getFullYear() === year && today.getMonth() === month - 1 && today.getDate() === cell.day;
+          const dayEvents = cell.current ? events.filter((ev) => eventCoversDate(ev, year, month, cell.day)) : [];
+          
+          return (
+            <div 
+              key={idx} 
+              className={`
+                min-h-[160px] border-r border-b border-slate-100 p-2 group transition-colors
+                ${cell.current ? "bg-white" : "bg-slate-50/20"}
+                ${isToday ? "bg-indigo-50/10" : ""}
+              `}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <span className={`
+                  text-[11px] font-bold px-1.5 py-0.5 rounded
+                  ${!cell.current ? "text-slate-300" : isToday ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : isSun ? "text-red-500" : "text-slate-700"}
+                `}>
+                  {cell.day}
+                </span>
               </div>
-            );
-          })}
-        </div>
+              
+              <div className="space-y-0.5">
+                {dayEvents.slice(0, 4).map((ev) => (
+                  <button
+                    key={ev.id}
+                    onClick={() => onSelect(ev)}
+                    className="w-full text-left bg-slate-50 hover:bg-slate-100 transition-colors rounded py-0.5 pl-1.5 pr-1 flex items-center gap-1 relative overflow-hidden"
+                  >
+                    <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ background: rs(ev.region || "").dot }}></div>
+                    <span className="text-[9px] shrink-0 ml-0.5">{ev.emoji || ts(ev.type || "").icon}</span>
+                    <span className="text-[9px] font-bold text-slate-700 truncate leading-tight">{ev.venue}</span>
+                  </button>
+                ))}
+                {dayEvents.length > 4 && (
+                  <div className="text-[9px] font-bold text-slate-400 pl-1.5">+{dayEvents.length - 4} more</div>
+                )}
+
+                {cell.current && dayEvents.length === 0 && (
+                  <button
+                    onClick={() => onCreateEvent({ start: `${year}-${String(month).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}` })}
+                    className="w-full py-2 opacity-0 group-hover:opacity-100 border border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-300 hover:border-indigo-300 hover:text-indigo-400 transition-all"
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 
-function ListView({ 
-  data, 
-  onSelect, 
-  lastEditedId, 
-  bulkSelection,
-  onBulkSelectionChange 
-}: any) {
-  const eventIds = data.map((d: any) => d.id);
-  
-  const handleRowClick = (event: any, eventData: any) => {
-    if (event.ctrlKey || event.metaKey) {
-      // Ctrl/Cmd click for multi-select
-      bulkSelection.toggleSelection(eventData.id);
-      onBulkSelectionChange?.();
-    } else if (event.shiftKey && bulkSelection.selectedIds.length > 0) {
-      // Shift click for range select
-      const lastSelectedIndex = eventIds.indexOf(bulkSelection.selectedIds[bulkSelection.selectedIds.length - 1]);
-      const currentIndex = eventIds.indexOf(eventData.id);
-      
-      if (lastSelectedIndex !== -1) {
-        const start = Math.min(lastSelectedIndex, currentIndex);
-        const end = Math.max(lastSelectedIndex, currentIndex);
-        const rangeIds = eventIds.slice(start, end + 1);
-        bulkSelection.selectMultiple(rangeIds);
-        onBulkSelectionChange?.();
-      } else {
-        bulkSelection.toggleSelection(eventData.id);
-        onBulkSelectionChange?.();
-      }
-    } else {
-      // Normal click
-      if (bulkSelection.selectedIds.length > 0) {
-        // If in bulk mode, toggle selection
-        bulkSelection.toggleSelection(eventData.id);
-        onBulkSelectionChange?.();
-      } else {
-        // Open event modal
-        onSelect(eventData);
-      }
-    }
-  };
+interface ListViewProps {
+  data: Event[];
+  onSelect: (event: Event) => void;
+  lastEditedId: string | null;
+}
 
+function ListView({ data, onSelect, lastEditedId }: ListViewProps) {
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-          All events<span className="text-slate-400 font-semibold"> · </span>
-          <span className="tabular-nums text-slate-400 font-semibold">{data.length}</span>
+    <div className="flex flex-col">
+      {/* タイトル */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-baseline gap-2">
+          All events
+          <span className="text-slate-400 text-sm font-bold">· {data.length}</span>
         </h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-[12px] font-semibold text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:bg-slate-50 transition-colors"
-          >
-            <Filter size={15} strokeWidth={1.75} className="text-slate-400" />
-            フィルター
-          </button>
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-[12px] font-semibold text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:bg-slate-50 transition-colors"
-          >
-            <ArrowUpDown size={15} strokeWidth={1.75} className="text-slate-400" />
-            並び替え
-          </button>
-        </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-        <table className="w-full min-w-[880px] text-left border-collapse">
-          <thead>
-            <tr className="border-b border-[#E5E7EB] bg-[#FAFAFB]">
-              <th className="w-10 px-3 py-4 lg:w-11">
-                <span className="sr-only">選択</span>
-                <input
-                  type="checkbox"
-                  checked={bulkSelection.isAllSelected(eventIds)}
-                  onChange={() => {
-                    bulkSelection.toggleAllSelection(eventIds);
-                    onBulkSelectionChange?.();
-                  }}
-                  className="h-3.5 w-3.5 rounded border-[#CBD5E1] text-[#4F46E5] focus:ring-[#4F46E5]/30"
-                  aria-label="すべて選択"
-                />
-              </th>
-              {[
-                { k: "DATE", w: "w-[100px]" },
-                { k: "本部", w: "min-w-[120px]" },
-                { k: "種別", w: "min-w-[140px]" },
-                { k: "会場", w: "" },
-                { k: "状態", w: "w-[120px] text-right" },
-              ].map((col) => (
-                <th
-                  key={col.k}
-                  className={`px-4 py-4 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 ${col.w}`}
-                >
-                  {col.k}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((d: any) => {
-              const isSelected = bulkSelection.isSelected(d.id);
-              return (
+      {/* テーブル */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white border border-slate-100 rounded-2xl overflow-hidden"
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50 border-b border-slate-100">
+                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">DATE</th>
+                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">本部</th>
+                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">種別</th>
+                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">会場</th>
+                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">状態</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {data.map((d) => (
                 <tr
                   key={d.id}
-                  onClick={(e) => handleRowClick(e, d)}
-                  className={`group cursor-pointer border-b border-[#E5E7EB] transition-colors last:border-b-0 ${
-                    isSelected ? "bg-[#F5F3FF]" : d.id === lastEditedId ? "bg-amber-50/80" : "hover:bg-slate-50/80"
-                  }`}
+                  onClick={() => onSelect(d)}
+                  className={`
+                    group cursor-pointer transition-colors
+                    ${d.id === lastEditedId ? "bg-amber-50/50" : "hover:bg-slate-50/50"}
+                  `}
                 >
-                  <td className="px-3 py-5 align-top">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        bulkSelection.toggleSelection(d.id);
-                        onBulkSelectionChange?.();
-                      }}
-                      className="h-3.5 w-3.5 rounded border-[#CBD5E1] text-[#4F46E5] focus:ring-[#4F46E5]/30"
-                      aria-label={`${d.venue} を選択`}
-                    />
+                  <td className="px-6 py-4 align-middle">
+                    <div className="text-xs font-bold text-slate-700">
+                      {fmtShort(d.start)}
+                      {d.end && d.start !== d.end ? `-${fmtShort(d.end)}` : ""}
+                    </div>
                   </td>
-                  <td className="px-4 py-5 align-top tabular-nums">
-                    <span className="text-[13px] font-medium text-slate-600">{fmtRange(d.start, d.end)}</span>
-                  </td>
-                  <td className="px-4 py-5 align-top">
+                  <td className="px-6 py-4 align-middle">
                     <span
-                      className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap"
                       style={{ background: rs(d.region).bg, color: rs(d.region).text }}
                     >
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: rs(d.region).dot }} />
-                      {d.region}
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: rs(d.region).dot }}></span>
+                      {d.region}{d.dept ? `・${d.dept}` : ""}
                     </span>
                   </td>
-                  <td className="px-4 py-5 align-top">
-                    <span className="inline-flex items-center gap-2 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                      <span className="text-[14px] leading-none">{d.emoji || ts(d.type || "").icon}</span>
-                      <span className="truncate">{d.type || "その他"}</span>
+                  <td className="px-6 py-4 align-middle">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 whitespace-nowrap">
+                      <span>{d.emoji || ts(d.type || "").icon}</span>
+                      {d.type || "その他"}
                     </span>
                   </td>
-                  <td className="px-4 py-5 align-top">
-                    <div className="flex items-start gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[14px] font-semibold text-slate-900 leading-snug tracking-tight">{d.venue}</div>
-                        <div className="mt-1 text-[12px] font-medium text-slate-500">{d.client || "—"}</div>
-                      </div>
+                  <td className="px-6 py-4 align-middle">
+                    <div className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                      {d.venue}
                       {d.id === lastEditedId && (
                         <motion.span
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                          className="mt-0.5 shrink-0 rounded-md bg-amber-500 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white shadow-sm"
+                          className="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-black rounded tracking-widest uppercase"
                         >
-                          New
+                          Updated
                         </motion.span>
                       )}
                     </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5 font-medium">{d.client || "—"}</div>
                   </td>
-                  <td className="px-4 py-5 align-top text-right">
-                    <span className="text-[11px] font-medium tracking-wide text-slate-400">{statusDisplay(d)}</span>
+                  <td className="px-6 py-4 align-middle text-right">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      {d.status || "SCHEDULED"}
+                    </span>
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </motion.div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
-function FilterGroup({ label, options, value, onChange }: any) {
+interface FilterGroupProps {
+  label: string;
+  options: string[];
+  value: string;
+  onChange: (value: string) => void;
+}
+
+function FilterGroup({ label, options, value, onChange }: FilterGroupProps) {
   return (
     <div className="space-y-4">
       <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] px-1 opacity-60">{label}</div>
       <div className="flex flex-col gap-1.5">
-        {options.map((opt: any) => (
+        {options.map((opt) => (
           <motion.button
             key={opt}
             whileHover={{ x: 4, backgroundColor: "rgba(245, 158, 11, 0.05)" }}
