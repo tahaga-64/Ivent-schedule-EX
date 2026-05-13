@@ -1,7 +1,7 @@
 import { useRef, useState, DragEvent } from 'react';
 import { Upload, X, Image } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { validateImageFile } from '../../lib/photoStorage';
+import { validateImageFile, PHOTO_UPLOAD_PROFILE } from '../../lib/photoStorage';
 
 interface Props {
   onUpload: (file: File) => Promise<any>;
@@ -57,6 +57,9 @@ export default function PhotoUpload({ onUpload, uploading, uploadProgress }: Pro
         <div className="text-center">
           <p className="text-sm font-bold text-slate-600">クリックまたはドラッグ＆ドロップ</p>
           <p className="text-xs text-slate-400 mt-0.5">JPEG, PNG, WebP, GIF · 最大10MB</p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            圧縮目安: フル {PHOTO_UPLOAD_PROFILE.targetSizeGuide.fullKb} / サムネ {PHOTO_UPLOAD_PROFILE.targetSizeGuide.thumbnailKb} / 合計 {PHOTO_UPLOAD_PROFILE.targetSizeGuide.totalKb}
+          </p>
         </div>
         {uploading && (
           <div className="absolute inset-0 bg-white/80 rounded-2xl flex flex-col items-center justify-center gap-2">
