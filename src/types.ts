@@ -11,6 +11,26 @@ export interface Event {
   emoji?: string;
   photos?: EventPhoto[];
   status?: string;
+  sales?: number;
+  grossProfit?: number;
+  attendance?: number;
+  seatedCount?: number;
+  contracts?: number;
+  carrierInflow?: CarrierInflow;
+  retrospective?: EventRetrospective;
+}
+
+export interface CarrierInflow {
+  docomo?: number;
+  au?: number;
+  softbank?: number;
+  rakuten?: number;
+  other?: number;
+}
+
+export interface EventRetrospective {
+  goodPoints?: string;
+  improvements?: string;
 }
 
 export interface PreparationItem {
@@ -52,6 +72,10 @@ export interface MonthlyTrend {
   month: string;
   count: number;
   budget: number;
+  sales: number;
+  grossProfit: number;
+  attendance: number;
+  contracts: number;
 }
 
 export interface RegionStats {
@@ -76,4 +100,18 @@ export interface AnalyticsData {
   regionStats: RegionStats[];
   typeStats: { type: string; count: number }[];
   clientStats: { client: string; count: number; budget: number }[];
+  totalSales: number;
+  totalGrossProfit: number;
+  totalAttendance: number;
+  totalSeatedCount: number;
+  totalContracts: number;
+  avgCarrierSwitchRate: number;
+  carrierInflowTotal: CarrierInflow;
+  recentRetrospectives: {
+    eventId: string;
+    venue: string;
+    start: string;
+    retrospective: EventRetrospective;
+  }[];
+  dailyAttendance: { date: string; attendance: number }[];
 }
