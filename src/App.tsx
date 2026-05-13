@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { db, handleFirestoreError, OperationType } from './lib/firebase';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
-import { REGION_STYLE, TYPE_STYLE, DAYS_JP, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
+import { REGION_STYLE, TYPE_STYLE, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
 import { Event } from './types';
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, MapPin, Building2, StickyNote, ClipboardList, Moon, Sun, Save, Plus, Filter, Search, Camera, Image, BarChart3 } from 'lucide-react';
+import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, StickyNote, ClipboardList, Save, Plus, Filter, Search, Camera, Image, BarChart3, Package, ArrowUpDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PreparationList from './components/PreparationList';
 import PhotoUpload from './components/photos/PhotoUpload';
@@ -22,13 +22,17 @@ import { notifyEventCreated, notifyEventUpdated } from './lib/notifications';
 const rs = (r: string) => REGION_STYLE[r] || { bg: "#f1f5f9", text: "#334155", dot: "#94a3b8", calBg: "rgba(241, 245, 249, 0.4)", calBorder: "#cbd5e1" };
 const ts = (t: string) => TYPE_STYLE[t] || { bg: "#f8fafc", border: "#e2e8f0", text: "#64748b", icon: "📋" };
 const fmtShort = (d: string) => { if (!d) return "—"; const [, m, day] = d.split("-"); return `${parseInt(m)}/${parseInt(day)}`; };
+const fmtRange = (start: string, end?: string) => {
+  if (!start) return "—";
+  if (!end || start === end) return fmtShort(start);
+  return `${fmtShort(start)}-${fmtShort(end)}`;
+};
 const getMonth = (d: string) => { if (!d) return null; return parseInt(d.split("-")[1]); };
 
-function eventCoversDate(ev: Event, y: number, m: number, day: number) {
+function eventCoversDay(ev: Event, day: Date) {
   if (!ev.start) return false;
+  const t = new Date(day); t.setHours(0, 0, 0, 0);
   const s = new Date(ev.start); s.setHours(0, 0, 0, 0);
-  const t = new Date(y, m - 1, day);
-  
   if (ev.end) {
     const e = new Date(ev.end); e.setHours(23, 59, 59, 999);
     return t >= s && t <= e;
@@ -36,8 +40,43 @@ function eventCoversDate(ev: Event, y: number, m: number, day: number) {
   return t.getTime() === s.getTime();
 }
 
+function assignEventLanes(segments: { ev: Event; start: number; end: number }[]) {
+  const sorted = [...segments].sort((a, b) => a.start - b.start || a.end - b.end);
+  const lanes: typeof segments[] = [];
+  const placed: { seg: (typeof segments)[0]; lane: number }[] = [];
+  for (const seg of sorted) {
+    let laneIdx = -1;
+    for (let i = 0; i < lanes.length; i++) {
+      const ok = lanes[i].every((s) => seg.end < s.start || seg.start > s.end);
+      if (ok) {
+        laneIdx = i;
+        break;
+      }
+    }
+    if (laneIdx === -1) {
+      lanes.push([seg]);
+      laneIdx = lanes.length - 1;
+    } else {
+      lanes[laneIdx].push(seg);
+    }
+    placed.push({ seg, lane: laneIdx });
+  }
+  return placed;
+}
+
+function statusDisplay(ev: Event): string {
+  const s = ev.status;
+  if (!s || s === "planning") return "SCHEDULED";
+  if (s === "preparing") return "PREPARING";
+  if (s === "in-progress") return "IN PROGRESS";
+  if (s === "completed") return "COMPLETED";
+  if (s === "cancelled") return "CANCELLED";
+  return String(s).toUpperCase();
+}
+
 export default function App() {
   const [view, setView] = useState<"calendar" | "list" | "analytics">(() => (localStorage.getItem('viewMode') as any) || "calendar");
+  const [workspaceFilter, setWorkspaceFilter] = useState<"all" | "prep" | "stock">("all");
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
   const [monthFilter, setMonthFilter] = useState(() => localStorage.getItem('monthFilter') || "すべて");
@@ -159,6 +198,13 @@ export default function App() {
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return allEvents.filter(d => {
+      if (workspaceFilter === "prep") {
+        const s = d.status;
+        if (!(s === "preparing" || s === "planning" || s === undefined)) return false;
+      }
+      if (workspaceFilter === "stock") {
+        if (d.status !== "in-progress") return false;
+      }
       if (regionFilter !== "すべて" && d.region !== regionFilter) return false;
       if (typeFilter !== "すべて" && d.type !== typeFilter) return false;
       if (monthFilter !== "すべて") {
@@ -168,24 +214,24 @@ export default function App() {
       if (q && !d.venue.toLowerCase().includes(q) && !(d.client || "").toLowerCase().includes(q)) return false;
       return true;
     }).sort((a, b) => (a.start || "9999") < (b.start || "9999") ? -1 : 1);
-  }, [allEvents, regionFilter, typeFilter, monthFilter, searchQuery]);
+  }, [allEvents, workspaceFilter, regionFilter, typeFilter, monthFilter, searchQuery]);
 
   const stats = useMemo(() => {
     const byRegion: Record<string, number> = {};
     const byType: Record<string, number> = {};
-    const byStatus: Record<string, number> = { "準備中": 0, "入荷待ち": 0 };
-    
-    allEvents.forEach(d => { 
+    let prepCount = 0;
+    let stockCount = 0;
+
+    allEvents.forEach(d => {
       if (d.region) byRegion[d.region] = (byRegion[d.region] || 0) + 1;
       if (d.type) byType[d.type] = (byType[d.type] || 0) + 1;
+      const s = d.status;
+      if (s === "preparing" || s === "planning" || s === undefined) prepCount++;
+      if (s === "in-progress") stockCount++;
     });
 
-    filtered.forEach(d => {
-      if (d.status) byStatus[d.status] = (byStatus[d.status] || 0) + 1;
-    });
-
-    return { total: allEvents.length, byRegion, byType, byStatus };
-  }, [allEvents, filtered]);
+    return { total: allEvents.length, byRegion, byType, prepCount, stockCount };
+  }, [allEvents]);
 
   const handleUpdateEvent = (id: string, updates: Partial<Event>) => {
     // 選択中のイベントをベースに更新
@@ -251,196 +297,252 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen transition-colors duration-300">
+    <div className="flex flex-col min-h-screen bg-[#F8F9FA] text-slate-800 transition-colors duration-300">
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-slate-100 sticky top-0 z-30 gap-4">
-        {/* 左: ハンバーガー + ロゴ */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors">
+      <header className="h-[56px] shrink-0 flex items-center justify-between gap-4 px-4 lg:px-6 bg-white border-b border-[#E5E7EB] sticky top-0 z-30">
+        {/* Left: menu (mobile) + logo */}
+        <div className="flex items-center gap-3 shrink-0 min-w-0">
+          <button type="button" className="lg:hidden p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors" aria-label="メニュー">
             <Menu size={18} />
           </button>
-          <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-indigo-200 shadow-md">EX</div>
-          <div className="hidden sm:block">
-            <div className="font-bold text-sm text-slate-800 leading-tight">Ivent Manager</div>
-            <div className="text-[10px] text-slate-400 font-bold tracking-tight">Preparation & Scheduling</div>
+          <div className="w-9 h-9 rounded-lg bg-[#4F46E5] flex items-center justify-center text-white font-bold text-xs shrink-0">EX</div>
+          <div className="hidden sm:block min-w-0">
+            <div className="font-bold text-[15px] text-slate-900 leading-tight tracking-tight">Ivent Manager</div>
+            <div className="text-[11px] text-slate-400 font-medium leading-tight">Preparation & Scheduling</div>
           </div>
         </div>
 
-        {/* 中央: 検索バー */}
-        <div className="flex-1 max-w-md">
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-            <Search size={13} className="text-slate-400 shrink-0" />
+        {/* Center: search */}
+        <div className="flex-1 flex justify-center max-w-2xl mx-auto min-w-0 px-2">
+          <div className="flex items-center gap-2.5 w-full bg-white border border-[#E5E7EB] rounded-xl px-3.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <Search size={16} className="text-slate-400 shrink-0 stroke-[1.75]" />
             <input
-              type="text"
+              type="search"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="会場・クライアントを検索..."
-              className="flex-1 bg-transparent text-xs text-slate-600 placeholder-slate-400 outline-none"
+              className="flex-1 min-w-0 bg-transparent text-[13px] text-slate-700 placeholder:text-slate-400 outline-none"
             />
-            <kbd className="hidden sm:block text-[10px] text-slate-400 font-medium bg-slate-200 px-1.5 py-0.5 rounded">⌘K</kbd>
+            <kbd className="hidden sm:inline text-[11px] text-slate-400 font-medium bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/80">⌘K</kbd>
           </div>
         </div>
 
-        {/* 右: ビュー切替 + 新規 + アバター */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="flex bg-slate-100 p-1 rounded-xl">
-            {[
-              { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
-              { id: "list", icon: <List size={14} />, label: "リスト" },
-              { id: "analytics", icon: <BarChart3 size={14} />, label: "分析" },
-            ].map(v => (
+        {/* Right: views + CTA + notifications + avatar */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1">
+            <div className="flex bg-[#F3F4F6] p-1 rounded-xl border border-[#E5E7EB]/80">
+              {([
+                { id: "calendar" as const, icon: <Calendar size={15} strokeWidth={1.75} />, label: "カレンダー" },
+                { id: "list" as const, icon: <List size={15} strokeWidth={1.75} />, label: "リスト" },
+              ]).map(v => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setView(v.id)}
+                  className={`
+                  flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold transition-all
+                  ${view === v.id ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.06]" : "text-slate-500 hover:text-slate-700"}
+                `}
+                >
+                  {v.icon}
+                  <span className="hidden md:inline">{v.label}</span>
+                </button>
+              ))}
               <button
-                key={v.id}
-                onClick={() => setView(v.id as any)}
+                type="button"
+                onClick={() => setView("analytics")}
                 className={`
-                  flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all
-                  ${view === v.id ? 'bg-white text-slate-800 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700'}
+                  lg:hidden flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold transition-all
+                  ${view === "analytics" ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.06]" : "text-slate-500 hover:text-slate-700"}
                 `}
               >
-                {v.icon}
-                <span className="hidden md:inline">{v.label}</span>
+                <BarChart3 size={15} strokeWidth={1.75} />
+                <span className="hidden md:inline">分析</span>
               </button>
-            ))}
+            </div>
+            <button
+              type="button"
+              aria-label="分析"
+              onClick={() => setView("analytics")}
+              className={`hidden lg:inline-flex items-center justify-center w-10 h-10 rounded-xl border transition-colors ${
+                view === "analytics"
+                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-black/[0.06] border-[#E5E7EB]"
+                  : "border-transparent text-slate-500 hover:bg-white hover:border-[#E5E7EB] hover:text-slate-700"
+              }`}
+            >
+              <BarChart3 size={17} strokeWidth={1.75} />
+            </button>
           </div>
 
           <button
+            type="button"
             onClick={() => handleCreateEvent()}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black transition-all shadow-indigo-200 shadow-md"
+            className="sm:hidden w-10 h-10 items-center justify-center rounded-xl bg-[#4F46E5] text-white shadow-sm shadow-indigo-500/25"
+            aria-label="新規イベント"
           >
-            <Plus size={14} strokeWidth={3} />
-            <span className="hidden sm:inline">新規イベント</span>
+            <Plus size={18} strokeWidth={2.5} />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleCreateEvent()}
+            className="hidden sm:flex items-center gap-1.5 bg-[#4F46E5] hover:bg-[#4338CA] text-white px-4 py-2 rounded-xl text-[12px] font-semibold transition-colors shadow-sm shadow-indigo-500/20"
+          >
+            <Plus size={15} strokeWidth={2.5} />
+            <span className="font-semibold tracking-tight">+ 新規イベント</span>
           </button>
 
           <NotificationCenter />
 
-          <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white">T</div>
+          <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold text-[13px] ring-2 ring-white border border-[#E5E7EB]">
+            T
+          </div>
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <aside className="w-72 flex flex-col flex-shrink-0 bg-slate-50/50 border-r border-slate-100 overflow-y-auto hidden lg:flex">
-          <div className="p-6 space-y-8">
-            {/* TODAY Section */}
-            <div className="space-y-2 pb-4 border-b border-slate-100">
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TODAY</div>
-              <div className="text-4xl font-black text-slate-800 tracking-tighter leading-none">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Sidebar — desktop */}
+        <aside className="w-[272px] flex-col flex-shrink-0 bg-white border-r border-[#E5E7EB] overflow-y-auto hidden lg:flex">
+          <div className="p-5 space-y-6">
+            {/* TODAY */}
+            <div className="rounded-xl bg-white p-4 shadow-[0_1px_3px_rgba(15,23,42,0.08)] ring-1 ring-[#E5E7EB]/80">
+              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.12em]">TODAY</div>
+              <div className="text-[42px] font-bold text-slate-900 tracking-tight leading-none mt-1 tabular-nums">
                 {new Date().getDate()}
               </div>
-              <div className="text-xs font-bold text-slate-500">
-                {new Date().toLocaleDateString('ja-JP', { month: 'long', weekday: 'long' })}
+              <div className="text-[13px] font-medium text-slate-500 mt-1">
+                {new Date().toLocaleDateString("ja-JP", { month: "long", weekday: "long" })}
               </div>
             </div>
 
-            {/* WORKSPACE Section */}
-            <div className="space-y-3">
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WORKSPACE</div>
+            {/* WORKSPACE */}
+            <div>
+              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.14em] mb-2 px-1">WORKSPACE</div>
               <div className="flex flex-col gap-0.5">
-                {[
-                  { label: "すべてのイベント", icon: <Calendar size={14} />, count: stats.total, value: "すべて" },
-                  { label: "準備中", icon: <ClipboardList size={14} />, count: stats.byStatus["準備中"], value: "準備中" },
-                  { label: "入荷待ち", icon: <Building2 size={14} />, count: stats.byStatus["入荷待ち"], value: "入荷待ち" },
-                ].map((item) => (
-                  <button 
-                    key={item.label} 
-                    onClick={() => {
+                {([
+                  {
+                    label: "すべてのイベント",
+                    icon: <Calendar size={16} strokeWidth={1.75} className="text-[#4F46E5]" />,
+                    count: stats.total,
+                    onClick: () => {
+                      setWorkspaceFilter("all");
                       setRegionFilter("すべて");
                       setTypeFilter("すべて");
                       setMonthFilter("すべて");
-                      // ステータスフィルターがあればここに追加
-                    }}
-                    className="group flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white hover:shadow-sm hover:border-slate-100 border border-transparent transition-all"
+                    },
+                    active: workspaceFilter === "all",
+                  },
+                  {
+                    label: "準備中",
+                    icon: <ClipboardList size={16} strokeWidth={1.75} className="text-[#4F46E5]" />,
+                    count: stats.prepCount,
+                    onClick: () => setWorkspaceFilter("prep"),
+                    active: workspaceFilter === "prep",
+                  },
+                  {
+                    label: "入荷待ち",
+                    icon: <Package size={16} strokeWidth={1.75} className="text-[#4F46E5]" />,
+                    count: stats.stockCount,
+                    onClick: () => setWorkspaceFilter("stock"),
+                    active: workspaceFilter === "stock",
+                  },
+                ]).map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={item.onClick}
+                    className={`group flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
+                      item.active ? "bg-[#EDE9FE] text-[#5B21B6]" : "text-slate-600 hover:bg-slate-50"
+                    }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="text-indigo-600 opacity-60 group-hover:opacity-100">{item.icon}</span>
-                      <span className="text-xs font-bold text-slate-600 group-hover:text-indigo-600 font-sans">{item.label}</span>
-                    </div>
-                    <span className="text-xs font-bold text-slate-400">{item.count}</span>
+                    <span className="flex items-center gap-3 min-w-0">
+                      <span className={item.active ? "text-[#6D28D9]" : "text-[#4F46E5]/70"}>{item.icon}</span>
+                      <span className={`text-[13px] font-semibold truncate ${item.active ? "text-[#5B21B6]" : ""}`}>{item.label}</span>
+                    </span>
+                    <span className={`text-[12px] font-semibold tabular-nums shrink-0 ml-2 ${item.active ? "text-[#7C3AED]" : "text-slate-400"}`}>
+                      {item.count}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* REGION Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-black text-slate-700">本部</span>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">REGION</span>
+            {/* REGION */}
+            <div>
+              <div className="flex items-baseline justify-between gap-2 px-1 mb-2">
+                <span className="text-[11px] font-bold text-slate-700">本部</span>
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.14em]">REGION</span>
               </div>
               <div className="flex flex-col gap-0.5">
-                {[
-                  { label: "すべて" },
-                  { label: "東日本" },
-                  { label: "西日本" },
-                  { label: "南日本" },
-                  { label: "中日本" },
-                ].map((r) => (
+                {(["すべて", "東日本", "西日本", "南日本", "中日本"] as const).map((r) => (
                   <button
-                    key={r.label}
-                    onClick={() => setRegionFilter(r.label)}
-                    className={`
-                      group flex items-center justify-between px-3 py-2 rounded-xl transition-all border
-                      ${regionFilter === r.label
-                        ? "bg-white border-slate-100 shadow-sm text-indigo-600"
-                        : "border-transparent text-slate-500 hover:bg-white hover:border-slate-100"}
-                    `}
+                    key={r}
+                    type="button"
+                    onClick={() => setRegionFilter(r)}
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
+                      regionFilter === r ? "bg-[#EDE9FE] text-[#5B21B6]" : "text-slate-600 hover:bg-slate-50"
+                    }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: rs(r.label).dot }}></span>
-                      <span className="text-xs font-bold font-sans">{r.label}</span>
-                    </div>
-                    <span className="text-xs font-bold text-slate-400 font-sans">{r.label === "すべて" ? "" : (stats.byRegion[r.label] || 0)}</span>
+                    <span className="flex items-center gap-3 min-w-0">
+                      <span
+                        className="w-2.5 h-2.5 rounded-sm shrink-0 ring-1 ring-black/[0.06]"
+                        style={{ background: rs(r).dot }}
+                      />
+                      <span className={`text-[13px] font-semibold truncate ${regionFilter === r ? "text-[#5B21B6]" : ""}`}>{r}</span>
+                    </span>
+                    {r !== "すべて" && (
+                      <span className={`text-[12px] font-semibold tabular-nums shrink-0 ml-2 ${regionFilter === r ? "text-[#7C3AED]" : "text-slate-400"}`}>
+                        {stats.byRegion[r] ?? 0}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* TYPE Section */}
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-black text-slate-700">種別</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TYPE</span>
+            {/* TYPE */}
+            <div>
+              <div className="flex items-center justify-between px-1 mb-2 gap-2">
+                <span className="text-[11px] font-bold text-slate-700 shrink-0">種別</span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.14em]">TYPE</span>
                   <button
+                    type="button"
                     onClick={() => {
-                    const newType = prompt("新しい案件種別を入力してください:");
-                    if (newType) {
-                      const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
-                      setSidebarTypes(prev => [...prev, { label: newType, icon }]);
-                    }
-                  }}
-                  className="p-1 hover:bg-indigo-50 rounded text-indigo-400 hover:text-indigo-600 transition-colors"
-                >
-                  <Plus size={12} />
-                </button>
+                      const newType = prompt("新しい案件種別を入力してください:");
+                      if (newType) {
+                        const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
+                        setSidebarTypes((prev) => [...prev, { label: newType, icon }]);
+                      }
+                    }}
+                    className="p-1 rounded-lg text-[#4F46E5]/60 hover:bg-[#EDE9FE] hover:text-[#5B21B6] transition-colors shrink-0"
+                    aria-label="種別を追加"
+                  >
+                    <Plus size={14} strokeWidth={2} />
+                  </button>
                 </div>
               </div>
               <div className="flex flex-col gap-0.5">
-                <button 
+                <button
+                  type="button"
                   onClick={() => setTypeFilter("すべて")}
-                  className={`
-                    group flex items-center gap-3 px-3 py-2 rounded-xl transition-all border
-                    ${typeFilter === "すべて" 
-                      ? "bg-white border-slate-100 shadow-sm text-indigo-600" 
-                      : "border-transparent text-slate-500 hover:bg-white hover:border-slate-100"}
-                  `}
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                    typeFilter === "すべて" ? "bg-[#EDE9FE] text-[#5B21B6]" : "text-slate-600 hover:bg-slate-50"
+                  }`}
                 >
-                  <span className="text-sm">📁</span>
-                  <span className="text-xs font-bold font-sans">すべて</span>
+                  <span className="text-base leading-none">📁</span>
+                  <span className={`text-[13px] font-semibold ${typeFilter === "すべて" ? "text-[#5B21B6]" : ""}`}>すべて</span>
                 </button>
                 {sidebarTypes.map((type) => (
-                  <button 
-                    key={type.label} 
+                  <button
+                    key={type.label}
+                    type="button"
                     onClick={() => setTypeFilter(type.label)}
-                    className={`
-                      group flex items-center gap-3 px-3 py-2 rounded-xl transition-all border
-                      ${typeFilter === type.label 
-                        ? "bg-white border-slate-100 shadow-sm text-indigo-600" 
-                        : "border-transparent text-slate-500 hover:bg-white hover:border-slate-100"}
-                    `}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                      typeFilter === type.label ? "bg-[#EDE9FE] text-[#5B21B6]" : "text-slate-600 hover:bg-slate-50"
+                    }`}
                   >
-                    <span className="text-sm">{type.icon}</span>
-                    <span className="text-xs font-bold font-sans">{type.label}</span>
+                    <span className="text-base leading-none w-6 text-center">{type.icon}</span>
+                    <span className={`text-[13px] font-semibold truncate ${typeFilter === type.label ? "text-[#5B21B6]" : ""}`}>{type.label}</span>
                   </button>
                 ))}
               </div>
@@ -448,9 +550,10 @@ export default function App() {
           </div>
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 bg-white relative overflow-hidden flex flex-col">
-          <div className="p-8 flex-1 overflow-y-auto">
+        {/* Main */}
+        <main className="flex-1 min-w-0 min-h-0 bg-[#F8F9FA] flex flex-col lg:p-5 overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col bg-white lg:rounded-2xl lg:border lg:border-[#E5E7EB] lg:shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-5 sm:p-8">
           {/* Sync Indicator */}
           <AnimatePresence>
             {isSaving && (
@@ -475,7 +578,7 @@ export default function App() {
 
           <AnimatePresence mode="wait">
             <motion.div
-              key={view + regionFilter + typeFilter + monthFilter}
+              key={view + regionFilter + typeFilter + monthFilter + workspaceFilter}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
@@ -488,7 +591,6 @@ export default function App() {
                   setYear={setCalYear} setMonth={setCalMonth}
                   onSelect={setSelected}
                   onCreateEvent={handleCreateEvent}
-                  lastEditedId={lastEditedId}
                 />
               )}
               {view === "list" && (
@@ -506,6 +608,7 @@ export default function App() {
               )}
             </motion.div>
           </AnimatePresence>
+            </div>
           </div>
         </main>
       </div>
@@ -834,113 +937,204 @@ export default function App() {
    サブコンポーネント (Updated for Dark Mode)
 ═══════════════════════════════════════ */
 
-function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCreateEvent, lastEditedId }: any) {
+function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCreateEvent }: any) {
   const firstDay = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
-  const cells = [];
-  
-  // 前月のパディング
+  const cells: { day: number; current: boolean; fullDate: Date }[] = [];
+
   const prevMonthLastDay = new Date(year, month - 1, 0).getDate();
   for (let i = firstDay - 1; i >= 0; i--) {
-    cells.push({ day: prevMonthLastDay - i, current: false });
+    const day = prevMonthLastDay - i;
+    cells.push({ day, current: false, fullDate: new Date(year, month - 2, day) });
   }
-  
-  // 今月の実データ
+
   for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ day: d, current: true });
+    cells.push({ day: d, current: true, fullDate: new Date(year, month - 1, d) });
   }
-  
-  // 次月のパディング
+
   const remaining = (7 - (cells.length % 7)) % 7;
   for (let i = 1; i <= remaining; i++) {
-    cells.push({ day: i, current: false });
+    cells.push({ day: i, current: false, fullDate: new Date(year, month, i) });
   }
 
-  const prevMonth = () => { if (month === 1) { setYear((y: any) => y - 1); setMonth(12); } else setMonth((m: any) => m - 1); };
-  const nextMonth = () => { if (month === 12) { setYear((y: any) => y + 1); setMonth(1); } else setMonth((m: any) => m + 1); };
-  const setToday = () => { const d = new Date(); setYear(d.getFullYear()); setMonth(d.getMonth() + 1); };
+  const weeks: (typeof cells)[] = [];
+  for (let i = 0; i < cells.length; i += 7) {
+    weeks.push(cells.slice(i, i + 7));
+  }
+
+  const prevMonth = () => {
+    if (month === 1) {
+      setYear((y: number) => y - 1);
+      setMonth(12);
+    } else setMonth((m: number) => m - 1);
+  };
+  const nextMonth = () => {
+    if (month === 12) {
+      setYear((y: number) => y + 1);
+      setMonth(1);
+    } else setMonth((m: number) => m + 1);
+  };
+  const goToday = () => {
+    const d = new Date();
+    setYear(d.getFullYear());
+    setMonth(d.getMonth() + 1);
+  };
 
   const today = new Date();
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
   const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+  const segmentsForWeek = (weekCells: typeof cells) => {
+    const segments: { ev: Event; start: number; end: number }[] = [];
+    for (const ev of events as Event[]) {
+      let start = -1;
+      let end = -1;
+      weekCells.forEach((cell, idx) => {
+        if (!eventCoversDay(ev, cell.fullDate)) return;
+        if (start === -1) start = idx;
+        end = idx;
+      });
+      if (start !== -1) segments.push({ ev, start, end });
+    }
+    return assignEventLanes(segments);
+  };
+
+  const laneH = 26;
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-            {monthNames[month]} <span className="text-slate-400 font-bold ml-1">{year}</span>
-          </h2>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
-            <Filter size={14} className="text-slate-400" />
-            <span>フィルター</span>
+    <div className="flex flex-col h-full min-h-0">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6 shrink-0">
+        <h2 className="text-[26px] font-bold text-slate-900 tracking-tight">
+          {monthNames[month]} <span className="text-slate-400 font-semibold">{year}</span>
+        </h2>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-[12px] font-semibold text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:bg-slate-50 transition-colors"
+          >
+            <Filter size={15} strokeWidth={1.75} className="text-slate-400" />
+            フィルター
           </button>
-          
-          <div className="flex items-center gap-1 ml-2">
-            <button onClick={prevMonth} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ChevronLeft size={20} /></button>
-            <button onClick={setToday} className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm ml-1 mr-1">今日</button>
-            <button onClick={nextMonth} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ChevronRight size={20} /></button>
+
+          <div className="flex items-center rounded-xl border border-[#E5E7EB] bg-white p-0.5 shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
+            <button type="button" onClick={prevMonth} className="p-2 text-slate-400 hover:text-[#4F46E5] transition-colors rounded-lg hover:bg-slate-50" aria-label="前月">
+              <ChevronLeft size={20} strokeWidth={2} />
+            </button>
+            <button type="button" onClick={goToday} className="px-4 py-2 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+              今日
+            </button>
+            <button type="button" onClick={nextMonth} className="p-2 text-slate-400 hover:text-[#4F46E5] transition-colors rounded-lg hover:bg-slate-50" aria-label="翌月">
+              <ChevronRight size={20} strokeWidth={2} />
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-7 border-t border-l border-slate-100">
-        {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d, i) => (
-          <div key={d} className="border-r border-b border-slate-100 bg-slate-50/10 py-2 px-3">
-            <span className={`text-[9px] font-black uppercase tracking-widest ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-slate-400"}`}>{d}</span>
-          </div>
-        ))}
-        
-        {cells.map((cell, idx) => {
-          const isSun = idx % 7 === 0;
-          const isToday = cell.current && today.getFullYear() === year && today.getMonth() === month - 1 && today.getDate() === cell.day;
-          const dayEvents = cell.current ? events.filter((ev: any) => eventCoversDate(ev, year, month, cell.day)) : [];
-          
-          return (
-            <div 
-              key={idx} 
-              className={`
-                min-h-[160px] border-r border-b border-slate-100 p-2 group transition-colors
-                ${cell.current ? "bg-white" : "bg-slate-50/20"}
-                ${isToday ? "bg-indigo-50/10" : ""}
-              `}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <span className={`
-                  text-[11px] font-bold px-1.5 py-0.5 rounded
-                  ${!cell.current ? "text-slate-300" : isToday ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : isSun ? "text-red-500" : "text-slate-700"}
-                `}>
-                  {cell.day}
-                </span>
-              </div>
-              
-              <div className="space-y-1">
-                {dayEvents.map((ev: any) => (
-                  <button
-                    key={ev.id}
-                    onClick={() => onSelect(ev)}
-                    className="w-full text-left bg-blue-50/40 hover:bg-blue-50 transition-colors rounded-md p-1.5 flex items-center gap-2 border border-blue-100/50 group/item relative"
-                  >
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400 rounded-l-md" style={{ background: rs(ev.region || "").dot }}></div>
-                    <span className="text-[11px] shrink-0">{ev.emoji || ts(ev.type || "").icon}</span>
-                    <span className="text-[10px] font-bold text-slate-700 truncate">{ev.venue}</span>
-                  </button>
-                ))}
-                
-                {cell.current && (
-                  <button 
-                    onClick={() => onCreateEvent({ start: `${year}-${String(month).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}` })}
-                    className="w-full py-2 opacity-0 group-hover:opacity-100 border border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-300 hover:border-indigo-300 hover:text-indigo-400 transition-all"
-                  >
-                    <Plus size={14} />
-                  </button>
-                )}
-              </div>
+      <div className="rounded-xl border border-[#E5E7EB] overflow-hidden bg-white flex-1 flex flex-col min-h-[480px]">
+        <div className="grid grid-cols-7 border-b border-[#E5E7EB] bg-[#FAFAFB]">
+          {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d, i) => (
+            <div key={d} className="py-2.5 px-3 border-r border-[#E5E7EB] last:border-r-0">
+              <span
+                className={`text-[10px] font-semibold uppercase tracking-[0.08em] ${
+                  i === 0 ? "text-[#DC2626]" : i === 6 ? "text-[#2563EB]" : "text-slate-400"
+                }`}
+              >
+                {d}
+              </span>
             </div>
-          );
-        })}
+          ))}
+        </div>
+
+        <div className="flex flex-col">
+          {weeks.map((week, wi) => {
+            const placed = segmentsForWeek(week);
+            const maxLane = placed.reduce((m, p) => Math.max(m, p.lane), -1);
+            const lanesUsed = maxLane + 1;
+            const rowMin = Math.max(152, 44 + Math.max(1, lanesUsed) * laneH + 52);
+
+            return (
+              <div
+                key={wi}
+                className="relative grid grid-cols-7 border-b border-[#E5E7EB] last:border-b-0"
+                style={{ minHeight: rowMin }}
+              >
+                {week.map((cell, di) => {
+                  const isSat = di === 6;
+                  const isSun = di === 0;
+                  const isToday = sameDay(cell.fullDate, today);
+
+                  let dayNumClass = "text-[12px] font-semibold tabular-nums ";
+                  if (!cell.current) dayNumClass += "text-slate-300";
+                  else if (isToday) dayNumClass += "text-white";
+                  else if (isSun) dayNumClass += "text-[#DC2626]";
+                  else if (isSat) dayNumClass += "text-[#2563EB]";
+                  else dayNumClass += "text-slate-800";
+
+                  return (
+                    <div
+                      key={`${wi}-${di}`}
+                      className={`relative z-[1] flex flex-col border-r border-[#E5E7EB] last:border-r-0 group/cell ${cell.current ? "bg-white" : "bg-[#FAFAFB]"}`}
+                    >
+                      <div className="flex items-start justify-start px-2 pt-2">
+                        <span
+                          className={`inline-flex h-7 min-w-[28px] items-center justify-center rounded-full px-1 ${isToday && cell.current ? "bg-[#8B5CF6] shadow-sm" : ""}`}
+                        >
+                          <span className={dayNumClass}>{cell.day}</span>
+                        </span>
+                      </div>
+
+                      <div className="flex-1 min-h-[88px]" />
+
+                      <div className="p-2 pt-0 mt-auto">
+                        {cell.current && (
+                          <button
+                            type="button"
+                            title="イベントを追加"
+                            onClick={() =>
+                              onCreateEvent({
+                                start: `${year}-${String(month).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`,
+                              })
+                            }
+                            className="flex w-full items-center justify-center rounded-lg border border-dashed border-[#E5E7EB] py-2 text-slate-300 opacity-0 transition-all hover:border-[#C4B5FD] hover:text-[#7C3AED] group-hover/cell:opacity-100"
+                          >
+                            <Plus size={14} strokeWidth={2} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div className="pointer-events-none absolute left-0 right-0 top-[38px] bottom-11 z-[2] px-1">
+                  {placed.map(({ seg, lane }) => {
+                    const accent = rs(seg.ev.region || "").dot || ts(seg.ev.type || "").border || "#94a3b8";
+                    const span = seg.end - seg.start + 1;
+                    return (
+                      <button
+                        key={`${seg.ev.id}-${wi}-${lane}-${seg.start}`}
+                        type="button"
+                        onClick={() => onSelect(seg.ev)}
+                        style={{
+                          top: lane * laneH,
+                          left: `calc(${(seg.start / 7) * 100}% + 6px)`,
+                          width: `calc(${(span / 7) * 100}% - 12px)`,
+                        }}
+                        className="pointer-events-auto absolute flex h-[22px] items-center gap-1.5 overflow-hidden rounded-md border border-[#E5E7EB] bg-[#F3F4F6] pl-2 pr-2 text-left shadow-[0_1px_0_rgba(15,23,42,0.04)] transition-colors hover:bg-[#EEF2FF]"
+                      >
+                        <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-md" style={{ background: accent }} />
+                        <span className="relative z-[1] ml-1 shrink-0 text-[12px] leading-none">{seg.ev.emoji || ts(seg.ev.type || "").icon}</span>
+                        <span className="relative z-[1] truncate text-[11px] font-semibold text-slate-700">{seg.ev.venue}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -990,16 +1184,36 @@ function ListView({
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-[var(--surface)] rounded-[2rem] border border-[var(--border)] shadow-2xl overflow-hidden transition-all"
-    >
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+          All events<span className="text-slate-400 font-semibold"> · </span>
+          <span className="tabular-nums text-slate-400 font-semibold">{data.length}</span>
+        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-[12px] font-semibold text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:bg-slate-50 transition-colors"
+          >
+            <Filter size={15} strokeWidth={1.75} className="text-slate-400" />
+            フィルター
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-[12px] font-semibold text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:bg-slate-50 transition-colors"
+          >
+            <ArrowUpDown size={15} strokeWidth={1.75} className="text-slate-400" />
+            並び替え
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-[#E5E7EB] bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <table className="w-full min-w-[880px] text-left border-collapse">
           <thead>
-            <tr className="bg-[var(--bg-app)]/50 border-b border-[var(--border)]">
-              <th className="px-6 py-5 w-12">
+            <tr className="border-b border-[#E5E7EB] bg-[#FAFAFB]">
+              <th className="w-10 px-3 py-4 lg:w-11">
+                <span className="sr-only">選択</span>
                 <input
                   type="checkbox"
                   checked={bulkSelection.isAllSelected(eventIds)}
@@ -1007,31 +1221,38 @@ function ListView({
                     bulkSelection.toggleAllSelection(eventIds);
                     onBulkSelectionChange?.();
                   }}
-                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  className="h-3.5 w-3.5 rounded border-[#CBD5E1] text-[#4F46E5] focus:ring-[#4F46E5]/30"
+                  aria-label="すべて選択"
                 />
               </th>
-              {["日程", "本部", "種別", "会場"].map(h => (
-                <th key={h} className="px-8 py-5 font-black text-[10px] uppercase tracking-[0.2em] text-[var(--text-secondary)] opacity-60">{h}</th>
+              {[
+                { k: "DATE", w: "w-[100px]" },
+                { k: "本部", w: "min-w-[120px]" },
+                { k: "種別", w: "min-w-[140px]" },
+                { k: "会場", w: "" },
+                { k: "状態", w: "w-[120px] text-right" },
+              ].map((col) => (
+                <th
+                  key={col.k}
+                  className={`px-4 py-4 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 ${col.w}`}
+                >
+                  {col.k}
+                </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--border)]">
+          <tbody>
             {data.map((d: any) => {
               const isSelected = bulkSelection.isSelected(d.id);
               return (
-                <tr 
-                  key={d.id} 
+                <tr
+                  key={d.id}
                   onClick={(e) => handleRowClick(e, d)}
-                  className={`
-                    group cursor-pointer transition-all border-l-4
-                    ${isSelected 
-                      ? "bg-indigo-50/50 dark:bg-indigo-900/20 border-indigo-500" 
-                      : d.id === lastEditedId 
-                        ? "bg-amber-500/[0.08] dark:bg-amber-500/[0.12] border-amber-500" 
-                        : "hover:bg-purple-accent/[0.02] border-transparent"}
-                  `}
+                  className={`group cursor-pointer border-b border-[#E5E7EB] transition-colors last:border-b-0 ${
+                    isSelected ? "bg-[#F5F3FF]" : d.id === lastEditedId ? "bg-amber-50/80" : "hover:bg-slate-50/80"
+                  }`}
                 >
-                  <td className="px-6 py-7">
+                  <td className="px-3 py-5 align-top">
                     <input
                       type="checkbox"
                       checked={isSelected}
@@ -1040,44 +1261,47 @@ function ListView({
                         bulkSelection.toggleSelection(d.id);
                         onBulkSelectionChange?.();
                       }}
-                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                      className="h-3.5 w-3.5 rounded border-[#CBD5E1] text-[#4F46E5] focus:ring-[#4F46E5]/30"
+                      aria-label={`${d.venue} を選択`}
                     />
                   </td>
-                  <td className="px-8 py-7">
-                    <div className="font-mono text-xs font-black text-[var(--text-primary)]">
-                      {fmtShort(d.start)}
-                      {d.start !== d.end && d.end && (
-                        <span className="mx-2 text-[var(--text-secondary)] opacity-40">→</span>
-                      )}
-                      {d.start !== d.end && d.end && fmtShort(d.end)}
-                    </div>
+                  <td className="px-4 py-5 align-top tabular-nums">
+                    <span className="text-[13px] font-medium text-slate-600">{fmtRange(d.start, d.end)}</span>
                   </td>
-                  <td className="px-8 py-7">
-                    <span className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full text-[10px] font-black border border-transparent shadow-sm" style={{ background: rs(d.region).bg, color: rs(d.region).text }}>
-                      <span className="w-1.5 h-1.5 rounded-full shadow-inner" style={{ background: rs(d.region).dot }}></span>
+                  <td className="px-4 py-5 align-top">
+                    <span
+                      className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold"
+                      style={{ background: rs(d.region).bg, color: rs(d.region).text }}
+                    >
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: rs(d.region).dot }} />
                       {d.region}
                     </span>
                   </td>
-                  <td className="px-8 py-7">
-                    <span className="inline-flex items-center gap-2.5 px-4 py-2 rounded-xl text-[10px] font-black border bg-[var(--bg-app)] border-[var(--border)] text-[var(--text-secondary)] shadow-sm">
-                      <span className="text-base">{d.emoji || ts(d.type || "").icon}</span>
-                      <span className="uppercase tracking-widest">{d.type || "その他"}</span>
+                  <td className="px-4 py-5 align-top">
+                    <span className="inline-flex items-center gap-2 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                      <span className="text-[14px] leading-none">{d.emoji || ts(d.type || "").icon}</span>
+                      <span className="truncate">{d.type || "その他"}</span>
                     </span>
                   </td>
-                  <td className="px-8 py-7">
-                    <div className="flex items-center gap-3">
-                      <div className="font-black text-[var(--text-primary)] text-[15px] tracking-tight group-hover:text-amber-500 transition-colors uppercase">{d.venue}</div>
+                  <td className="px-4 py-5 align-top">
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[14px] font-semibold text-slate-900 leading-snug tracking-tight">{d.venue}</div>
+                        <div className="mt-1 text-[12px] font-medium text-slate-500">{d.client || "—"}</div>
+                      </div>
                       {d.id === lastEditedId && (
-                        <motion.span 
+                        <motion.span
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                          className="px-2 py-0.5 bg-amber-500 text-white text-[8px] font-black rounded-md tracking-widest uppercase shadow-sm shadow-amber-500/20"
+                          className="mt-0.5 shrink-0 rounded-md bg-amber-500 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white shadow-sm"
                         >
-                          Updated
+                          New
                         </motion.span>
                       )}
                     </div>
-                    <div className="text-[11px] text-[var(--text-secondary)] mt-1.5 font-bold tracking-wide opacity-70">{d.client || "No Client Specified"}</div>
+                  </td>
+                  <td className="px-4 py-5 align-top text-right">
+                    <span className="text-[11px] font-medium tracking-wide text-slate-400">{statusDisplay(d)}</span>
                   </td>
                 </tr>
               );
