@@ -72,6 +72,60 @@ function eventCoversDate(ev: Event, y: number, m: number, day: number) {
   return t.getTime() === s.getTime();
 }
 
+/** 開発用: 同一週の連続4日にイベント0/2/4/6件の見え比べ用データ（?calPreview=density） */
+function buildCalendarDensityPreviewEvents(
+  year: number,
+  month: number,
+  regionFilter: string,
+  typeFilter: string
+): Event[] {
+  const dim = new Date(year, month, 0).getDate();
+  const firstDow = new Date(year, month - 1, 1).getDay();
+  const firstMonday = 1 + (1 - firstDow + 7) % 7;
+  let d0: number;
+  let d1: number;
+  let d2: number;
+  let d3: number;
+  if (firstMonday + 3 <= dim) {
+    d0 = firstMonday;
+    d1 = firstMonday + 1;
+    d2 = firstMonday + 2;
+    d3 = firstMonday + 3;
+  } else {
+    d0 = dim - 3;
+    d1 = dim - 2;
+    d2 = dim - 1;
+    d3 = dim;
+  }
+  // d0: 同一週の「0件」比較用セル（この日にはプレビューイベントを追加しない）
+  void d0;
+  const region = regionFilter !== "すべて" ? regionFilter : "東日本";
+  const type = typeFilter !== "すべて" ? typeFilter : "その他";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const iso = (day: number) => `${year}-${pad(month)}-${pad(day)}`;
+  const mk = (suffix: string, day: number, venue: string): Event => ({
+    id: `__cal_preview_${suffix}`,
+    start: iso(day),
+    end: iso(day),
+    region,
+    dept: "",
+    type,
+    venue,
+    client: "プレビュー",
+    note: "",
+    emoji: "📐",
+  });
+  const out: Event[] = [];
+  out.push(mk("2a", d1, "密度プレビュー 2件・A"), mk("2b", d1, "密度プレビュー 2件・B"));
+  for (let i = 0; i < 4; i++) {
+    out.push(mk(`4_${i}`, d2, `密度プレビュー 4件・${i + 1}`));
+  }
+  for (let i = 0; i < 6; i++) {
+    out.push(mk(`6_${i}`, d3, `密度プレビュー 6件・${i + 1}`));
+  }
+  return out;
+}
+
 function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const handleLogin = async () => {
@@ -258,6 +312,19 @@ export default function App() {
     }).sort((a, b) => (a.start || "9999") < (b.start || "9999") ? -1 : 1);
   }, [allEvents, regionFilter, typeFilter, monthFilter, searchQuery]);
 
+  const calendarDensityPreview =
+    process.env.NODE_ENV === "development" &&
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("calPreview") === "density";
+
+  const desktopCalendarEvents = useMemo(() => {
+    if (!calendarDensityPreview) return filtered;
+    const extra = buildCalendarDensityPreviewEvents(calYear, calMonth, regionFilter, typeFilter);
+    return [...filtered, ...extra].sort((a, b) =>
+      (a.start || "9999") < (b.start || "9999") ? -1 : 1
+    );
+  }, [filtered, calendarDensityPreview, calYear, calMonth, regionFilter, typeFilter]);
+
   const { data: analyticsData, loading: analyticsLoading } = useAnalytics(allEvents);
   const {
     uploading: photoUploading,
@@ -428,6 +495,7 @@ export default function App() {
   }, [hasUnsavedChanges]);
 
   const handleEventHover = (ev: Event, e: ReactMouseEvent<HTMLElement>) => {
+    if (ev.id.startsWith("__cal_preview_")) return;
     if (window.innerWidth < 1024) return;
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
     const { clientX, clientY } = e;
@@ -444,6 +512,7 @@ export default function App() {
 
   const handleEventSelect = (ev: Event) => {
     handleEventHoverEnd();
+    if (ev.id.startsWith("__cal_preview_")) return;
     setSelected(ev);
   };
 
@@ -730,7 +799,7 @@ export default function App() {
                 <>
                   <div className="hidden lg:block">
                     <CalendarView
-                      events={filtered}
+                      events={desktopCalendarEvents}
                       year={calYear} month={calMonth}
                       setYear={setCalYear} setMonth={setCalMonth}
                       onSelect={handleEventSelect}
@@ -738,6 +807,7 @@ export default function App() {
                       onHoverEnd={handleEventHoverEnd}
                       onCreateEvent={handleCreateEvent}
                       lastEditedId={lastEditedId}
+                      densityPreview={calendarDensityPreview}
                     />
                   </div>
                   <div className="lg:hidden">
@@ -1274,9 +1344,10 @@ interface CalendarViewProps {
   onHoverEnd: () => void;
   onCreateEvent: (data?: Partial<Event>) => void;
   lastEditedId: string | null;
+  densityPreview?: boolean;
 }
 
-function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHover, onHoverEnd, onCreateEvent, lastEditedId }: CalendarViewProps) {
+function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHover, onHoverEnd, onCreateEvent, lastEditedId, densityPreview }: CalendarViewProps) {
   const firstDay = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
   const cells = [];
@@ -1307,6 +1378,11 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
 
   return (
     <div className="flex flex-col h-full">
+      {densityPreview && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-bold leading-snug text-amber-900">
+          開発プレビュー: URL に <code className="rounded bg-white/80 px-1">?calPreview=density</code> を付けた状態です。月内の同一週に「0件 / 2件 / 4件 / 6件」のサンプル行が並びます（リロードで解除）。
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <h2 className="text-2xl font-black text-slate-800 tracking-tight">
@@ -1339,12 +1415,12 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
             <div 
               key={idx} 
               className={`
-                min-h-[160px] border-r border-b border-slate-100 p-2 group transition-colors
+                min-h-[160px] border-r border-b border-slate-100 px-1 py-2 group transition-colors
                 ${cell.current ? "bg-white" : "bg-slate-50/20"}
                 ${isToday ? "bg-indigo-50/10" : ""}
               `}
             >
-              <div className="flex justify-between items-start mb-2">
+              <div className="flex justify-between items-start mb-2 px-0.5">
                 <span className={`
                   text-[11px] font-bold px-1.5 py-0.5 rounded
                   ${!cell.current ? "text-slate-300" : isToday ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : isSun ? "text-red-500" : "text-slate-700"}
@@ -1353,7 +1429,7 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
                 </span>
               </div>
               
-              <div className="space-y-0.5">
+              <div className="space-y-[2px]">
                 {dayEvents.slice(0, 4).map((ev) => (
                   <button
                     key={ev.id}
@@ -1364,13 +1440,13 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
                       background: rs(ev.region || "").calBg,
                       borderLeft: `3px solid ${rs(ev.region || "").dot}`,
                     }}
-                    className="w-full text-left rounded-md pl-2 pr-1 py-1 flex items-center gap-1.5 overflow-hidden transition-all hover:brightness-95 hover:shadow-sm"
+                    className="w-full text-left rounded-md px-1 py-[2px] flex items-center gap-1.5 overflow-hidden transition-all hover:brightness-95 hover:shadow-sm text-[13px] max-xl:text-[12px] leading-[1.35] max-xl:leading-[1.3]"
                   >
-                    <span className="text-[11px] shrink-0 leading-none">
+                    <span className="shrink-0 leading-[1.35] max-xl:leading-[1.3]">
                       {ev.emoji || ts(ev.type || "").icon}
                     </span>
                     <span
-                      className="text-[10px] font-bold truncate leading-tight"
+                      className="font-bold truncate leading-[1.35] max-xl:leading-[1.3]"
                       style={{ color: rs(ev.region || "").text }}
                     >
                       {ev.venue}
