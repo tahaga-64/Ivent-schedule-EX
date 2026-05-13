@@ -1,67 +1,104 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage } from './firebase';
+import { uploadEventPhoto, deleteEventPhoto } from './firebase';
 import { EventPhoto } from '../types';
 
-const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
-
-export function validateImageFile(file: File): string | null {
-  if (!ACCEPTED_TYPES.includes(file.type)) return '対応画像形式: JPEG, PNG, WebP, GIF, HEIC';
-  if (file.size > MAX_SIZE_BYTES) return 'ファイルサイズは10MB以下にしてください';
-  return null;
+export interface PhotoUploadOptions {
+  maxWidth?: number;
+  maxHeight?: number;
+  quality?: number;
+  format?: 'webp' | 'jpeg';
 }
 
-export async function compressImage(file: File, maxWidth = 1600, quality = 0.85): Promise<Blob> {
-  return new Promise((resolve, reject) => {
+export async function compressImage(
+  file: File,
+  options: PhotoUploadOptions = {}
+): Promise<File> {
+  const {
+    maxWidth = 1920,
+    maxHeight = 1080,
+    quality = 0.8,
+    format = 'webp'
+  } = options;
+
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
     const img = new Image();
-    const url = URL.createObjectURL(file);
+
     img.onload = () => {
-      URL.revokeObjectURL(url);
-      const scale = Math.min(1, maxWidth / img.width);
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      // Calculate new dimensions
+      let { width, height } = img;
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        width *= ratio;
+        height *= ratio;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      // Draw and compress
+      ctx.drawImage(img, 0, 0, width, height);
+      
       canvas.toBlob(
-        blob => blob ? resolve(blob) : reject(new Error('Canvas toBlob failed')),
-        'image/webp',
+        (blob) => {
+          if (blob) {
+            const compressedFile = new File(
+              [blob],
+              `${file.name.split('.')[0]}.${format}`,
+              { type: `image/${format}` }
+            );
+            resolve(compressedFile);
+          } else {
+            resolve(file);
+          }
+        },
+        `image/${format}`,
         quality
       );
     };
-    img.onerror = reject;
-    img.src = url;
+
+    img.src = URL.createObjectURL(file);
   });
 }
 
 export async function uploadAndCompressPhoto(
-  file: File,
   eventId: string,
-  photoId: string
-): Promise<{ url: string; storagePath: string; thumbnailUrl: string }> {
-  const compressed = await compressImage(file);
-  const thumb = await compressImage(file, 400, 0.75);
+  file: File,
+  photoId: string,
+  options?: PhotoUploadOptions
+): Promise<EventPhoto> {
+  const compressedFile = await compressImage(file, options);
+  const { url, storagePath } = await uploadEventPhoto(eventId, compressedFile, photoId);
 
-  const basePath = `events/${eventId}/photos/${photoId}`;
-  const fullRef = ref(storage, `${basePath}/full.webp`);
-  const thumbRef = ref(storage, `${basePath}/thumb.webp`);
-
-  await Promise.all([
-    uploadBytes(fullRef, compressed, { contentType: 'image/webp' }),
-    uploadBytes(thumbRef, thumb, { contentType: 'image/webp' }),
-  ]);
-
-  const [url, thumbnailUrl] = await Promise.all([
-    getDownloadURL(fullRef),
-    getDownloadURL(thumbRef),
-  ]);
-
-  return { url, storagePath: basePath, thumbnailUrl };
+  return {
+    id: photoId,
+    url,
+    storagePath,
+    uploadedAt: new Date().toISOString(),
+    caption: ''
+  };
 }
 
 export async function deletePhoto(photo: EventPhoto): Promise<void> {
-  const fullRef = ref(storage, `${photo.storagePath}/full.webp`);
-  const thumbRef = ref(storage, `${photo.storagePath}/thumb.webp`);
-  await Promise.allSettled([deleteObject(fullRef), deleteObject(thumbRef)]);
+  await deleteEventPhoto(photo.storagePath);
+}
+
+export function generatePhotoId(): string {
+  return `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+export function isImageFile(file: File): boolean {
+  return file.type.startsWith('image/');
+}
+
+export function validateImageFile(file: File): { valid: boolean; error?: string } {
+  if (!isImageFile(file)) {
+    return { valid: false, error: '画像ファイルのみ対応しています' };
+  }
+
+  if (file.size > 10 * 1024 * 1024) { // 10MB limit
+    return { valid: false, error: 'ファイルサイズは10MB以下にしてください' };
+  }
+
+  return { valid: true };
 }

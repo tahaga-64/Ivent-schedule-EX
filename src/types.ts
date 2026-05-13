@@ -10,8 +10,17 @@ export interface Event {
   note: string;
   emoji?: string;
   photos?: EventPhoto[];
-  status?: '準備中' | '入荷待ち' | '完了';
-  budgetLimit?: number;
+  coverImage?: string;
+  status?: 'planning' | 'preparing' | 'in-progress' | 'completed' | 'cancelled';
+}
+
+export interface EventPhoto {
+  id: string;
+  url: string;
+  storagePath: string;
+  uploadedAt: string;
+  caption?: string;
+  thumbnailUrl?: string;
 }
 
 export interface PreparationItem {
@@ -24,17 +33,7 @@ export interface PreparationItem {
   arrived: boolean;
   prepared: boolean;
   note: string;
-  url?: string;
   order: number;
-}
-
-export interface EventPhoto {
-  id: string;
-  url: string;
-  storagePath: string;
-  uploadedAt: string;
-  caption?: string;
-  thumbnailUrl?: string;
 }
 
 export interface Notification {
@@ -45,36 +44,30 @@ export interface Notification {
   eventId?: string;
   userId?: string;
   read: boolean;
-  createdAt: any;
+  createdAt: string;
   data?: Record<string, any>;
 }
 
-export interface MonthlyTrend {
-  month: string;
-  count: number;
-  budget: number;
-}
-
-export interface RegionStats {
-  region: string;
-  count: number;
-  budget: number;
+export interface BulkOperation {
+  type: 'update' | 'delete' | 'export';
+  eventIds: string[];
+  updates?: Partial<Event>;
+  status: 'pending' | 'in-progress' | 'completed' | 'failed';
+  progress?: number;
+  error?: string;
 }
 
 export interface AnalyticsData {
-  totalEvents: number;
-  completedEvents: number;
+  eventCount: number;
   totalBudget: number;
-  avgBudget: number;
-  completionRate: number;
-  onTimeRate: number;
-  avgPreparationDays: number;
-  activeRegions: number;
-  topVenues: { venue: string; count: number; budget: number }[];
-  topRegion: string;
-  busiestMonth: string;
-  monthlyTrends: MonthlyTrend[];
-  regionStats: RegionStats[];
-  typeStats: { type: string; count: number }[];
-  clientStats: { client: string; count: number; budget: number }[];
+  completedEvents: number;
+  avgBudgetPerEvent: number;
+  topVenues: Array<{ venue: string; count: number; budget: number }>;
+  topRegions: Array<{ region: string; count: number; budget: number }>;
+  monthlyTrend: Array<{ month: string; events: number; budget: number }>;
+  preparationEfficiency: {
+    avgLeadTime: number;
+    completionRate: number;
+    onTimeRate: number;
+  };
 }

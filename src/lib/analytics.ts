@@ -1,145 +1,148 @@
-import { Event, PreparationItem, AnalyticsData, MonthlyTrend, RegionStats } from '../types';
-
-export function formatCurrency(n: number): string {
-  return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY', minimumFractionDigits: 0 }).format(n);
-}
-
-export function formatCurrencyCompact(n: number): string {
-  if (n >= 1_000_000) return `¥${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 10_000) return `¥${(n / 10_000).toFixed(0)}万`;
-  return formatCurrency(n);
-}
-
-function getBudget(items: PreparationItem[]): number {
-  return items.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0);
-}
-
-function daysBetween(a: string, b: string): number {
-  const ms = new Date(b).getTime() - new Date(a).getTime();
-  return Math.max(0, Math.round(ms / 86400000));
-}
-
-function getYearMonth(d: string): string {
-  if (!d) return '';
-  const [y, m] = d.split('-');
-  return `${y}-${m}`;
-}
+import { Event, PreparationItem, AnalyticsData } from '../types';
 
 export function calculateAnalyticsData(
   events: Event[],
-  prepItemsByEvent: Record<string, PreparationItem[]>
+  preparationItemsMap: Record<string, PreparationItem[]>
 ): AnalyticsData {
-  const total = events.length;
-  const completed = events.filter(e => e.status === 'completed' || e.status === '完了').length;
+  const currentYear = new Date().getFullYear();
+  const currentYearEvents = events.filter(event => 
+    new Date(event.start).getFullYear() === currentYear
+  );
 
-  // Budget per event
-  const budgets = events.map(e => getBudget(prepItemsByEvent[e.id] || []));
-  const totalBudget = budgets.reduce((s, b) => s + b, 0);
-  const avgBudget = total > 0 ? totalBudget / total : 0;
+  // Basic metrics
+  const eventCount = currentYearEvents.length;
+  const completedEvents = currentYearEvents.filter(event => 
+    event.status === 'completed'
+  ).length;
 
-  // Completion rate
-  const completionRate = total > 0 ? (completed / total) * 100 : 0;
+  // Budget calculations
+  let totalBudget = 0;
+  const venueStats = new Map<string, { count: number; budget: number }>();
+  const regionStats = new Map<string, { count: number; budget: number }>();
 
-  // On-time rate (events that have a status of completed)
-  const onTimeRate = completionRate;
+  currentYearEvents.forEach(event => {
+    const prepItems = preparationItemsMap[event.id] || [];
+    const eventBudget = prepItems.reduce((sum, item) => 
+      sum + item.amount + item.shippingFee, 0
+    );
+    
+    totalBudget += eventBudget;
 
-  // Average preparation days (start to now for non-completed, or start to end)
-  const prepDays = events.map(e => {
-    if (!e.start) return 0;
-    const ref = e.end || e.start;
-    return daysBetween(e.start, ref);
+    // Venue stats
+    const venueData = venueStats.get(event.venue) || { count: 0, budget: 0 };
+    venueData.count++;
+    venueData.budget += eventBudget;
+    venueStats.set(event.venue, venueData);
+
+    // Region stats  
+    const regionData = regionStats.get(event.region) || { count: 0, budget: 0 };
+    regionData.count++;
+    regionData.budget += eventBudget;
+    regionStats.set(event.region, regionData);
   });
-  const avgPreparationDays = prepDays.length > 0
-    ? prepDays.reduce((s, d) => s + d, 0) / prepDays.length
-    : 0;
 
-  // Active regions
-  const regionSet = new Set(events.map(e => e.region).filter(Boolean));
-  const activeRegions = regionSet.size;
+  const avgBudgetPerEvent = eventCount > 0 ? totalBudget / eventCount : 0;
 
-  // Monthly trends
-  const monthMap: Record<string, { count: number; budget: number }> = {};
-  events.forEach((e, i) => {
-    const ym = getYearMonth(e.start);
-    if (!ym) return;
-    if (!monthMap[ym]) monthMap[ym] = { count: 0, budget: 0 };
-    monthMap[ym].count++;
-    monthMap[ym].budget += budgets[i];
-  });
-  const monthlyTrends: MonthlyTrend[] = Object.entries(monthMap)
-    .sort(([a], [b]) => a < b ? -1 : 1)
-    .map(([month, v]) => ({ month, ...v }));
-
-  // Busiest month
-  const busiestMonth = monthlyTrends.length > 0
-    ? monthlyTrends.reduce((a, b) => b.count > a.count ? b : a).month
-    : '';
-
-  // Region stats
-  const regionMap: Record<string, { count: number; budget: number }> = {};
-  events.forEach((e, i) => {
-    const r = e.region || 'その他';
-    if (!regionMap[r]) regionMap[r] = { count: 0, budget: 0 };
-    regionMap[r].count++;
-    regionMap[r].budget += budgets[i];
-  });
-  const regionStats: RegionStats[] = Object.entries(regionMap)
-    .map(([region, v]) => ({ region, ...v }))
-    .sort((a, b) => b.count - a.count);
-
-  const topRegion = regionStats[0]?.region || '';
-
-  // Top venues
-  const venueMap: Record<string, { count: number; budget: number }> = {};
-  events.forEach((e, i) => {
-    const v = e.venue || '不明';
-    if (!venueMap[v]) venueMap[v] = { count: 0, budget: 0 };
-    venueMap[v].count++;
-    venueMap[v].budget += budgets[i];
-  });
-  const topVenues = Object.entries(venueMap)
-    .map(([venue, v]) => ({ venue, ...v }))
+  // Top venues and regions
+  const topVenues = Array.from(venueStats.entries())
+    .map(([venue, data]) => ({ venue, ...data }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+    .slice(0, 10);
 
-  // Type stats
-  const typeMap: Record<string, number> = {};
-  events.forEach(e => {
-    const t = e.type || 'その他';
-    typeMap[t] = (typeMap[t] || 0) + 1;
-  });
-  const typeStats = Object.entries(typeMap)
-    .map(([type, count]) => ({ type, count }))
-    .sort((a, b) => b.count - a.count);
-
-  // Client stats
-  const clientMap: Record<string, { count: number; budget: number }> = {};
-  events.forEach((e, i) => {
-    const c = e.client || '不明';
-    if (!clientMap[c]) clientMap[c] = { count: 0, budget: 0 };
-    clientMap[c].count++;
-    clientMap[c].budget += budgets[i];
-  });
-  const clientStats = Object.entries(clientMap)
-    .map(([client, v]) => ({ client, ...v }))
+  const topRegions = Array.from(regionStats.entries())
+    .map(([region, data]) => ({ region, ...data }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+    .slice(0, 10);
+
+  // Monthly trend
+  const monthlyData = new Map<string, { events: number; budget: number }>();
+  
+  currentYearEvents.forEach(event => {
+    const monthKey = event.start.substring(0, 7); // YYYY-MM format
+    const prepItems = preparationItemsMap[event.id] || [];
+    const eventBudget = prepItems.reduce((sum, item) => 
+      sum + item.amount + item.shippingFee, 0
+    );
+
+    const monthData = monthlyData.get(monthKey) || { events: 0, budget: 0 };
+    monthData.events++;
+    monthData.budget += eventBudget;
+    monthlyData.set(monthKey, monthData);
+  });
+
+  const monthlyTrend = Array.from(monthlyData.entries())
+    .map(([month, data]) => ({ month, ...data }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+
+  // Preparation efficiency
+  const preparationEfficiency = calculatePreparationEfficiency(
+    currentYearEvents,
+    preparationItemsMap
+  );
 
   return {
-    totalEvents: total,
-    completedEvents: completed,
+    eventCount,
     totalBudget,
-    avgBudget,
-    completionRate,
-    onTimeRate,
-    avgPreparationDays,
-    activeRegions,
+    completedEvents,
+    avgBudgetPerEvent,
     topVenues,
-    topRegion,
-    busiestMonth,
-    monthlyTrends,
-    regionStats,
-    typeStats,
-    clientStats,
+    topRegions,
+    monthlyTrend,
+    preparationEfficiency
   };
+}
+
+function calculatePreparationEfficiency(
+  events: Event[],
+  preparationItemsMap: Record<string, PreparationItem[]>
+): AnalyticsData['preparationEfficiency'] {
+  let totalLeadTime = 0;
+  let completedPreparations = 0;
+  let onTimePreparations = 0;
+  let totalPreparations = 0;
+
+  events.forEach(event => {
+    const prepItems = preparationItemsMap[event.id] || [];
+    const eventStart = new Date(event.start);
+    
+    prepItems.forEach(item => {
+      totalPreparations++;
+      
+      if (item.prepared) {
+        completedPreparations++;
+        
+        // Calculate lead time (simplified - in real app, you'd track preparation dates)
+        const assumedPrepDate = new Date(eventStart);
+        assumedPrepDate.setDate(assumedPrepDate.getDate() - 7); // Assume 7 days before event
+        const leadTime = Math.max(0, (eventStart.getTime() - assumedPrepDate.getTime()) / (1000 * 60 * 60 * 24));
+        totalLeadTime += leadTime;
+        
+        // Consider on-time if prepared (simplified logic)
+        if (item.arrived && item.prepared) {
+          onTimePreparations++;
+        }
+      }
+    });
+  });
+
+  return {
+    avgLeadTime: completedPreparations > 0 ? totalLeadTime / completedPreparations : 0,
+    completionRate: totalPreparations > 0 ? (completedPreparations / totalPreparations) * 100 : 0,
+    onTimeRate: completedPreparations > 0 ? (onTimePreparations / completedPreparations) * 100 : 0
+  };
+}
+
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('ja-JP', {
+    style: 'currency',
+    currency: 'JPY'
+  }).format(amount);
+}
+
+export function formatPercent(value: number): string {
+  return `${value.toFixed(1)}%`;
+}
+
+export function formatNumber(value: number): string {
+  return new Intl.NumberFormat('ja-JP').format(Math.round(value));
 }

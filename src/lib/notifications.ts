@@ -1,99 +1,155 @@
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from './firebase';
-import { Notification as AppNotification } from '../types';
-import { Event } from '../types';
+import { doc, setDoc, collection, serverTimestamp, query, where, orderBy, limit } from 'firebase/firestore';
+import { db, auth, logAnalyticsEvent } from './firebase';
+import { Notification } from '../types';
 
-export async function createNotification(data: Omit<AppNotification, 'id' | 'createdAt' | 'read'>): Promise<void> {
-  await addDoc(collection(db, 'notifications'), {
-    ...data,
-    read: false,
-    createdAt: serverTimestamp(),
-  });
+export function generateNotificationId(): string {
+  return `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
-export async function notifyEventCreated(event: Event, userId?: string): Promise<void> {
-  await createNotification({
-    type: 'event_created',
-    title: 'イベント作成',
-    message: `「${event.venue}」が作成されました`,
-    eventId: event.id,
-    userId,
-  });
-}
-
-export async function notifyEventUpdated(event: Event, userId?: string): Promise<void> {
-  await createNotification({
-    type: 'event_updated',
-    title: 'イベント更新',
-    message: `「${event.venue}」が更新されました`,
-    eventId: event.id,
-    userId,
-  });
-}
-
-export async function notifyEventDeleted(venue: string, eventId: string, userId?: string): Promise<void> {
-  await createNotification({
-    type: 'event_deleted',
-    title: 'イベント削除',
-    message: `「${venue}」が削除されました`,
-    eventId,
-    userId,
-  });
-}
-
-export async function notifyPrepItemUpdated(event: Event): Promise<void> {
-  await createNotification({
-    type: 'prep_item_updated',
-    title: '準備物リスト更新',
-    message: `「${event.venue}」の準備物リストが更新されました`,
-    eventId: event.id,
-  });
-}
-
-export async function notifyBudgetAlert(
-  event: Event,
-  totalBudget: number
+export async function createNotification(
+  type: Notification['type'],
+  title: string,
+  message: string,
+  eventId?: string,
+  userId?: string,
+  data?: Record<string, any>
 ): Promise<void> {
-  await createNotification({
-    type: 'budget_alert',
-    title: '予算超過アラート',
-    message: `「${event.venue}」の合計金額が ¥${totalBudget.toLocaleString()} となり、予算上限 ¥${event.budgetLimit!.toLocaleString()} を超えました`,
-    eventId: event.id,
+  try {
+    const notificationId = generateNotificationId();
+    const notification: Omit<Notification, 'id'> = {
+      type,
+      title,
+      message,
+      eventId,
+      userId: userId || auth.currentUser?.uid,
+      read: false,
+      createdAt: new Date().toISOString(),
+      data
+    };
+
+    await setDoc(doc(db, 'notifications', notificationId), notification);
+    
+    logAnalyticsEvent('notification_created', {
+      type,
+      eventId,
+      userId: userId || auth.currentUser?.uid
+    });
+  } catch (error) {
+    console.error('Failed to create notification:', error);
+    throw error;
+  }
+}
+
+export async function markNotificationAsRead(notificationId: string): Promise<void> {
+  try {
+    await setDoc(doc(db, 'notifications', notificationId), { read: true }, { merge: true });
+  } catch (error) {
+    console.error('Failed to mark notification as read:', error);
+    throw error;
+  }
+}
+
+export function getNotificationIcon(type: Notification['type']): string {
+  switch (type) {
+    case 'event_created':
+      return '🎉';
+    case 'event_updated':
+      return '✏️';
+    case 'event_deleted':
+      return '🗑️';
+    case 'prep_item_updated':
+      return '📦';
+    case 'budget_alert':
+      return '💰';
+    default:
+      return '🔔';
+  }
+}
+
+export function getNotificationColor(type: Notification['type']): string {
+  switch (type) {
+    case 'event_created':
+      return 'green';
+    case 'event_updated':
+      return 'blue';
+    case 'event_deleted':
+      return 'red';
+    case 'prep_item_updated':
+      return 'purple';
+    case 'budget_alert':
+      return 'orange';
+    default:
+      return 'gray';
+  }
+}
+
+// Utility functions for creating specific notification types
+export async function notifyEventCreated(eventId: string, eventTitle: string): Promise<void> {
+  await createNotification(
+    'event_created',
+    '新しいイベントが作成されました',
+    `イベント「${eventTitle}」が作成されました`,
+    eventId
+  );
+}
+
+export async function notifyEventUpdated(eventId: string, eventTitle: string, changes: string[]): Promise<void> {
+  await createNotification(
+    'event_updated',
+    'イベントが更新されました',
+    `イベント「${eventTitle}」の${changes.join('、')}が更新されました`,
+    eventId,
+    undefined,
+    { changes }
+  );
+}
+
+export async function notifyEventDeleted(eventTitle: string): Promise<void> {
+  await createNotification(
+    'event_deleted',
+    'イベントが削除されました',
+    `イベント「${eventTitle}」が削除されました`
+  );
+}
+
+export async function notifyPrepItemUpdated(eventId: string, eventTitle: string, itemName: string): Promise<void> {
+  await createNotification(
+    'prep_item_updated',
+    '準備アイテムが更新されました',
+    `イベント「${eventTitle}」の準備アイテム「${itemName}」が更新されました`,
+    eventId,
+    undefined,
+    { itemName }
+  );
+}
+
+export async function notifyBudgetAlert(eventId: string, eventTitle: string, currentBudget: number, threshold: number): Promise<void> {
+  await createNotification(
+    'budget_alert',
+    '予算アラート',
+    `イベント「${eventTitle}」の予算が閾値（¥${threshold.toLocaleString()}）を超えました（現在: ¥${currentBudget.toLocaleString()}）`,
+    eventId,
+    undefined,
+    { currentBudget, threshold }
+  );
+}
+
+export function formatNotificationTime(timestamp: string): string {
+  const now = new Date();
+  const notifTime = new Date(timestamp);
+  const diffMs = now.getTime() - notifTime.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) return 'たった今';
+  if (diffMins < 60) return `${diffMins}分前`;
+  if (diffHours < 24) return `${diffHours}時間前`;
+  if (diffDays < 7) return `${diffDays}日前`;
+  
+  return notifTime.toLocaleDateString('ja-JP', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
   });
-}
-
-export function getNotificationIcon(type: AppNotification['type']): string {
-  const icons: Record<AppNotification['type'], string> = {
-    event_created: '✨',
-    event_updated: '✏️',
-    event_deleted: '🗑️',
-    prep_item_updated: '📦',
-    budget_alert: '⚠️',
-  };
-  return icons[type] || '🔔';
-}
-
-export function getNotificationColor(type: AppNotification['type']): string {
-  const colors: Record<AppNotification['type'], string> = {
-    event_created: 'bg-emerald-100 text-emerald-700',
-    event_updated: 'bg-indigo-100 text-indigo-700',
-    event_deleted: 'bg-red-100 text-red-700',
-    prep_item_updated: 'bg-amber-100 text-amber-700',
-    budget_alert: 'bg-orange-100 text-orange-700',
-  };
-  return colors[type] || 'bg-slate-100 text-slate-700';
-}
-
-export function getNotificationTime(createdAt: any): string {
-  if (!createdAt) return '';
-  const date = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
-  const diff = Date.now() - date.getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return 'たった今';
-  if (min < 60) return `${min}分前`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `${h}時間前`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}日前`;
-  return date.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
 }

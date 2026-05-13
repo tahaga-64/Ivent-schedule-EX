@@ -1,135 +1,264 @@
-import { useState } from 'react';
-import { X, Trash2, ChevronLeft, ChevronRight, Edit3, Check } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { X, Trash2, Edit3, Download, ZoomIn } from 'lucide-react';
 import { EventPhoto } from '../../types';
+import { usePhotos } from '../../hooks/usePhotos';
 
-interface Props {
+interface PhotoGalleryProps {
+  eventId: string;
   photos: EventPhoto[];
-  onDelete: (photo: EventPhoto) => void;
-  onUpdateCaption: (photo: EventPhoto, caption: string) => void;
-  canEdit: boolean;
+  onPhotosChange?: () => void;
+  className?: string;
 }
 
-export default function PhotoGallery({ photos, onDelete, onUpdateCaption, canEdit }: Props) {
-  const [lightbox, setLightbox] = useState<number | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [captionDraft, setCaptionDraft] = useState('');
+interface PhotoModalProps {
+  photo: EventPhoto;
+  onClose: () => void;
+  onDelete: () => void;
+  onUpdateCaption: (caption: string) => void;
+  isUpdating: boolean;
+}
 
-  if (photos.length === 0) return (
-    <div className="text-center py-8 text-slate-400">
-      <p className="text-sm font-bold">写真はありません</p>
-      <p className="text-xs mt-1">上のエリアから追加してください</p>
-    </div>
+function PhotoModal({ photo, onClose, onDelete, onUpdateCaption, isUpdating }: PhotoModalProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [caption, setCaption] = useState(photo.caption || '');
+
+  const handleSaveCaption = useCallback(() => {
+    onUpdateCaption(caption);
+    setIsEditing(false);
+  }, [caption, onUpdateCaption]);
+
+  const handleDownload = useCallback(() => {
+    const link = document.createElement('a');
+    link.href = photo.url;
+    link.download = `photo_${photo.id}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [photo]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        onClick={(e) => e.stopPropagation()}
+        className="relative max-w-4xl max-h-[90vh] bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-2xl"
+      >
+        {/* Header */}
+        <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/50 to-transparent p-4">
+          <div className="flex items-center justify-between text-white">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleDownload}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <Download size={18} />
+              </button>
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                disabled={isUpdating}
+              >
+                <Edit3 size={18} />
+              </button>
+              <button
+                onClick={onDelete}
+                className="p-2 hover:bg-red-500/20 rounded-lg transition-colors"
+                disabled={isUpdating}
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Image */}
+        <img
+          src={photo.url}
+          alt={photo.caption || 'Event photo'}
+          className="w-full h-auto max-h-[70vh] object-contain"
+        />
+
+        {/* Caption */}
+        <div className="p-4 space-y-3">
+          {isEditing ? (
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                placeholder="写真の説明を入力"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                disabled={isUpdating}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSaveCaption}
+                  disabled={isUpdating}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white rounded-lg font-medium transition-colors"
+                >
+                  保存
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditing(false);
+                    setCaption(photo.caption || '');
+                  }}
+                  disabled={isUpdating}
+                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg font-medium transition-colors"
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-gray-700 dark:text-gray-300">
+              {photo.caption || '説明なし'}
+            </p>
+          )}
+          
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            アップロード日時: {new Date(photo.uploadedAt).toLocaleString('ja-JP')}
+          </p>
+        </div>
+      </motion.div>
+    </motion.div>
   );
+}
 
-  function openLightbox(i: number) { setLightbox(i); }
-  function closeLightbox() { setLightbox(null); }
-  function prev() { setLightbox(i => i != null ? (i - 1 + photos.length) % photos.length : null); }
-  function next() { setLightbox(i => i != null ? (i + 1) % photos.length : null); }
+export default function PhotoGallery({ 
+  eventId, 
+  photos, 
+  onPhotosChange, 
+  className = '' 
+}: PhotoGalleryProps) {
+  const [selectedPhoto, setSelectedPhoto] = useState<EventPhoto | null>(null);
+  const { deleteEventPhoto, updatePhotoCaption, error, clearError } = usePhotos();
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  function startEdit(photo: EventPhoto) {
-    setEditingId(photo.id);
-    setCaptionDraft(photo.caption || '');
-  }
+  const handleDeletePhoto = useCallback(async (photo: EventPhoto) => {
+    if (!confirm('この写真を削除しますか？')) return;
 
-  function saveCaption(photo: EventPhoto) {
-    onUpdateCaption(photo, captionDraft);
-    setEditingId(null);
+    try {
+      await deleteEventPhoto(eventId, photo);
+      setSelectedPhoto(null);
+      onPhotosChange?.();
+    } catch (error) {
+      // Error is handled by the hook
+    }
+  }, [eventId, deleteEventPhoto, onPhotosChange]);
+
+  const handleUpdateCaption = useCallback(async (caption: string) => {
+    if (!selectedPhoto) return;
+
+    setIsUpdating(true);
+    try {
+      await updatePhotoCaption(eventId, selectedPhoto, caption);
+      setSelectedPhoto({ ...selectedPhoto, caption });
+      onPhotosChange?.();
+    } catch (error) {
+      // Error is handled by the hook
+    } finally {
+      setIsUpdating(false);
+    }
+  }, [eventId, selectedPhoto, updatePhotoCaption, onPhotosChange]);
+
+  if (photos.length === 0) {
+    return (
+      <div className={`text-center py-8 ${className}`}>
+        <div className="text-gray-400 dark:text-gray-500 space-y-2">
+          <ZoomIn size={48} className="mx-auto" />
+          <p>アップロードされた写真はありません</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <>
-      <div className="grid grid-cols-3 gap-2">
-        {photos.map((photo, i) => (
+    <div className={`space-y-4 ${className}`}>
+      {/* Error Display */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              <button
+                onClick={clearError}
+                className="text-red-400 hover:text-red-600"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Photo Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        {photos.map((photo) => (
           <motion.div
             key={photo.id}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="relative group aspect-square rounded-xl overflow-hidden bg-slate-100 cursor-pointer"
-            onClick={() => openLightbox(i)}
+            className="group relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer"
+            onClick={() => setSelectedPhoto(photo)}
           >
             <img
-              src={photo.thumbnailUrl || photo.url}
-              alt={photo.caption || ''}
+              src={photo.url}
+              alt={photo.caption || 'Event photo'}
               className="w-full h-full object-cover transition-transform group-hover:scale-105"
+              loading="lazy"
             />
-            {canEdit && (
-              <button
-                onClick={e => { e.stopPropagation(); onDelete(photo); }}
-                className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <Trash2 size={11} className="text-white" />
-              </button>
-            )}
+            
+            {/* Overlay */}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+              <ZoomIn 
+                size={24} 
+                className="text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              />
+            </div>
+            
+            {/* Caption */}
             {photo.caption && (
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                <p className="text-white text-[10px] font-medium truncate">{photo.caption}</p>
+                <p className="text-white text-xs truncate">{photo.caption}</p>
               </div>
             )}
           </motion.div>
         ))}
       </div>
 
+      {/* Photo Modal */}
       <AnimatePresence>
-        {lightbox !== null && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-black/95 flex flex-col"
-            onClick={closeLightbox}
-          >
-            <div className="flex items-center justify-between p-4" onClick={e => e.stopPropagation()}>
-              <span className="text-white/60 text-sm font-bold">{lightbox + 1} / {photos.length}</span>
-              <button onClick={closeLightbox} className="text-white/60 hover:text-white p-2">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="flex-1 flex items-center justify-center relative" onClick={e => e.stopPropagation()}>
-              <button onClick={prev} className="absolute left-4 text-white/60 hover:text-white p-2 z-10">
-                <ChevronLeft size={28} />
-              </button>
-              <img
-                src={photos[lightbox].url}
-                alt=""
-                className="max-w-full max-h-full object-contain rounded-xl"
-                style={{ maxHeight: 'calc(100vh - 180px)' }}
-              />
-              <button onClick={next} className="absolute right-4 text-white/60 hover:text-white p-2 z-10">
-                <ChevronRight size={28} />
-              </button>
-            </div>
-
-            <div className="p-4" onClick={e => e.stopPropagation()}>
-              {editingId === photos[lightbox].id ? (
-                <div className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2">
-                  <input
-                    autoFocus
-                    value={captionDraft}
-                    onChange={e => setCaptionDraft(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && saveCaption(photos[lightbox])}
-                    placeholder="キャプションを入力..."
-                    className="flex-1 bg-transparent text-white text-sm outline-none placeholder-white/40"
-                  />
-                  <button onClick={() => saveCaption(photos[lightbox])}>
-                    <Check size={16} className="text-emerald-400" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <p className="text-white/70 text-sm flex-1">{photos[lightbox].caption || ''}</p>
-                  {canEdit && (
-                    <button onClick={() => startEdit(photos[lightbox])} className="text-white/40 hover:text-white p-1">
-                      <Edit3 size={15} />
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </motion.div>
+        {selectedPhoto && (
+          <PhotoModal
+            photo={selectedPhoto}
+            onClose={() => setSelectedPhoto(null)}
+            onDelete={() => handleDeletePhoto(selectedPhoto)}
+            onUpdateCaption={handleUpdateCaption}
+            isUpdating={isUpdating}
+          />
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }

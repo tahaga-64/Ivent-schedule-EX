@@ -1,57 +1,126 @@
-import { useState } from 'react';
-import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { uploadAndCompressPhoto, deletePhoto } from '../lib/photoStorage';
-import { validateImageFile } from '../lib/photoStorage';
+import { useState, useCallback } from 'react';
 import { EventPhoto } from '../types';
+import { 
+  uploadAndCompressPhoto, 
+  deletePhoto, 
+  generatePhotoId, 
+  validateImageFile 
+} from '../lib/photoStorage';
+import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 
-export function usePhotos(eventId: string) {
+interface UsePhotosReturn {
+  uploading: boolean;
+  uploadPhoto: (eventId: string, file: File, caption?: string) => Promise<EventPhoto>;
+  deleteEventPhoto: (eventId: string, photo: EventPhoto) => Promise<void>;
+  updatePhotoCaption: (eventId: string, photo: EventPhoto, caption: string) => Promise<void>;
+  error: string | null;
+  clearError: () => void;
+}
+
+export function usePhotos(): UsePhotosReturn {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function uploadPhoto(file: File): Promise<EventPhoto | null> {
-    const validationError = validateImageFile(file);
-    if (validationError) { setError(validationError); return null; }
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  const uploadPhoto = useCallback(async (
+    eventId: string, 
+    file: File, 
+    caption?: string
+  ): Promise<EventPhoto> => {
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid file');
+      throw new Error(validation.error);
+    }
 
     setUploading(true);
     setError(null);
+
     try {
-      const photoId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const { url, storagePath, thumbnailUrl } = await uploadAndCompressPhoto(file, eventId, photoId);
-      const photo: EventPhoto = {
-        id: photoId,
-        url,
-        storagePath,
-        thumbnailUrl,
-        uploadedAt: new Date().toISOString(),
-      };
-      await updateDoc(doc(db, 'events', eventId), { photos: arrayUnion(photo) });
+      const photoId = generatePhotoId();
+      const photo = await uploadAndCompressPhoto(eventId, file, photoId);
+      
+      if (caption) {
+        photo.caption = caption;
+      }
+
+      // Update event document with new photo
+      const eventRef = doc(db, 'events', eventId);
+      await updateDoc(eventRef, {
+        photos: arrayUnion(photo)
+      });
+
       return photo;
-    } catch (e) {
-      setError('アップロードに失敗しました');
-      return null;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'アップロードに失敗しました';
+      setError(errorMessage);
+      handleFirestoreError(err, OperationType.UPDATE, `events/${eventId}`);
+      throw err;
     } finally {
       setUploading(false);
     }
-  }
+  }, []);
 
-  async function deleteEventPhoto(photo: EventPhoto, currentPhotos: EventPhoto[]): Promise<void> {
+  const deleteEventPhoto = useCallback(async (
+    eventId: string, 
+    photo: EventPhoto
+  ): Promise<void> => {
+    setError(null);
+
     try {
+      // Delete from storage
       await deletePhoto(photo);
-      await updateDoc(doc(db, 'events', eventId), { photos: arrayRemove(photo) });
-    } catch (e) {
-      setError('削除に失敗しました');
-    }
-  }
 
-  async function updatePhotoCaption(photo: EventPhoto, caption: string, currentPhotos: EventPhoto[]): Promise<void> {
+      // Remove from event document
+      const eventRef = doc(db, 'events', eventId);
+      await updateDoc(eventRef, {
+        photos: arrayRemove(photo)
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '削除に失敗しました';
+      setError(errorMessage);
+      handleFirestoreError(err, OperationType.UPDATE, `events/${eventId}`);
+      throw err;
+    }
+  }, []);
+
+  const updatePhotoCaption = useCallback(async (
+    eventId: string,
+    photo: EventPhoto,
+    caption: string
+  ): Promise<void> => {
+    setError(null);
+
     try {
-      const updated = currentPhotos.map(p => p.id === photo.id ? { ...p, caption } : p);
-      await updateDoc(doc(db, 'events', eventId), { photos: updated });
-    } catch (e) {
-      setError('キャプション更新に失敗しました');
+      const updatedPhoto = { ...photo, caption };
+      
+      // Remove old photo and add updated one
+      const eventRef = doc(db, 'events', eventId);
+      await updateDoc(eventRef, {
+        photos: arrayRemove(photo)
+      });
+      
+      await updateDoc(eventRef, {
+        photos: arrayUnion(updatedPhoto)
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'キャプションの更新に失敗しました';
+      setError(errorMessage);
+      handleFirestoreError(err, OperationType.UPDATE, `events/${eventId}`);
+      throw err;
     }
-  }
+  }, []);
 
-  return { uploading, error, uploadPhoto, deleteEventPhoto, updatePhotoCaption };
+  return {
+    uploading,
+    uploadPhoto,
+    deleteEventPhoto,
+    updatePhotoCaption,
+    error,
+    clearError
+  };
 }
