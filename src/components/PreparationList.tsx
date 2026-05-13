@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { PreparationItem, Event } from '../types';
@@ -199,8 +199,8 @@ export default function PreparationList({ event, onBack }: Props) {
                   <th className="w-28 px-3 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-right border-r border-gray-100">配送料</th>
                   <th className="w-16 px-3 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-center border-r border-gray-100">到着</th>
                   <th className="w-16 px-3 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-center border-r border-gray-100">準備</th>
-                  <th className="px-4 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-left border-r border-gray-100" style={{ minWidth: '120px' }}>備考</th>
                   <th className="px-4 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-left border-r border-gray-100" style={{ minWidth: '160px' }}>URL</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-left border-r border-gray-100" style={{ minWidth: '120px' }}>備考</th>
                   <th className="w-10 px-2 py-3" />
                 </tr>
               </thead>
@@ -262,19 +262,16 @@ export default function PreparationList({ event, onBack }: Props) {
                     <td className="p-0 border-r border-gray-100">
                       <input
                         type="text"
-                        value={item.note || ''}
-                        onChange={e => updateItem(item.id, { note: e.target.value })}
-                        placeholder="..."
-                        className="w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm text-gray-600"
-                      />
-                    </td>
-                    <td className="p-0 border-r border-gray-100">
-                      <input
-                        type="text"
                         value={item.url || ''}
                         onChange={e => updateItem(item.id, { url: e.target.value })}
                         placeholder="https://..."
                         className="w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm text-indigo-500"
+                      />
+                    </td>
+                    <td className="p-0 border-r border-gray-100">
+                      <PreparationNoteField
+                        value={item.note || ''}
+                        onChange={note => updateItem(item.id, { note })}
                       />
                     </td>
                     <td className="px-2 py-2.5 text-center">
@@ -332,6 +329,33 @@ export default function PreparationList({ event, onBack }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+function PreparationNoteField({ value, onChange }: { value: string; onChange: (note: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      onChange={e => {
+        e.target.style.height = 'auto';
+        e.target.style.height = `${e.target.scrollHeight}px`;
+        onChange(e.target.value);
+      }}
+      placeholder="..."
+      className="w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm text-gray-600 break-words"
+      style={{ resize: 'none', overflowX: 'hidden', minHeight: '38px' }}
+    />
   );
 }
 
