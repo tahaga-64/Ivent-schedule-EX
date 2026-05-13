@@ -36,7 +36,7 @@ export default function PreparationList({ event, onBack }: Props) {
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PreparationItem));
       data.sort((a, b) => (a.order || 0) - (b.order || 0));
       if (data.length === 0 && loading) {
-        setItems(Array.from({ length: 5 }, (_, i) => ({
+        setItems(Array.from({ length: 1 }, (_, i) => ({
           id: crypto.randomUUID(),
           name: '', quantity: 1, unitPrice: 0, amount: 0,
           shippingFee: 0, arrived: false, prepared: false, note: '', url: '', order: i,
