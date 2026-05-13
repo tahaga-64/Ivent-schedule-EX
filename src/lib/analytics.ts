@@ -156,24 +156,15 @@ export function calculateAnalyticsData(
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  const dailyAttendanceMap: Record<string, number> = {};
-  events.forEach((e) => {
-    if (!e.start) return;
-    dailyAttendanceMap[e.start] = (dailyAttendanceMap[e.start] || 0) + (e.attendance ?? 0);
-  });
-  const dailyAttendance = Object.entries(dailyAttendanceMap)
-    .map(([date, attendance]) => ({ date, attendance }))
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  const recentRetrospectives = events
-    .filter(e => e.retrospective && (e.retrospective.goodPoints || e.retrospective.improvements))
+  const recentAnalysisReports = events
+    .filter(e => e.analysisReport && e.analysisReport.title)
     .sort((a, b) => b.start.localeCompare(a.start))
     .slice(0, 5)
     .map(e => ({
       eventId: e.id,
       venue: e.venue,
       start: e.start,
-      retrospective: e.retrospective!,
+      report: e.analysisReport!,
     }));
 
   return {
@@ -199,7 +190,6 @@ export function calculateAnalyticsData(
     totalContracts,
     avgCarrierSwitchRate,
     carrierInflowTotal,
-    recentRetrospectives,
-    dailyAttendance,
+    recentAnalysisReports,
   };
 }

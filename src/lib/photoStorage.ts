@@ -4,6 +4,15 @@ import { EventPhoto } from '../types';
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
+export const PHOTO_UPLOAD_PROFILE = {
+  full: { maxWidth: 1600, quality: 0.85 },
+  thumbnail: { maxWidth: 400, quality: 0.75 },
+  targetSizeGuide: {
+    fullKb: '250-500KB',
+    thumbnailKb: '30-70KB',
+    totalKb: '約350KB/枚',
+  },
+} as const;
 
 export function validateImageFile(file: File): string | null {
   if (!ACCEPTED_TYPES.includes(file.type)) return '対応画像形式: JPEG, PNG, WebP, GIF, HEIC';
@@ -11,7 +20,11 @@ export function validateImageFile(file: File): string | null {
   return null;
 }
 
-export async function compressImage(file: File, maxWidth = 1600, quality = 0.85): Promise<Blob> {
+export async function compressImage(
+  file: File,
+  maxWidth: number = PHOTO_UPLOAD_PROFILE.full.maxWidth,
+  quality: number = PHOTO_UPLOAD_PROFILE.full.quality
+): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -47,7 +60,7 @@ export async function uploadAndCompressPhoto(
 ): Promise<{ url: string; storagePath: string; thumbnailUrl: string }> {
   const [compressed, thumb] = await Promise.all([
     compressImage(file),
-    compressImage(file, 400, 0.75),
+    compressImage(file, PHOTO_UPLOAD_PROFILE.thumbnail.maxWidth, PHOTO_UPLOAD_PROFILE.thumbnail.quality),
   ]);
 
   const basePath = `events/${eventId}/photos/${photoId}`;

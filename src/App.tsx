@@ -756,7 +756,7 @@ export default function App() {
                 <AnalyticsDashboard data={analyticsData} loading={analyticsLoading} />
               )}
               {view === "analytics" && !analyticsData && analyticsLoading && (
-                <AnalyticsDashboard data={{ totalEvents: 0, completedEvents: 0, totalBudget: 0, avgBudget: 0, completionRate: 0, onTimeRate: 0, avgPreparationDays: 0, activeRegions: 0, topVenues: [], topRegion: '', busiestMonth: '', monthlyTrends: [], regionStats: [], typeStats: [], clientStats: [], totalSales: 0, totalGrossProfit: 0, totalAttendance: 0, totalSeatedCount: 0, totalContracts: 0, avgCarrierSwitchRate: 0, carrierInflowTotal: { docomo: 0, au: 0, softbank: 0, rakuten: 0, other: 0 }, recentRetrospectives: [], dailyAttendance: [] }} loading={true} />
+                <AnalyticsDashboard data={{ totalEvents: 0, completedEvents: 0, totalBudget: 0, avgBudget: 0, completionRate: 0, onTimeRate: 0, avgPreparationDays: 0, activeRegions: 0, topVenues: [], topRegion: '', busiestMonth: '', monthlyTrends: [], regionStats: [], typeStats: [], clientStats: [], totalSales: 0, totalGrossProfit: 0, totalAttendance: 0, totalSeatedCount: 0, totalContracts: 0, avgCarrierSwitchRate: 0, carrierInflowTotal: { docomo: 0, au: 0, softbank: 0, rakuten: 0, other: 0 }, recentAnalysisReports: [] }} loading={true} />
               )}
             </motion.div>
           </AnimatePresence>
@@ -976,18 +976,59 @@ export default function App() {
                           <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.carrierInflow?.rakuten ?? ''} onChange={e => handleUpdateEvent(selected.id, { carrierInflow: { ...(selected.carrierInflow || {}), rakuten: Number(e.target.value) || 0 } })} placeholder="楽天" />
                           <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm col-span-2" value={selected.carrierInflow?.other ?? ''} onChange={e => handleUpdateEvent(selected.id, { carrierInflow: { ...(selected.carrierInflow || {}), other: Number(e.target.value) || 0 } })} placeholder="その他" />
                         </div>
-                        <textarea
-                          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px]"
-                          value={selected.retrospective?.goodPoints || ''}
-                          onChange={e => handleUpdateEvent(selected.id, { retrospective: { ...(selected.retrospective || {}), goodPoints: e.target.value } })}
-                          placeholder="良かった点"
-                        />
-                        <textarea
-                          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px]"
-                          value={selected.retrospective?.improvements || ''}
-                          onChange={e => handleUpdateEvent(selected.id, { retrospective: { ...(selected.retrospective || {}), improvements: e.target.value } })}
-                          placeholder="改善点"
-                        />
+                        <div className="flex items-center justify-between">
+                          <p className="text-[11px] font-bold text-gray-500">分析レポート</p>
+                          {!selected.analysisReport?.createdAt && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateEvent(selected.id, {
+                                analysisReport: {
+                                  createdAt: new Date().toISOString(),
+                                  title: `${selected.venue} 分析レポート`,
+                                },
+                              })}
+                              className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-700 transition-colors"
+                            >
+                              新規作成
+                            </button>
+                          )}
+                        </div>
+                        {selected.analysisReport?.createdAt ? (
+                          <div className="space-y-2">
+                            <input
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm"
+                              value={selected.analysisReport.title || ''}
+                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString() }), title: e.target.value } })}
+                              placeholder="レポートタイトル"
+                            />
+                            <textarea
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px]"
+                              value={selected.analysisReport.summary || ''}
+                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), summary: e.target.value } })}
+                              placeholder="サマリー"
+                            />
+                            <textarea
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px]"
+                              value={selected.analysisReport.goodPoints || ''}
+                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), goodPoints: e.target.value } })}
+                              placeholder="良かった点"
+                            />
+                            <textarea
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px]"
+                              value={selected.analysisReport.improvements || ''}
+                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), improvements: e.target.value } })}
+                              placeholder="改善点"
+                            />
+                            <textarea
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px]"
+                              value={selected.analysisReport.nextActions || ''}
+                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), nextActions: e.target.value } })}
+                              placeholder="次アクション"
+                            />
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-gray-400">「新規作成」で分析レポートを追加できます。</p>
+                        )}
                       </div>
                     </details>
                   </div>

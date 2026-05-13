@@ -8,7 +8,8 @@ export type {
   MonthlyTrend,
   RegionStats,
   CarrierInflow,
-  EventRetrospective
+  EventRetrospective,
+  EventAnalysisReport
 } from '../types';
 
 // 後方互換性のための型エイリアス
@@ -56,5 +57,13 @@ export interface NewEventDraft {
   retrospective?: {
     goodPoints?: string;
     improvements?: string;
+  };
+  analysisReport?: {
+    createdAt?: string;
+    title?: string;
+    summary?: string;
+    goodPoints?: string;
+    improvements?: string;
+    nextActions?: string;
   };
 }
