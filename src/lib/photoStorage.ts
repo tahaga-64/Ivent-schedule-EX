@@ -1,4 +1,4 @@
-import { ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from './firebase';
 import { EventPhoto } from '../types';
 
@@ -63,7 +63,10 @@ export async function uploadAndCompressPhoto(
       () => resolve()
     );
   });
-  await uploadBytes(thumbRef, thumb, { contentType: 'image/webp' });
+  await new Promise<void>((resolve, reject) => {
+    const task = uploadBytesResumable(thumbRef, thumb, { contentType: 'image/webp' });
+    task.on('state_changed', undefined, reject, () => resolve());
+  });
 
   const [url, thumbnailUrl] = await Promise.all([
     getDownloadURL(fullRef),
