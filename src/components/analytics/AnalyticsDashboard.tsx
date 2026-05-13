@@ -7,7 +7,6 @@ import EventMetricsChart from '../charts/EventMetricsChart';
 import BudgetAnalysisChart from '../charts/BudgetAnalysisChart';
 import VenueUtilizationChart from '../charts/VenueUtilizationChart';
 import CarrierInflowChart from '../charts/CarrierInflowChart';
-import AttendanceHeatmap from '../charts/AttendanceHeatmap';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Props {
@@ -244,16 +243,6 @@ export default function AnalyticsDashboard({ data, loading }: Props) {
         </motion.div>
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.32 }}
-        className="bg-white rounded-2xl border border-slate-100 p-6"
-      >
-        <SectionHeader title="来場ヒートマップ（過去1年）" sub="日別来場数の濃淡表示" />
-        <AttendanceHeatmap dailyAttendance={data.dailyAttendance} />
-      </motion.div>
-
       {/* Bottom row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Top venues */}
@@ -344,28 +333,37 @@ export default function AnalyticsDashboard({ data, loading }: Props) {
         </motion.div>
       </div>
 
-      {/* Retrospectives */}
+      {/* Analysis reports */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.43 }}
         className="bg-white rounded-2xl border border-slate-100 p-6"
       >
-        <SectionHeader title="イベント反省 / 良かった点" sub="最近完了したイベントの振り返り" />
-        {data.recentRetrospectives.length > 0 ? (
+        <SectionHeader title="分析レポート" sub="最近作成されたイベント分析レポート" />
+        {data.recentAnalysisReports.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {data.recentRetrospectives.map((item) => (
+            {data.recentAnalysisReports.map((item) => (
               <div key={item.eventId} className="rounded-xl border border-slate-100 p-4 bg-slate-50/40">
                 <p className="text-xs font-black text-slate-700">{item.venue}</p>
                 <p className="text-[11px] text-slate-400 mt-0.5">{item.start}</p>
+                <p className="text-sm font-bold text-slate-800 mt-2">{item.report.title}</p>
                 <div className="mt-3 space-y-2">
+                  <div className="bg-sky-50 border border-sky-100 rounded-lg p-2.5">
+                    <p className="text-[10px] font-black text-sky-700 uppercase tracking-wider">サマリー</p>
+                    <p className="text-xs text-sky-800 mt-1 whitespace-pre-wrap">{item.report.summary || '記録なし'}</p>
+                  </div>
                   <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2.5">
                     <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider">良かった点</p>
-                    <p className="text-xs text-emerald-800 mt-1 whitespace-pre-wrap">{item.retrospective.goodPoints || '記録なし'}</p>
+                    <p className="text-xs text-emerald-800 mt-1 whitespace-pre-wrap">{item.report.goodPoints || '記録なし'}</p>
                   </div>
                   <div className="bg-amber-50 border border-amber-100 rounded-lg p-2.5">
                     <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider">改善点</p>
-                    <p className="text-xs text-amber-800 mt-1 whitespace-pre-wrap">{item.retrospective.improvements || '記録なし'}</p>
+                    <p className="text-xs text-amber-800 mt-1 whitespace-pre-wrap">{item.report.improvements || '記録なし'}</p>
+                  </div>
+                  <div className="bg-violet-50 border border-violet-100 rounded-lg p-2.5">
+                    <p className="text-[10px] font-black text-violet-700 uppercase tracking-wider">次アクション</p>
+                    <p className="text-xs text-violet-800 mt-1 whitespace-pre-wrap">{item.report.nextActions || '記録なし'}</p>
                   </div>
                 </div>
               </div>

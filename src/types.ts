@@ -18,6 +18,7 @@ export interface Event {
   contracts?: number;
   carrierInflow?: CarrierInflow;
   retrospective?: EventRetrospective;
+  analysisReport?: EventAnalysisReport;
 }
 
 export interface CarrierInflow {
@@ -31,6 +32,15 @@ export interface CarrierInflow {
 export interface EventRetrospective {
   goodPoints?: string;
   improvements?: string;
+}
+
+export interface EventAnalysisReport {
+  createdAt: string;
+  title: string;
+  summary?: string;
+  goodPoints?: string;
+  improvements?: string;
+  nextActions?: string;
 }
 
 export interface PreparationItem {
@@ -107,11 +117,10 @@ export interface AnalyticsData {
   totalContracts: number;
   avgCarrierSwitchRate: number;
   carrierInflowTotal: CarrierInflow;
-  recentRetrospectives: {
+  recentAnalysisReports: {
     eventId: string;
     venue: string;
     start: string;
-    retrospective: EventRetrospective;
+    report: EventAnalysisReport;
   }[];
-  dailyAttendance: { date: string; attendance: number }[];
 }
