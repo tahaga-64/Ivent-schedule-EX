@@ -134,32 +134,32 @@ export default function NewEventModal({ onClose, onSubmit }: Props) {
               <input
                 value={draft.analysisReport?.title ?? ''}
                 onChange={e => set('analysisReport', { ...(draft.analysisReport || {}), createdAt: draft.analysisReport?.createdAt || new Date().toISOString(), title: e.target.value })}
-                placeholder="分析レポートタイトル"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
+                placeholder="このレポートのタイトル（例: 会場名 分析レポート）"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm placeholder:text-gray-400"
               />
               <textarea
                 value={draft.analysisReport?.summary ?? ''}
                 onChange={e => set('analysisReport', { ...(draft.analysisReport || {}), createdAt: draft.analysisReport?.createdAt || new Date().toISOString(), summary: e.target.value })}
-                placeholder="サマリー"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm min-h-[70px]"
+                placeholder="イベント全体の要約や結論を記入"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm min-h-[70px] placeholder:text-gray-400"
               />
               <textarea
                 value={draft.analysisReport?.goodPoints ?? ''}
                 onChange={e => set('analysisReport', { ...(draft.analysisReport || {}), createdAt: draft.analysisReport?.createdAt || new Date().toISOString(), goodPoints: e.target.value })}
-                placeholder="良かった点"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm min-h-[70px]"
+                placeholder="うまくいった点・好評だった点を記入"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm min-h-[70px] placeholder:text-gray-400"
               />
               <textarea
                 value={draft.analysisReport?.improvements ?? ''}
                 onChange={e => set('analysisReport', { ...(draft.analysisReport || {}), createdAt: draft.analysisReport?.createdAt || new Date().toISOString(), improvements: e.target.value })}
-                placeholder="改善点"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm min-h-[70px]"
+                placeholder="次回に活かしたい改善点を記入"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm min-h-[70px] placeholder:text-gray-400"
               />
               <textarea
                 value={draft.analysisReport?.nextActions ?? ''}
                 onChange={e => set('analysisReport', { ...(draft.analysisReport || {}), createdAt: draft.analysisReport?.createdAt || new Date().toISOString(), nextActions: e.target.value })}
-                placeholder="次アクション"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm min-h-[70px]"
+                placeholder="フォローアップや共有したい次の一手を記入"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm min-h-[70px] placeholder:text-gray-400"
               />
             </div>
           </details>

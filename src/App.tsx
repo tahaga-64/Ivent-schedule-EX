@@ -1066,34 +1066,34 @@ export default function App() {
                         {selected.analysisReport?.createdAt ? (
                           <div className="space-y-2">
                             <input
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm"
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm placeholder:text-gray-400"
                               value={selected.analysisReport.title || ''}
                               onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString() }), title: e.target.value } })}
-                              placeholder="レポートタイトル"
+                              placeholder="このレポートのタイトル（例: 会場名 分析レポート）"
                             />
                             <textarea
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px]"
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
                               value={selected.analysisReport.summary || ''}
                               onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), summary: e.target.value } })}
-                              placeholder="サマリー"
+                              placeholder="イベント全体の要約や結論を記入"
                             />
                             <textarea
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px]"
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
                               value={selected.analysisReport.goodPoints || ''}
                               onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), goodPoints: e.target.value } })}
-                              placeholder="良かった点"
+                              placeholder="うまくいった点・好評だった点を記入"
                             />
                             <textarea
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px]"
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
                               value={selected.analysisReport.improvements || ''}
                               onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), improvements: e.target.value } })}
-                              placeholder="改善点"
+                              placeholder="次回に活かしたい改善点を記入"
                             />
                             <textarea
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px]"
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
                               value={selected.analysisReport.nextActions || ''}
                               onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), nextActions: e.target.value } })}
-                              placeholder="次アクション"
+                              placeholder="フォローアップや共有したい次の一手を記入"
                             />
                           </div>
                         ) : (
