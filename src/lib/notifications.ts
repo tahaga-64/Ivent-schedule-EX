@@ -41,6 +41,27 @@ export async function notifyEventDeleted(venue: string, eventId: string, userId?
   });
 }
 
+export async function notifyPrepItemUpdated(event: Event): Promise<void> {
+  await createNotification({
+    type: 'prep_item_updated',
+    title: '準備物リスト更新',
+    message: `「${event.venue}」の準備物リストが更新されました`,
+    eventId: event.id,
+  });
+}
+
+export async function notifyBudgetAlert(
+  event: Event,
+  totalBudget: number
+): Promise<void> {
+  await createNotification({
+    type: 'budget_alert',
+    title: '予算超過アラート',
+    message: `「${event.venue}」の合計金額が ¥${totalBudget.toLocaleString()} となり、予算上限 ¥${event.budgetLimit!.toLocaleString()} を超えました`,
+    eventId: event.id,
+  });
+}
+
 export function getNotificationIcon(type: AppNotification['type']): string {
   const icons: Record<AppNotification['type'], string> = {
     event_created: '✨',

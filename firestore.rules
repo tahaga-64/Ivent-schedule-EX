@@ -1,51 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // 認証済みユーザーかどうか
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    // 編集権限チェック: 特定のメールアドレスを持つGoogle認証済みユーザーのみ書き込み可
+    // 読み取り：Googleログイン済みユーザー全員
+    // 書き込み：以下の2アカウントのみ
     function isEditor() {
       return request.auth != null
-          && request.auth.token.firebase.sign_in_provider == 'google.com'
-          && request.auth.token.email in ['taoki0183@gmail.com'];
+          && request.auth.token.email in [
+               'taoki0183@gmail.com',
+               'm.takada.kp@gmail.com'
+             ];
     }
 
-    // preparationItems の ID フォーマット検証
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    // イベントデータのバリデーション
-    function isValidEvent() {
-      let data = request.resource.data;
-      return data.keys().hasAll(['id', 'venue', 'start', 'region', 'type'])
-          && data.venue is string && data.venue.size() > 0 && data.venue.size() <= 500
-          && data.region is string
-          && data.type is string;
-    }
-
-    match /events/{eventId} {
-      allow read:  if isAuthenticated();
-      allow create: if isEditor() && isValidEvent();
-      allow update: if isEditor();
-      allow delete: if isEditor();
-
-      match /preparationItems/{itemId} {
-        allow read:  if isAuthenticated();
-        allow write: if isEditor() && isValidId(itemId);
-      }
-    }
-
-    // 通知コレクション
-    match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isEditor();
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    match /{document=**} {
+      allow read: if request.auth != null;
+      allow write: if isEditor();
     }
   }
 }

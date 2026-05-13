@@ -16,8 +16,8 @@ export function useAnalytics(staticEvents: Event[]) {
     }
 
     // Listen to all prep item sub-collections by fetching per-event
-    // We use a simpler approach: snapshot the top-level prepItems collection
-    // which stores items as events/<id>/prepItems
+    // We use a simpler approach: snapshot the top-level preparationItems collection
+    // which stores items as events/<id>/preparationItems
     const prepByEvent: Record<string, PreparationItem[]> = {};
     let resolved = 0;
     const total = staticEvents.length;
@@ -32,7 +32,7 @@ export function useAnalytics(staticEvents: Event[]) {
 
     staticEvents.forEach(event => {
       const unsub = onSnapshot(
-        collection(db, 'events', event.id, 'prepItems'),
+        collection(db, 'events', event.id, 'preparationItems'),
         snap => {
           prepByEvent[event.id] = snap.docs.map(d => ({ id: d.id, ...d.data() } as PreparationItem));
           resolved++;

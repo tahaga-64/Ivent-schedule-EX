@@ -10,7 +10,8 @@ export interface Event {
   note: string;
   emoji?: string;
   photos?: EventPhoto[];
-  status?: string;
+  status?: '準備中' | '入荷待ち' | '完了';
+  budgetLimit?: number;
 }
 
 export interface PreparationItem {
