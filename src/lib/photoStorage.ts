@@ -1,4 +1,4 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from './firebase';
 import { EventPhoto } from '../types';
 
@@ -25,7 +25,11 @@ export async function compressImage(file: File, maxWidth = 1600, quality = 0.85)
       canvas.height = h;
       canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
       canvas.toBlob(
-        blob => blob ? resolve(blob) : reject(new Error('Canvas toBlob failed')),
+        blob => {
+          canvas.width = 0;
+          canvas.height = 0;
+          blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'));
+        },
         'image/webp',
         quality
       );
@@ -38,19 +42,28 @@ export async function compressImage(file: File, maxWidth = 1600, quality = 0.85)
 export async function uploadAndCompressPhoto(
   file: File,
   eventId: string,
-  photoId: string
+  photoId: string,
+  onProgress?: (percent: number) => void
 ): Promise<{ url: string; storagePath: string; thumbnailUrl: string }> {
-  const compressed = await compressImage(file);
-  const thumb = await compressImage(file, 400, 0.75);
+  const [compressed, thumb] = await Promise.all([
+    compressImage(file),
+    compressImage(file, 400, 0.75),
+  ]);
 
   const basePath = `events/${eventId}/photos/${photoId}`;
   const fullRef = ref(storage, `${basePath}/full.webp`);
   const thumbRef = ref(storage, `${basePath}/thumb.webp`);
 
-  await Promise.all([
-    uploadBytes(fullRef, compressed, { contentType: 'image/webp' }),
-    uploadBytes(thumbRef, thumb, { contentType: 'image/webp' }),
-  ]);
+  await new Promise<void>((resolve, reject) => {
+    const task = uploadBytesResumable(fullRef, compressed, { contentType: 'image/webp' });
+    task.on(
+      'state_changed',
+      snap => onProgress?.(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+      reject,
+      () => resolve()
+    );
+  });
+  await uploadBytes(thumbRef, thumb, { contentType: 'image/webp' });
 
   const [url, thumbnailUrl] = await Promise.all([
     getDownloadURL(fullRef),

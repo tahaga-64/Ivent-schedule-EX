@@ -259,7 +259,14 @@ export default function App() {
   }, [allEvents, regionFilter, typeFilter, monthFilter, searchQuery]);
 
   const { data: analyticsData, loading: analyticsLoading } = useAnalytics(allEvents);
-  const { uploading: photoUploading, error: photoError, uploadPhoto, deleteEventPhoto, updatePhotoCaption } = usePhotos(selected?.id || '');
+  const {
+    uploading: photoUploading,
+    uploadProgress,
+    error: photoError,
+    uploadPhoto,
+    deleteEventPhoto,
+    updatePhotoCaption
+  } = usePhotos(selected?.id || '');
 
   const stats = useMemo(() => {
     const byRegion: Record<string, number> = {};
@@ -863,7 +870,11 @@ export default function App() {
                   {modalTab === 'photos' && (
                     <div className="space-y-4">
                       {isEditor && (
-                        <PhotoUpload onUpload={async (file) => { await uploadPhoto(file); }} uploading={photoUploading} />
+                        <PhotoUpload
+                          onUpload={async (file) => { await uploadPhoto(file); }}
+                          uploading={photoUploading}
+                          uploadProgress={photoUploading ? uploadProgress : 0}
+                        />
                       )}
                       {photoError && <p className="text-xs text-red-500 font-bold">{photoError}</p>}
                       <PhotoGallery

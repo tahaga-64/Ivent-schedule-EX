@@ -6,9 +6,10 @@ import { validateImageFile } from '../../lib/photoStorage';
 interface Props {
   onUpload: (file: File) => Promise<any>;
   uploading: boolean;
+  uploadProgress?: number;
 }
 
-export default function PhotoUpload({ onUpload, uploading }: Props) {
+export default function PhotoUpload({ onUpload, uploading, uploadProgress }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
@@ -58,11 +59,21 @@ export default function PhotoUpload({ onUpload, uploading }: Props) {
           <p className="text-xs text-slate-400 mt-0.5">JPEG, PNG, WebP, GIF · 最大10MB</p>
         </div>
         {uploading && (
-          <div className="absolute inset-0 bg-white/80 rounded-2xl flex items-center justify-center">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs font-bold text-indigo-600">アップロード中...</span>
-            </div>
+          <div className="absolute inset-0 bg-white/80 rounded-2xl flex flex-col items-center justify-center gap-2">
+            <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs font-bold text-indigo-600">
+              {uploadProgress != null && uploadProgress > 0
+                ? `アップロード中... ${uploadProgress}%`
+                : '圧縮中...'}
+            </span>
+            {uploadProgress != null && uploadProgress > 0 && (
+              <div className="w-32 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-indigo-500 transition-all"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
