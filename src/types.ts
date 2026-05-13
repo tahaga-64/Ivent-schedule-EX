@@ -33,6 +33,7 @@ export interface PreparationItem {
   arrived: boolean;
   prepared: boolean;
   note: string;
+  url?: string;
   order: number;
 }
 

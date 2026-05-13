@@ -150,8 +150,8 @@ export default function App() {
   }, [monthFilter]);
 
   // Firestoreのイベントデータをソートして取得
-  const allEvents = useMemo(() => {
-    return Object.values(dbEvents).sort((a, b) =>
+  const allEvents = useMemo((): Event[] => {
+    return (Object.values(dbEvents) as Event[]).sort((a, b) =>
       (a.start || '9999') < (b.start || '9999') ? -1 : 1
     );
   }, [dbEvents]);
