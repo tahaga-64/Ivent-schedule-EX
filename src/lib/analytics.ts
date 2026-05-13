@@ -1,4 +1,4 @@
-import { Event, PreparationItem, AnalyticsData, MonthlyTrend, RegionStats } from '../types';
+import { Event, PreparationItem, AnalyticsData, MonthlyTrend, RegionStats, CarrierInflow } from '../types';
 
 export function formatCurrency(n: number): string {
   return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY', minimumFractionDigits: 0 }).format(n);
@@ -8,6 +8,11 @@ export function formatCurrencyCompact(n: number): string {
   if (n >= 1_000_000) return `¥${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 10_000) return `¥${(n / 10_000).toFixed(0)}万`;
   return formatCurrency(n);
+}
+
+export function formatNumber(n: number): string {
+  if (n >= 10000) return `${(n / 10000).toFixed(1)}万`;
+  return n.toLocaleString('ja-JP');
 }
 
 function getBudget(items: PreparationItem[]): number {
@@ -58,17 +63,43 @@ export function calculateAnalyticsData(
   const activeRegions = regionSet.size;
 
   // Monthly trends
-  const monthMap: Record<string, { count: number; budget: number }> = {};
+  const monthMap: Record<string, { count: number; budget: number; sales: number; grossProfit: number; attendance: number; contracts: number }> = {};
+  let totalSales = 0;
+  let totalGrossProfit = 0;
+  let totalAttendance = 0;
+  let totalSeatedCount = 0;
+  let totalContracts = 0;
+  const carrierInflowTotal: CarrierInflow = { docomo: 0, au: 0, softbank: 0, rakuten: 0, other: 0 };
   events.forEach((e, i) => {
     const ym = getYearMonth(e.start);
     if (!ym) return;
-    if (!monthMap[ym]) monthMap[ym] = { count: 0, budget: 0 };
+    if (!monthMap[ym]) monthMap[ym] = { count: 0, budget: 0, sales: 0, grossProfit: 0, attendance: 0, contracts: 0 };
     monthMap[ym].count++;
     monthMap[ym].budget += budgets[i];
+    monthMap[ym].sales += e.sales ?? 0;
+    monthMap[ym].grossProfit += e.grossProfit ?? 0;
+    monthMap[ym].attendance += e.attendance ?? 0;
+    monthMap[ym].contracts += e.contracts ?? 0;
+
+    totalSales += e.sales ?? 0;
+    totalGrossProfit += e.grossProfit ?? 0;
+    totalAttendance += e.attendance ?? 0;
+    totalSeatedCount += e.seatedCount ?? 0;
+    totalContracts += e.contracts ?? 0;
+
+    if (e.carrierInflow) {
+      for (const k of ['docomo', 'au', 'softbank', 'rakuten', 'other'] as const) {
+        carrierInflowTotal[k] = (carrierInflowTotal[k] ?? 0) + (e.carrierInflow[k] ?? 0);
+      }
+    }
   });
   const monthlyTrends: MonthlyTrend[] = Object.entries(monthMap)
     .sort(([a], [b]) => a < b ? -1 : 1)
     .map(([month, v]) => ({ month, ...v }));
+
+  const avgCarrierSwitchRate = totalAttendance > 0
+    ? (totalContracts / totalAttendance) * 100
+    : 0;
 
   // Busiest month
   const busiestMonth = monthlyTrends.length > 0
@@ -125,6 +156,26 @@ export function calculateAnalyticsData(
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
+  const dailyAttendanceMap: Record<string, number> = {};
+  events.forEach((e) => {
+    if (!e.start) return;
+    dailyAttendanceMap[e.start] = (dailyAttendanceMap[e.start] || 0) + (e.attendance ?? 0);
+  });
+  const dailyAttendance = Object.entries(dailyAttendanceMap)
+    .map(([date, attendance]) => ({ date, attendance }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const recentRetrospectives = events
+    .filter(e => e.retrospective && (e.retrospective.goodPoints || e.retrospective.improvements))
+    .sort((a, b) => b.start.localeCompare(a.start))
+    .slice(0, 5)
+    .map(e => ({
+      eventId: e.id,
+      venue: e.venue,
+      start: e.start,
+      retrospective: e.retrospective!,
+    }));
+
   return {
     totalEvents: total,
     completedEvents: completed,
@@ -141,5 +192,14 @@ export function calculateAnalyticsData(
     regionStats,
     typeStats,
     clientStats,
+    totalSales,
+    totalGrossProfit,
+    totalAttendance,
+    totalSeatedCount,
+    totalContracts,
+    avgCarrierSwitchRate,
+    carrierInflowTotal,
+    recentRetrospectives,
+    dailyAttendance,
   };
 }

@@ -8,16 +8,20 @@ interface Props {
   onSubmit: (draft: NewEventDraft) => void;
 }
 
-const REGIONS: Region[]   = ['???','???','???','???'];
+const REGIONS: Region[] = ['東日本', '西日本', '南日本', '中日本'];
 
 export default function NewEventModal({ onClose, onSubmit }: Props) {
   const today = new Date().toISOString().split('T')[0];
   const [draft, setDraft] = useState<NewEventDraft>({
-    venue: '', client: '', type: 'DJI', region: '???', start: today, end: today,
+    venue: '', client: '', type: 'DJI', region: '東日本', start: today, end: today,
+    carrierInflow: {},
+    retrospective: {},
   });
 
   const set = <K extends keyof NewEventDraft>(k: K, v: NewEventDraft[K]) =>
     setDraft(prev => ({ ...prev, [k]: v }));
+  const setCarrier = (k: 'docomo' | 'au' | 'softbank' | 'rakuten' | 'other', v: number) =>
+    setDraft(prev => ({ ...prev, carrierInflow: { ...(prev.carrierInflow || {}), [k]: v } }));
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -93,6 +97,54 @@ export default function NewEventModal({ onClose, onSubmit }: Props) {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all" />
             </div>
           </div>
+
+          <details className="border border-gray-200 rounded-xl p-3 bg-gray-50/70">
+            <summary className="cursor-pointer text-xs font-bold text-gray-700">📊 イベント実績（開催後に入力）</summary>
+            <div className="mt-3 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="number"
+                  min={0}
+                  value={draft.sales ?? ''}
+                  onChange={e => set('sales', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="売上（円）"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  value={draft.grossProfit ?? ''}
+                  onChange={e => set('grossProfit', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="粗利（円）"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <input type="number" min={0} value={draft.attendance ?? ''} onChange={e => set('attendance', e.target.value ? Number(e.target.value) : undefined)} placeholder="来場数" className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm" />
+                <input type="number" min={0} value={draft.seatedCount ?? ''} onChange={e => set('seatedCount', e.target.value ? Number(e.target.value) : undefined)} placeholder="着座数" className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm" />
+                <input type="number" min={0} value={draft.contracts ?? ''} onChange={e => set('contracts', e.target.value ? Number(e.target.value) : undefined)} placeholder="成約数" className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <input type="number" min={0} value={draft.carrierInflow?.docomo ?? ''} onChange={e => setCarrier('docomo', Number(e.target.value) || 0)} placeholder="docomo" className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm" />
+                <input type="number" min={0} value={draft.carrierInflow?.au ?? ''} onChange={e => setCarrier('au', Number(e.target.value) || 0)} placeholder="au" className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm" />
+                <input type="number" min={0} value={draft.carrierInflow?.softbank ?? ''} onChange={e => setCarrier('softbank', Number(e.target.value) || 0)} placeholder="SoftBank" className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm" />
+                <input type="number" min={0} value={draft.carrierInflow?.rakuten ?? ''} onChange={e => setCarrier('rakuten', Number(e.target.value) || 0)} placeholder="楽天" className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm" />
+                <input type="number" min={0} value={draft.carrierInflow?.other ?? ''} onChange={e => setCarrier('other', Number(e.target.value) || 0)} placeholder="その他" className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm col-span-2" />
+              </div>
+              <textarea
+                value={draft.retrospective?.goodPoints ?? ''}
+                onChange={e => set('retrospective', { ...(draft.retrospective || {}), goodPoints: e.target.value })}
+                placeholder="良かった点"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm min-h-[70px]"
+              />
+              <textarea
+                value={draft.retrospective?.improvements ?? ''}
+                onChange={e => set('retrospective', { ...(draft.retrospective || {}), improvements: e.target.value })}
+                placeholder="改善点"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm min-h-[70px]"
+              />
+            </div>
+          </details>
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}

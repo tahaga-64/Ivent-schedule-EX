@@ -1,11 +1,14 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { TrendingUp, Calendar, MapPin, Building2, DollarSign, Award, Zap, BarChart2, ArrowUpRight } from 'lucide-react';
+import { TrendingUp, Calendar, MapPin, DollarSign, Award, Zap, BarChart2, ArrowUpRight, Users, Handshake, PercentCircle } from 'lucide-react';
 import { AnalyticsData } from '../../types';
-import { formatCurrencyCompact } from '../../lib/analytics';
+import { formatCurrencyCompact, formatNumber } from '../../lib/analytics';
 import EventMetricsChart from '../charts/EventMetricsChart';
 import BudgetAnalysisChart from '../charts/BudgetAnalysisChart';
 import VenueUtilizationChart from '../charts/VenueUtilizationChart';
+import CarrierInflowChart from '../charts/CarrierInflowChart';
+import AttendanceHeatmap from '../charts/AttendanceHeatmap';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Props {
   data: AnalyticsData;
@@ -83,7 +86,6 @@ export default function AnalyticsDashboard({ data, loading }: Props) {
   }
 
   const maxRegionCount = Math.max(...data.regionStats.map(r => r.count), 1);
-  const maxVenueCount = Math.max(...data.topVenues.map(v => v.count), 1);
 
   const regionColors = [
     'bg-indigo-500', 'bg-violet-500', 'bg-cyan-500', 'bg-emerald-500', 'bg-amber-500',
@@ -118,27 +120,59 @@ export default function AnalyticsDashboard({ data, loading }: Props) {
         />
         <KpiCard
           icon={<DollarSign size={18} className="text-emerald-600" />}
-          label="総予算"
-          value={formatCurrencyCompact(data.totalBudget)}
-          sub={`平均: ${formatCurrencyCompact(data.avgBudget)}`}
+          label="総売上"
+          value={formatCurrencyCompact(data.totalSales)}
+          sub={`予算: ${formatCurrencyCompact(data.totalBudget)}`}
           color="bg-emerald-50"
           delay={0.05}
         />
         <KpiCard
-          icon={<MapPin size={18} className="text-violet-600" />}
-          label="カバレッジ"
-          value={`${data.activeRegions}地域`}
-          sub={`最多: ${data.topRegion || '—'}`}
+          icon={<TrendingUp size={18} className="text-violet-600" />}
+          label="総粗利"
+          value={formatCurrencyCompact(data.totalGrossProfit)}
+          sub={`平均予算: ${formatCurrencyCompact(data.avgBudget)}`}
           color="bg-violet-50"
           delay={0.1}
+        />
+        <KpiCard
+          icon={<Users size={18} className="text-sky-600" />}
+          label="来場数合計"
+          value={formatNumber(data.totalAttendance)}
+          sub={`稼働地域: ${data.activeRegions}`}
+          color="bg-sky-50"
+          delay={0.15}
+        />
+        <KpiCard
+          icon={<MapPin size={18} className="text-rose-600" />}
+          label="着座数"
+          value={formatNumber(data.totalSeatedCount)}
+          sub={`最多地域: ${data.topRegion || '—'}`}
+          color="bg-rose-50"
+          delay={0.2}
+        />
+        <KpiCard
+          icon={<Handshake size={18} className="text-teal-600" />}
+          label="成約数"
+          value={formatNumber(data.totalContracts)}
+          sub={`繁忙月: ${data.busiestMonth ? data.busiestMonth.replace('-', '年') + '月' : '—'}`}
+          color="bg-teal-50"
+          delay={0.25}
+        />
+        <KpiCard
+          icon={<PercentCircle size={18} className="text-fuchsia-600" />}
+          label="平均乗り換え率"
+          value={`${data.avgCarrierSwitchRate.toFixed(1)}%`}
+          sub="成約数 / 来場数"
+          color="bg-fuchsia-50"
+          delay={0.3}
         />
         <KpiCard
           icon={<Award size={18} className="text-amber-600" />}
           label="完了率"
           value={`${data.completionRate.toFixed(0)}%`}
-          sub={`繁忙月: ${data.busiestMonth ? data.busiestMonth.replace('-', '年') + '月' : '—'}`}
+          sub={`完了 ${data.completedEvents} / 全${data.totalEvents}`}
           color="bg-amber-50"
-          delay={0.15}
+          delay={0.35}
         />
       </div>
 
@@ -164,7 +198,7 @@ export default function AnalyticsDashboard({ data, loading }: Props) {
           transition={{ delay: 0.25 }}
           className="bg-white rounded-2xl border border-slate-100 p-6"
         >
-          <SectionHeader title="月別予算推移" sub="月ごとの累計予算の推移" />
+          <SectionHeader title="月別売上・粗利トレンド" sub="月ごとの売上と粗利の推移" />
           {data.monthlyTrends.length > 0 ? (
             <BudgetAnalysisChart data={data.monthlyTrends} />
           ) : (
@@ -172,6 +206,53 @@ export default function AnalyticsDashboard({ data, loading }: Props) {
           )}
         </motion.div>
       </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.28 }}
+          className="bg-white rounded-2xl border border-slate-100 p-6"
+        >
+          <SectionHeader title="月別 来場数・成約数" sub="来場の増減と成約の推移" />
+          {data.monthlyTrends.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={data.monthlyTrends}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 11, fontWeight: 700, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+                />
+                <Line type="monotone" dataKey="attendance" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 2 }} name="来場数" />
+                <Line type="monotone" dataKey="contracts" stroke="#10b981" strokeWidth={2.5} dot={{ r: 2 }} name="成約数" />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyChart />
+          )}
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white rounded-2xl border border-slate-100 p-6"
+        >
+          <SectionHeader title="キャリア流入分析" sub="キャリア別の流入内訳" />
+          <CarrierInflowChart data={data.carrierInflowTotal} />
+        </motion.div>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.32 }}
+        className="bg-white rounded-2xl border border-slate-100 p-6"
+      >
+        <SectionHeader title="来場ヒートマップ（過去1年）" sub="日別来場数の濃淡表示" />
+        <AttendanceHeatmap dailyAttendance={data.dailyAttendance} />
+      </motion.div>
 
       {/* Bottom row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -263,6 +344,38 @@ export default function AnalyticsDashboard({ data, loading }: Props) {
         </motion.div>
       </div>
 
+      {/* Retrospectives */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.43 }}
+        className="bg-white rounded-2xl border border-slate-100 p-6"
+      >
+        <SectionHeader title="イベント反省 / 良かった点" sub="最近完了したイベントの振り返り" />
+        {data.recentRetrospectives.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {data.recentRetrospectives.map((item) => (
+              <div key={item.eventId} className="rounded-xl border border-slate-100 p-4 bg-slate-50/40">
+                <p className="text-xs font-black text-slate-700">{item.venue}</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">{item.start}</p>
+                <div className="mt-3 space-y-2">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2.5">
+                    <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider">良かった点</p>
+                    <p className="text-xs text-emerald-800 mt-1 whitespace-pre-wrap">{item.retrospective.goodPoints || '記録なし'}</p>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-100 rounded-lg p-2.5">
+                    <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider">改善点</p>
+                    <p className="text-xs text-amber-800 mt-1 whitespace-pre-wrap">{item.retrospective.improvements || '記録なし'}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyChart />
+        )}
+      </motion.div>
+
       {/* Client stats */}
       {data.clientStats.length > 0 && (
         <motion.div
@@ -271,7 +384,7 @@ export default function AnalyticsDashboard({ data, loading }: Props) {
           transition={{ delay: 0.45 }}
           className="bg-white rounded-2xl border border-slate-100 p-6"
         >
-          <SectionHeader title="クライアント別実績" sub="上位クライアントのイベント数・予算" />
+          <SectionHeader title="クライアント別実績" sub="上位クライアントのイベント数・予算（既存）" />
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
