@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import { db, auth, loginWithGoogle } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
@@ -134,6 +134,9 @@ export default function App() {
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastEditedId, setLastEditedId] = useState<string | null>(() => localStorage.getItem('lastEditedId'));
+  const [hoveredEvent, setHoveredEvent] = useState<Event | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sidebarTypes, setSidebarTypes] = useState<{label: string, icon: string}[]>(() => 
     safeGetItem('sidebarTypes', [
       { label: "職業体験", icon: "🎓" },
@@ -380,6 +383,32 @@ export default function App() {
     setValidationErrors([]);
     setModalTab('detail');
   }, [hasUnsavedChanges]);
+
+  const handleEventHover = (ev: Event, e: ReactMouseEvent<HTMLElement>) => {
+    if (window.innerWidth < 1024) return;
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    const { clientX, clientY } = e;
+    hoverTimer.current = setTimeout(() => {
+      setHoverPos({ x: clientX, y: clientY });
+      setHoveredEvent(ev);
+    }, 300);
+  };
+
+  const handleEventHoverEnd = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    setHoveredEvent(null);
+  };
+
+  const handleEventSelect = (ev: Event) => {
+    handleEventHoverEnd();
+    setSelected(ev);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    };
+  }, []);
 
   if (user === undefined) return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -661,7 +690,9 @@ export default function App() {
                       events={filtered}
                       year={calYear} month={calMonth}
                       setYear={setCalYear} setMonth={setCalMonth}
-                      onSelect={setSelected}
+                      onSelect={handleEventSelect}
+                      onHover={handleEventHover}
+                      onHoverEnd={handleEventHoverEnd}
                       onCreateEvent={handleCreateEvent}
                       lastEditedId={lastEditedId}
                     />
@@ -669,14 +700,14 @@ export default function App() {
                   <div className="lg:hidden">
                     <MobileWeekStrip year={calYear} month={calMonth} events={filtered} />
                     <div className="mt-4">
-                      {filtered.length === 0 ? <EmptyState /> : <MobileTimelineView events={filtered} onSelect={setSelected} />}
+                      {filtered.length === 0 ? <EmptyState /> : <MobileTimelineView events={filtered} onSelect={handleEventSelect} />}
                     </div>
                   </div>
                 </>
               )}
               {view === "list" && (
                 filtered.length === 0 ? <EmptyState /> :
-                <ListView data={filtered} onSelect={setSelected} lastEditedId={lastEditedId} />
+                <ListView data={filtered} onSelect={handleEventSelect} onHover={handleEventHover} onHoverEnd={handleEventHoverEnd} lastEditedId={lastEditedId} />
               )}
               {view === "analytics" && analyticsData && (
                 <AnalyticsDashboard data={analyticsData} loading={analyticsLoading} />
@@ -969,6 +1000,11 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Hover Preview Card（PC only） */}
+      {hoveredEvent && (
+        <HoverCard event={hoveredEvent} pos={hoverPos} />
+      )}
+
       {/* Mobile Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around pb-safe z-20 lg:hidden">
         {[
@@ -1103,11 +1139,13 @@ interface CalendarViewProps {
   setYear: (year: number) => void;
   setMonth: (month: number) => void;
   onSelect: (event: Event) => void;
+  onHover: (event: Event, e: ReactMouseEvent<HTMLElement>) => void;
+  onHoverEnd: () => void;
   onCreateEvent: (data?: Partial<Event>) => void;
   lastEditedId: string | null;
 }
 
-function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCreateEvent, lastEditedId }: CalendarViewProps) {
+function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHover, onHoverEnd, onCreateEvent, lastEditedId }: CalendarViewProps) {
   const firstDay = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
   const cells = [];
@@ -1189,6 +1227,8 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
                   <button
                     key={ev.id}
                     onClick={() => onSelect(ev)}
+                    onMouseEnter={(e) => onHover(ev, e)}
+                    onMouseLeave={onHoverEnd}
                     className="w-full text-left bg-slate-50 hover:bg-slate-100 transition-colors rounded py-0.5 pl-1.5 pr-1 flex items-center gap-1 relative overflow-hidden"
                   >
                     <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ background: rs(ev.region || "").dot }}></div>
@@ -1221,10 +1261,12 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
 interface ListViewProps {
   data: Event[];
   onSelect: (event: Event) => void;
+  onHover: (event: Event, e: ReactMouseEvent<HTMLElement>) => void;
+  onHoverEnd: () => void;
   lastEditedId: string | null;
 }
 
-function ListView({ data, onSelect, lastEditedId }: ListViewProps) {
+function ListView({ data, onSelect, onHover, onHoverEnd, lastEditedId }: ListViewProps) {
   return (
     <div className="flex flex-col">
       {/* タイトル */}
@@ -1257,6 +1299,8 @@ function ListView({ data, onSelect, lastEditedId }: ListViewProps) {
                 <tr
                   key={d.id}
                   onClick={() => onSelect(d)}
+                  onMouseEnter={(e) => onHover(d, e)}
+                  onMouseLeave={onHoverEnd}
                   className={`
                     group cursor-pointer transition-colors
                     ${d.id === lastEditedId ? "bg-amber-50/50" : "hover:bg-slate-50/50"}
@@ -1309,6 +1353,37 @@ function ListView({ data, onSelect, lastEditedId }: ListViewProps) {
           </table>
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+function HoverCard({ event, pos }: { event: Event; pos: { x: number; y: number } }) {
+  const left = pos.x + 260 > window.innerWidth ? pos.x - 270 : pos.x + 16;
+  const top = pos.y + 200 > window.innerHeight ? pos.y - 180 : pos.y + 8;
+
+  return (
+    <div
+      className="fixed z-[200] w-60 bg-white border border-slate-100 rounded-2xl shadow-2xl p-4 pointer-events-none hidden lg:block"
+      style={{ left, top }}
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xl">{event.emoji || ts(event.type || '').icon}</span>
+        <div>
+          <div className="font-black text-sm text-slate-800 leading-tight">{event.venue}</div>
+          <div className="text-[10px] text-slate-400 font-bold">{event.type || 'その他'}</div>
+        </div>
+      </div>
+      <div className="space-y-1.5 text-xs text-slate-600">
+        <div className="flex gap-2">
+          <span className="w-2 h-2 rounded-full mt-1 shrink-0" style={{ background: rs(event.region || '').dot }} />
+          <span>{event.dept || event.region}</span>
+        </div>
+        <div className="font-mono text-slate-500">
+          {event.start}{event.end && event.end !== event.start ? ` → ${event.end}` : ''}
+        </div>
+        {event.client && <div className="text-slate-500">{event.client}</div>}
+        {event.note && <div className="text-slate-400 line-clamp-2">{event.note}</div>}
+      </div>
     </div>
   );
 }
