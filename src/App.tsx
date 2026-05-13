@@ -1285,11 +1285,21 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
                     onClick={() => onSelect(ev)}
                     onMouseEnter={(e) => onHover(ev, e)}
                     onMouseLeave={onHoverEnd}
-                    className="w-full text-left bg-slate-50 hover:bg-slate-100 transition-colors rounded py-0.5 pl-1.5 pr-1 flex items-center gap-1 relative overflow-hidden"
+                    style={{
+                      background: rs(ev.region || "").calBg,
+                      borderLeft: `3px solid ${rs(ev.region || "").dot}`,
+                    }}
+                    className="w-full text-left rounded-md pl-2 pr-1 py-1 flex items-center gap-1.5 overflow-hidden transition-all hover:brightness-95 hover:shadow-sm"
                   >
-                    <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ background: rs(ev.region || "").dot }}></div>
-                    <span className="text-[9px] shrink-0 ml-0.5">{ev.emoji || ts(ev.type || "").icon}</span>
-                    <span className="text-[9px] font-bold text-slate-700 truncate leading-tight">{ev.venue}</span>
+                    <span className="text-[11px] shrink-0 leading-none">
+                      {ev.emoji || ts(ev.type || "").icon}
+                    </span>
+                    <span
+                      className="text-[10px] font-bold truncate leading-tight"
+                      style={{ color: rs(ev.region || "").text }}
+                    >
+                      {ev.venue}
+                    </span>
                   </button>
                 ))}
                 {dayEvents.length > 4 && (
