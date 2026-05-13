@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect, useCallback, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import { db, auth, loginWithGoogle } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
 import { Event, PreparationItem } from './types';
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera } from 'lucide-react';
+import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PreparationList from './components/PreparationList';
 import NotificationCenter from './components/notifications/NotificationCenter';
@@ -366,6 +366,42 @@ export default function App() {
         return next;
       });
       setSelected(null);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!selected) return;
+    const confirmed = window.confirm(
+      `「${selected.venue}」を削除しますか？\n準備物リストも含めてすべて削除されます。この操作は元に戻せません。`
+    );
+    if (!confirmed) return;
+
+    const eventId = selected.id;
+
+    // モーダルを即座に閉じ、UIから楽観的に削除
+    setSelected(null);
+    setShowPrepList(false);
+    setIsEditMode(false);
+    setHasUnsavedChanges(false);
+    setValidationErrors([]);
+    setModalTab('detail');
+    setDbEvents(prev => {
+      const next = { ...prev };
+      delete next[eventId];
+      return next;
+    });
+
+    try {
+      // preparationItems サブコレクションを全件削除
+      const prepPath = `events/${eventId}/preparationItems`;
+      const prepSnapshot = await getDocs(collection(db, prepPath));
+      await Promise.all(prepSnapshot.docs.map(d => deleteDoc(d.ref)));
+
+      // イベント本体を削除
+      await deleteDoc(doc(db, 'events', eventId));
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('削除に失敗しました。もう一度お試しください。');
     }
   };
 
@@ -965,6 +1001,15 @@ export default function App() {
                       準備物リストを開く
                     </button>
                   </div>
+                  {isEditor && (
+                    <button
+                      onClick={handleDeleteEvent}
+                      className="w-full mt-2 py-3 rounded-2xl border border-red-200 text-sm font-bold text-red-400 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Trash2 size={16} />
+                      このイベントを削除
+                    </button>
+                  )}
 
                   <AnimatePresence>
                     {validationErrors.length > 0 && (
