@@ -126,7 +126,8 @@ export default function CalendarGrid({
               </div>
               <div className="space-y-0.5">
                 {visible.map(ev => (
-                  <EventChip key={ev.id} event={ev} onClick={onSelectEvent} />
+                  <EventChip 
+                  key={ev.id} event={ev} onClick={onSelectEvent} />
                 ))}
                 {overflow > 0 && (
                   <p className="text-[11px] text-gray-400 pl-1 cursor-pointer hover:text-gray-600 transition-colors">
