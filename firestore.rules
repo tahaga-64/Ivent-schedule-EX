@@ -2,7 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // 読み取り：Googleログイン済みユーザー全員
-    // 書き込み：以下の2アカウントのみ
+    // 書き込み：以下の3アカウントのみ、内勤関係者については随時追加予定
+    //イベント詳細ページの準備物リストに関して、従業員全員がアクセス、編集可能にする
     function isEditor() {
       return request.auth != null
           && request.auth.token.email in [
