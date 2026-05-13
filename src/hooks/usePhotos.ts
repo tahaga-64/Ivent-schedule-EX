@@ -7,6 +7,7 @@ import { EventPhoto } from '../types';
 
 export function usePhotos(eventId: string) {
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   async function uploadPhoto(file: File): Promise<EventPhoto | null> {
@@ -14,10 +15,16 @@ export function usePhotos(eventId: string) {
     if (validationError) { setError(validationError); return null; }
 
     setUploading(true);
+    setUploadProgress(0);
     setError(null);
     try {
       const photoId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const { url, storagePath, thumbnailUrl } = await uploadAndCompressPhoto(file, eventId, photoId);
+      const { url, storagePath, thumbnailUrl } = await uploadAndCompressPhoto(
+        file,
+        eventId,
+        photoId,
+        (pct) => setUploadProgress(pct)
+      );
       const photo: EventPhoto = {
         id: photoId,
         url,
@@ -28,10 +35,21 @@ export function usePhotos(eventId: string) {
       await updateDoc(doc(db, 'events', eventId), { photos: arrayUnion(photo) });
       return photo;
     } catch (e) {
-      setError('アップロードに失敗しました');
+      console.error('Upload failed:', e);
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('storage/unauthorized') || msg.includes('permission')) {
+        setError('アップロード権限がありません。ログイン状態を確認してください。');
+      } else if (msg.includes('storage/canceled')) {
+        setError('アップロードがキャンセルされました。');
+      } else if (msg.includes('network') || msg.includes('fetch')) {
+        setError('ネットワークエラーです。接続を確認してください。');
+      } else {
+        setError(`アップロードに失敗しました: ${msg}`);
+      }
       return null;
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   }
 
@@ -53,5 +71,5 @@ export function usePhotos(eventId: string) {
     }
   }
 
-  return { uploading, error, uploadPhoto, deleteEventPhoto, updatePhotoCaption };
+  return { uploading, uploadProgress, error, uploadPhoto, deleteEventPhoto, updatePhotoCaption };
 }
