@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect } from 'react';
-import { db, auth, loginWithGoogle, handleFirestoreError, OperationType } from './lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { db, auth, loginWithGoogle } from './lib/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
-import { Event } from './types';
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, BarChart2, Trash2 } from 'lucide-react';
+import { Event, PreparationItem } from './types';
+import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PreparationList from './components/PreparationList';
 import NotificationCenter from './components/notifications/NotificationCenter';
@@ -13,7 +13,42 @@ import PhotoUpload from './components/photos/PhotoUpload';
 import PhotoGallery from './components/photos/PhotoGallery';
 import { useAnalytics } from './hooks/useAnalytics';
 import { usePhotos } from './hooks/usePhotos';
-import { deletePhoto } from './lib/photoStorage';
+
+// 安全なlocalStorage読み込み
+function safeGetItem<T>(key: string, fallback: T): T {
+  try {
+    const item = localStorage.getItem(key);
+    if (item === null) return fallback;
+    return JSON.parse(item) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+// イベントバリデーション
+interface ValidationError {
+  field: string;
+  message: string;
+}
+
+function validateEvent(event: Partial<Event>): ValidationError[] {
+  const errors: ValidationError[] = [];
+  
+  if (!event.venue || event.venue.trim().length === 0) {
+    errors.push({ field: 'venue', message: '会場名は必須です' });
+  }
+  if (event.venue && event.venue.length > 500) {
+    errors.push({ field: 'venue', message: '会場名は500文字以内にしてください' });
+  }
+  if (!event.start) {
+    errors.push({ field: 'start', message: '開始日は必須です' });
+  }
+  if (event.start && event.end && event.start > event.end) {
+    errors.push({ field: 'end', message: '終了日は開始日以降にしてください' });
+  }
+  
+  return errors;
+}
 
 const EDITOR_EMAILS = ['taoki0183@gmail.com'];
 
@@ -69,18 +104,21 @@ function LoginScreen() {
 }
 
 export default function App() {
-  const [user, setUser] = useState<any>(undefined);
-  const [view, setView] = useState<"calendar" | "list" | "analytics">(() => (localStorage.getItem('viewMode') as any) || "calendar");
+  const [user, setUser] = useState<User | null | undefined>(undefined);
+  const [view, setView] = useState<"calendar" | "list" | "analytics">(() => {
+    const saved = localStorage.getItem('viewMode');
+    return (saved === 'calendar' || saved === 'list' || saved === 'analytics') ? saved : 'calendar';
+  });
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
   const [monthFilter, setMonthFilter] = useState(() => localStorage.getItem('monthFilter') || "すべて");
   const [calYear, setCalYear] = useState(() => {
-    const val = parseInt(localStorage.getItem('calYear') || "2026");
-    return isNaN(val) ? 2026 : val;
+    const val = parseInt(localStorage.getItem('calYear') || String(new Date().getFullYear()));
+    return isNaN(val) ? new Date().getFullYear() : val;
   });
   const [calMonth, setCalMonth] = useState(() => {
-    const val = parseInt(localStorage.getItem('calMonth') || "5");
-    return isNaN(val) ? 5 : val;
+    const val = parseInt(localStorage.getItem('calMonth') || String(new Date().getMonth() + 1));
+    return isNaN(val) ? new Date().getMonth() + 1 : val;
   });
   const [selected, setSelected] = useState<Event | null>(null);
   const [sideOpen, setSideOpen] = useState(true);
@@ -91,28 +129,38 @@ export default function App() {
   const [modalTab, setModalTab] = useState<'detail' | 'photos'>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
-  const [deletedIds, setDeletedIds] = useState<Set<string>>(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('deletedIds') || '[]')); } catch { return new Set(); }
-  });
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [lastEditedId, setLastEditedId] = useState<string | null>(() => localStorage.getItem('lastEditedId'));
-  const [sidebarTypes, setSidebarTypes] = useState<{label: string, icon: string}[]>(() => {
-    const saved = localStorage.getItem('sidebarTypes');
-    return saved ? JSON.parse(saved) : [
+  const [sidebarTypes, setSidebarTypes] = useState<{label: string, icon: string}[]>(() => 
+    safeGetItem('sidebarTypes', [
       { label: "職業体験", icon: "🎓" },
       { label: "水族館", icon: "🐟" },
       { label: "忍者", icon: "🥷" },
       { label: "DJI", icon: "🚁" },
       { label: "超メタフェス", icon: "🎆" },
       { label: "ワークショップ", icon: "🔨" },
-    ];
-  });
+    ])
+  );
 
   useEffect(() => {
     localStorage.setItem('sidebarTypes', JSON.stringify(sidebarTypes));
   }, [sidebarTypes]);
+
+  // 未保存変更の警告（ブラウザを閉じる・リロード時）
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '未保存の変更があります。ページを離れますか？';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   // Auth state
   useEffect(() => {
@@ -154,11 +202,11 @@ export default function App() {
     const unsubscribe = onSnapshot(
       collection(db, `events/${selected.id}/preparationItems`),
       (snapshot) => {
-        const items = snapshot.docs.map(d => d.data() as any);
+        const items = snapshot.docs.map(d => d.data() as PreparationItem);
         setEventStats({
           itemCount: items.length,
-          preparedCount: items.filter((i: any) => i.prepared).length,
-          budget: items.reduce((s: number, i: any) => s + (i.amount || 0) + (i.shippingFee || 0), 0),
+          preparedCount: items.filter(i => i.prepared).length,
+          budget: items.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0),
         });
       }
     );
@@ -185,13 +233,13 @@ export default function App() {
     }
   }, [monthFilter]);
 
-  // 静的データとDBデータをマージ（Firestoreで新規作成したイベントも含む）
+  // 静的データとDBデータをマージ（Firestore上に新規作成されたイベントも含める）
   const allEvents = useMemo(() => {
     const staticIds = new Set(DATA.map(d => d.id));
-    const merged = DATA.map(item => dbEvents[item.id] || item).filter(e => !deletedIds.has(e.id));
-    const firestoreOnly = Object.values(dbEvents).filter(e => !staticIds.has(e.id) && !deletedIds.has(e.id));
-    return [...merged, ...firestoreOnly].sort((a, b) => (a.start || '9999') < (b.start || '9999') ? -1 : 1);
-  }, [dbEvents, deletedIds]);
+    const merged = DATA.map(item => dbEvents[item.id] || item);
+    const firestoreOnly = Object.values(dbEvents).filter((e: Event) => !staticIds.has(e.id));
+    return [...merged, ...firestoreOnly];
+  }, [dbEvents]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -228,30 +276,63 @@ export default function App() {
   }, [allEvents, filtered]);
 
   const handleUpdateEvent = (id: string, updates: Partial<Event>) => {
+    // 選択中のイベントをベースに更新
     if (!selected || selected.id !== id) return;
+    
     const newEvent = { ...selected, ...updates };
+
+    // モーダルの表示（state）を即座に更新して入力をサクサクにする
     setSelected(newEvent);
+    // 変更ありフラグを立てる
     setHasUnsavedChanges(true);
+    // バリデーションエラーをクリア
+    if (validationErrors.length > 0) {
+      setValidationErrors([]);
+    }
   };
 
-  const handleSaveEvent = async () => {
-    if (!selected) return;
+  // Firestoreエラーを日本語のユーザー向けメッセージに整形
+  const formatSaveError = (error: unknown): string => {
+    const raw = error instanceof Error ? error.message : String(error);
+    const lower = raw.toLowerCase();
+    if (lower.includes('permission') || lower.includes('insufficient') || lower.includes('missing or insufficient')) {
+      return '保存に失敗しました：権限がありません。編集権限のあるGoogleアカウントでログインしているか確認してください。';
+    }
+    if (lower.includes('unavailable') || lower.includes('offline') || lower.includes('network')) {
+      return '保存に失敗しました：ネットワークに接続できません。接続を確認してから再試行してください。';
+    }
+    return '保存に失敗しました。もう一度お試しください。';
+  };
+
+  const handleSaveEvent = async (): Promise<boolean> => {
+    if (!selected) return false;
+
+    // バリデーション実行
+    const errors = validateEvent(selected);
+    setValidationErrors(errors);
+    if (errors.length > 0) {
+      return false;
+    }
+
     setIsSaving(true);
     setSaveError(null);
     try {
       await setDoc(doc(db, "events", selected.id), selected);
+      // 楽観的にローカルキャッシュも更新（onSnapshot反映までのラグ対策）
+      setDbEvents(prev => ({ ...prev, [selected.id]: selected }));
       setHasUnsavedChanges(false);
       setLastEditedId(selected.id);
       setIsSaving(false);
+      return true;
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      setSaveError(msg.includes('permission') || msg.includes('PERMISSION') ? '保存失敗: 権限がありません。Firestoreルールを確認してください。' : '保存に失敗しました。再試行してください。');
+      console.error('Firestore save error:', error);
+      setSaveError(formatSaveError(error));
       setIsSaving(false);
+      return false;
     }
   };
 
   const handleCreateEvent = async (initialData: Partial<Event> = {}) => {
-    if (!isEditor) return;
     const id = crypto.randomUUID();
     const newEvent: Event = {
       id,
@@ -265,60 +346,40 @@ export default function App() {
       note: "",
       emoji: initialData.emoji || "📅"
     };
-    // 即座にUIに反映（楽観的更新）
+    setSaveError(null);
+    // 楽観的にUIへ反映（保存完了前にも一覧 / モーダルに表示）
     setDbEvents(prev => ({ ...prev, [id]: newEvent }));
     setSelected(newEvent);
-    setIsEditMode(true);
-    setSaveError(null);
+    setLastEditedId(id);
     try {
       await setDoc(doc(db, "events", id), newEvent);
-      setLastEditedId(id);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      const isPermission = msg.includes('permission') || msg.includes('PERMISSION') || msg.includes('Missing');
-      setSaveError(isPermission
-        ? '⚠️ Firestoreへの保存に失敗（権限エラー）。Firebase Console → Firestore Database → ルール を確認してください。'
-        : '⚠️ 保存に失敗しました。ネット接続を確認してください。'
-      );
-    }
-  };
-
-  const handleDeleteEvent = async (event: Event) => {
-    if (!isEditor) return;
-    if (!confirm(`「${event.venue}」を削除しますか？\n準備物リストも含めすべて削除されます。`)) return;
-    try {
-      const { getDocs } = await import('firebase/firestore');
-      const prepSnap = await getDocs(collection(db, `events/${event.id}/preparationItems`));
-      const batch = writeBatch(db);
-      prepSnap.docs.forEach(d => batch.delete(d.ref));
-      batch.delete(doc(db, "events", event.id));
-      await batch.commit();
-
-      if (event.photos?.length) {
-        await Promise.allSettled(event.photos.map(p => deletePhoto(p)));
-      }
-
-      // ローカルstateからも即座に削除
+      console.error('Firestore create error:', error);
+      setSaveError(formatSaveError(error));
+      // 失敗したらローカルキャッシュからロールバック
       setDbEvents(prev => {
         const next = { ...prev };
-        delete next[event.id];
-        return next;
-      });
-      setDeletedIds(prev => {
-        const next = new Set(prev);
-        next.add(event.id);
-        localStorage.setItem('deletedIds', JSON.stringify([...next]));
+        delete next[id];
         return next;
       });
       setSelected(null);
-      setShowPrepList(false);
-      setIsEditMode(false);
-      setHasUnsavedChanges(false);
-      setModalTab('detail');
-    } catch (error) {
-      setSaveError('削除に失敗しました。再試行してください。');
     }
   };
+
+  // モーダルを閉じる（未保存の変更がある場合は確認）
+  const handleCloseModal = useCallback(() => {
+    if (hasUnsavedChanges) {
+      if (!window.confirm('未保存の変更があります。破棄しますか？')) {
+        return;
+      }
+    }
+    setSelected(null);
+    setShowPrepList(false);
+    setIsEditMode(false);
+    setHasUnsavedChanges(false);
+    setValidationErrors([]);
+    setModalTab('detail');
+  }, [hasUnsavedChanges]);
 
   if (user === undefined) return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -331,6 +392,7 @@ export default function App() {
     <div className="flex flex-col min-h-screen transition-colors duration-300">
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-slate-100 sticky top-0 z-30 gap-4">
+        {/* 左: ハンバーガー + ロゴ */}
         <div className="flex items-center gap-2.5 shrink-0">
           <button onClick={() => setSideOpen(v => !v)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors">
             <Menu size={18} />
@@ -346,6 +408,7 @@ export default function App() {
           </div>
         </div>
 
+        {/* 中央: 検索バー */}
         <div className="flex-1 max-w-md">
           <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
             <Search size={13} className="text-slate-400 shrink-0" />
@@ -360,6 +423,7 @@ export default function App() {
           </div>
         </div>
 
+        {/* 右: ビュー切替 + 新規 + アバター */}
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="flex bg-slate-100 p-1 rounded-xl">
             {[
@@ -410,6 +474,7 @@ export default function App() {
         {/* Sidebar */}
         {sideOpen && <aside className="w-72 flex flex-col flex-shrink-0 bg-white border-r border-slate-100 overflow-y-auto hidden lg:flex">
           <div className="p-6 space-y-8">
+            {/* TODAY Section */}
             <div className="space-y-2 pb-4 border-b border-slate-100">
               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TODAY</div>
               <div className="text-4xl font-black text-slate-800 tracking-tighter leading-none">
@@ -420,6 +485,7 @@ export default function App() {
               </div>
             </div>
 
+            {/* WORKSPACE Section */}
             <div className="space-y-3">
               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WORKSPACE</div>
               <div className="flex flex-col gap-0.5">
@@ -434,6 +500,7 @@ export default function App() {
                       setRegionFilter("すべて");
                       setTypeFilter("すべて");
                       setMonthFilter("すべて");
+                      // ステータスフィルターがあればここに追加
                     }}
                     className="group flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white hover:shadow-sm hover:border-slate-100 border border-transparent transition-all"
                   >
@@ -447,6 +514,7 @@ export default function App() {
               </div>
             </div>
 
+            {/* REGION Section */}
             <div className="space-y-3">
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-black text-slate-700">本部</span>
@@ -480,6 +548,7 @@ export default function App() {
               </div>
             </div>
 
+            {/* TYPE Section */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-black text-slate-700">種別</span>
@@ -535,28 +604,43 @@ export default function App() {
         {/* Main Content */}
         <main className="flex-1 bg-white relative overflow-hidden flex flex-col">
           <div className="p-4 lg:p-8 pb-20 lg:pb-8 flex-1 overflow-y-auto">
-          {/* Sync / Error Toast */}
+          {/* Sync / Error Indicator */}
           <AnimatePresence>
             {isSaving && (
-              <motion.div
+              <motion.div 
+                key="sync"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-center gap-3 bg-zinc-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
+                className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-center gap-3 bg-zinc-900 dark:bg-amber-500 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
               >
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em]">保存中...</span>
+                <div className="relative flex items-center justify-center">
+                  <motion.div 
+                    animate={{ scale: [1, 1.5, 1], opacity: [1, 0, 1] }} 
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="absolute w-2 h-2 bg-white rounded-full blur-[2px]"
+                  />
+                  <div className="relative w-1.5 h-1.5 bg-white rounded-full" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Cloud Syncing...</span>
               </motion.div>
             )}
-            {saveError && !selected && (
+            {saveError && (
               <motion.div
+                key="error"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-center gap-3 bg-red-600 text-white px-5 py-3 rounded-2xl shadow-2xl max-w-sm cursor-pointer"
+                role="alert"
                 onClick={() => setSaveError(null)}
+                className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-start gap-3 bg-red-600 text-white px-5 py-3 rounded-2xl shadow-2xl max-w-sm cursor-pointer"
               >
-                <span className="text-xs font-bold">{saveError}</span>
+                <span className="text-base leading-none mt-0.5">⚠️</span>
+                <div className="flex-1">
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] mb-1">保存エラー</div>
+                  <div className="text-xs font-bold leading-snug">{saveError}</div>
+                  <div className="text-[10px] opacity-70 mt-1">タップで閉じる</div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -569,6 +653,7 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
             >
+              {/* Desktop: Calendar grid / Mobile: Timeline list */}
               {view === "calendar" && (
                 <>
                   <div className="hidden lg:block">
@@ -613,7 +698,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); setModalTab('detail'); }}
+              onClick={handleCloseModal}
               className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" 
             />
             <motion.div
@@ -636,6 +721,7 @@ export default function App() {
                 />
               ) : (
                 <div className="p-6 lg:p-8 overflow-y-auto">
+                  {/* Header: タグ + 閉じるボタン */}
                   <div className="flex justify-between items-center mb-5">
                     <div className="flex gap-2 flex-wrap">
                       {isEditMode ? (
@@ -654,13 +740,16 @@ export default function App() {
                               <option key={d} value={d}>{d}</option>
                             ))}
                           </select>
-                          <input
-                            type="text"
+                          <select
                             value={selected.type || ""}
                             onChange={e => handleUpdateEvent(selected.id, { type: e.target.value })}
-                            placeholder="種別を入力..."
-                            className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-36"
-                          />
+                            className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                          >
+                            <option value="">種別を選択...</option>
+                            {sidebarTypes.map(t => (
+                              <option key={t.label} value={t.label}>{t.icon} {t.label}</option>
+                            ))}
+                          </select>
                         </>
                       ) : (
                         <>
@@ -678,7 +767,7 @@ export default function App() {
                       )}
                     </div>
                     <button
-                      onClick={() => { setSelected(null); setShowPrepList(false); setIsEditMode(false); setHasUnsavedChanges(false); setModalTab('detail'); }}
+                      onClick={handleCloseModal}
                       className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
                     >
                       <X size={18} />
@@ -846,18 +935,22 @@ export default function App() {
                     </button>
                   </div>
 
-                  {isEditor && (
-                    <button
-                      onClick={() => handleDeleteEvent(selected)}
-                      className="mt-3 w-full py-3 rounded-2xl border border-red-200 text-red-500 text-xs font-bold flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 size={14} />
-                      このイベントを削除
-                    </button>
-                  )}
-
                   <AnimatePresence>
-                    {hasUnsavedChanges && isEditMode && (
+                    {validationErrors.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 6 }}
+                        className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl"
+                      >
+                        {validationErrors.map((err, i) => (
+                          <p key={i} className="text-xs text-red-600 font-bold">
+                            ⚠️ {err.message}
+                          </p>
+                        ))}
+                      </motion.div>
+                    )}
+                    {hasUnsavedChanges && isEditMode && validationErrors.length === 0 && (
                       <motion.p
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -865,16 +958,6 @@ export default function App() {
                         className="text-[10px] text-center text-amber-500 mt-4 font-bold tracking-widest"
                       >
                         ⚠️ 未保存の変更があります
-                      </motion.p>
-                    )}
-                    {saveError && (
-                      <motion.p
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 6 }}
-                        className="text-[11px] text-center text-red-500 mt-3 font-bold"
-                      >
-                        ❌ {saveError}
                       </motion.p>
                     )}
                   </AnimatePresence>
@@ -914,7 +997,12 @@ export default function App() {
    サブコンポーネント
 ═══════════════════════════════════════ */
 
-function MobileTimelineView({ events, onSelect }: any) {
+interface MobileTimelineViewProps {
+  events: Event[];
+  onSelect: (event: Event) => void;
+}
+
+function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps) {
   const fmtGroup = (d: string) => {
     if (!d) return "—";
     const [, m, day] = d.split("-");
@@ -924,8 +1012,8 @@ function MobileTimelineView({ events, onSelect }: any) {
   };
 
   const grouped = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    events.forEach((ev: any) => {
+    const map: Record<string, Event[]> = {};
+    events.forEach((ev) => {
       const key = ev.start || "未定";
       if (!map[key]) map[key] = [];
       map[key].push(ev);
@@ -935,7 +1023,7 @@ function MobileTimelineView({ events, onSelect }: any) {
 
   return (
     <div className="space-y-6 pb-2">
-      {grouped.map(([date, evs]: [string, any[]]) => (
+      {grouped.map(([date, evs]) => (
         <div key={date}>
           <div className="flex items-center gap-3 mb-2">
             <span className="text-sm font-black text-slate-700">{fmtGroup(date)}</span>
@@ -943,7 +1031,7 @@ function MobileTimelineView({ events, onSelect }: any) {
             <span className="text-xs font-bold text-slate-400">{evs.length}</span>
           </div>
           <div className="space-y-2">
-            {evs.map((ev: any) => (
+            {evs.map((ev) => (
               <button
                 key={ev.id}
                 onClick={() => onSelect(ev)}
@@ -969,7 +1057,13 @@ function MobileTimelineView({ events, onSelect }: any) {
   );
 }
 
-function MobileWeekStrip({ year, month, events }: any) {
+interface MobileWeekStripProps {
+  year: number;
+  month: number;
+  events: Event[];
+}
+
+function MobileWeekStrip({ year, month, events }: MobileWeekStripProps) {
   const today = new Date();
   const startOfWeek = new Date(today);
   startOfWeek.setDate(today.getDate() - today.getDay());
@@ -984,7 +1078,7 @@ function MobileWeekStrip({ year, month, events }: any) {
     <div className="flex justify-between px-1 mb-2">
       {days.map((d, i) => {
         const isToday = d.toDateString() === today.toDateString();
-        const hasEvent = events.some((ev: any) => ev.start && new Date(ev.start).toDateString() === d.toDateString());
+        const hasEvent = events.some((ev) => ev.start && new Date(ev.start).toDateString() === d.toDateString());
         return (
           <div key={i} className="flex flex-col items-center gap-1">
             <span className={`text-[10px] font-bold ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-slate-400"}`}>{dayLabels[i]}</span>
@@ -1002,27 +1096,41 @@ function MobileWeekStrip({ year, month, events }: any) {
   );
 }
 
-function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCreateEvent, lastEditedId }: any) {
+interface CalendarViewProps {
+  events: Event[];
+  year: number;
+  month: number;
+  setYear: (year: number) => void;
+  setMonth: (month: number) => void;
+  onSelect: (event: Event) => void;
+  onCreateEvent: (data?: Partial<Event>) => void;
+  lastEditedId: string | null;
+}
+
+function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCreateEvent, lastEditedId }: CalendarViewProps) {
   const firstDay = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
   const cells = [];
   
+  // 前月のパディング
   const prevMonthLastDay = new Date(year, month - 1, 0).getDate();
   for (let i = firstDay - 1; i >= 0; i--) {
     cells.push({ day: prevMonthLastDay - i, current: false });
   }
   
+  // 今月の実データ
   for (let d = 1; d <= daysInMonth; d++) {
     cells.push({ day: d, current: true });
   }
   
+  // 次月のパディング
   const remaining = (7 - (cells.length % 7)) % 7;
   for (let i = 1; i <= remaining; i++) {
     cells.push({ day: i, current: false });
   }
 
-  const prevMonth = () => { if (month === 1) { setYear((y: any) => y - 1); setMonth(12); } else setMonth((m: any) => m - 1); };
-  const nextMonth = () => { if (month === 12) { setYear((y: any) => y + 1); setMonth(1); } else setMonth((m: any) => m + 1); };
+  const prevMonth = () => { if (month === 1) { setYear(year - 1); setMonth(12); } else setMonth(month - 1); };
+  const nextMonth = () => { if (month === 12) { setYear(year + 1); setMonth(1); } else setMonth(month + 1); };
   const setToday = () => { const d = new Date(); setYear(d.getFullYear()); setMonth(d.getMonth() + 1); };
 
   const today = new Date();
@@ -1056,7 +1164,7 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
         {cells.map((cell, idx) => {
           const isSun = idx % 7 === 0;
           const isToday = cell.current && today.getFullYear() === year && today.getMonth() === month - 1 && today.getDate() === cell.day;
-          const dayEvents = cell.current ? events.filter((ev: any) => eventCoversDate(ev, year, month, cell.day)) : [];
+          const dayEvents = cell.current ? events.filter((ev) => eventCoversDate(ev, year, month, cell.day)) : [];
           
           return (
             <div 
@@ -1077,7 +1185,7 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
               </div>
               
               <div className="space-y-0.5">
-                {dayEvents.slice(0, 4).map((ev: any) => (
+                {dayEvents.slice(0, 4).map((ev) => (
                   <button
                     key={ev.id}
                     onClick={() => onSelect(ev)}
@@ -1110,9 +1218,16 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onCrea
 }
 
 
-function ListView({ data, onSelect, lastEditedId }: any) {
+interface ListViewProps {
+  data: Event[];
+  onSelect: (event: Event) => void;
+  lastEditedId: string | null;
+}
+
+function ListView({ data, onSelect, lastEditedId }: ListViewProps) {
   return (
     <div className="flex flex-col">
+      {/* タイトル */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-baseline gap-2">
           All events
@@ -1120,6 +1235,7 @@ function ListView({ data, onSelect, lastEditedId }: any) {
         </h2>
       </div>
 
+      {/* テーブル */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1137,7 +1253,7 @@ function ListView({ data, onSelect, lastEditedId }: any) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {data.map((d: any) => (
+              {data.map((d) => (
                 <tr
                   key={d.id}
                   onClick={() => onSelect(d)}
@@ -1197,12 +1313,19 @@ function ListView({ data, onSelect, lastEditedId }: any) {
   );
 }
 
-function FilterGroup({ label, options, value, onChange }: any) {
+interface FilterGroupProps {
+  label: string;
+  options: string[];
+  value: string;
+  onChange: (value: string) => void;
+}
+
+function FilterGroup({ label, options, value, onChange }: FilterGroupProps) {
   return (
     <div className="space-y-4">
       <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] px-1 opacity-60">{label}</div>
       <div className="flex flex-col gap-1.5">
-        {options.map((opt: any) => (
+        {options.map((opt) => (
           <motion.button
             key={opt}
             whileHover={{ x: 4, backgroundColor: "rgba(245, 158, 11, 0.05)" }}
@@ -1225,11 +1348,11 @@ function FilterGroup({ label, options, value, onChange }: any) {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-24 text-slate-300">
-      <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-6">
+    <div className="flex flex-col items-center justify-center py-24 text-slate-300 dark:text-zinc-700">
+      <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-zinc-900 flex items-center justify-center mb-6">
         <Calendar size={32} />
       </div>
-      <div className="text-sm font-bold text-slate-400">イベントが見つかりません</div>
+      <div className="text-sm font-bold text-slate-400 dark:text-zinc-600">イベントが見つかりません</div>
     </div>
   );
 }

@@ -1,0 +1,39 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // 認証済みユーザーかどうか
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 編集権限チェック: 特定のメールアドレスを持つGoogle認証済みユーザーのみ
+    function isEditor() {
+      return request.auth != null
+          && request.auth.token.firebase.sign_in_provider == 'google.com'
+          && request.auth.token.email in ['taoki0183@gmail.com'];
+    }
+
+    // 画像ファイルかどうか
+    function isImageFile() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    // ファイルサイズ制限（10MB）
+    function isValidFileSize() {
+      return request.resource.size <= 10 * 1024 * 1024;
+    }
+
+    // イベント写真のパス
+    match /events/{eventId}/photos/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isEditor() && isImageFile() && isValidFileSize();
+      allow delete: if isEditor();
+    }
+
+    // その他のパスはデフォルトで拒否
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
