@@ -14,7 +14,12 @@ export function useNotifications() {
       limit(50)
     );
     const unsub = onSnapshot(q, snap => {
-      setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() } as AppNotification)));
+      const valid = snap.docs.flatMap(d => {
+        const data = d.data();
+        if (!data['type'] || !data['title'] || !data['message']) return [];
+        return [{ id: d.id, ...data } as AppNotification];
+      });
+      setNotifications(valid);
       setLoading(false);
     }, () => setLoading(false));
     return unsub;

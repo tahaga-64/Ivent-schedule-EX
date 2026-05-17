@@ -30,11 +30,11 @@ export default function BudgetAnalysisChart({ data }: Props) {
         <YAxis tickFormatter={formatYen} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} axisLine={false} tickLine={false} width={48} />
         <Tooltip
           contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 11, fontWeight: 700, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
-          formatter={(v: any) => [formatYen(v), '予算合計']}
+          formatter={(v) => [formatYen(Number(v ?? 0)), '予算合計'] as [string, string]}
         />
         <Bar dataKey="budget" radius={[6, 6, 0, 0]}>
-          {chartData.map((_, i) => (
-            <Cell key={i} fill={COLORS[i % COLORS.length]} />
+          {chartData.map((entry, i) => (
+            <Cell key={entry.month} fill={COLORS[i % COLORS.length]} />
           ))}
         </Bar>
       </BarChart>

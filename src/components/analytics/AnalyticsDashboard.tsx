@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { motion } from 'motion/react';
 import { TrendingUp, Calendar, MapPin, Building2, DollarSign, Award, Zap, BarChart2, ArrowUpRight } from 'lucide-react';
 import { AnalyticsData } from '../../types';
@@ -12,7 +12,7 @@ interface Props {
   loading: boolean;
 }
 
-function KpiCard({
+const KpiCard = memo(function KpiCard({
   icon,
   label,
   value,
@@ -45,18 +45,18 @@ function KpiCard({
       {sub && <div className="text-[11px] text-slate-400 mt-0.5">{sub}</div>}
     </motion.div>
   );
-}
+});
 
-function SectionHeader({ title, sub }: { title: string; sub?: string }) {
+const SectionHeader = memo(function SectionHeader({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="mb-4">
       <h3 className="text-sm font-black text-slate-800 tracking-tight">{title}</h3>
       {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
     </div>
   );
-}
+});
 
-function ProgressBar({ value, max, color }: { value: number; max: number; color: string }) {
+const ProgressBar = memo(function ProgressBar({ value, max, color }: { value: number; max: number; color: string }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
     <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -68,7 +68,7 @@ function ProgressBar({ value, max, color }: { value: number; max: number; color:
       />
     </div>
   );
-}
+});
 
 export default function AnalyticsDashboard({ data, loading }: Props) {
   if (loading) {
@@ -82,8 +82,8 @@ export default function AnalyticsDashboard({ data, loading }: Props) {
     );
   }
 
-  const maxRegionCount = Math.max(...data.regionStats.map(r => r.count), 1);
-  const maxVenueCount = Math.max(...data.topVenues.map(v => v.count), 1);
+  const maxRegionCount = data.regionStats.length > 0 ? Math.max(...data.regionStats.map(r => r.count)) : 1;
+  const maxVenueCount  = data.topVenues.length  > 0 ? Math.max(...data.topVenues.map(v => v.count))   : 1;
 
   const regionColors = [
     'bg-indigo-500', 'bg-violet-500', 'bg-cyan-500', 'bg-emerald-500', 'bg-amber-500',
