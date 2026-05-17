@@ -32,8 +32,13 @@ export default function PreparationList({ event, onBack }: Props) {
   useEffect(() => {
     const path = `events/${event.id}/preparationItems`;
     const unsubscribe = onSnapshot(collection(db, path), (snapshot) => {
-      if (hasChanges) return;
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PreparationItem));
+      if (hasChanges) {
+        // While editing, only remove items deleted remotely (to avoid overwriting local edits)
+        const remoteIds = new Set(data.map(i => i.id));
+        setItems(prev => prev.filter(i => remoteIds.has(i.id)));
+        return;
+      }
       data.sort((a, b) => (a.order || 0) - (b.order || 0));
       if (data.length === 0 && loading) {
         setItems(Array.from({ length: 5 }, (_, i) => ({

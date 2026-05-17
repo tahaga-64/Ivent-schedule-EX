@@ -94,6 +94,7 @@ export default function Sidebar({
           <button
             key={r.label}
             onClick={() => setSelectedRegion(r.label)}
+            aria-pressed={selectedRegion === r.label}
             className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-all duration-150 border-l-2 ${
               selectedRegion === r.label
                 ? 'border-gray-400 bg-gray-50 font-semibold text-gray-800'
@@ -119,6 +120,7 @@ export default function Sidebar({
           <button
             key={t.label}
             onClick={() => setSelectedType(selectedType === t.label ? '全て' : t.label as EventType)}
+            aria-pressed={selectedType === t.label}
             className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-all duration-150 ${
               selectedType === t.label
                 ? 'bg-indigo-50 text-indigo-600 font-semibold'

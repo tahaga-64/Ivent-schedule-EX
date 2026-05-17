@@ -557,10 +557,14 @@ export default function App() {
                   <button
                     onClick={() => {
                     const newType = prompt("新しい案件種別を入力してください:");
-                    if (newType) {
-                      const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
-                      setSidebarTypes(prev => [...prev, { label: newType, icon }]);
+                    if (!newType || newType.trim().length === 0 || newType.length > 50) return;
+                    const trimmed = newType.trim();
+                    if (sidebarTypes.some(t => t.label === trimmed)) {
+                      alert(`「${trimmed}」はすでに存在します`);
+                      return;
                     }
+                    const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
+                    setSidebarTypes(prev => [...prev, { label: trimmed, icon }]);
                   }}
                   className="p-1 hover:bg-indigo-50 rounded text-indigo-400 hover:text-indigo-600 transition-colors"
                 >
