@@ -1,5 +1,22 @@
 export type EventStatus = 'scheduled' | 'completed' | 'cancelled';
 
+export interface CarrierInflow {
+  docomo?: number;
+  au?: number;
+  softbank?: number;
+  rakuten?: number;
+  other?: number;
+}
+
+export interface AnalysisReport {
+  createdAt: string;
+  title?: string;
+  summary?: string;
+  goodPoints?: string;
+  improvements?: string;
+  nextActions?: string;
+}
+
 export interface Event {
   id: string;
   start: string;
@@ -13,6 +30,13 @@ export interface Event {
   emoji?: string;
   photos?: EventPhoto[];
   status?: EventStatus;
+  sales?: number;
+  grossProfit?: number;
+  attendance?: number;
+  seatedCount?: number;
+  contracts?: number;
+  carrierInflow?: CarrierInflow;
+  analysisReport?: AnalysisReport;
 }
 
 export interface PreparationItem {
@@ -54,6 +78,9 @@ export interface MonthlyTrend {
   month: string;
   count: number;
   budget: number;
+  sales: number;
+  attendance: number;
+  contracts: number;
 }
 
 export interface RegionStats {
@@ -78,4 +105,12 @@ export interface AnalyticsData {
   regionStats: RegionStats[];
   typeStats: { type: string; count: number }[];
   clientStats: { client: string; count: number; budget: number }[];
+  totalSales: number;
+  totalGrossProfit: number;
+  totalAttendance: number;
+  totalSeatedCount: number;
+  totalContracts: number;
+  avgCarrierSwitchRate: number;
+  carrierInflowTotal: CarrierInflow;
+  recentAnalysisReports: { eventId: string; venue: string; start: string; analysisReport: AnalysisReport }[];
 }

@@ -7,6 +7,7 @@ import { EventPhoto } from '../types';
 
 export function usePhotos(eventId: string) {
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   async function uploadPhoto(file: File): Promise<EventPhoto | null> {
@@ -14,6 +15,7 @@ export function usePhotos(eventId: string) {
     if (validationError) { setError(validationError); return null; }
 
     setUploading(true);
+    setUploadProgress(0);
     setError(null);
     try {
       const photoId = crypto.randomUUID();
@@ -25,7 +27,9 @@ export function usePhotos(eventId: string) {
         thumbnailUrl,
         uploadedAt: new Date().toISOString(),
       };
+      setUploadProgress(80);
       await updateDoc(doc(db, 'events', eventId), { photos: arrayUnion(photo) });
+      setUploadProgress(100);
       return photo;
     } catch (e) {
       console.error('Photo upload failed:', e);
@@ -40,6 +44,7 @@ export function usePhotos(eventId: string) {
       return null;
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   }
 
@@ -68,5 +73,5 @@ export function usePhotos(eventId: string) {
     }
   }
 
-  return { uploading, error, uploadPhoto, deleteEventPhoto, updatePhotoCaption };
+  return { uploading, uploadProgress, error, uploadPhoto, deleteEventPhoto, updatePhotoCaption };
 }

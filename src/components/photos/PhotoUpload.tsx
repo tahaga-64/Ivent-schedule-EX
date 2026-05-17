@@ -6,9 +6,10 @@ import { validateImageFile } from '../../lib/photoStorage';
 interface Props {
   onUpload: (file: File) => Promise<any>;
   uploading: boolean;
+  uploadProgress?: number;
 }
 
-export default function PhotoUpload({ onUpload, uploading }: Props) {
+export default function PhotoUpload({ onUpload, uploading, uploadProgress }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);

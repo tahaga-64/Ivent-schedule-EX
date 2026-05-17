@@ -1,4 +1,4 @@
-import { Event, PreparationItem, AnalyticsData, MonthlyTrend, RegionStats } from '../types';
+import { Event, PreparationItem, AnalyticsData, MonthlyTrend, RegionStats, CarrierInflow } from '../types';
 
 export function formatCurrency(n: number): string {
   return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY', minimumFractionDigits: 0 }).format(n);
@@ -57,14 +57,40 @@ export function calculateAnalyticsData(
   const regionSet = new Set(events.map(e => e.region).filter(Boolean));
   const activeRegions = regionSet.size;
 
+  // New metrics
+  let totalSales = 0, totalGrossProfit = 0, totalAttendance = 0, totalSeatedCount = 0, totalContracts = 0;
+  const carrierInflowTotal: CarrierInflow = { docomo: 0, au: 0, softbank: 0, rakuten: 0, other: 0 };
+  events.forEach(e => {
+    totalSales += e.sales ?? 0;
+    totalGrossProfit += e.grossProfit ?? 0;
+    totalAttendance += e.attendance ?? 0;
+    totalSeatedCount += e.seatedCount ?? 0;
+    totalContracts += e.contracts ?? 0;
+    if (e.carrierInflow) {
+      for (const k of ['docomo', 'au', 'softbank', 'rakuten', 'other'] as const)
+        carrierInflowTotal[k] = (carrierInflowTotal[k] ?? 0) + (e.carrierInflow[k] ?? 0);
+    }
+  });
+  const avgCarrierSwitchRate = totalAttendance > 0 ? (totalContracts / totalAttendance) * 100 : 0;
+
+  // Recent analysis reports
+  const recentAnalysisReports = events
+    .filter(e => e.analysisReport?.createdAt)
+    .sort((a, b) => (b.start || '').localeCompare(a.start || ''))
+    .slice(0, 5)
+    .map(e => ({ eventId: e.id, venue: e.venue, start: e.start, analysisReport: e.analysisReport! }));
+
   // Monthly trends
-  const monthMap: Record<string, { count: number; budget: number }> = {};
+  const monthMap: Record<string, { count: number; budget: number; sales: number; attendance: number; contracts: number }> = {};
   events.forEach((e, i) => {
     const ym = getYearMonth(e.start);
     if (!ym) return;
-    if (!monthMap[ym]) monthMap[ym] = { count: 0, budget: 0 };
+    if (!monthMap[ym]) monthMap[ym] = { count: 0, budget: 0, sales: 0, attendance: 0, contracts: 0 };
     monthMap[ym].count++;
     monthMap[ym].budget += budgets[i];
+    monthMap[ym].sales += e.sales ?? 0;
+    monthMap[ym].attendance += e.attendance ?? 0;
+    monthMap[ym].contracts += e.contracts ?? 0;
   });
   const monthlyTrends: MonthlyTrend[] = Object.entries(monthMap)
     .sort(([a], [b]) => a < b ? -1 : 1)
@@ -141,5 +167,13 @@ export function calculateAnalyticsData(
     regionStats,
     typeStats,
     clientStats,
+    totalSales,
+    totalGrossProfit,
+    totalAttendance,
+    totalSeatedCount,
+    totalContracts,
+    avgCarrierSwitchRate,
+    carrierInflowTotal,
+    recentAnalysisReports,
   };
 }
