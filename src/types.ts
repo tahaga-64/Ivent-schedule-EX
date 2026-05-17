@@ -1,3 +1,22 @@
+export type EventStatus = 'scheduled' | 'completed' | 'cancelled';
+
+export interface CarrierInflow {
+  docomo?: number;
+  au?: number;
+  softbank?: number;
+  rakuten?: number;
+  other?: number;
+}
+
+export interface AnalysisReport {
+  createdAt: string;
+  title?: string;
+  summary?: string;
+  goodPoints?: string;
+  improvements?: string;
+  nextActions?: string;
+}
+
 export interface Event {
   id: string;
   start: string;
@@ -10,37 +29,14 @@ export interface Event {
   note: string;
   emoji?: string;
   photos?: EventPhoto[];
-  status?: string;
+  status?: EventStatus;
   sales?: number;
   grossProfit?: number;
   attendance?: number;
   seatedCount?: number;
   contracts?: number;
   carrierInflow?: CarrierInflow;
-  retrospective?: EventRetrospective;
-  analysisReport?: EventAnalysisReport;
-}
-
-export interface CarrierInflow {
-  docomo?: number;
-  au?: number;
-  softbank?: number;
-  rakuten?: number;
-  other?: number;
-}
-
-export interface EventRetrospective {
-  goodPoints?: string;
-  improvements?: string;
-}
-
-export interface EventAnalysisReport {
-  createdAt: string;
-  title: string;
-  summary?: string;
-  goodPoints?: string;
-  improvements?: string;
-  nextActions?: string;
+  analysisReport?: AnalysisReport;
 }
 
 export interface PreparationItem {
@@ -74,8 +70,8 @@ export interface Notification {
   eventId?: string;
   userId?: string;
   read: boolean;
-  createdAt: any;
-  data?: Record<string, any>;
+  createdAt: { toDate(): Date; toMillis(): number } | Date | null;
+  data?: Record<string, unknown>;
 }
 
 export interface MonthlyTrend {
@@ -83,7 +79,6 @@ export interface MonthlyTrend {
   count: number;
   budget: number;
   sales: number;
-  grossProfit: number;
   attendance: number;
   contracts: number;
 }
@@ -117,10 +112,5 @@ export interface AnalyticsData {
   totalContracts: number;
   avgCarrierSwitchRate: number;
   carrierInflowTotal: CarrierInflow;
-  recentAnalysisReports: {
-    eventId: string;
-    venue: string;
-    start: string;
-    report: EventAnalysisReport;
-  }[];
+  recentAnalysisReports: { eventId: string; venue: string; start: string; analysisReport: AnalysisReport }[];
 }

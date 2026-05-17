@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, runTransaction } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { uploadAndCompressPhoto, deletePhoto } from '../lib/photoStorage';
 import { validateImageFile } from '../lib/photoStorage';
@@ -7,7 +7,7 @@ import { EventPhoto } from '../types';
 
 export function usePhotos(eventId: string) {
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   async function uploadPhoto(file: File): Promise<EventPhoto | null> {
@@ -18,13 +18,8 @@ export function usePhotos(eventId: string) {
     setUploadProgress(0);
     setError(null);
     try {
-      const photoId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const { url, storagePath, thumbnailUrl } = await uploadAndCompressPhoto(
-        file,
-        eventId,
-        photoId,
-        (pct) => setUploadProgress(pct)
-      );
+      const photoId = crypto.randomUUID();
+      const { url, storagePath, thumbnailUrl } = await uploadAndCompressPhoto(file, eventId, photoId);
       const photo: EventPhoto = {
         id: photoId,
         url,
@@ -32,19 +27,19 @@ export function usePhotos(eventId: string) {
         thumbnailUrl,
         uploadedAt: new Date().toISOString(),
       };
+      setUploadProgress(80);
       await updateDoc(doc(db, 'events', eventId), { photos: arrayUnion(photo) });
+      setUploadProgress(100);
       return photo;
     } catch (e) {
-      console.error('Upload failed:', e);
+      console.error('Photo upload failed:', e);
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes('storage/unauthorized') || msg.includes('permission')) {
         setError('アップロード権限がありません。ログイン状態を確認してください。');
-      } else if (msg.includes('storage/canceled')) {
-        setError('アップロードがキャンセルされました。');
       } else if (msg.includes('network') || msg.includes('fetch')) {
         setError('ネットワークエラーです。接続を確認してください。');
       } else {
-        setError(`アップロードに失敗しました: ${msg}`);
+        setError('アップロードに失敗しました');
       }
       return null;
     } finally {
@@ -62,11 +57,18 @@ export function usePhotos(eventId: string) {
     }
   }
 
-  async function updatePhotoCaption(photo: EventPhoto, caption: string, currentPhotos: EventPhoto[]): Promise<void> {
+  async function updatePhotoCaption(photo: EventPhoto, caption: string): Promise<void> {
     try {
-      const updated = currentPhotos.map(p => p.id === photo.id ? { ...p, caption } : p);
-      await updateDoc(doc(db, 'events', eventId), { photos: updated });
+      const eventRef = doc(db, 'events', eventId);
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(eventRef);
+        if (!snap.exists()) return;
+        const photos: EventPhoto[] = snap.data().photos ?? [];
+        const updated = photos.map(p => p.id === photo.id ? { ...p, caption } : p);
+        tx.update(eventRef, { photos: updated });
+      });
     } catch (e) {
+      console.error('Caption update failed:', e);
       setError('キャプション更新に失敗しました');
     }
   }

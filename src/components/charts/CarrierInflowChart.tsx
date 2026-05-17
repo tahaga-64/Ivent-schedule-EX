@@ -49,7 +49,7 @@ export default function CarrierInflowChart({ data }: Props) {
         </Pie>
         <Tooltip
           contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 11, fontWeight: 700 }}
-          formatter={(v: number) => [`${v.toLocaleString()}件`, '流入数']}
+          formatter={(v) => [`${Number(v ?? 0).toLocaleString()}件`, '流入数'] as [string, string]}
         />
         <Legend verticalAlign="bottom" height={24} iconType="circle" />
       </PieChart>

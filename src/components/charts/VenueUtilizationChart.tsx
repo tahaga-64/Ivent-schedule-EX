@@ -26,11 +26,11 @@ export default function VenueUtilizationChart({ data }: Props) {
         <YAxis type="category" dataKey="venue" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 700 }} axisLine={false} tickLine={false} width={80} />
         <Tooltip
           contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 11, fontWeight: 700, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
-          formatter={(v: any) => [v, '開催回数']}
+          formatter={(v) => [Number(v ?? 0), '開催回数'] as [number, string]}
         />
         <Bar dataKey="count" radius={[0, 6, 6, 0]}>
-          {chartData.map((_, i) => (
-            <Cell key={i} fill={COLORS[i % COLORS.length]} />
+          {chartData.map((entry, i) => (
+            <Cell key={entry.venue} fill={COLORS[i % COLORS.length]} />
           ))}
         </Bar>
       </BarChart>

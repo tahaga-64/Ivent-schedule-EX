@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { PreparationItem, Event } from '../types';
@@ -32,11 +32,16 @@ export default function PreparationList({ event, onBack }: Props) {
   useEffect(() => {
     const path = `events/${event.id}/preparationItems`;
     const unsubscribe = onSnapshot(collection(db, path), (snapshot) => {
-      if (hasChanges) return;
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PreparationItem));
+      if (hasChanges) {
+        // While editing, only remove items deleted remotely (to avoid overwriting local edits)
+        const remoteIds = new Set(data.map(i => i.id));
+        setItems(prev => prev.filter(i => remoteIds.has(i.id)));
+        return;
+      }
       data.sort((a, b) => (a.order || 0) - (b.order || 0));
       if (data.length === 0 && loading) {
-        setItems(Array.from({ length: 1 }, (_, i) => ({
+        setItems(Array.from({ length: 5 }, (_, i) => ({
           id: crypto.randomUUID(),
           name: '', quantity: 1, unitPrice: 0, amount: 0,
           shippingFee: 0, arrived: false, prepared: false, note: '', url: '', order: i,
@@ -107,14 +112,23 @@ export default function PreparationList({ event, onBack }: Props) {
     return { subtotal, shipping, total: subtotal + shipping, prepared: items.filter(i => i.prepared).length };
   }, [items]);
 
+  const csvCell = (v: string | number): string => {
+    const s = String(v);
+    // Prefix dangerous formula characters to prevent CSV injection
+    const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+    // Wrap in quotes and escape inner double-quotes
+    return `"${safe.replace(/"/g, '""')}"`;
+  };
+
   const handleExportCSV = () => {
     const headers = ['#', '品名', '数量', '単価', '金額', '配送料', '到着', '準備', '備考', 'URL'];
     const rows = items.map((item, i) => [
-      i + 1, `"${item.name}"`, item.quantity, item.unitPrice, item.amount,
-      item.shippingFee, item.arrived ? '✓' : '', item.prepared ? '✓' : '',
-      `"${item.note || ''}"`, `"${item.url || ''}"`,
+      csvCell(i + 1), csvCell(item.name), csvCell(item.quantity), csvCell(item.unitPrice),
+      csvCell(item.amount), csvCell(item.shippingFee),
+      csvCell(item.arrived ? '✓' : ''), csvCell(item.prepared ? '✓' : ''),
+      csvCell(item.note || ''), csvCell(item.url || ''),
     ]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const csv = [headers.map(csvCell), ...rows].map(r => r.join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -199,8 +213,8 @@ export default function PreparationList({ event, onBack }: Props) {
                   <th className="w-28 px-3 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-right border-r border-gray-100">配送料</th>
                   <th className="w-16 px-3 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-center border-r border-gray-100">到着</th>
                   <th className="w-16 px-3 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-center border-r border-gray-100">準備</th>
-                  <th className="px-4 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-left border-r border-gray-100" style={{ minWidth: '160px' }}>URL</th>
                   <th className="px-4 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-left border-r border-gray-100" style={{ minWidth: '120px' }}>備考</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-left border-r border-gray-100" style={{ minWidth: '160px' }}>URL</th>
                   <th className="w-10 px-2 py-3" />
                 </tr>
               </thead>
@@ -262,16 +276,19 @@ export default function PreparationList({ event, onBack }: Props) {
                     <td className="p-0 border-r border-gray-100">
                       <input
                         type="text"
+                        value={item.note || ''}
+                        onChange={e => updateItem(item.id, { note: e.target.value })}
+                        placeholder="..."
+                        className="w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm text-gray-600"
+                      />
+                    </td>
+                    <td className="p-0 border-r border-gray-100">
+                      <input
+                        type="text"
                         value={item.url || ''}
                         onChange={e => updateItem(item.id, { url: e.target.value })}
                         placeholder="https://..."
                         className="w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm text-indigo-500"
-                      />
-                    </td>
-                    <td className="p-0 border-r border-gray-100">
-                      <PreparationNoteField
-                        value={item.note || ''}
-                        onChange={note => updateItem(item.id, { note })}
                       />
                     </td>
                     <td className="px-2 py-2.5 text-center">
@@ -329,33 +346,6 @@ export default function PreparationList({ event, onBack }: Props) {
         </div>
       </div>
     </div>
-  );
-}
-
-function PreparationNoteField({ value, onChange }: { value: string; onChange: (note: string) => void }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [value]);
-
-  return (
-    <textarea
-      ref={ref}
-      rows={1}
-      value={value}
-      onChange={e => {
-        e.target.style.height = 'auto';
-        e.target.style.height = `${e.target.scrollHeight}px`;
-        onChange(e.target.value);
-      }}
-      placeholder="..."
-      className="w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm text-gray-600 break-words"
-      style={{ resize: 'none', overflowX: 'hidden', minHeight: '38px' }}
-    />
   );
 }
 

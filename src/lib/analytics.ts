@@ -10,11 +10,6 @@ export function formatCurrencyCompact(n: number): string {
   return formatCurrency(n);
 }
 
-export function formatNumber(n: number): string {
-  if (n >= 10000) return `${(n / 10000).toFixed(1)}万`;
-  return n.toLocaleString('ja-JP');
-}
-
 function getBudget(items: PreparationItem[]): number {
   return items.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0);
 }
@@ -35,7 +30,7 @@ export function calculateAnalyticsData(
   prepItemsByEvent: Record<string, PreparationItem[]>
 ): AnalyticsData {
   const total = events.length;
-  const completed = events.filter(e => e.status === 'completed' || e.status === '完了').length;
+  const completed = events.filter(e => e.status === 'completed').length;
 
   // Budget per event
   const budgets = events.map(e => getBudget(prepItemsByEvent[e.id] || []));
@@ -62,44 +57,44 @@ export function calculateAnalyticsData(
   const regionSet = new Set(events.map(e => e.region).filter(Boolean));
   const activeRegions = regionSet.size;
 
-  // Monthly trends
-  const monthMap: Record<string, { count: number; budget: number; sales: number; grossProfit: number; attendance: number; contracts: number }> = {};
-  let totalSales = 0;
-  let totalGrossProfit = 0;
-  let totalAttendance = 0;
-  let totalSeatedCount = 0;
-  let totalContracts = 0;
+  // New metrics
+  let totalSales = 0, totalGrossProfit = 0, totalAttendance = 0, totalSeatedCount = 0, totalContracts = 0;
   const carrierInflowTotal: CarrierInflow = { docomo: 0, au: 0, softbank: 0, rakuten: 0, other: 0 };
-  events.forEach((e, i) => {
-    const ym = getYearMonth(e.start);
-    if (!ym) return;
-    if (!monthMap[ym]) monthMap[ym] = { count: 0, budget: 0, sales: 0, grossProfit: 0, attendance: 0, contracts: 0 };
-    monthMap[ym].count++;
-    monthMap[ym].budget += budgets[i];
-    monthMap[ym].sales += e.sales ?? 0;
-    monthMap[ym].grossProfit += e.grossProfit ?? 0;
-    monthMap[ym].attendance += e.attendance ?? 0;
-    monthMap[ym].contracts += e.contracts ?? 0;
-
+  events.forEach(e => {
     totalSales += e.sales ?? 0;
     totalGrossProfit += e.grossProfit ?? 0;
     totalAttendance += e.attendance ?? 0;
     totalSeatedCount += e.seatedCount ?? 0;
     totalContracts += e.contracts ?? 0;
-
     if (e.carrierInflow) {
-      for (const k of ['docomo', 'au', 'softbank', 'rakuten', 'other'] as const) {
+      for (const k of ['docomo', 'au', 'softbank', 'rakuten', 'other'] as const)
         carrierInflowTotal[k] = (carrierInflowTotal[k] ?? 0) + (e.carrierInflow[k] ?? 0);
-      }
     }
+  });
+  const avgCarrierSwitchRate = totalAttendance > 0 ? (totalContracts / totalAttendance) * 100 : 0;
+
+  // Recent analysis reports
+  const recentAnalysisReports = events
+    .filter(e => e.analysisReport?.createdAt)
+    .sort((a, b) => (b.start || '').localeCompare(a.start || ''))
+    .slice(0, 5)
+    .map(e => ({ eventId: e.id, venue: e.venue, start: e.start, analysisReport: e.analysisReport! }));
+
+  // Monthly trends
+  const monthMap: Record<string, { count: number; budget: number; sales: number; attendance: number; contracts: number }> = {};
+  events.forEach((e, i) => {
+    const ym = getYearMonth(e.start);
+    if (!ym) return;
+    if (!monthMap[ym]) monthMap[ym] = { count: 0, budget: 0, sales: 0, attendance: 0, contracts: 0 };
+    monthMap[ym].count++;
+    monthMap[ym].budget += budgets[i];
+    monthMap[ym].sales += e.sales ?? 0;
+    monthMap[ym].attendance += e.attendance ?? 0;
+    monthMap[ym].contracts += e.contracts ?? 0;
   });
   const monthlyTrends: MonthlyTrend[] = Object.entries(monthMap)
     .sort(([a], [b]) => a < b ? -1 : 1)
     .map(([month, v]) => ({ month, ...v }));
-
-  const avgCarrierSwitchRate = totalAttendance > 0
-    ? (totalContracts / totalAttendance) * 100
-    : 0;
 
   // Busiest month
   const busiestMonth = monthlyTrends.length > 0
@@ -155,17 +150,6 @@ export function calculateAnalyticsData(
     .map(([client, v]) => ({ client, ...v }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
-
-  const recentAnalysisReports = events
-    .filter(e => e.analysisReport && e.analysisReport.title)
-    .sort((a, b) => b.start.localeCompare(a.start))
-    .slice(0, 5)
-    .map(e => ({
-      eventId: e.id,
-      venue: e.venue,
-      start: e.start,
-      report: e.analysisReport!,
-    }));
 
   return {
     totalEvents: total,

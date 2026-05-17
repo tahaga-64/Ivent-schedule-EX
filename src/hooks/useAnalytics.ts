@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Event, PreparationItem, AnalyticsData } from '../types';
@@ -8,6 +8,12 @@ export function useAnalytics(staticEvents: Event[]) {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Stable key — only changes when the set of event IDs changes
+  const eventIds = useMemo(
+    () => staticEvents.map(e => e.id).sort().join(','),
+    [staticEvents]
+  );
+
   useEffect(() => {
     if (staticEvents.length === 0) {
       setData(calculateAnalyticsData([], {}));
@@ -15,45 +21,36 @@ export function useAnalytics(staticEvents: Event[]) {
       return;
     }
 
-    // Listen to all prep item sub-collections by fetching per-event
-    // We use a simpler approach: snapshot the top-level prepItems collection
-    // which stores items as events/<id>/prepItems
     const prepByEvent: Record<string, PreparationItem[]> = {};
-    let resolved = 0;
+    // Use a Set so repeated snapshot callbacks don't inflate the count
+    const resolvedIds = new Set<string>();
     const total = staticEvents.length;
-
-    if (total === 0) {
-      setData(calculateAnalyticsData(staticEvents, {}));
-      setLoading(false);
-      return;
-    }
-
     const unsubs: (() => void)[] = [];
+
+    const recalculate = () => {
+      setData(calculateAnalyticsData(staticEvents, prepByEvent));
+      if (resolvedIds.size >= total) setLoading(false);
+    };
 
     staticEvents.forEach(event => {
       const unsub = onSnapshot(
-        collection(db, 'events', event.id, 'prepItems'),
+        collection(db, 'events', event.id, 'preparationItems'),
         snap => {
           prepByEvent[event.id] = snap.docs.map(d => ({ id: d.id, ...d.data() } as PreparationItem));
-          resolved++;
-          if (resolved >= total) {
-            setData(calculateAnalyticsData(staticEvents, prepByEvent));
-            setLoading(false);
-          }
+          resolvedIds.add(event.id);
+          recalculate();
         },
-        () => {
-          resolved++;
-          if (resolved >= total) {
-            setData(calculateAnalyticsData(staticEvents, prepByEvent));
-            setLoading(false);
-          }
+        (err) => {
+          console.error(`prepItems load error for event ${event.id}:`, err);
+          resolvedIds.add(event.id);
+          recalculate();
         }
       );
       unsubs.push(unsub);
     });
 
     return () => unsubs.forEach(u => u());
-  }, [staticEvents.map(e => e.id).join(',')]);
+  }, [eventIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { data, loading };
 }

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { Bell, Check, CheckCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -94,7 +94,7 @@ export default function NotificationCenter() {
   );
 }
 
-function NotificationItem({ notification: n, onRead }: { notification: AppNotification; onRead: (id: string) => void | Promise<void> }) {
+const NotificationItem = memo(function NotificationItem({ notification: n, onRead }: { notification: AppNotification; onRead: (id: string) => Promise<void> }) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -117,4 +117,4 @@ function NotificationItem({ notification: n, onRead }: { notification: AppNotifi
       )}
     </motion.div>
   );
-}
+});

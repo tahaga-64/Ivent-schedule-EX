@@ -1,22 +1,22 @@
 import { Calendar, ClipboardList, Clock } from 'lucide-react';
 import { CalendarEvent, Region, EventType } from '../types/index';
-import { MOCK_EVENTS } from '../data/events';
+import { DATA } from '../constants';
 import { EVENT_TYPES } from '../data/eventTypes';
 
 interface Props {
-  selectedRegion: Region | '???';
-  setSelectedRegion: (r: Region | '???') => void;
-  selectedType: EventType | '???';
-  setSelectedType: (t: EventType | '???') => void;
+  selectedRegion: Region | '全て';
+  setSelectedRegion: (r: Region | '全て') => void;
+  selectedType: EventType | '全て';
+  setSelectedType: (t: EventType | '全て') => void;
   filteredEvents: CalendarEvent[];
 }
 
-const REGIONS: { label: Region | '???'; dot: string }[] = [
-  { label: '???',  dot: '#9CA3AF' },
-  { label: '???', dot: '#3B82F6' },
-  { label: '???', dot: '#22C55E' },
-  { label: '???', dot: '#F97316' },
-  { label: '???', dot: '#A855F7' },
+const REGIONS: { label: Region | '全て'; dot: string }[] = [
+  { label: '全て',  dot: '#9CA3AF' },
+  { label: '東日本', dot: '#3B82F6' },
+  { label: '西日本', dot: '#22C55E' },
+  { label: '南日本', dot: '#F97316' },
+  { label: '中日本', dot: '#A855F7' },
 ];
 
 
@@ -26,15 +26,15 @@ export default function Sidebar({
   filteredEvents,
 }: Props) {
   const today = new Date();
-  const DAY_NAMES   = ['???','???','???','???','???','???','???'];
-  const MONTH_NAMES = ['1?','2?','3?','4?','5?','6?','7?','8?','9?','10?','11?','12?'];
+  const DAY_NAMES   = ['日','月','火','水','木','金','土'];
+  const MONTH_NAMES = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
 
-  const allEvents      = MOCK_EVENTS;
-  const preparedCount  = filteredEvents.filter(e => e.status === '???').length;
-  const waitingCount   = filteredEvents.filter(e => e.status === '????').length;
+  const allEvents      = DATA;
+  const preparedCount  = filteredEvents.filter(e => e.status === '完了').length;
+  const waitingCount   = filteredEvents.filter(e => e.status === '入荷待ち').length;
 
   const regionCounts = REGIONS.reduce<Record<string, number>>((acc, r) => {
-    if (r.label !== '???') acc[r.label] = allEvents.filter(e => e.region === r.label).length;
+    if (r.label !== '全て') acc[r.label] = allEvents.filter(e => e.region === r.label).length;
     return acc;
   }, {});
 
@@ -67,9 +67,9 @@ export default function Sidebar({
           WORKSPACE
         </div>
         {([
-          { label: '????????', icon: <Calendar size={14} />, count: allEvents.length },
-          { label: '???',           icon: <ClipboardList size={14} />, count: preparedCount },
-          { label: '????',          icon: <Clock size={14} />, count: waitingCount },
+          { label: 'すべてのイベント', icon: <Calendar size={14} />, count: allEvents.length },
+          { label: '完了',           icon: <ClipboardList size={14} />, count: preparedCount },
+          { label: '入荷待ち',        icon: <Clock size={14} />, count: waitingCount },
         ] as const).map(item => (
           <button
             key={item.label}
@@ -84,16 +84,17 @@ export default function Sidebar({
         ))}
       </div>
 
-      {/* ?? / REGION */}
+      {/* 地域 / REGION */}
       <div className="mt-5">
         <div className="flex items-center px-4 mb-1.5">
-          <span className="text-sm font-medium text-gray-700">??</span>
+          <span className="text-sm font-medium text-gray-700">地域</span>
           <span className="ml-auto text-[10px] text-gray-400 font-semibold uppercase tracking-wider">REGION</span>
         </div>
         {REGIONS.map(r => (
           <button
             key={r.label}
             onClick={() => setSelectedRegion(r.label)}
+            aria-pressed={selectedRegion === r.label}
             className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-all duration-150 border-l-2 ${
               selectedRegion === r.label
                 ? 'border-gray-400 bg-gray-50 font-semibold text-gray-800'
@@ -102,23 +103,24 @@ export default function Sidebar({
           >
             <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: r.dot }} />
             <span className="flex-1 text-left">{r.label}</span>
-            {r.label !== '???' && (
+            {r.label !== '全て' && (
               <span className="text-xs text-gray-400">{regionCounts[r.label] ?? 0}</span>
             )}
           </button>
         ))}
       </div>
 
-      {/* ?? / TYPE */}
+      {/* 種別 / TYPE */}
       <div className="mt-5 pb-6">
         <div className="flex items-center px-4 mb-1.5">
-          <span className="text-sm font-medium text-gray-700">??</span>
+          <span className="text-sm font-medium text-gray-700">種別</span>
           <span className="ml-auto text-[10px] text-gray-400 font-semibold uppercase tracking-wider">TYPE</span>
         </div>
         {EVENT_TYPES.map(t => (
           <button
             key={t.label}
-            onClick={() => setSelectedType(selectedType === t.label ? '???' : t.label)}
+            onClick={() => setSelectedType(selectedType === t.label ? '全て' : t.label as EventType)}
+            aria-pressed={selectedType === t.label}
             className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-all duration-150 ${
               selectedType === t.label
                 ? 'bg-indigo-50 text-indigo-600 font-semibold'

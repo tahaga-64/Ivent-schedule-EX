@@ -1,18 +1,9 @@
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from './firebase';
 import { EventPhoto } from '../types';
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
-export const PHOTO_UPLOAD_PROFILE = {
-  full: { maxWidth: 1600, quality: 0.85 },
-  thumbnail: { maxWidth: 400, quality: 0.75 },
-  targetSizeGuide: {
-    fullKb: '250-500KB',
-    thumbnailKb: '30-70KB',
-    totalKb: '約350KB/枚',
-  },
-} as const;
 
 export function validateImageFile(file: File): string | null {
   if (!ACCEPTED_TYPES.includes(file.type)) return '対応画像形式: JPEG, PNG, WebP, GIF, HEIC';
@@ -20,16 +11,14 @@ export function validateImageFile(file: File): string | null {
   return null;
 }
 
-export async function compressImage(
-  file: File,
-  maxWidth: number = PHOTO_UPLOAD_PROFILE.full.maxWidth,
-  quality: number = PHOTO_UPLOAD_PROFILE.full.quality
-): Promise<Blob> {
+export async function compressImage(file: File, maxWidth = 1600, quality = 0.85): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
+    const cleanup = () => URL.revokeObjectURL(url);
+
     img.onload = () => {
-      URL.revokeObjectURL(url);
+      cleanup();
       const scale = Math.min(1, maxWidth / img.width);
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
@@ -39,6 +28,7 @@ export async function compressImage(
       canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
       canvas.toBlob(
         blob => {
+          // Release canvas memory immediately after blob is extracted
           canvas.width = 0;
           canvas.height = 0;
           blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'));
@@ -47,7 +37,10 @@ export async function compressImage(
         quality
       );
     };
-    img.onerror = reject;
+    img.onerror = () => {
+      cleanup();
+      reject(new Error('画像の読み込みに失敗しました'));
+    };
     img.src = url;
   });
 }
@@ -55,31 +48,19 @@ export async function compressImage(
 export async function uploadAndCompressPhoto(
   file: File,
   eventId: string,
-  photoId: string,
-  onProgress?: (percent: number) => void
+  photoId: string
 ): Promise<{ url: string; storagePath: string; thumbnailUrl: string }> {
-  const [compressed, thumb] = await Promise.all([
-    compressImage(file),
-    compressImage(file, PHOTO_UPLOAD_PROFILE.thumbnail.maxWidth, PHOTO_UPLOAD_PROFILE.thumbnail.quality),
-  ]);
+  const compressed = await compressImage(file);
+  const thumb = await compressImage(file, 400, 0.75);
 
   const basePath = `events/${eventId}/photos/${photoId}`;
   const fullRef = ref(storage, `${basePath}/full.webp`);
   const thumbRef = ref(storage, `${basePath}/thumb.webp`);
 
-  await new Promise<void>((resolve, reject) => {
-    const task = uploadBytesResumable(fullRef, compressed, { contentType: 'image/webp' });
-    task.on(
-      'state_changed',
-      snap => onProgress?.(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
-      reject,
-      () => resolve()
-    );
-  });
-  await new Promise<void>((resolve, reject) => {
-    const task = uploadBytesResumable(thumbRef, thumb, { contentType: 'image/webp' });
-    task.on('state_changed', undefined, reject, () => resolve());
-  });
+  await Promise.all([
+    uploadBytes(fullRef, compressed, { contentType: 'image/webp' }),
+    uploadBytes(thumbRef, thumb, { contentType: 'image/webp' }),
+  ]);
 
   const [url, thumbnailUrl] = await Promise.all([
     getDownloadURL(fullRef),

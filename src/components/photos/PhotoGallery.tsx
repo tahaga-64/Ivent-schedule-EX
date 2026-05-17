@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Trash2, ChevronLeft, ChevronRight, Edit3, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { EventPhoto } from '../../types';
@@ -21,6 +21,11 @@ export default function PhotoGallery({ photos, onDelete, onUpdateCaption, canEdi
       <p className="text-xs mt-1">上のエリアから追加してください</p>
     </div>
   );
+
+  // Close lightbox if photos array shrinks (e.g., concurrent delete)
+  useEffect(() => {
+    if (lightbox !== null && lightbox >= photos.length) setLightbox(null);
+  }, [photos.length, lightbox]);
 
   function openLightbox(i: number) { setLightbox(i); }
   function closeLightbox() { setLightbox(null); }
@@ -50,7 +55,7 @@ export default function PhotoGallery({ photos, onDelete, onUpdateCaption, canEdi
           >
             <img
               src={photo.thumbnailUrl || photo.url}
-              alt={photo.caption || ''}
+              alt={photo.caption || `イベント写真 ${i + 1}`}
               className="w-full h-full object-cover transition-transform group-hover:scale-105"
             />
             {canEdit && (
@@ -90,12 +95,14 @@ export default function PhotoGallery({ photos, onDelete, onUpdateCaption, canEdi
               <button onClick={prev} className="absolute left-4 text-white/60 hover:text-white p-2 z-10">
                 <ChevronLeft size={28} />
               </button>
-              <img
+              {lightbox !== null && photos[lightbox] && (
+            <img
                 src={photos[lightbox].url}
-                alt=""
+                alt={photos[lightbox].caption || `イベント写真 ${lightbox + 1}`}
                 className="max-w-full max-h-full object-contain rounded-xl"
                 style={{ maxHeight: 'calc(100vh - 180px)' }}
               />
+            )}
               <button onClick={next} className="absolute right-4 text-white/60 hover:text-white p-2 z-10">
                 <ChevronRight size={28} />
               </button>
