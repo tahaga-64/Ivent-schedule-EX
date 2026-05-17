@@ -168,7 +168,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const isEditor = user && EDITOR_EMAILS.includes(user.email);
+  const isEditor = user && EDITOR_EMAILS.includes(user.email ?? '');
 
   // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {

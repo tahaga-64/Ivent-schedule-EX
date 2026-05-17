@@ -30,7 +30,7 @@ export function calculateAnalyticsData(
   prepItemsByEvent: Record<string, PreparationItem[]>
 ): AnalyticsData {
   const total = events.length;
-  const completed = events.filter(e => e.status === 'completed' || e.status === '完了').length;
+  const completed = events.filter(e => e.status === 'completed').length;
 
   // Budget per event
   const budgets = events.map(e => getBudget(prepItemsByEvent[e.id] || []));

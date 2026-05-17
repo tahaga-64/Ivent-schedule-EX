@@ -1,3 +1,5 @@
+export type EventStatus = 'scheduled' | 'completed' | 'cancelled';
+
 export interface Event {
   id: string;
   start: string;
@@ -10,7 +12,7 @@ export interface Event {
   note: string;
   emoji?: string;
   photos?: EventPhoto[];
-  status?: string;
+  status?: EventStatus;
 }
 
 export interface PreparationItem {
@@ -44,8 +46,8 @@ export interface Notification {
   eventId?: string;
   userId?: string;
   read: boolean;
-  createdAt: any;
-  data?: Record<string, any>;
+  createdAt: { toDate(): Date; toMillis(): number } | Date | null;
+  data?: Record<string, unknown>;
 }
 
 export interface MonthlyTrend {
