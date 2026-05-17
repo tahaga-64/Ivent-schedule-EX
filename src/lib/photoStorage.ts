@@ -15,8 +15,10 @@ export async function compressImage(file: File, maxWidth = 1600, quality = 0.85)
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
+    const cleanup = () => URL.revokeObjectURL(url);
+
     img.onload = () => {
-      URL.revokeObjectURL(url);
+      cleanup();
       const scale = Math.min(1, maxWidth / img.width);
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
@@ -25,12 +27,20 @@ export async function compressImage(file: File, maxWidth = 1600, quality = 0.85)
       canvas.height = h;
       canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
       canvas.toBlob(
-        blob => blob ? resolve(blob) : reject(new Error('Canvas toBlob failed')),
+        blob => {
+          // Release canvas memory immediately after blob is extracted
+          canvas.width = 0;
+          canvas.height = 0;
+          blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'));
+        },
         'image/webp',
         quality
       );
     };
-    img.onerror = reject;
+    img.onerror = () => {
+      cleanup();
+      reject(new Error('画像の読み込みに失敗しました'));
+    };
     img.src = url;
   });
 }

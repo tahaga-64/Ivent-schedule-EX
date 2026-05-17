@@ -107,14 +107,23 @@ export default function PreparationList({ event, onBack }: Props) {
     return { subtotal, shipping, total: subtotal + shipping, prepared: items.filter(i => i.prepared).length };
   }, [items]);
 
+  const csvCell = (v: string | number): string => {
+    const s = String(v);
+    // Prefix dangerous formula characters to prevent CSV injection
+    const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+    // Wrap in quotes and escape inner double-quotes
+    return `"${safe.replace(/"/g, '""')}"`;
+  };
+
   const handleExportCSV = () => {
     const headers = ['#', '品名', '数量', '単価', '金額', '配送料', '到着', '準備', '備考', 'URL'];
     const rows = items.map((item, i) => [
-      i + 1, `"${item.name}"`, item.quantity, item.unitPrice, item.amount,
-      item.shippingFee, item.arrived ? '✓' : '', item.prepared ? '✓' : '',
-      `"${item.note || ''}"`, `"${item.url || ''}"`,
+      csvCell(i + 1), csvCell(item.name), csvCell(item.quantity), csvCell(item.unitPrice),
+      csvCell(item.amount), csvCell(item.shippingFee),
+      csvCell(item.arrived ? '✓' : ''), csvCell(item.prepared ? '✓' : ''),
+      csvCell(item.note || ''), csvCell(item.url || ''),
     ]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const csv = [headers.map(csvCell), ...rows].map(r => r.join(',')).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

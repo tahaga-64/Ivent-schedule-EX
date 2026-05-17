@@ -802,7 +802,7 @@ export default function App() {
                       <PhotoGallery
                         photos={selected.photos || []}
                         onDelete={photo => deleteEventPhoto(photo, selected.photos || [])}
-                        onUpdateCaption={(photo, caption) => updatePhotoCaption(photo, caption, selected.photos || [])}
+                        onUpdateCaption={(photo, caption) => updatePhotoCaption(photo, caption)}
                         canEdit={!!isEditor}
                       />
                     </div>
