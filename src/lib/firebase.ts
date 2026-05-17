@@ -5,12 +5,13 @@ import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
 const firebaseConfig = {
-  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId:             import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY            ?? "AIzaSyB6KpVGCcKyPb5Sb6jCdM0YILQdw_TZ6z0",
+  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN        ?? "ivent-schedule-ex.firebaseapp.com",
+  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID         ?? "ivent-schedule-ex",
+  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET     ?? "ivent-schedule-ex.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? "485064505718",
+  appId:             import.meta.env.VITE_FIREBASE_APP_ID             ?? "1:485064505718:web:2cbd840e8c07172669a257",
+  measurementId:     "G-XGRDW0R02L",
 };
 
 const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID ?? '(default)';
