@@ -667,7 +667,7 @@ export default function App() {
 
         {/* 右: ビュー切替 + 新規 + アバター */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="flex bg-slate-100 p-1 rounded-xl">
+          <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
             {[
               { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
               { id: "analytics", icon: <BarChart2 size={14} />, label: "分析" },
@@ -1170,7 +1170,7 @@ export default function App() {
                   canEdit={canEditPreparationList}
                 />
               ) : (
-                <div className="p-6 lg:p-8 overflow-y-auto">
+                <div className="p-6 lg:p-8 overflow-y-auto overflow-x-hidden">
                   {/* Header: タグ + 閉じるボタン */}
                   <div className="flex justify-between items-center mb-5">
                     <div className="flex flex-col gap-2 flex-1 min-w-0">

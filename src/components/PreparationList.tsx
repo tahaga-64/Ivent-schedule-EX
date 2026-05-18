@@ -199,8 +199,126 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto p-4 sm:p-6">
+      {/* Mobile card list */}
+      <div className="block lg:hidden flex-1 overflow-y-auto p-3 space-y-2">
+        {items.map((item, idx) => (
+          <div
+            key={item.id}
+            className={`bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden ${item.prepared ? 'opacity-70' : ''}`}
+          >
+            {/* Row 1: # + 品名 + delete */}
+            <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+              <span className="text-[10px] text-gray-400 font-mono w-5 shrink-0">{idx + 1}</span>
+              <input
+                type="text"
+                readOnly={!canEdit}
+                value={item.name}
+                onChange={e => updateItem(item.id, { name: e.target.value })}
+                placeholder="アイテム名..."
+                className={`flex-1 text-sm font-bold text-gray-800 bg-transparent outline-none read-only:cursor-default ${item.prepared ? 'line-through text-gray-400' : ''}`}
+              />
+              <button
+                type="button"
+                onClick={() => removeItem(item.id)}
+                disabled={items.length <= 1 || !canEdit}
+                className={`p-1 shrink-0 transition-colors ${
+                  items.length <= 1 ? 'opacity-0 pointer-events-none' : !canEdit ? 'opacity-30 cursor-not-allowed' : 'text-gray-300 hover:text-red-400'
+                }`}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+            {/* Row 2: 数量 / 単価 / 金額 */}
+            <div className="grid grid-cols-3 border-t border-gray-100">
+              <div className="px-3 py-2 border-r border-gray-100">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">数量</div>
+                <input
+                  type="number"
+                  readOnly={!canEdit}
+                  value={item.quantity || ''}
+                  onChange={e => updateItem(item.id, { quantity: parseInt(e.target.value) || 0 })}
+                  className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
+                />
+              </div>
+              <div className="px-3 py-2 border-r border-gray-100">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">単価</div>
+                <div className="flex items-center gap-0.5">
+                  <span className="text-[10px] text-gray-400">¥</span>
+                  <input
+                    type="number"
+                    readOnly={!canEdit}
+                    value={item.unitPrice || ''}
+                    onChange={e => updateItem(item.id, { unitPrice: parseInt(e.target.value) || 0 })}
+                    className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
+                  />
+                </div>
+              </div>
+              <div className="px-3 py-2 bg-indigo-50/30">
+                <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1">金額</div>
+                <div className="text-sm font-black text-indigo-600 font-mono">¥{(item.amount || 0).toLocaleString()}</div>
+              </div>
+            </div>
+            {/* Row 3: 配送料 / 到着 / 準備 */}
+            <div className="grid grid-cols-3 border-t border-gray-100">
+              <div className="px-3 py-2 border-r border-gray-100">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">配送料</div>
+                <div className="flex items-center gap-0.5">
+                  <span className="text-[10px] text-gray-400">¥</span>
+                  <input
+                    type="number"
+                    readOnly={!canEdit}
+                    value={item.shippingFee || ''}
+                    onChange={e => updateItem(item.id, { shippingFee: parseInt(e.target.value) || 0 })}
+                    placeholder="0"
+                    className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
+                  />
+                </div>
+              </div>
+              <div className="px-3 py-2 flex flex-col items-center border-r border-gray-100">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">到着</div>
+                <Checkbox checked={item.arrived} disabled={!canEdit} onChange={() => updateItem(item.id, { arrived: !item.arrived })} />
+              </div>
+              <div className="px-3 py-2 flex flex-col items-center">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">準備</div>
+                <Checkbox checked={item.prepared} disabled={!canEdit} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
+              </div>
+            </div>
+            {/* Row 4: 備考 (shown if has content or canEdit) */}
+            {(item.note || canEdit) && (
+              <div className="border-t border-gray-100 px-3 py-2">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">備考</div>
+                <PreparationNoteField value={item.note || ''} readOnly={!canEdit} onChange={note => updateItem(item.id, { note })} />
+              </div>
+            )}
+            {/* Row 5: URL (shown if has content or canEdit) */}
+            {(item.url || canEdit) && (
+              <div className="border-t border-gray-100 px-3 py-2">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">URL</div>
+                <input
+                  type="text"
+                  readOnly={!canEdit}
+                  value={item.url || ''}
+                  onChange={e => updateItem(item.id, { url: e.target.value })}
+                  placeholder="https://..."
+                  className="w-full text-sm text-indigo-500 bg-transparent outline-none read-only:cursor-default"
+                />
+              </div>
+            )}
+          </div>
+        ))}
+        {canEdit && (
+          <button
+            type="button"
+            onClick={addItem}
+            className="w-full py-4 bg-white border-2 border-dashed border-gray-200 hover:border-indigo-300 text-gray-400 hover:text-indigo-500 text-xs font-black uppercase tracking-widest rounded-2xl transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus size={14} /> 新しい項目を追加
+          </button>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden lg:block flex-1 overflow-auto p-6">
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm" style={{ minWidth: '1100px' }}>
