@@ -18,7 +18,7 @@ import {
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
 import { registerFcmToken } from './lib/fcm';
-import { recordUserLogin, notifyEventUpdated } from './lib/notifications';
+import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted } from './lib/notifications';
 
 // 安全なlocalStorage読み込み
 function safeGetItem<T>(key: string, fallback: T): T {
@@ -511,6 +511,7 @@ export default function App() {
     setLastEditedId(id);
     try {
       await setDoc(doc(db, "events", id), newEvent);
+      if (user) notifyEventCreated(newEvent, user).catch(console.error);
       fetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -537,6 +538,7 @@ export default function App() {
     if (!confirmed) return;
 
     const eventId = selected.id;
+    const deletedVenue = selected.venue;
 
     // モーダルを即座に閉じ、UIから楽観的に削除
     setSelected(null);
@@ -557,6 +559,7 @@ export default function App() {
 
       // イベント本体を削除
       await deleteDoc(doc(db, 'events', eventId));
+      if (user) notifyEventDeleted(deletedVenue, eventId, user).catch(console.error);
     } catch (error) {
       console.error('Delete error:', error);
       alert('削除に失敗しました。もう一度お試しください。');
