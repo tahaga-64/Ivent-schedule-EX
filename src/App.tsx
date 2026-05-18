@@ -1185,17 +1185,22 @@ export default function App() {
                   {/* 写真タブ */}
                   {modalTab === 'photos' && (
                     <div className="space-y-4">
-                      {isEditor && (
+                      {isEditor && (selected.photos?.length ?? 0) < 3 && (
                         <PhotoUpload
                           onUpload={async (file) => { await uploadPhoto(file); }}
                           uploading={photoUploading}
                           uploadProgress={photoUploading ? uploadProgress : 0}
+                          currentCount={selected.photos?.length ?? 0}
+                          maxPhotos={3}
                         />
+                      )}
+                      {isEditor && (selected.photos?.length ?? 0) >= 3 && (
+                        <p className="text-xs text-center text-slate-400 py-2">写真は最大3枚までです</p>
                       )}
                       {photoError && <p className="text-xs text-red-500 font-bold">{photoError}</p>}
                       <PhotoGallery
                         photos={selected.photos || []}
-                        onDelete={photo => deleteEventPhoto(photo, selected.photos || [])}
+                        onDelete={photo => deleteEventPhoto(photo)}
                         onUpdateCaption={(photo, caption) => updatePhotoCaption(photo, caption)}
                         canEdit={!!isEditor}
                       />
