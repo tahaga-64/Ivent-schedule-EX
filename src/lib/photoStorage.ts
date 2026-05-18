@@ -1,7 +1,7 @@
-// Photos are stored as base64 data URLs directly in Firestore (no Firebase Storage required)
+import { supabase, PHOTO_BUCKET } from './supabase';
 
-const MAX_SIZE_BYTES = 10 * 1024 * 1024;
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
+export const MAX_SIZE_BYTES = 10 * 1024 * 1024;
+export const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
 export const MAX_PHOTOS = 3;
 
 export function validateImageFile(file: File): string | null {
@@ -10,51 +10,22 @@ export function validateImageFile(file: File): string | null {
   return null;
 }
 
-async function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error('FileReader failed'));
-    reader.readAsDataURL(blob);
-  });
+export async function uploadToSupabase(
+  file: File,
+  storagePath: string,
+  onProgress?: (pct: number) => void,
+): Promise<string> {
+  onProgress?.(10);
+  const { error } = await supabase.storage
+    .from(PHOTO_BUCKET)
+    .upload(storagePath, file, { upsert: false, contentType: file.type });
+  if (error) throw new Error(error.message);
+  onProgress?.(90);
+  const { data } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(storagePath);
+  return data.publicUrl;
 }
 
-async function resizeToDataUrl(file: File, maxWidth: number, quality: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      const scale = Math.min(1, maxWidth / img.width);
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
-      canvas.toBlob(
-        blob => {
-          canvas.width = 0;
-          canvas.height = 0;
-          if (!blob) { reject(new Error('圧縮に失敗しました')); return; }
-          blobToDataUrl(blob).then(resolve, reject);
-        },
-        'image/webp',
-        quality
-      );
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error('画像の読み込みに失敗しました'));
-    };
-    img.src = objectUrl;
-  });
-}
-
-export async function compressPhoto(file: File): Promise<{ url: string; thumbnailUrl: string }> {
-  const [url, thumbnailUrl] = await Promise.all([
-    resizeToDataUrl(file, 800, 0.82),
-    resizeToDataUrl(file, 200, 0.75),
-  ]);
-  return { url, thumbnailUrl };
+export async function deleteFromSupabase(storagePath: string): Promise<void> {
+  const { error } = await supabase.storage.from(PHOTO_BUCKET).remove([storagePath]);
+  if (error) throw new Error(error.message);
 }
