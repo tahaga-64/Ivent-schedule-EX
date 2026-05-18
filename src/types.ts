@@ -68,12 +68,25 @@ export interface EventPhoto {
   thumbnailUrl?: string;
 }
 
+export interface UserProfile {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  lastLoginAt: any;
+  createdAt?: any;
+}
+
 export interface Notification {
   id: string;
   type: 'event_created' | 'event_updated' | 'event_deleted' | 'prep_item_updated' | 'budget_alert';
   title: string;
   message: string;
   eventId?: string;
+  recipientUid?: string;
+  actorUid?: string;
+  actorName?: string | null;
+  actorEmail?: string | null;
   userId?: string;
   read: boolean;
   createdAt: any;
