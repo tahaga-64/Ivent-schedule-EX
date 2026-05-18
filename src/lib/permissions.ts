@@ -15,7 +15,8 @@ function isSignedIn(user: User | null | undefined): user is User {
 }
 
 /** イベントドキュメント／写真など「限定編集者」の UI 可否 */
-export function canEditEvent(user: User | null | undefined): boolean {
+export function canEditEvent(user: User | null | undefined, isMobile = false): boolean {
+  if (isMobile) return false;
   if (!isSignedIn(user)) return false;
   const email = user.email;
   if (!email) return false;
@@ -25,7 +26,8 @@ export function canEditEvent(user: User | null | undefined): boolean {
 /**
  * 準備物リストの UI 編集可否。
  * 仕様: ログイン済み（Firebase Auth のユーザーがいる）なら true。
+ * isMobile は影響しない — モバイルでもログイン済みなら編集可。
  */
-export function canEditPreparationList(user: User | null | undefined): boolean {
+export function canEditPreparationList(user: User | null | undefined, isMobile = false): boolean {
   return isSignedIn(user);
 }

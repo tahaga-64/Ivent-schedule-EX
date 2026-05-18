@@ -194,9 +194,9 @@ function LoginScreen() {
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
-  const [view, setView] = useState<"calendar" | "list" | "analytics">(() => {
+  const [view, setView] = useState<"calendar" | "analytics" | "prep">(() => {
     const saved = localStorage.getItem('viewMode');
-    return (saved === 'calendar' || saved === 'list' || saved === 'analytics') ? saved : 'calendar';
+    return (saved === 'calendar' || saved === 'analytics' || saved === 'prep') ? saved : 'calendar';
   });
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
@@ -220,6 +220,7 @@ export default function App() {
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
   const [searchQuery, setSearchQuery] = useState("");
   const [showPrepList, setShowPrepList] = useState(false);
+  const [prepEvent, setPrepEvent] = useState<Event | null>(null);
   const [modalTab, setModalTab] = useState<'detail' | 'photos'>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
@@ -273,7 +274,18 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const canEditEvent = computeCanEditEvent(user);
+  const [narrowViewport, setNarrowViewport] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const apply = () => setNarrowViewport(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  const canEditEvent = computeCanEditEvent(user, narrowViewport);
   const canEditPreparationList = computeCanEditPreparationList(user);
 
   // Firestoreから書き換えられたイベントデータを購読
@@ -634,7 +646,7 @@ export default function App() {
           </div>
           <div className="sm:hidden flex flex-col">
             <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{calYear}年{calMonth}月</div>
-            <div className="font-black text-sm text-slate-800 leading-tight">イベント一覧</div>
+            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'calendar' ? 'カレンダー' : view === 'analytics' ? '分析' : view === 'prep' ? '準備物リスト' : ''}</div>
           </div>
         </div>
 
@@ -658,8 +670,8 @@ export default function App() {
           <div className="flex bg-slate-100 p-1 rounded-xl">
             {[
               { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
-              { id: "list", icon: <List size={14} />, label: "リスト" },
               { id: "analytics", icon: <BarChart2 size={14} />, label: "分析" },
+              { id: "prep", icon: <ClipboardList size={14} />, label: "準備物" },
             ].map(v => (
               <button
                 key={v.id}
@@ -675,6 +687,7 @@ export default function App() {
             ))}
           </div>
 
+          {!narrowViewport && (
           <button
             onClick={() => handleCreateEvent()}
             className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black transition-all shadow-indigo-200 shadow-md"
@@ -682,6 +695,7 @@ export default function App() {
             <Plus size={14} strokeWidth={3} />
             <span className="hidden sm:inline">新規イベント</span>
           </button>
+          )}
 
           <NotificationCenter />
 
@@ -1011,9 +1025,39 @@ export default function App() {
                   </div>
                 </>
               )}
-              {view === "list" && (
-                filtered.length === 0 ? <EmptyState /> :
-                <ListView data={filtered} onSelect={handleEventSelect} onHover={handleEventHover} onHoverEnd={handleEventHoverEnd} lastEditedId={lastEditedId} />
+              {view === "prep" && (
+                prepEvent ? (
+                  <PreparationList
+                    event={prepEvent}
+                    onBack={() => setPrepEvent(null)}
+                    canEdit={canEditPreparationList}
+                  />
+                ) : (
+                  <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
+                    <div className="px-4 py-4">
+                      <h2 className="text-base font-black text-slate-800 mb-3">準備物リスト</h2>
+                      {allEvents.length === 0 ? (
+                        <div className="text-center py-12 text-slate-400 text-sm">イベントがありません</div>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          {[...allEvents].sort((a, b) => a.start.localeCompare(b.start)).map(ev => (
+                            <button
+                              key={ev.id}
+                              onClick={() => setPrepEvent(ev)}
+                              className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between"
+                            >
+                              <div>
+                                <div className="font-bold text-slate-800 text-sm">{ev.venue}</div>
+                                <div className="text-xs text-slate-400 mt-0.5">{ev.start} → {ev.end}</div>
+                              </div>
+                              <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
               )}
               {view === "analytics" && analyticsData && (
                 <AnalyticsDashboard data={analyticsData} loading={analyticsLoading} events={allEvents} />
@@ -1448,13 +1492,12 @@ export default function App() {
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around pb-safe z-20 lg:hidden">
         {[
           { id: "calendar",  icon: <Calendar size={22} />,    label: "カレンダー" },
-          { id: "list",      icon: <List size={22} />,        label: "リスト" },
           { id: "analytics", icon: <BarChart2 size={22} />,   label: "分析" },
           { id: "prep",      icon: <ClipboardList size={22} />, label: "準備物" },
         ].map(tab => (
           <button
             key={tab.id}
-            onClick={() => { if (tab.id !== "prep") setView(tab.id as any); }}
+            onClick={() => { if (tab.id !== 'prep') setPrepEvent(null); setView(tab.id as any); }}
             className={`flex flex-col items-center gap-0.5 px-4 py-3 text-[10px] font-bold transition-colors ${
               view === tab.id ? "text-indigo-600" : "text-slate-400"
             }`}
