@@ -373,7 +373,7 @@ export default function App() {
     );
   }, [filtered, calendarDensityPreview, calYear, calMonth, regionFilter, typeFilter]);
 
-  const { data: analyticsData, loading: analyticsLoading } = useAnalytics(allEvents);
+  const { data: analyticsData, loading: analyticsLoading, prepProgress } = useAnalytics(allEvents);
   const {
     uploading: photoUploading,
     uploadProgress,
@@ -762,11 +762,10 @@ export default function App() {
                   <button
                     onClick={() => {
                     const newType = prompt("新しい案件種別を入力してください:");
-                    if (!newType || newType.trim().length === 0 || newType.length > 50) return;
-                    const trimmed = newType.trim();
-                    if (sidebarTypes.some(t => t.label === trimmed)) { alert(`「${trimmed}」はすでに存在します`); return; }
-                    const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
-                    setSidebarTypes(prev => [...prev, { label: trimmed, icon }]);
+                    if (newType) {
+                      const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
+                      setSidebarTypes(prev => [...prev, { label: newType, icon }]);
+                    }
                   }}
                   className="p-1 hover:bg-indigo-50 rounded text-indigo-400 hover:text-indigo-600 transition-colors"
                 >
@@ -1261,15 +1260,18 @@ export default function App() {
                     <details className="border border-gray-200 rounded-xl p-4 bg-gray-50/70">
                       <summary className="cursor-pointer text-xs font-bold text-gray-700">📊 イベント実績（開催後に入力）</summary>
                       <div className="mt-3 space-y-3">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">売上 · 粗利</p>
                         <div className="grid grid-cols-2 gap-3">
                           <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.sales ?? ''} onChange={e => handleUpdateEvent(selected.id, { sales: e.target.value ? Number(e.target.value) : undefined })} placeholder="売上（円）" />
                           <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.grossProfit ?? ''} onChange={e => handleUpdateEvent(selected.id, { grossProfit: e.target.value ? Number(e.target.value) : undefined })} placeholder="粗利（円）" />
                         </div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">来場実績</p>
                         <div className="grid grid-cols-3 gap-3">
                           <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.attendance ?? ''} onChange={e => handleUpdateEvent(selected.id, { attendance: e.target.value ? Number(e.target.value) : undefined })} placeholder="来場数" />
                           <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.seatedCount ?? ''} onChange={e => handleUpdateEvent(selected.id, { seatedCount: e.target.value ? Number(e.target.value) : undefined })} placeholder="着座数" />
                           <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.contracts ?? ''} onChange={e => handleUpdateEvent(selected.id, { contracts: e.target.value ? Number(e.target.value) : undefined })} placeholder="成約数" />
                         </div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">キャリア流入内訳（件数）</p>
                         <div className="grid grid-cols-2 gap-3">
                           <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.carrierInflow?.docomo ?? ''} onChange={e => handleUpdateEvent(selected.id, { carrierInflow: { ...(selected.carrierInflow || {}), docomo: Number(e.target.value) || 0 } })} placeholder="docomo" />
                           <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.carrierInflow?.au ?? ''} onChange={e => handleUpdateEvent(selected.id, { carrierInflow: { ...(selected.carrierInflow || {}), au: Number(e.target.value) || 0 } })} placeholder="au" />
@@ -1306,25 +1308,25 @@ export default function App() {
                               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
                               value={selected.analysisReport.summary || ''}
                               onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), summary: e.target.value } })}
-                              placeholder="イベント全体の要約や結論を記入"
+                              placeholder="例: 来場者52名、成約11件。DJI体験の反応が特に良好だった"
                             />
                             <textarea
                               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
                               value={selected.analysisReport.goodPoints || ''}
                               onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), goodPoints: e.target.value } })}
-                              placeholder="うまくいった点・好評だった点を記入"
+                              placeholder="例: スタッフの動線改善で受付待ちが減少 / 天候に恵まれ集客が目標超え"
                             />
                             <textarea
                               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
                               value={selected.analysisReport.improvements || ''}
                               onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), improvements: e.target.value } })}
-                              placeholder="次回に活かしたい改善点を記入"
+                              placeholder="例: パンフ在庫不足→次回200部増刷 / BGM音量の事前調整が必要"
                             />
                             <textarea
                               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
                               value={selected.analysisReport.nextActions || ''}
                               onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), nextActions: e.target.value } })}
-                              placeholder="フォローアップや共有したい次の一手を記入"
+                              placeholder="例: 好評コーナーのスペース拡張 / SNS告知を1週間前から開始する"
                             />
                           </div>
                         ) : (
@@ -1434,7 +1436,7 @@ export default function App() {
 
       {/* Hover Preview Card（PC only） */}
       {hoveredEvent && (
-        <HoverCard event={hoveredEvent} pos={hoverPos} />
+        <HoverCard event={hoveredEvent} pos={hoverPos} prepProgress={prepProgress[hoveredEvent.id]} />
       )}
 
       {/* Mobile Bottom Navigation */}
@@ -1996,11 +1998,6 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
                           borderLeftColor: typeSty.border,
                           minHeight: eventRowMinHeight,
                         }}
-                        title={
-                          narrowViewport
-                            ? (captionNoDates || undefined)
-                            : (captionFull || undefined)
-                        }
                         aria-label={
                           narrowViewport
                             ? (captionNoDates ? `${ev.venue}。${captionNoDates}` : ev.venue)
@@ -2160,9 +2157,21 @@ function ListView({ data, onSelect, onHover, onHoverEnd, lastEditedId }: ListVie
   );
 }
 
-function HoverCard({ event, pos }: { event: Event; pos: { x: number; y: number } }) {
+function HoverCard({ event, pos, prepProgress }: {
+  event: Event;
+  pos: { x: number; y: number };
+  prepProgress?: { prepared: number; total: number };
+}) {
   const left = pos.x + 260 > window.innerWidth ? pos.x - 270 : pos.x + 16;
-  const top = pos.y + 200 > window.innerHeight ? pos.y - 180 : pos.y + 8;
+  const top = pos.y + 240 > window.innerHeight ? pos.y - 220 : pos.y + 8;
+
+  // prep progress logic
+  const pct = prepProgress && prepProgress.total > 0
+    ? Math.round((prepProgress.prepared / prepProgress.total) * 100)
+    : null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = new Date(event.start || ''); start.setHours(0,0,0,0);
+  const daysUntil = Math.ceil((start.getTime() - today.getTime()) / 86400000);
 
   return (
     <div
@@ -2190,6 +2199,36 @@ function HoverCard({ event, pos }: { event: Event; pos: { x: number; y: number }
         </div>
         {event.client && <div className="text-slate-500">{event.client}</div>}
         {event.note && <div className="text-slate-400 line-clamp-2">{event.note}</div>}
+        {pct !== null && prepProgress && prepProgress.total > 0 && (
+          <div className={`mt-3 pt-3 border-t border-slate-100 rounded-lg px-1 ${
+            pct < 100 && daysUntil > 0
+              ? daysUntil <= 3 ? 'bg-red-50' : daysUntil <= 14 ? 'bg-amber-50' : daysUntil <= 30 ? 'bg-blue-50' : ''
+              : ''
+          }`}>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold text-slate-500">準備進捗</span>
+              <span className={`text-[10px] font-black ${
+                pct === 100 ? 'text-emerald-600'
+                : daysUntil <= 3 ? 'text-red-600'
+                : daysUntil <= 14 ? 'text-amber-600'
+                : 'text-blue-600'
+              }`}>
+                {prepProgress.prepared}/{prepProgress.total} ({pct}%)
+              </span>
+            </div>
+            <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  pct === 100 ? 'bg-emerald-500'
+                  : daysUntil <= 3 ? 'bg-red-500'
+                  : daysUntil <= 14 ? 'bg-amber-500'
+                  : 'bg-blue-400'
+                }`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
