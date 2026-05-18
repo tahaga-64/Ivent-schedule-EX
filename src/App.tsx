@@ -13,6 +13,10 @@ import PhotoUpload from './components/photos/PhotoUpload';
 import PhotoGallery from './components/photos/PhotoGallery';
 import { useAnalytics } from './hooks/useAnalytics';
 import { usePhotos } from './hooks/usePhotos';
+import {
+  canEditEvent as computeCanEditEvent,
+  canEditPreparationList as computeCanEditPreparationList,
+} from './lib/permissions';
 
 // 安全なlocalStorage読み込み
 function safeGetItem<T>(key: string, fallback: T): T {
@@ -49,8 +53,6 @@ function validateEvent(event: Partial<Event>): ValidationError[] {
   
   return errors;
 }
-
-const EDITOR_EMAILS = ['taoki0183@gmail.com'];
 
 /* ═══════════════════════════════════════
    ヘルパー
@@ -262,7 +264,8 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const isEditor = user && EDITOR_EMAILS.includes(user.email ?? '');
+  const canEditEvent = computeCanEditEvent(user);
+  const canEditPreparationList = computeCanEditPreparationList(user);
 
   // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {
@@ -1098,6 +1101,7 @@ export default function App() {
                 <PreparationList
                   event={selected}
                   onBack={() => setShowPrepList(false)}
+                  canEdit={canEditPreparationList}
                 />
               ) : (
                 <div className="p-6 lg:p-8 overflow-y-auto">
@@ -1109,13 +1113,13 @@ export default function App() {
                           <button
                             key={r}
                             type="button"
-                            disabled={!isEditor}
-                            onClick={() => isEditor && handleUpdateEvent(selected.id, { region: r, dept: '' })}
+                            disabled={!canEditEvent}
+                            onClick={() => canEditEvent && handleUpdateEvent(selected.id, { region: r, dept: '' })}
                             className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
                               selected.region === r
                                 ? 'text-white border-transparent'
                                 : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                            } ${!isEditor ? 'cursor-default' : 'cursor-pointer'}`}
+                            } ${!canEditEvent ? 'cursor-default' : 'cursor-pointer'}`}
                             style={selected.region === r
                               ? { background: rs(r).dot, borderColor: rs(r).dot }
                               : {}
@@ -1130,13 +1134,13 @@ export default function App() {
                           <button
                             key={t.label}
                             type="button"
-                            disabled={!isEditor}
-                            onClick={() => isEditor && handleUpdateEvent(selected.id, { type: t.label })}
+                            disabled={!canEditEvent}
+                            onClick={() => canEditEvent && handleUpdateEvent(selected.id, { type: t.label })}
                             className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
                               selected.type === t.label
                                 ? 'bg-indigo-600 text-white border-indigo-600'
                                 : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
-                            } ${!isEditor ? 'cursor-default' : 'cursor-pointer'}`}
+                            } ${!canEditEvent ? 'cursor-default' : 'cursor-pointer'}`}
                           >
                             <span>{t.icon}</span><span>{t.label}</span>
                           </button>
@@ -1172,7 +1176,7 @@ export default function App() {
                   {/* 写真タブ */}
                   {modalTab === 'photos' && (
                     <div className="space-y-4">
-                      {isEditor && (selected.photos?.length ?? 0) < 3 && (
+                      {canEditEvent && (selected.photos?.length ?? 0) < 3 && (
                         <PhotoUpload
                           onUpload={async (file) => { await uploadPhoto(file); }}
                           uploading={photoUploading}
@@ -1181,7 +1185,7 @@ export default function App() {
                           maxPhotos={3}
                         />
                       )}
-                      {isEditor && (selected.photos?.length ?? 0) >= 3 && (
+                      {canEditEvent && (selected.photos?.length ?? 0) >= 3 && (
                         <p className="text-xs text-center text-slate-400 py-2">写真は最大3枚までです</p>
                       )}
                       {photoError && <p className="text-xs text-red-500 font-bold">{photoError}</p>}
@@ -1189,7 +1193,7 @@ export default function App() {
                         photos={selected.photos || []}
                         onDelete={photo => deleteEventPhoto(photo)}
                         onUpdateCaption={(photo, caption) => updatePhotoCaption(photo, caption)}
-                        canEdit={!!isEditor}
+                        canEdit={canEditEvent}
                       />
                     </div>
                   )}
@@ -1398,7 +1402,7 @@ export default function App() {
                       準備物リストを開く
                     </button>
                   </div>
-                  {isEditor && (
+                  {canEditEvent && (
                     <button
                       onClick={handleDeleteEvent}
                       className="w-full mt-2 py-3 rounded-2xl border border-red-200 text-sm font-bold text-red-400 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors flex items-center justify-center gap-2"
