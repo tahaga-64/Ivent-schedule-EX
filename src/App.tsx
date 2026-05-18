@@ -2178,7 +2178,10 @@ function ListView({ data, onSelect, onHover, onHoverEnd, lastEditedId }: ListVie
                     <div className="text-[11px] text-slate-400 mt-0.5 font-medium">{d.client || "—"}</div>
                   </td>
                   <td className="px-6 py-4 align-middle text-right">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <span
+                      className="text-[10px] font-black uppercase tracking-widest text-slate-400"
+                      style={{ background: rs(d.region).bg }}
+                    >
                       {d.status || "SCHEDULED"}
                     </span>
                   </td>
