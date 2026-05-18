@@ -1,11 +1,12 @@
 import { getMessaging, getToken } from 'firebase/messaging';
 import { doc, setDoc } from 'firebase/firestore';
-import { app, db } from './firebase';
+import { getApp } from 'firebase/app';
+import { db } from './firebase';
 
 export async function registerFcmToken(userId: string): Promise<void> {
   try {
     if (!('Notification' in window)) return;
-    const messaging = getMessaging(app);
+    const messaging = getMessaging(getApp());
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return;
     const token = await getToken(messaging, {
