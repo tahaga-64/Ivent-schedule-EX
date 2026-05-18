@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 162">
+  <path
+    d="M 20 115
+       C 18 74 26 18 58 15
+       C 82 13 92 68 92 76
+       C 92 84 102 18 130 16
+       C 154 14 156 62 156 80
+       L 156 114"
+    fill="none"
+    stroke="#1e3c7e"
+    stroke-width="17"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="177" cy="13" r="14" fill="#1e3c7e"/>
+  <text
+    x="115"
+    y="150"
+    text-anchor="middle"
+    font-family="Arial, Helvetica Neue, sans-serif"
+    font-weight="900"
+    font-size="21"
+    letter-spacing="6"
+    fill="#1e3c7e"
+  >MERCURY</text>
+</svg>

@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { useInView } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { MonthlyTrend } from '../../types';
 
@@ -20,24 +22,28 @@ function formatYen(v: number): string {
 const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe'];
 
 export default function BudgetAnalysisChart({ data }: Props) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-80px' });
   const chartData = data.map(d => ({ ...d, month: formatMonth(d.month) }));
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <BarChart data={chartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-        <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} axisLine={false} tickLine={false} />
-        <YAxis tickFormatter={formatYen} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} axisLine={false} tickLine={false} width={48} />
-        <Tooltip
-          contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 11, fontWeight: 700, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
-          formatter={(v) => [formatYen(Number(v ?? 0)), '予算合計'] as [string, string]}
-        />
-        <Bar dataKey="budget" radius={[6, 6, 0, 0]}>
-          {chartData.map((entry, i) => (
-            <Cell key={entry.month} fill={COLORS[i % COLORS.length]} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <div ref={ref}>
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={chartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+          <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} axisLine={false} tickLine={false} />
+          <YAxis tickFormatter={formatYen} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} axisLine={false} tickLine={false} width={48} />
+          <Tooltip
+            contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 11, fontWeight: 700, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+            formatter={(v) => [formatYen(Number(v ?? 0)), '予算合計'] as [string, string]}
+          />
+          <Bar dataKey="budget" radius={[6, 6, 0, 0]} isAnimationActive={inView} animationDuration={1000}>
+            {chartData.map((entry, i) => (
+              <Cell key={entry.month} fill={COLORS[i % COLORS.length]} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
