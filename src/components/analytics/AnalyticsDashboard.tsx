@@ -1,15 +1,18 @@
 import React, { memo } from 'react';
 import { motion } from 'motion/react';
-import { TrendingUp, Calendar, MapPin, Building2, DollarSign, Award, Zap, BarChart2, ArrowUpRight } from 'lucide-react';
-import { AnalyticsData } from '../../types';
+import { TrendingUp, Calendar, MapPin, DollarSign, Award, Zap, BarChart2, ArrowUpRight, Users } from 'lucide-react';
+import { AnalyticsData, Event } from '../../types';
 import { formatCurrencyCompact } from '../../lib/analytics';
 import EventMetricsChart from '../charts/EventMetricsChart';
 import BudgetAnalysisChart from '../charts/BudgetAnalysisChart';
 import VenueUtilizationChart from '../charts/VenueUtilizationChart';
+import AttendanceHeatmap from '../charts/AttendanceHeatmap';
+import CarrierInflowChart from '../charts/CarrierInflowChart';
 
 interface Props {
   data: AnalyticsData;
   loading: boolean;
+  events?: Event[];
 }
 
 const KpiCard = memo(function KpiCard({
@@ -70,7 +73,7 @@ const ProgressBar = memo(function ProgressBar({ value, max, color }: { value: nu
   );
 });
 
-export default function AnalyticsDashboard({ data, loading }: Props) {
+export default function AnalyticsDashboard({ data, loading, events = [] }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -83,15 +86,19 @@ export default function AnalyticsDashboard({ data, loading }: Props) {
   }
 
   const maxRegionCount = data.regionStats.length > 0 ? Math.max(...data.regionStats.map(r => r.count)) : 1;
-  const maxVenueCount  = data.topVenues.length  > 0 ? Math.max(...data.topVenues.map(v => v.count))   : 1;
 
   const regionColors = [
     'bg-indigo-500', 'bg-violet-500', 'bg-cyan-500', 'bg-emerald-500', 'bg-amber-500',
   ];
 
+  // Build dailyAttendance from events for heatmap
+  const dailyAttendance = events
+    .filter(e => e.start && e.attendance && e.attendance > 0)
+    .map(e => ({ date: e.start!, attendance: e.attendance! }));
+
   return (
     <div className="space-y-8">
-      {/* Page header */}
+      {/* Row 0: Page header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
@@ -106,43 +113,21 @@ export default function AnalyticsDashboard({ data, loading }: Props) {
         </div>
       </div>
 
-      {/* KPI grid */}
+      {/* Row 1: 8 KPI cards - 4 per row, 2 rows */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
-          icon={<Calendar size={18} className="text-indigo-600" />}
-          label="総イベント数"
-          value={String(data.totalEvents)}
-          sub={`完了: ${data.completedEvents}`}
-          color="bg-indigo-50"
-          delay={0}
-        />
-        <KpiCard
-          icon={<DollarSign size={18} className="text-emerald-600" />}
-          label="総予算"
-          value={formatCurrencyCompact(data.totalBudget)}
-          sub={`平均: ${formatCurrencyCompact(data.avgBudget)}`}
-          color="bg-emerald-50"
-          delay={0.05}
-        />
-        <KpiCard
-          icon={<MapPin size={18} className="text-violet-600" />}
-          label="カバレッジ"
-          value={`${data.activeRegions}地域`}
-          sub={`最多: ${data.topRegion || '—'}`}
-          color="bg-violet-50"
-          delay={0.1}
-        />
-        <KpiCard
-          icon={<Award size={18} className="text-amber-600" />}
-          label="完了率"
-          value={`${data.completionRate.toFixed(0)}%`}
-          sub={`繁忙月: ${data.busiestMonth ? data.busiestMonth.replace('-', '年') + '月' : '—'}`}
-          color="bg-amber-50"
-          delay={0.15}
-        />
+        {/* Row A */}
+        <KpiCard icon={<Calendar size={18} className="text-indigo-600"/>} label="総イベント数" value={String(data.totalEvents)} sub={`完了: ${data.completedEvents}`} color="bg-indigo-50" delay={0} />
+        <KpiCard icon={<DollarSign size={18} className="text-emerald-600"/>} label="総売上" value={formatCurrencyCompact(data.totalSales)} sub={`粗利: ${formatCurrencyCompact(data.totalGrossProfit)}`} color="bg-emerald-50" delay={0.05} />
+        <KpiCard icon={<TrendingUp size={18} className="text-violet-600"/>} label="粗利" value={formatCurrencyCompact(data.totalGrossProfit)} sub={data.totalSales > 0 ? `利益率 ${Math.round((data.totalGrossProfit/data.totalSales)*100)}%` : '—'} color="bg-violet-50" delay={0.1} />
+        <KpiCard icon={<Users size={18} className="text-cyan-600"/>} label="来場数合計" value={data.totalAttendance.toLocaleString()} sub={`着座: ${data.totalSeatedCount.toLocaleString()}`} color="bg-cyan-50" delay={0.15} />
+        {/* Row B */}
+        <KpiCard icon={<MapPin size={18} className="text-orange-600"/>} label="着座数" value={data.totalSeatedCount.toLocaleString()} sub={data.totalAttendance > 0 ? `着座率 ${Math.round((data.totalSeatedCount/data.totalAttendance)*100)}%` : '—'} color="bg-orange-50" delay={0.2} />
+        <KpiCard icon={<Award size={18} className="text-rose-600"/>} label="成約数" value={data.totalContracts.toLocaleString()} sub={data.totalAttendance > 0 ? `成約率 ${Math.round((data.totalContracts/data.totalAttendance)*100)}%` : '—'} color="bg-rose-50" delay={0.25} />
+        <KpiCard icon={<Zap size={18} className="text-amber-600"/>} label="乗り換え率" value={`${data.avgCarrierSwitchRate.toFixed(1)}%`} sub={`成約 ${data.totalContracts} / 来場 ${data.totalAttendance}`} color="bg-amber-50" delay={0.3} />
+        <KpiCard icon={<BarChart2 size={18} className="text-slate-600"/>} label="完了率" value={`${data.completionRate.toFixed(0)}%`} sub={`繁忙月: ${data.busiestMonth ? data.busiestMonth.replace('-', '年')+'月' : '—'}`} color="bg-slate-50" delay={0.35} />
       </div>
 
-      {/* Charts row */}
+      {/* Row 2: Monthly trends - 2 cols */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -164,7 +149,7 @@ export default function AnalyticsDashboard({ data, loading }: Props) {
           transition={{ delay: 0.25 }}
           className="bg-white rounded-2xl border border-slate-100 p-6"
         >
-          <SectionHeader title="月別予算推移" sub="月ごとの累計予算の推移" />
+          <SectionHeader title="月別売上推移" sub="月ごとの累計予算の推移" />
           {data.monthlyTrends.length > 0 ? (
             <BudgetAnalysisChart data={data.monthlyTrends} />
           ) : (
@@ -173,7 +158,49 @@ export default function AnalyticsDashboard({ data, loading }: Props) {
         </motion.div>
       </div>
 
-      {/* Bottom row */}
+      {/* Row 3: Conversion funnel + Carrier inflow - 2 cols */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: custom funnel */}
+        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.4}} className="bg-white rounded-2xl border border-slate-100 p-6">
+          <SectionHeader title="コンバージョンファネル" sub="来場 → 着座 → 成約の転換率" />
+          <div className="space-y-5 mt-4">
+            {[
+              { label: '来場数', value: data.totalAttendance, pct: 100, color: 'bg-indigo-500' },
+              { label: '着座数', value: data.totalSeatedCount, pct: data.totalAttendance > 0 ? Math.round((data.totalSeatedCount/data.totalAttendance)*100) : 0, color: 'bg-violet-500' },
+              { label: '成約数', value: data.totalContracts, pct: data.totalAttendance > 0 ? Math.round((data.totalContracts/data.totalAttendance)*100) : 0, color: 'bg-emerald-500' },
+            ].map(step => (
+              <div key={step.label}>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold text-slate-700">{step.label}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-black text-slate-700">{step.value.toLocaleString()}</span>
+                    <span className="text-[10px] font-black text-slate-400 w-9 text-right">{step.pct}%</span>
+                  </div>
+                </div>
+                <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                  <motion.div initial={{width:0}} animate={{width:`${step.pct}%`}} transition={{duration:0.8,ease:'easeOut',delay:0.4}} className={`h-full rounded-full ${step.color}`} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Right: CarrierInflowChart */}
+        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.45}} className="bg-white rounded-2xl border border-slate-100 p-6">
+          <SectionHeader title="キャリア流入内訳" sub="キャリア別の流入件数" />
+          <CarrierInflowChart data={data.carrierInflowTotal} />
+        </motion.div>
+      </div>
+
+      {/* Row 4: Attendance heatmap - full width */}
+      {dailyAttendance.length > 0 && (
+        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.5}} className="bg-white rounded-2xl border border-slate-100 p-6">
+          <SectionHeader title="来場数ヒートマップ" sub="日別の来場者数の推移（過去52週）" />
+          <AttendanceHeatmap dailyAttendance={dailyAttendance} />
+        </motion.div>
+      )}
+
+      {/* Row 5: venues/regions/types - 3 cols */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Top venues */}
         <motion.div
@@ -263,7 +290,35 @@ export default function AnalyticsDashboard({ data, loading }: Props) {
         </motion.div>
       </div>
 
-      {/* Client stats */}
+      {/* Row 6: Recent analysis reports */}
+      {data.recentAnalysisReports.length > 0 && (
+        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.5}} className="bg-white rounded-2xl border border-slate-100 p-6">
+          <SectionHeader title="分析レポート" sub="最近のイベント振り返り" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {data.recentAnalysisReports.map(r => (
+              <div key={r.eventId} className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 hover:bg-white transition-colors">
+                <div className="font-black text-sm text-slate-800 truncate mb-0.5">{r.venue}</div>
+                <div className="text-[10px] font-bold text-slate-400 mb-3">{r.start}</div>
+                {r.analysisReport.title && <div className="text-xs font-bold text-indigo-600 mb-2 truncate">{r.analysisReport.title}</div>}
+                {r.analysisReport.goodPoints && (
+                  <div className="mb-2 pl-2 border-l-2 border-emerald-400">
+                    <div className="text-[10px] font-black text-emerald-600 mb-0.5">良かった点</div>
+                    <p className="text-xs text-slate-600 line-clamp-2">{r.analysisReport.goodPoints}</p>
+                  </div>
+                )}
+                {r.analysisReport.improvements && (
+                  <div className="pl-2 border-l-2 border-amber-400">
+                    <div className="text-[10px] font-black text-amber-600 mb-0.5">改善点</div>
+                    <p className="text-xs text-slate-600 line-clamp-2">{r.analysisReport.improvements}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Row 7: Client table */}
       {data.clientStats.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}

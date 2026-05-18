@@ -1,19 +1,19 @@
 import { useState, FormEvent } from 'react';
 import { X } from 'lucide-react';
-import { EventType, Region, NewEventDraft } from '../types/index';
-import { EVENT_TYPES } from '../data/eventTypes';
+import { Region, NewEventDraft } from '../types/index';
 
 interface Props {
   onClose: () => void;
   onSubmit: (draft: NewEventDraft) => void;
+  sidebarTypes: { label: string; icon: string }[];
 }
 
 const REGIONS: Region[] = ['東日本', '西日本', '南日本', '中日本'];
 
-export default function NewEventModal({ onClose, onSubmit }: Props) {
+export default function NewEventModal({ onClose, onSubmit, sidebarTypes }: Props) {
   const today = new Date().toISOString().split('T')[0];
   const [draft, setDraft] = useState<NewEventDraft>({
-    venue: '', client: '', type: 'DJI', region: '東日本', start: today, end: today,
+    venue: '', client: '', type: sidebarTypes[0]?.label ?? '', region: '東日本', start: today, end: today,
   });
 
   const set = <K extends keyof NewEventDraft>(k: K, v: NewEventDraft[K]) =>
@@ -64,21 +64,32 @@ export default function NewEventModal({ onClose, onSubmit }: Props) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">種別</label>
-              <select value={draft.type} onChange={e => set('type', e.target.value as EventType)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all">
-                {EVENT_TYPES.map(t => <option key={t.label} value={t.label}>{t.label}</option>)}
-              </select>
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">種別</label>
+            <div className="flex flex-wrap gap-1.5">
+              {sidebarTypes.map(t => (
+                <button
+                  key={t.label}
+                  type="button"
+                  onClick={() => set('type', t.label)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
+                    draft.type === t.label
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <span>{t.icon}</span><span>{t.label}</span>
+                </button>
+              ))}
             </div>
-            <div>
-              <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">地域</label>
-              <select value={draft.region} onChange={e => set('region', e.target.value as Region)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all">
-                {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">地域</label>
+            <select value={draft.region} onChange={e => set('region', e.target.value as Region)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all">
+              {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

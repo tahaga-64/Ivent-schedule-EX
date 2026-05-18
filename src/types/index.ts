@@ -27,7 +27,7 @@ export interface CalendarEvent {
 export interface NewEventDraft {
   venue: string;
   client: string;
-  type: EventType;
+  type: string;
   region: Region;
   start: string;
   end: string;
