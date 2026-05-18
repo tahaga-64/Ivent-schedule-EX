@@ -13,6 +13,10 @@ import PhotoUpload from './components/photos/PhotoUpload';
 import PhotoGallery from './components/photos/PhotoGallery';
 import { useAnalytics } from './hooks/useAnalytics';
 import { usePhotos } from './hooks/usePhotos';
+import {
+  canEditEvent as computeCanEditEvent,
+  canEditPreparationList as computeCanEditPreparationList,
+} from './lib/permissions';
 
 // 安全なlocalStorage読み込み
 function safeGetItem<T>(key: string, fallback: T): T {
@@ -49,8 +53,6 @@ function validateEvent(event: Partial<Event>): ValidationError[] {
   
   return errors;
 }
-
-const EDITOR_EMAILS = ['taoki0183@gmail.com'];
 
 /* ═══════════════════════════════════════
    ヘルパー
@@ -262,7 +264,8 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const isEditor = user && EDITOR_EMAILS.includes(user.email);
+  const canEditEvent = computeCanEditEvent(user);
+  const canEditPreparationList = computeCanEditPreparationList(user);
 
   // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {
@@ -1092,6 +1095,7 @@ export default function App() {
                 <PreparationList
                   event={selected}
                   onBack={() => setShowPrepList(false)}
+                  canEdit={canEditPreparationList}
                 />
               ) : (
                 <div className="p-6 lg:p-8 overflow-y-auto">
@@ -1169,7 +1173,7 @@ export default function App() {
                   {/* 写真タブ */}
                   {modalTab === 'photos' && (
                     <div className="space-y-4">
-                      {isEditor && (
+                      {canEditEvent && (
                         <PhotoUpload
                           onUpload={async (file) => { await uploadPhoto(file); }}
                           uploading={photoUploading}
@@ -1181,7 +1185,7 @@ export default function App() {
                         photos={selected.photos || []}
                         onDelete={photo => deleteEventPhoto(photo, selected.photos || [])}
                         onUpdateCaption={(photo, caption) => updatePhotoCaption(photo, caption, selected.photos || [])}
-                        canEdit={!!isEditor}
+                        canEdit={canEditEvent}
                       />
                     </div>
                   )}
@@ -1387,7 +1391,7 @@ export default function App() {
                       準備物リストを開く
                     </button>
                   </div>
-                  {isEditor && (
+                  {canEditEvent && (
                     <button
                       onClick={handleDeleteEvent}
                       className="w-full mt-2 py-3 rounded-2xl border border-red-200 text-sm font-bold text-red-400 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors flex items-center justify-center gap-2"
