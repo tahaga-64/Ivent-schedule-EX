@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { doc, updateDoc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { compressPhoto, validateImageFile } from '../lib/photoStorage';
+import { deleteStoredPhoto, uploadEventPhoto, validateImageFile } from '../lib/photoStorage';
 import { EventPhoto } from '../types';
 
 export function usePhotos(eventId: string) {
@@ -16,21 +16,21 @@ export function usePhotos(eventId: string) {
     setUploading(true);
     setUploadProgress(0);
     setError(null);
+    let uploadedPhoto: EventPhoto | null = null;
     try {
       setUploadProgress(20);
-      const { url, thumbnailUrl } = await compressPhoto(file);
+      uploadedPhoto = await uploadEventPhoto(eventId, file);
       setUploadProgress(80);
-      const photo: EventPhoto = {
-        id: crypto.randomUUID(),
-        url,
-        thumbnailUrl,
-        uploadedAt: new Date().toISOString(),
-      };
-      await updateDoc(doc(db, 'events', eventId), { photos: arrayUnion(photo) });
+      await updateDoc(doc(db, 'events', eventId), { photos: arrayUnion(uploadedPhoto) });
       setUploadProgress(100);
-      return photo;
+      return uploadedPhoto;
     } catch (e) {
       console.error('Photo upload failed:', e);
+      if (uploadedPhoto) {
+        deleteStoredPhoto(uploadedPhoto).catch(error => {
+          console.error('Uploaded photo cleanup failed:', error);
+        });
+      }
       setError('アップロードに失敗しました');
       return null;
     } finally {
@@ -47,6 +47,10 @@ export function usePhotos(eventId: string) {
         if (!snap.exists()) return;
         const photos: EventPhoto[] = snap.data().photos ?? [];
         tx.update(eventRef, { photos: photos.filter(p => p.id !== photo.id) });
+      });
+      deleteStoredPhoto(photo).catch(error => {
+        console.error('Stored photo delete failed:', error);
+        setError('写真ファイルの削除に一部失敗しました');
       });
     } catch (e) {
       setError('削除に失敗しました');

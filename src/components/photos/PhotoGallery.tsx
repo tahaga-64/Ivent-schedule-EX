@@ -15,17 +15,17 @@ export default function PhotoGallery({ photos, onDelete, onUpdateCaption, canEdi
   const [editingId, setEditingId] = useState<string | null>(null);
   const [captionDraft, setCaptionDraft] = useState('');
 
+  // Close lightbox if photos array shrinks (e.g., concurrent delete)
+  useEffect(() => {
+    if (lightbox !== null && lightbox >= photos.length) setLightbox(null);
+  }, [photos.length, lightbox]);
+
   if (photos.length === 0) return (
     <div className="text-center py-8 text-slate-400">
       <p className="text-sm font-bold">写真はありません</p>
       <p className="text-xs mt-1">上のエリアから追加してください</p>
     </div>
   );
-
-  // Close lightbox if photos array shrinks (e.g., concurrent delete)
-  useEffect(() => {
-    if (lightbox !== null && lightbox >= photos.length) setLightbox(null);
-  }, [photos.length, lightbox]);
 
   function openLightbox(i: number) { setLightbox(i); }
   function closeLightbox() { setLightbox(null); }

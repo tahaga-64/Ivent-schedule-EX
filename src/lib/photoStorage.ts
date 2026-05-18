@@ -1,4 +1,5 @@
-// Photos are stored as base64 data URLs directly in Firestore (no Firebase Storage required)
+import { EventPhoto } from '../types';
+import { SUPABASE_PHOTO_BUCKET, supabase } from './supabase';
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
@@ -10,16 +11,7 @@ export function validateImageFile(file: File): string | null {
   return null;
 }
 
-async function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error('FileReader failed'));
-    reader.readAsDataURL(blob);
-  });
-}
-
-async function resizeToDataUrl(file: File, maxWidth: number, quality: number): Promise<string> {
+async function resizeToWebpBlob(file: File, maxWidth: number, quality: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
@@ -37,7 +29,7 @@ async function resizeToDataUrl(file: File, maxWidth: number, quality: number): P
           canvas.width = 0;
           canvas.height = 0;
           if (!blob) { reject(new Error('圧縮に失敗しました')); return; }
-          blobToDataUrl(blob).then(resolve, reject);
+          resolve(blob);
         },
         'image/webp',
         quality
@@ -51,10 +43,53 @@ async function resizeToDataUrl(file: File, maxWidth: number, quality: number): P
   });
 }
 
-export async function compressPhoto(file: File): Promise<{ url: string; thumbnailUrl: string }> {
-  const [url, thumbnailUrl] = await Promise.all([
-    resizeToDataUrl(file, 800, 0.82),
-    resizeToDataUrl(file, 200, 0.75),
+function getPublicUrl(path: string): string {
+  const { data } = supabase.storage.from(SUPABASE_PHOTO_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+function buildPhotoPath(eventId: string, photoId: string, fileName: string): string {
+  const safeEventId = eventId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `events/${safeEventId}/${photoId}/${fileName}`;
+}
+
+async function uploadBlob(path: string, blob: Blob): Promise<void> {
+  const { error } = await supabase.storage.from(SUPABASE_PHOTO_BUCKET).upload(path, blob, {
+    contentType: 'image/webp',
+    upsert: false,
+  });
+  if (error) throw error;
+}
+
+export async function uploadEventPhoto(eventId: string, file: File): Promise<EventPhoto> {
+  const photoId = crypto.randomUUID();
+  const storagePath = buildPhotoPath(eventId, photoId, 'photo.webp');
+  const thumbnailStoragePath = buildPhotoPath(eventId, photoId, 'thumb.webp');
+
+  const [photoBlob, thumbnailBlob] = await Promise.all([
+    resizeToWebpBlob(file, 800, 0.82),
+    resizeToWebpBlob(file, 200, 0.75),
   ]);
-  return { url, thumbnailUrl };
+
+  await Promise.all([
+    uploadBlob(storagePath, photoBlob),
+    uploadBlob(thumbnailStoragePath, thumbnailBlob),
+  ]);
+
+  return {
+    id: photoId,
+    url: getPublicUrl(storagePath),
+    thumbnailUrl: getPublicUrl(thumbnailStoragePath),
+    storagePath,
+    thumbnailStoragePath,
+    uploadedAt: new Date().toISOString(),
+  };
+}
+
+export async function deleteStoredPhoto(photo: EventPhoto): Promise<void> {
+  const paths = [photo.storagePath, photo.thumbnailStoragePath].filter((path): path is string => Boolean(path));
+  if (paths.length === 0) return;
+
+  const { error } = await supabase.storage.from(SUPABASE_PHOTO_BUCKET).remove(paths);
+  if (error) throw error;
 }

@@ -372,7 +372,7 @@ export default function App() {
   }, [allEvents, regionFilter, typeFilter, monthFilter, searchQuery]);
 
   const calendarDensityPreview =
-    process.env.NODE_ENV === "development" &&
+    import.meta.env.DEV &&
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("calPreview") === "density";
 
