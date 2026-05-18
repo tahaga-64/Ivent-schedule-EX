@@ -64,13 +64,15 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const hasChangesRef = useRef(hasChanges);
+  hasChangesRef.current = hasChanges;
 
   useEffect(() => {
     const path = `events/${event.id}/preparationItems`;
     const unsubscribe = onSnapshot(collection(db, path), (snapshot) => {
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PreparationItem));
-      if (hasChanges) {
-        // While editing, only remove items deleted remotely (to avoid overwriting local edits)
+      if (hasChangesRef.current) {
+        // While editing, only remove items deleted remotely — do NOT overwrite local edits
         const remoteIds = new Set(data.map(i => i.id));
         setItems(prev => prev.filter(i => remoteIds.has(i.id)));
         return;
@@ -81,7 +83,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       console.error('PreparationList load error:', error);
     });
     return () => unsubscribe();
-  }, [event.id, hasChanges]);
+  }, [event.id]); // hasChanges は ref 経由で参照するため deps 不要
 
   const handleSaveAll = async () => {
     if (!canEdit) return;
@@ -447,7 +449,19 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       </div>
 
       {/* Footer */}
-      <div className="px-4 sm:px-6 py-4 bg-white border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
+      <div className="px-4 sm:px-6 py-4 bg-white border-t border-gray-100 shrink-0">
+        {hasChanges && canEdit && (
+          <button
+            type="button"
+            onClick={handleSaveAll}
+            disabled={isSaving}
+            className="w-full mb-3 flex items-center justify-center gap-2 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black text-sm transition-colors disabled:opacity-60"
+          >
+            <Save size={16} />
+            {isSaving ? '保存中...' : '変更を保存'}
+          </button>
+        )}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
           <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">SUBTOTAL · 商品計</div>
           <div className="text-xl font-black text-gray-900 font-mono">¥{totals.subtotal.toLocaleString()}</div>
@@ -476,6 +490,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
           </div>
           <div className="text-[10px] text-gray-400 font-bold">{totals.prepared} / {items.length} done</div>
         </div>
+      </div>
       </div>
     </div>
   );
