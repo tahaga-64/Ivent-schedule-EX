@@ -56,7 +56,7 @@ export interface PreparationItem {
 export interface EventPhoto {
   id: string;
   url: string;
-  storagePath: string;
+  storagePath?: string;
   uploadedAt: string;
   caption?: string;
   thumbnailUrl?: string;

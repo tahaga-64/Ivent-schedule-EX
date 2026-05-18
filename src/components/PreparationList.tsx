@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { PreparationItem, Event } from '../types';
@@ -8,6 +8,43 @@ import { motion } from 'motion/react';
 interface Props {
   event: Event;
   onBack: () => void;
+  /** 準備物の追加・編集・保存・削除を許可するか（ログイン済みなら true を渡す想定） */
+  canEdit: boolean;
+}
+
+function createEmptyItem(order: number): PreparationItem {
+  return {
+    id: crypto.randomUUID(),
+    name: '',
+    quantity: 1,
+    unitPrice: 0,
+    amount: 0,
+    shippingFee: 0,
+    arrived: false,
+    prepared: false,
+    note: '',
+    url: '',
+    order,
+  };
+}
+
+function isEmptyItem(item: PreparationItem): boolean {
+  return (
+    !item.name?.trim() &&
+    !item.note?.trim() &&
+    !item.url?.trim() &&
+    (item.quantity ?? 1) === 1 &&
+    !item.unitPrice &&
+    !item.amount &&
+    !item.shippingFee &&
+    !item.arrived &&
+    !item.prepared
+  );
+}
+
+function normalizeInitialItems(items: PreparationItem[]): PreparationItem[] {
+  const filledItems = items.filter(item => !isEmptyItem(item));
+  return filledItems.length > 0 ? filledItems : [createEmptyItem(0)];
 }
 
 function formatSaveError(error: unknown): string {
@@ -22,9 +59,8 @@ function formatSaveError(error: unknown): string {
   return '保存に失敗しました。もう一度お試しください。';
 }
 
-export default function PreparationList({ event, onBack }: Props) {
+export default function PreparationList({ event, onBack, canEdit }: Props) {
   const [items, setItems] = useState<PreparationItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -40,24 +76,15 @@ export default function PreparationList({ event, onBack }: Props) {
         return;
       }
       data.sort((a, b) => (a.order || 0) - (b.order || 0));
-      if (data.length === 0 && loading) {
-        setItems(Array.from({ length: 5 }, (_, i) => ({
-          id: crypto.randomUUID(),
-          name: '', quantity: 1, unitPrice: 0, amount: 0,
-          shippingFee: 0, arrived: false, prepared: false, note: '', url: '', order: i,
-        })));
-      } else {
-        setItems(data);
-      }
-      setLoading(false);
+      setItems(normalizeInitialItems(data));
     }, (error) => {
       console.error('PreparationList load error:', error);
-      setLoading(false);
     });
     return () => unsubscribe();
   }, [event.id, hasChanges]);
 
   const handleSaveAll = async () => {
+    if (!canEdit) return;
     setIsSaving(true);
     setSaveError(null);
     try {
@@ -74,6 +101,7 @@ export default function PreparationList({ event, onBack }: Props) {
   };
 
   const updateItem = (id: string, updates: Partial<PreparationItem>) => {
+    if (!canEdit) return;
     const item = items.find(i => i.id === id);
     if (!item) return;
     const newItem = { ...item, ...updates };
@@ -83,15 +111,13 @@ export default function PreparationList({ event, onBack }: Props) {
   };
 
   const addItem = () => {
-    setItems(prev => [...prev, {
-      id: crypto.randomUUID(), name: '', quantity: 1, unitPrice: 0,
-      amount: 0, shippingFee: 0, arrived: false, prepared: false,
-      note: '', url: '', order: prev.length,
-    }]);
+    if (!canEdit) return;
+    setItems(prev => [...prev, createEmptyItem(prev.length)]);
     setHasChanges(true);
   };
 
   const removeItem = async (id: string) => {
+    if (!canEdit) return;
     if (items.length <= 1) return;
     setIsSaving(true);
     setSaveError(null);
@@ -140,6 +166,11 @@ export default function PreparationList({ event, onBack }: Props) {
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
+      {!canEdit && (
+        <div className="px-6 py-2.5 bg-slate-100 border-b border-slate-200 text-slate-600 text-[11px] font-bold text-center">
+          閲覧のみ（準備物の編集にはログインが必要です）
+        </div>
+      )}
       {saveError && (
         <div
           role="alert"
@@ -170,7 +201,7 @@ export default function PreparationList({ event, onBack }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {hasChanges && (
+          {hasChanges && canEdit && (
             <button
               onClick={handleSaveAll}
               disabled={isSaving}
@@ -187,14 +218,16 @@ export default function PreparationList({ event, onBack }: Props) {
             <Download size={13} />
             <span className="hidden sm:inline">CSV エクスポート</span>
           </button>
-          <button
-            onClick={addItem}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors"
-          >
-            <Plus size={13} />
-            <span className="hidden sm:inline">行を追加</span>
-            <span className="sm:hidden">追加</span>
-          </button>
+          {canEdit && (
+            <button
+              onClick={addItem}
+              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors"
+            >
+              <Plus size={13} />
+              <span className="hidden sm:inline">行を追加</span>
+              <span className="sm:hidden">追加</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -228,18 +261,20 @@ export default function PreparationList({ event, onBack }: Props) {
                     <td className="p-0 border-r border-gray-100">
                       <input
                         type="text"
+                        readOnly={!canEdit}
                         value={item.name}
                         onChange={e => updateItem(item.id, { name: e.target.value })}
                         placeholder="アイテム名..."
-                        className={`w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm font-medium text-gray-800 ${item.prepared ? 'line-through text-gray-400' : ''}`}
+                        className={`w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm font-medium text-gray-800 read-only:cursor-default ${item.prepared ? 'line-through text-gray-400' : ''}`}
                       />
                     </td>
                     <td className="p-0 border-r border-gray-100">
                       <input
                         type="number"
+                        readOnly={!canEdit}
                         value={item.quantity || ''}
                         onChange={e => updateItem(item.id, { quantity: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm font-mono text-gray-700 text-center"
+                        className="w-full px-3 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm font-mono text-gray-700 text-center read-only:cursor-default"
                       />
                     </td>
                     <td className="p-0 border-r border-gray-100">
@@ -247,9 +282,10 @@ export default function PreparationList({ event, onBack }: Props) {
                         <span className="text-xs text-gray-400">¥</span>
                         <input
                           type="number"
+                          readOnly={!canEdit}
                           value={item.unitPrice || ''}
                           onChange={e => updateItem(item.id, { unitPrice: parseInt(e.target.value) || 0 })}
-                          className="w-full bg-transparent outline-none focus:bg-indigo-50/30 text-sm font-mono text-gray-700 text-right"
+                          className="w-full bg-transparent outline-none focus:bg-indigo-50/30 text-sm font-mono text-gray-700 text-right read-only:cursor-default"
                         />
                       </div>
                     </td>
@@ -260,42 +296,49 @@ export default function PreparationList({ event, onBack }: Props) {
                       <div className="flex items-center justify-end px-3 py-2.5 gap-1">
                         <input
                           type="number"
+                          readOnly={!canEdit}
                           value={item.shippingFee || ''}
                           onChange={e => updateItem(item.id, { shippingFee: parseInt(e.target.value) || 0 })}
                           placeholder="0"
-                          className="w-full bg-transparent outline-none focus:bg-indigo-50/30 text-sm font-mono text-gray-700 text-right"
+                          className="w-full bg-transparent outline-none focus:bg-indigo-50/30 text-sm font-mono text-gray-700 text-right read-only:cursor-default"
                         />
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-center border-r border-gray-100">
-                      <Checkbox checked={item.arrived} onChange={() => updateItem(item.id, { arrived: !item.arrived })} />
+                      <Checkbox checked={item.arrived} disabled={!canEdit} onChange={() => updateItem(item.id, { arrived: !item.arrived })} />
                     </td>
                     <td className="px-3 py-2.5 text-center border-r border-gray-100">
-                      <Checkbox checked={item.prepared} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
+                      <Checkbox checked={item.prepared} disabled={!canEdit} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
                     </td>
                     <td className="p-0 border-r border-gray-100">
-                      <input
-                        type="text"
+                      <PreparationNoteField
                         value={item.note || ''}
-                        onChange={e => updateItem(item.id, { note: e.target.value })}
-                        placeholder="..."
-                        className="w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm text-gray-600"
+                        readOnly={!canEdit}
+                        onChange={note => updateItem(item.id, { note })}
                       />
                     </td>
                     <td className="p-0 border-r border-gray-100">
                       <input
                         type="text"
+                        readOnly={!canEdit}
                         value={item.url || ''}
                         onChange={e => updateItem(item.id, { url: e.target.value })}
                         placeholder="https://..."
-                        className="w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm text-indigo-500"
+                        className="w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm text-indigo-500 read-only:cursor-default"
                       />
                     </td>
                     <td className="px-2 py-2.5 text-center">
                       <button
+                        type="button"
                         onClick={() => removeItem(item.id)}
-                        disabled={items.length <= 1}
-                        className="p-1 text-gray-200 hover:text-red-400 transition-colors disabled:opacity-0"
+                        disabled={items.length <= 1 || !canEdit}
+                        className={`p-1 text-gray-200 transition-colors ${
+                          items.length <= 1
+                            ? 'opacity-0 pointer-events-none'
+                            : !canEdit
+                              ? 'opacity-30 cursor-not-allowed'
+                              : 'hover:text-red-400'
+                        }`}
                       >
                         <Trash2 size={13} />
                       </button>
@@ -305,12 +348,15 @@ export default function PreparationList({ event, onBack }: Props) {
               </tbody>
             </table>
           </div>
-          <button
-            onClick={addItem}
-            className="w-full py-4 bg-gray-50 hover:bg-indigo-50 text-gray-400 hover:text-indigo-500 text-xs font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 border-t border-gray-100"
-          >
-            <Plus size={14} /> 新しい項目を追加
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={addItem}
+              className="w-full py-4 bg-gray-50 hover:bg-indigo-50 text-gray-400 hover:text-indigo-500 text-xs font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 border-t border-gray-100"
+            >
+              <Plus size={14} /> 新しい項目を追加
+            </button>
+          )}
         </div>
       </div>
 
@@ -349,13 +395,43 @@ export default function PreparationList({ event, onBack }: Props) {
   );
 }
 
-function Checkbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+function PreparationNoteField({ value, onChange, readOnly }: { value: string; onChange: (note: string) => void; readOnly?: boolean }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      readOnly={readOnly}
+      value={value}
+      onChange={e => {
+        e.target.style.height = 'auto';
+        e.target.style.height = `${e.target.scrollHeight}px`;
+        onChange(e.target.value);
+      }}
+      placeholder="..."
+      className="w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm text-gray-600 break-words read-only:cursor-default"
+      style={{ resize: 'none', overflowX: 'hidden', minHeight: '38px' }}
+    />
+  );
+}
+
+function Checkbox({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
   return (
     <button
+      type="button"
       onClick={onChange}
+      disabled={disabled}
       className={`w-6 h-6 rounded border-2 flex items-center justify-center mx-auto transition-all ${
         checked ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 hover:border-indigo-400'
-      }`}
+      } disabled:opacity-40 disabled:pointer-events-none disabled:hover:border-gray-300`}
     >
       {checked && (
         <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">

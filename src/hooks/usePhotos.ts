@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { doc, updateDoc, arrayUnion, arrayRemove, runTransaction } from 'firebase/firestore';
+import { doc, updateDoc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { uploadAndCompressPhoto, deletePhoto } from '../lib/photoStorage';
-import { validateImageFile } from '../lib/photoStorage';
+import { compressPhoto, validateImageFile } from '../lib/photoStorage';
 import { EventPhoto } from '../types';
 
 export function usePhotos(eventId: string) {
@@ -18,29 +17,21 @@ export function usePhotos(eventId: string) {
     setUploadProgress(0);
     setError(null);
     try {
-      const photoId = crypto.randomUUID();
-      const { url, storagePath, thumbnailUrl } = await uploadAndCompressPhoto(file, eventId, photoId);
+      setUploadProgress(20);
+      const { url, thumbnailUrl } = await compressPhoto(file);
+      setUploadProgress(80);
       const photo: EventPhoto = {
-        id: photoId,
+        id: crypto.randomUUID(),
         url,
-        storagePath,
         thumbnailUrl,
         uploadedAt: new Date().toISOString(),
       };
-      setUploadProgress(80);
       await updateDoc(doc(db, 'events', eventId), { photos: arrayUnion(photo) });
       setUploadProgress(100);
       return photo;
     } catch (e) {
       console.error('Photo upload failed:', e);
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes('storage/unauthorized') || msg.includes('permission')) {
-        setError('アップロード権限がありません。ログイン状態を確認してください。');
-      } else if (msg.includes('network') || msg.includes('fetch')) {
-        setError('ネットワークエラーです。接続を確認してください。');
-      } else {
-        setError('アップロードに失敗しました');
-      }
+      setError('アップロードに失敗しました');
       return null;
     } finally {
       setUploading(false);
@@ -48,10 +39,15 @@ export function usePhotos(eventId: string) {
     }
   }
 
-  async function deleteEventPhoto(photo: EventPhoto, currentPhotos: EventPhoto[]): Promise<void> {
+  async function deleteEventPhoto(photo: EventPhoto): Promise<void> {
     try {
-      await deletePhoto(photo);
-      await updateDoc(doc(db, 'events', eventId), { photos: arrayRemove(photo) });
+      const eventRef = doc(db, 'events', eventId);
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(eventRef);
+        if (!snap.exists()) return;
+        const photos: EventPhoto[] = snap.data().photos ?? [];
+        tx.update(eventRef, { photos: photos.filter(p => p.id !== photo.id) });
+      });
     } catch (e) {
       setError('削除に失敗しました');
     }
@@ -64,11 +60,9 @@ export function usePhotos(eventId: string) {
         const snap = await tx.get(eventRef);
         if (!snap.exists()) return;
         const photos: EventPhoto[] = snap.data().photos ?? [];
-        const updated = photos.map(p => p.id === photo.id ? { ...p, caption } : p);
-        tx.update(eventRef, { photos: updated });
+        tx.update(eventRef, { photos: photos.map(p => p.id === photo.id ? { ...p, caption } : p) });
       });
     } catch (e) {
-      console.error('Caption update failed:', e);
       setError('キャプション更新に失敗しました');
     }
   }

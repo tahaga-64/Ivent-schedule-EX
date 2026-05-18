@@ -13,10 +13,13 @@ interface Props {
 
 const REGIONS: { label: Region | '全て'; dot: string }[] = [
   { label: '全て',  dot: '#9CA3AF' },
-  { label: '東日本', dot: '#3B82F6' },
-  { label: '西日本', dot: '#22C55E' },
-  { label: '南日本', dot: '#F97316' },
-  { label: '中日本', dot: '#A855F7' },
+  { label: '東北',  dot: '#3B82F6' },
+  { label: '関東',  dot: '#6366f1' },
+  { label: '中部',  dot: '#10b981' },
+  { label: '近畿',  dot: '#8b5cf6' },
+  { label: '中国',  dot: '#ec4899' },
+  { label: '四国',  dot: '#f97316' },
+  { label: '九州',  dot: '#eab308' },
 ];
 
 

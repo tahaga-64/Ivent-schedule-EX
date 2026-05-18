@@ -1,9 +1,8 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage } from './firebase';
-import { EventPhoto } from '../types';
+// Photos are stored as base64 data URLs directly in Firestore (no Firebase Storage required)
 
-const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
+export const MAX_PHOTOS = 3;
 
 export function validateImageFile(file: File): string | null {
   if (!ACCEPTED_TYPES.includes(file.type)) return '対応画像形式: JPEG, PNG, WebP, GIF, HEIC';
@@ -11,14 +10,21 @@ export function validateImageFile(file: File): string | null {
   return null;
 }
 
-export async function compressImage(file: File, maxWidth = 1600, quality = 0.85): Promise<Blob> {
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error('FileReader failed'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function resizeToDataUrl(file: File, maxWidth: number, quality: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    const url = URL.createObjectURL(file);
-    const cleanup = () => URL.revokeObjectURL(url);
-
+    const objectUrl = URL.createObjectURL(file);
     img.onload = () => {
-      cleanup();
+      URL.revokeObjectURL(objectUrl);
       const scale = Math.min(1, maxWidth / img.width);
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
@@ -28,50 +34,27 @@ export async function compressImage(file: File, maxWidth = 1600, quality = 0.85)
       canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
       canvas.toBlob(
         blob => {
-          // Release canvas memory immediately after blob is extracted
           canvas.width = 0;
           canvas.height = 0;
-          blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'));
+          if (!blob) { reject(new Error('圧縮に失敗しました')); return; }
+          blobToDataUrl(blob).then(resolve, reject);
         },
         'image/webp',
         quality
       );
     };
     img.onerror = () => {
-      cleanup();
+      URL.revokeObjectURL(objectUrl);
       reject(new Error('画像の読み込みに失敗しました'));
     };
-    img.src = url;
+    img.src = objectUrl;
   });
 }
 
-export async function uploadAndCompressPhoto(
-  file: File,
-  eventId: string,
-  photoId: string
-): Promise<{ url: string; storagePath: string; thumbnailUrl: string }> {
-  const compressed = await compressImage(file);
-  const thumb = await compressImage(file, 400, 0.75);
-
-  const basePath = `events/${eventId}/photos/${photoId}`;
-  const fullRef = ref(storage, `${basePath}/full.webp`);
-  const thumbRef = ref(storage, `${basePath}/thumb.webp`);
-
-  await Promise.all([
-    uploadBytes(fullRef, compressed, { contentType: 'image/webp' }),
-    uploadBytes(thumbRef, thumb, { contentType: 'image/webp' }),
-  ]);
-
+export async function compressPhoto(file: File): Promise<{ url: string; thumbnailUrl: string }> {
   const [url, thumbnailUrl] = await Promise.all([
-    getDownloadURL(fullRef),
-    getDownloadURL(thumbRef),
+    resizeToDataUrl(file, 800, 0.82),
+    resizeToDataUrl(file, 200, 0.75),
   ]);
-
-  return { url, storagePath: basePath, thumbnailUrl };
-}
-
-export async function deletePhoto(photo: EventPhoto): Promise<void> {
-  const fullRef = ref(storage, `${photo.storagePath}/full.webp`);
-  const thumbRef = ref(storage, `${photo.storagePath}/thumb.webp`);
-  await Promise.allSettled([deleteObject(fullRef), deleteObject(thumbRef)]);
+  return { url, thumbnailUrl };
 }

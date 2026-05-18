@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef, type MouseEvent as R
 import { db, auth, loginWithGoogle } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
-import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, DEPT_OPTIONS, DEPT_TO_REGION } from './constants';
+import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS } from './constants';
 import { Event, PreparationItem } from './types';
 import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -13,6 +13,10 @@ import PhotoUpload from './components/photos/PhotoUpload';
 import PhotoGallery from './components/photos/PhotoGallery';
 import { useAnalytics } from './hooks/useAnalytics';
 import { usePhotos } from './hooks/usePhotos';
+import {
+  canEditEvent as computeCanEditEvent,
+  canEditPreparationList as computeCanEditPreparationList,
+} from './lib/permissions';
 
 // 安全なlocalStorage読み込み
 function safeGetItem<T>(key: string, fallback: T): T {
@@ -49,8 +53,6 @@ function validateEvent(event: Partial<Event>): ValidationError[] {
   
   return errors;
 }
-
-const EDITOR_EMAILS = ['taoki0183@gmail.com'];
 
 /* ═══════════════════════════════════════
    ヘルパー
@@ -130,7 +132,7 @@ function buildCalendarDensityPreviewEvents(
   }
   // d0: 同一週の「0件」比較用セル（この日にはプレビューイベントを追加しない）
   void d0;
-  const region = regionFilter !== "すべて" ? regionFilter : "東日本";
+  const region = regionFilter !== "すべて" ? regionFilter : "関東";
   const type = typeFilter !== "すべて" ? typeFilter : "その他";
   const pad = (n: number) => String(n).padStart(2, "0");
   const iso = (day: number) => `${year}-${pad(month)}-${pad(day)}`;
@@ -262,7 +264,8 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const isEditor = user && EDITOR_EMAILS.includes(user.email ?? '');
+  const canEditEvent = computeCanEditEvent(user);
+  const canEditPreparationList = computeCanEditPreparationList(user);
 
   // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {
@@ -726,28 +729,22 @@ export default function App() {
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">REGION</span>
               </div>
               <div className="flex flex-col gap-0.5">
-                {[
-                  { label: "すべて" },
-                  { label: "東日本" },
-                  { label: "西日本" },
-                  { label: "南日本" },
-                  { label: "中日本" },
-                ].map((r) => (
+                {(["すべて", ...REGIONS] as const).map((label) => (
                   <button
-                    key={r.label}
-                    onClick={() => setRegionFilter(r.label)}
+                    key={label}
+                    onClick={() => setRegionFilter(label)}
                     className={`
                       group flex items-center justify-between px-3 py-2 rounded-lg transition-all
-                      ${regionFilter === r.label
+                      ${regionFilter === label
                         ? "bg-indigo-50 text-indigo-700"
                         : "text-slate-600 hover:bg-slate-100/70"}
                     `}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: rs(r.label).dot }}></span>
-                      <span className="text-xs font-bold font-sans">{r.label}</span>
+                      <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: rs(label).dot }}></span>
+                      <span className="text-xs font-bold font-sans">{label}</span>
                     </div>
-                    <span className="text-xs font-bold text-slate-400 font-sans">{r.label === "すべて" ? "" : (stats.byRegion[r.label] || 0)}</span>
+                    <span className="text-xs font-bold text-slate-400 font-sans">{label === "すべて" ? "" : (stats.byRegion[label] || 0)}</span>
                   </button>
                 ))}
               </div>
@@ -797,18 +794,20 @@ export default function App() {
                       <span className="text-sm">{type.icon}</span>
                       <span className="text-xs font-bold font-sans">{type.label}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSidebarTypes(prev => prev.filter(t => t.label !== type.label));
-                        if (typeFilter === type.label) setTypeFilter('すべて');
-                      }}
-                      className="absolute right-1 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                      aria-label={`${type.label}を削除`}
-                    >
-                      <X size={12} />
-                    </button>
+                    {sidebarTypes.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSidebarTypes(prev => prev.filter(t => t.label !== type.label));
+                          if (typeFilter === type.label) setTypeFilter('すべて');
+                        }}
+                        className="absolute right-1 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                        aria-label={`${type.label}を削除`}
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1102,59 +1101,51 @@ export default function App() {
                 <PreparationList
                   event={selected}
                   onBack={() => setShowPrepList(false)}
+                  canEdit={canEditPreparationList}
                 />
               ) : (
                 <div className="p-6 lg:p-8 overflow-y-auto">
                   {/* Header: タグ + 閉じるボタン */}
                   <div className="flex justify-between items-center mb-5">
-                    <div className="flex gap-2 flex-wrap">
-                      {isEditMode ? (
-                        <>
-                          <select
-                            value={selected.dept || ""}
-                            onChange={e => {
-                              const dept = e.target.value;
-                              const region = DEPT_TO_REGION[dept] || selected.region;
-                              handleUpdateEvent(selected.id, { dept, region });
-                            }}
-                            className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                    <div className="flex flex-col gap-2 flex-1 min-w-0">
+                      <div className="flex flex-wrap gap-1.5">
+                        {REGIONS.map(r => (
+                          <button
+                            key={r}
+                            type="button"
+                            disabled={!canEditEvent}
+                            onClick={() => canEditEvent && handleUpdateEvent(selected.id, { region: r, dept: '' })}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
+                              selected.region === r
+                                ? 'text-white border-transparent'
+                                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                            } ${!canEditEvent ? 'cursor-default' : 'cursor-pointer'}`}
+                            style={selected.region === r
+                              ? { background: rs(r).dot, borderColor: rs(r).dot }
+                              : {}
+                            }
                           >
-                            <option value="">地域を選択...</option>
-                            {DEPT_OPTIONS.map(d => (
-                              <option key={d} value={d}>{d}</option>
-                            ))}
-                          </select>
-                          <div className="flex flex-wrap gap-1.5">
-                            {sidebarTypes.map(t => (
-                              <button
-                                key={t.label}
-                                type="button"
-                                onClick={() => handleUpdateEvent(selected.id, { type: t.label })}
-                                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
-                                  selected.type === t.label
-                                    ? 'bg-indigo-600 text-white border-indigo-600'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
-                                }`}
-                              >
-                                <span>{t.icon}</span><span>{t.label}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <span
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
-                            style={{ background: rs(selected.region).bg, color: rs(selected.region).text }}
+                            {r}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {sidebarTypes.map(t => (
+                          <button
+                            key={t.label}
+                            type="button"
+                            disabled={!canEditEvent}
+                            onClick={() => canEditEvent && handleUpdateEvent(selected.id, { type: t.label })}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
+                              selected.type === t.label
+                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
+                            } ${!canEditEvent ? 'cursor-default' : 'cursor-pointer'}`}
                           >
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: rs(selected.region).dot }}></span>
-                            {selected.dept || selected.region}
-                          </span>
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-600">
-                            {ts(selected.type || "").icon} {selected.type || "その他"}
-                          </span>
-                        </>
-                      )}
+                            <span>{t.icon}</span><span>{t.label}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     <button
                       onClick={handleCloseModal}
@@ -1185,19 +1176,24 @@ export default function App() {
                   {/* 写真タブ */}
                   {modalTab === 'photos' && (
                     <div className="space-y-4">
-                      {isEditor && (
+                      {canEditEvent && (selected.photos?.length ?? 0) < 3 && (
                         <PhotoUpload
                           onUpload={async (file) => { await uploadPhoto(file); }}
                           uploading={photoUploading}
                           uploadProgress={photoUploading ? uploadProgress : 0}
+                          currentCount={selected.photos?.length ?? 0}
+                          maxPhotos={3}
                         />
+                      )}
+                      {canEditEvent && (selected.photos?.length ?? 0) >= 3 && (
+                        <p className="text-xs text-center text-slate-400 py-2">写真は最大3枚までです</p>
                       )}
                       {photoError && <p className="text-xs text-red-500 font-bold">{photoError}</p>}
                       <PhotoGallery
                         photos={selected.photos || []}
-                        onDelete={photo => deleteEventPhoto(photo, selected.photos || [])}
+                        onDelete={photo => deleteEventPhoto(photo)}
                         onUpdateCaption={(photo, caption) => updatePhotoCaption(photo, caption)}
-                        canEdit={!!isEditor}
+                        canEdit={canEditEvent}
                       />
                     </div>
                   )}
@@ -1406,7 +1402,7 @@ export default function App() {
                       準備物リストを開く
                     </button>
                   </div>
-                  {isEditor && (
+                  {canEditEvent && (
                     <button
                       onClick={handleDeleteEvent}
                       className="w-full mt-2 py-3 rounded-2xl border border-red-200 text-sm font-bold text-red-400 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors flex items-center justify-center gap-2"
@@ -1528,7 +1524,7 @@ function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps) {
                 <div className="flex-1 py-4 min-w-0">
                   <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
                   <div className="text-[11px] text-slate-400 mt-0.5">
-                    {ev.region}{ev.dept ? `・${ev.dept}` : ""}・{ev.type || "その他"}
+                    {ev.region}・{ev.type || "その他"}
                   </div>
                 </div>
                 {ev.end && ev.end !== ev.start && (
@@ -2144,7 +2140,7 @@ function ListView({ data, onSelect, onHover, onHoverEnd, lastEditedId }: ListVie
                       style={{ background: rs(d.region).bg, color: rs(d.region).text }}
                     >
                       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: rs(d.region).dot }}></span>
-                      {d.region}{d.dept ? `・${d.dept}` : ""}
+                      {d.region}
                     </span>
                   </td>
                   <td className="px-6 py-4 align-middle">
@@ -2218,7 +2214,7 @@ function HoverCard({ event, pos, prepProgress }: {
       <div className="space-y-1.5 text-xs text-slate-700">
         <div className="flex gap-2">
           <span className="w-2 h-2 rounded-full mt-1 shrink-0 ring-1 ring-slate-900/10" style={{ background: rs(event.region || '').dot }} />
-          <span>{event.dept || event.region}</span>
+          <span>{event.region}</span>
         </div>
         <div className="font-mono text-slate-500">
           {event.start}{event.end && event.end !== event.start ? ` → ${event.end}` : ''}

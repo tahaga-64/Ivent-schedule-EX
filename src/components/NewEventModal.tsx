@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { X } from 'lucide-react';
-import { Region, NewEventDraft } from '../types/index';
+import { NewEventDraft } from '../types/index';
+import { REGIONS } from '../constants';
 
 interface Props {
   onClose: () => void;
@@ -8,12 +9,10 @@ interface Props {
   sidebarTypes: { label: string; icon: string }[];
 }
 
-const REGIONS: Region[] = ['東日本', '西日本', '南日本', '中日本'];
-
 export default function NewEventModal({ onClose, onSubmit, sidebarTypes }: Props) {
   const today = new Date().toISOString().split('T')[0];
   const [draft, setDraft] = useState<NewEventDraft>({
-    venue: '', client: '', type: sidebarTypes[0]?.label ?? '', region: '東日本', start: today, end: today,
+    venue: '', client: '', type: sidebarTypes[0]?.label ?? '', region: REGIONS[0], start: today, end: today,
   });
 
   const set = <K extends keyof NewEventDraft>(k: K, v: NewEventDraft[K]) =>
@@ -86,10 +85,22 @@ export default function NewEventModal({ onClose, onSubmit, sidebarTypes }: Props
 
           <div>
             <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">地域</label>
-            <select value={draft.region} onChange={e => set('region', e.target.value as Region)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all">
-              {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
+            <div className="flex flex-wrap gap-1.5">
+              {REGIONS.map(r => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => set('region', r)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
+                    draft.region === r
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

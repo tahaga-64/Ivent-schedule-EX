@@ -2,24 +2,24 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 認証済みユーザーかどうか
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // 編集権限チェック: 特定のメールアドレスを持つGoogle認証済みユーザーのみ書き込み可
-    function isEditor() {
+    // イベント本体の編集者（permissions.ts の EVENT_EDITOR_EMAILS と一致）
+    function isEventEditor() {
       return request.auth != null
-          && request.auth.token.firebase.sign_in_provider == 'google.com'
-          && request.auth.token.email in ['taoki0183@gmail.com'];
+          && request.auth.token.email in [
+               'taoki0183@gmail.com',
+               'haruhito3901@gmail.com',
+               'm.takada.kp@gmail.com',
+             ];
     }
 
-    // preparationItems の ID フォーマット検証
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // イベントデータのバリデーション
     function isValidEvent() {
       let data = request.resource.data;
       return data.keys().hasAll(['id', 'venue', 'start', 'region', 'type'])
@@ -30,20 +30,20 @@ service cloud.firestore {
 
     match /events/{eventId} {
       allow read:  if isAuthenticated();
-      allow create: if isEditor() && isValidEvent();
-      allow update: if isEditor();
-      allow delete: if isEditor();
+      allow create: if isEventEditor() && isValidEvent();
+      allow update: if isEventEditor();
+      allow delete: if isEventEditor();
 
+      // 準備物: ログイン済みユーザー全員が編集可（canEditPreparationList と一致）
       match /preparationItems/{itemId} {
         allow read:  if isAuthenticated();
-        allow write: if isEditor() && isValidId(itemId);
+        allow create, update, delete: if isAuthenticated() && isValidId(itemId);
       }
     }
 
-    // 通知コレクション
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isEditor();
+      allow create: if isEventEditor();
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
