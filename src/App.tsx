@@ -17,6 +17,7 @@ import {
   canEditEvent as computeCanEditEvent,
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
+import { registerFcmToken } from './lib/fcm';
 
 // 安全なlocalStorage読み込み
 function safeGetItem<T>(key: string, fallback: T): T {
@@ -260,7 +261,10 @@ export default function App() {
 
   // Auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u ?? null));
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u ?? null);
+      if (u) registerFcmToken(u.uid);
+    });
     return () => unsubscribe();
   }, []);
 
@@ -450,6 +454,11 @@ export default function App() {
       setDbEvents(prev => ({ ...prev, [selected.id]: selected }));
       setHasUnsavedChanges(false);
       setLastEditedId(selected.id);
+      fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '✏️ イベント更新', body: `${selected.venue} が更新されました` }),
+      }).catch(console.error);
       setIsSaving(false);
       return true;
     } catch (error) {
@@ -481,6 +490,11 @@ export default function App() {
     setLastEditedId(id);
     try {
       await setDoc(doc(db, "events", id), newEvent);
+      fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '📅 新しいイベント', body: `${newEvent.venue} が作成されました` }),
+      }).catch(console.error);
     } catch (error) {
       console.error('Firestore create error:', error);
       setSaveError(formatSaveError(error));
