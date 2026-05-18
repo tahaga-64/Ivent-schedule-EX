@@ -787,19 +787,29 @@ export default function App() {
                   <span className="text-xs font-bold font-sans">すべて</span>
                 </button>
                 {sidebarTypes.map((type) => (
-                  <button
-                    key={type.label}
-                    onClick={() => setTypeFilter(type.label)}
-                    className={`
-                      group flex items-center gap-3 px-3 py-2 rounded-lg transition-all
-                      ${typeFilter === type.label
-                        ? "bg-indigo-50 text-indigo-700"
-                        : "text-slate-600 hover:bg-slate-100/70"}
-                    `}
-                  >
-                    <span className="text-sm">{type.icon}</span>
-                    <span className="text-xs font-bold font-sans">{type.label}</span>
-                  </button>
+                  <div key={type.label} className="group relative flex items-center">
+                    <button
+                      onClick={() => setTypeFilter(type.label)}
+                      className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
+                        typeFilter === type.label ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100/70"
+                      }`}
+                    >
+                      <span className="text-sm">{type.icon}</span>
+                      <span className="text-xs font-bold font-sans">{type.label}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSidebarTypes(prev => prev.filter(t => t.label !== type.label));
+                        if (typeFilter === type.label) setTypeFilter('すべて');
+                      }}
+                      className="absolute right-1 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                      aria-label={`${type.label}を削除`}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -985,7 +995,7 @@ export default function App() {
                 <ListView data={filtered} onSelect={handleEventSelect} onHover={handleEventHover} onHoverEnd={handleEventHoverEnd} lastEditedId={lastEditedId} />
               )}
               {view === "analytics" && analyticsData && (
-                <AnalyticsDashboard data={analyticsData} loading={analyticsLoading} />
+                <AnalyticsDashboard data={analyticsData} loading={analyticsLoading} events={allEvents} />
               )}
               {view === "analytics" && !analyticsData && analyticsLoading && (
                 <AnalyticsDashboard data={{ totalEvents: 0, completedEvents: 0, totalBudget: 0, avgBudget: 0, completionRate: 0, onTimeRate: 0, avgPreparationDays: 0, activeRegions: 0, topVenues: [], topRegion: '', busiestMonth: '', monthlyTrends: [], regionStats: [], typeStats: [], clientStats: [], totalSales: 0, totalGrossProfit: 0, totalAttendance: 0, totalSeatedCount: 0, totalContracts: 0, avgCarrierSwitchRate: 0, carrierInflowTotal: { docomo: 0, au: 0, softbank: 0, rakuten: 0, other: 0 }, recentAnalysisReports: [] }} loading={true} />
@@ -1114,16 +1124,22 @@ export default function App() {
                               <option key={d} value={d}>{d}</option>
                             ))}
                           </select>
-                          <select
-                            value={selected.type || ""}
-                            onChange={e => handleUpdateEvent(selected.id, { type: e.target.value })}
-                            className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                          >
-                            <option value="">種別を選択...</option>
+                          <div className="flex flex-wrap gap-1.5">
                             {sidebarTypes.map(t => (
-                              <option key={t.label} value={t.label}>{t.icon} {t.label}</option>
+                              <button
+                                key={t.label}
+                                type="button"
+                                onClick={() => handleUpdateEvent(selected.id, { type: t.label })}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
+                                  selected.type === t.label
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
+                                }`}
+                              >
+                                <span>{t.icon}</span><span>{t.label}</span>
+                              </button>
                             ))}
-                          </select>
+                          </div>
                         </>
                       ) : (
                         <>
@@ -1975,6 +1991,16 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
                   >
                     {cell.day}
                   </span>
+                  {cell.current && (
+                    <button
+                      type="button"
+                      onClick={() => onCreateEvent({ start: `${year}-${String(month).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}` })}
+                      className="ml-auto w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 opacity-0 group-hover:opacity-100 transition-all"
+                      aria-label="イベントを追加"
+                    >
+                      <Plus size={11} />
+                    </button>
+                  )}
                 </div>
 
                 <div className="mt-1 flex min-h-0 flex-1 flex-col">
