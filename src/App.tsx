@@ -219,7 +219,6 @@ export default function App() {
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
   const [searchQuery, setSearchQuery] = useState("");
   const [showPrepList, setShowPrepList] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
   const [modalTab, setModalTab] = useState<'detail' | 'photos'>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
@@ -520,7 +519,6 @@ export default function App() {
     // モーダルを即座に閉じ、UIから楽観的に削除
     setSelected(null);
     setShowPrepList(false);
-    setIsEditMode(false);
     setHasUnsavedChanges(false);
     setValidationErrors([]);
     setModalTab('detail');
@@ -553,7 +551,6 @@ export default function App() {
     }
     setSelected(null);
     setShowPrepList(false);
-    setIsEditMode(false);
     setHasUnsavedChanges(false);
     setValidationErrors([]);
     setModalTab('detail');
@@ -1216,50 +1213,35 @@ export default function App() {
                   {modalTab === 'detail' && <><div className="space-y-5">
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">VENUE・会場</label>
-                      {isEditMode ? (
-                        <input
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          value={selected.venue}
-                          placeholder="会場を入力..."
-                          onChange={e => handleUpdateEvent(selected.id, { venue: e.target.value })}
-                        />
-                      ) : (
-                        <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800">
-                          {selected.venue || "—"}
-                        </div>
-                      )}
+                      <input
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                        value={selected.venue}
+                        placeholder="会場を入力..."
+                        disabled={!canEditEvent}
+                        onChange={e => handleUpdateEvent(selected.id, { venue: e.target.value })}
+                      />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">START</label>
-                        {isEditMode ? (
-                          <input
-                            type="date"
-                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            value={selected.start}
-                            onChange={e => handleUpdateEvent(selected.id, { start: e.target.value })}
-                          />
-                        ) : (
-                          <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800">
-                            {selected.start || "—"}
-                          </div>
-                        )}
+                        <input
+                          type="date"
+                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                          value={selected.start}
+                          disabled={!canEditEvent}
+                          onChange={e => handleUpdateEvent(selected.id, { start: e.target.value })}
+                        />
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">END</label>
-                        {isEditMode ? (
-                          <input
-                            type="date"
-                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            value={selected.end}
-                            onChange={e => handleUpdateEvent(selected.id, { end: e.target.value })}
-                          />
-                        ) : (
-                          <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800">
-                            {selected.end || "—"}
-                          </div>
-                        )}
+                        <input
+                          type="date"
+                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                          value={selected.end}
+                          disabled={!canEditEvent}
+                          onChange={e => handleUpdateEvent(selected.id, { end: e.target.value })}
+                        />
                       </div>
                     </div>
 
@@ -1382,30 +1364,14 @@ export default function App() {
 
                   {/* ボタン */}
                   <div className="mt-6 flex gap-3">
-                    {hasUnsavedChanges ? (
+                    {hasUnsavedChanges && (
                       <button
-                        onClick={async () => { await handleSaveEvent(); setIsEditMode(false); }}
+                        onClick={handleSaveEvent}
                         disabled={isSaving}
                         className="flex-1 py-4 rounded-2xl bg-amber-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-amber-600 disabled:opacity-60 transition-colors shadow-lg shadow-amber-500/20"
                       >
                         <Save size={16} />
                         {isSaving ? "保存中..." : "保存する"}
-                      </button>
-                    ) : isEditMode ? (
-                      <button
-                        onClick={async () => { await handleSaveEvent(); setIsEditMode(false); }}
-                        disabled={isSaving}
-                        className="flex-1 py-4 rounded-2xl bg-amber-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-amber-600 disabled:opacity-60 transition-colors shadow-lg shadow-amber-500/20"
-                      >
-                        <Save size={16} />
-                        {isSaving ? "保存中..." : "保存する"}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setIsEditMode(true)}
-                        className="flex-1 py-4 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        編集
                       </button>
                     )}
                     <button
@@ -1441,7 +1407,7 @@ export default function App() {
                         ))}
                       </motion.div>
                     )}
-                    {hasUnsavedChanges && isEditMode && validationErrors.length === 0 && (
+                    {hasUnsavedChanges && validationErrors.length === 0 && (
                       <motion.p
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
