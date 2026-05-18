@@ -1291,11 +1291,21 @@ export default function App() {
                           <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.grossProfit ?? ''} onChange={e => handleUpdateEvent(selected.id, { grossProfit: e.target.value ? Number(e.target.value) : undefined })} placeholder="粗利（円）" />
                         </div>
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">来場実績</p>
-                        <div className="grid grid-cols-3 gap-3">
-                          <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.attendance ?? ''} onChange={e => handleUpdateEvent(selected.id, { attendance: e.target.value ? Number(e.target.value) : undefined })} placeholder="①イベント参加人数" />
-                          <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.seatedCount ?? ''} onChange={e => handleUpdateEvent(selected.id, { seatedCount: e.target.value ? Number(e.target.value) : undefined })} placeholder="②着座数" />
-                          <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.contracts ?? ''} onChange={e => handleUpdateEvent(selected.id, { contracts: e.target.value ? Number(e.target.value) : undefined })} placeholder="③成約数" />
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-gray-500">①イベント参加人数</label>
+                            <input type="number" min={0} inputMode="numeric" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white" value={selected.attendance ?? ''} onChange={e => handleUpdateEvent(selected.id, { attendance: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 52" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-gray-500">②着座数</label>
+                            <input type="number" min={0} inputMode="numeric" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white" value={selected.seatedCount ?? ''} onChange={e => handleUpdateEvent(selected.id, { seatedCount: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 28" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-gray-500">③成約数</label>
+                            <input type="number" min={0} inputMode="numeric" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white" value={selected.contracts ?? ''} onChange={e => handleUpdateEvent(selected.id, { contracts: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 11" />
+                          </div>
                         </div>
+                        <p className="text-[10px] text-gray-400">何を書けばいいか迷う場合は、<span className="font-bold">実数（当日の最終集計）</span>をそのまま入力してください。</p>
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">キャリア流入内訳（件数）</p>
                         <div className="grid grid-cols-2 gap-3">
                           <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.carrierInflow?.docomo ?? ''} onChange={e => handleUpdateEvent(selected.id, { carrierInflow: { ...(selected.carrierInflow || {}), docomo: Number(e.target.value) || 0 } })} placeholder="docomo" />
