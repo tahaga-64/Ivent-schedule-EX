@@ -1,7 +1,20 @@
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import type { User } from 'firebase/auth';
+import { collection, addDoc, serverTimestamp, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { db } from './firebase';
 import { Notification as AppNotification } from '../types';
 import { Event } from '../types';
+
+type NotificationPayload = Omit<AppNotification, 'id' | 'createdAt' | 'read' | 'recipientUid'>;
+
+export async function recordUserLogin(user: User): Promise<void> {
+  await setDoc(doc(db, 'users', user.uid), {
+    uid: user.uid,
+    email: user.email,
+    displayName: user.displayName,
+    photoURL: user.photoURL,
+    lastLoginAt: serverTimestamp(),
+  }, { merge: true });
+}
 
 export async function createNotification(data: Omit<AppNotification, 'id' | 'createdAt' | 'read'>): Promise<void> {
   await addDoc(collection(db, 'notifications'), {
@@ -11,34 +24,70 @@ export async function createNotification(data: Omit<AppNotification, 'id' | 'cre
   });
 }
 
-export async function notifyEventCreated(event: Event, userId?: string): Promise<void> {
-  await createNotification({
+export async function notifyAllLoggedInUsers(data: NotificationPayload, actor: User): Promise<void> {
+  const usersSnapshot = await getDocs(collection(db, 'users'));
+  if (usersSnapshot.empty) return;
+
+  let batch = writeBatch(db);
+  let operationCount = 0;
+
+  for (const userDoc of usersSnapshot.docs) {
+    const recipientUid = userDoc.id;
+    const notificationRef = doc(collection(db, 'users', recipientUid, 'notifications'));
+    batch.set(notificationRef, {
+      ...data,
+      recipientUid,
+      actorUid: actor.uid,
+      actorName: actor.displayName,
+      actorEmail: actor.email,
+      read: false,
+      createdAt: serverTimestamp(),
+    });
+    operationCount += 1;
+
+    if (operationCount === 450) {
+      await batch.commit();
+      batch = writeBatch(db);
+      operationCount = 0;
+    }
+  }
+
+  if (operationCount > 0) {
+    await batch.commit();
+  }
+}
+
+export async function notifyEventCreated(event: Event, actor: User): Promise<void> {
+  const actorName = actor.displayName || actor.email || '編集者';
+  await notifyAllLoggedInUsers({
     type: 'event_created',
     title: 'イベント作成',
-    message: `「${event.venue}」が作成されました`,
+    message: `${actorName}さんが「${event.venue}」を作成しました`,
     eventId: event.id,
-    userId,
-  });
+    userId: actor.uid,
+  }, actor);
 }
 
-export async function notifyEventUpdated(event: Event, userId?: string): Promise<void> {
-  await createNotification({
+export async function notifyEventUpdated(event: Event, actor: User): Promise<void> {
+  const actorName = actor.displayName || actor.email || '編集者';
+  await notifyAllLoggedInUsers({
     type: 'event_updated',
     title: 'イベント更新',
-    message: `「${event.venue}」が更新されました`,
+    message: `${actorName}さんが「${event.venue}」を更新しました`,
     eventId: event.id,
-    userId,
-  });
+    userId: actor.uid,
+  }, actor);
 }
 
-export async function notifyEventDeleted(venue: string, eventId: string, userId?: string): Promise<void> {
-  await createNotification({
+export async function notifyEventDeleted(venue: string, eventId: string, actor: User): Promise<void> {
+  const actorName = actor.displayName || actor.email || '編集者';
+  await notifyAllLoggedInUsers({
     type: 'event_deleted',
     title: 'イベント削除',
-    message: `「${venue}」が削除されました`,
+    message: `${actorName}さんが「${venue}」を削除しました`,
     eventId,
-    userId,
-  });
+    userId: actor.uid,
+  }, actor);
 }
 
 export function getNotificationIcon(type: AppNotification['type']): string {

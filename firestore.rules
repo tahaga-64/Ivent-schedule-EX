@@ -39,6 +39,30 @@ service cloud.firestore {
         allow read:  if isAuthenticated();
         allow create, update, delete: if isAuthenticated() && isValidId(itemId);
       }
+
+      match /prepItems/{itemId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if isAuthenticated() && isValidId(itemId);
+      }
+    }
+
+    match /users/{userId} {
+      allow get: if isAuthenticated()
+          && (request.auth.uid == userId || isEventEditor());
+      allow list: if isEventEditor();
+      allow create, update: if isAuthenticated()
+          && request.auth.uid == userId
+          && request.resource.data.uid == userId;
+
+      match /notifications/{notificationId} {
+        allow read: if isAuthenticated() && request.auth.uid == userId;
+        allow create: if isEventEditor();
+        allow update: if isAuthenticated()
+            && request.auth.uid == userId
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        allow delete: if isAuthenticated()
+            && (request.auth.uid == userId || isEventEditor());
+      }
     }
 
     match /notifications/{notificationId} {

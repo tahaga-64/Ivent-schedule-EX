@@ -17,6 +17,7 @@ import {
   canEditEvent as computeCanEditEvent,
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
+import { notifyEventUpdated, recordUserLogin } from './lib/notifications';
 
 // 安全なlocalStorage読み込み
 function safeGetItem<T>(key: string, fallback: T): T {
@@ -260,7 +261,14 @@ export default function App() {
 
   // Auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u ?? null));
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u ?? null);
+      if (u) {
+        recordUserLogin(u).catch(error => {
+          console.error('User profile upsert error:', error);
+        });
+      }
+    });
     return () => unsubscribe();
   }, []);
 
@@ -451,6 +459,11 @@ export default function App() {
       setHasUnsavedChanges(false);
       setLastEditedId(selected.id);
       setIsSaving(false);
+      if (canEditEvent && user) {
+        notifyEventUpdated(selected, user).catch(error => {
+          console.error('Notification fanout error:', error);
+        });
+      }
       return true;
     } catch (error) {
       console.error('Firestore save error:', error);
