@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { PreparationItem, Event } from '../types';
-import { Trash2, Plus, ArrowLeft, Save } from 'lucide-react';
+import { Trash2, Plus, ArrowLeft, Save, ExternalLink } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface Props {
@@ -188,16 +188,6 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
               {isSaving ? '保存中...' : '保存'}
             </button>
           )}
-          {canEdit && (
-            <button
-              onClick={addItem}
-              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors"
-            >
-              <Plus size={13} />
-              <span className="hidden sm:inline">行を追加</span>
-              <span className="sm:hidden">追加</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -296,14 +286,31 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
             {(item.url || canEdit) && (
               <div className="border-t border-gray-100 px-3 py-2">
                 <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">URL</div>
-                <input
-                  type="text"
-                  readOnly={!canEdit}
-                  value={item.url || ''}
-                  onChange={e => updateItem(item.id, { url: e.target.value })}
-                  placeholder="https://..."
-                  className="w-full text-sm text-indigo-500 bg-transparent outline-none read-only:cursor-default"
-                />
+                {canEdit ? (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={item.url || ''}
+                      onChange={e => updateItem(item.id, { url: e.target.value })}
+                      placeholder="https://..."
+                      className="flex-1 text-sm text-indigo-500 bg-transparent outline-none min-w-0"
+                    />
+                    {item.url && (
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-indigo-400 hover:text-indigo-600">
+                        <ExternalLink size={14} />
+                      </a>
+                    )}
+                  </div>
+                ) : item.url ? (
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-indigo-500 underline underline-offset-2 break-all"
+                  >
+                    {item.url}
+                  </a>
+                ) : null}
               </div>
             )}
           </div>
