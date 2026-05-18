@@ -1106,7 +1106,7 @@ export default function App() {
                 height: showPrepList ? '90vh' : undefined,
               }}
               exit={{ opacity: 0, y: 40 }}
-              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[520px] lg:max-w-[520px] max-h-[92vh] lg:max-h-[90vh]"
               style={showPrepList ? { width: '95vw', maxWidth: '1600px', height: '90vh' } : {}}
             >
