@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { doc, updateDoc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { compressPhoto, validateImageFile } from '../lib/photoStorage';
+import { validateImageFile, uploadToSupabase, deleteFromSupabase } from '../lib/photoStorage';
 import { EventPhoto } from '../types';
 
 export function usePhotos(eventId: string) {
@@ -17,13 +17,16 @@ export function usePhotos(eventId: string) {
     setUploadProgress(0);
     setError(null);
     try {
-      setUploadProgress(20);
-      const { url, thumbnailUrl } = await compressPhoto(file);
-      setUploadProgress(80);
+      const photoId = crypto.randomUUID();
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const storagePath = `${eventId}/${photoId}.${ext}`;
+
+      const url = await uploadToSupabase(file, storagePath, setUploadProgress);
+
       const photo: EventPhoto = {
-        id: crypto.randomUUID(),
+        id: photoId,
         url,
-        thumbnailUrl,
+        storagePath,
         uploadedAt: new Date().toISOString(),
       };
       await updateDoc(doc(db, 'events', eventId), { photos: arrayUnion(photo) });
@@ -41,6 +44,10 @@ export function usePhotos(eventId: string) {
 
   async function deleteEventPhoto(photo: EventPhoto): Promise<void> {
     try {
+      // Supabase Storage から削除（storagePath がある場合のみ — 旧base64写真はスキップ）
+      if (photo.storagePath) {
+        await deleteFromSupabase(photo.storagePath);
+      }
       const eventRef = doc(db, 'events', eventId);
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(eventRef);
