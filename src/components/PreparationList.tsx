@@ -64,13 +64,15 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const hasChangesRef = useRef(hasChanges);
+  hasChangesRef.current = hasChanges;
 
   useEffect(() => {
     const path = `events/${event.id}/preparationItems`;
     const unsubscribe = onSnapshot(collection(db, path), (snapshot) => {
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PreparationItem));
-      if (hasChanges) {
-        // While editing, only remove items deleted remotely (to avoid overwriting local edits)
+      if (hasChangesRef.current) {
+        // While editing, only remove items deleted remotely — do NOT overwrite local edits
         const remoteIds = new Set(data.map(i => i.id));
         setItems(prev => prev.filter(i => remoteIds.has(i.id)));
         return;
@@ -81,7 +83,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       console.error('PreparationList load error:', error);
     });
     return () => unsubscribe();
-  }, [event.id, hasChanges]);
+  }, [event.id]); // hasChanges は ref 経由で参照するため deps 不要
 
   const handleSaveAll = async () => {
     if (!canEdit) return;
