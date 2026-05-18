@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Event, PreparationItem, AnalyticsData } from '../types';
@@ -8,6 +8,11 @@ export function useAnalytics(staticEvents: Event[]) {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [prepByEventState, setPrepByEventState] = useState<Record<string, PreparationItem[]>>({});
+
+  const eventIds = useMemo(
+    () => staticEvents.map(e => e.id).join(','),
+    [staticEvents],
+  );
 
   useEffect(() => {
     if (staticEvents.length === 0) {
@@ -58,7 +63,7 @@ export function useAnalytics(staticEvents: Event[]) {
     });
 
     return () => unsubs.forEach(u => u());
-  }, [staticEvents.map(e => e.id).join(',')]);
+  }, [eventIds]);
 
   const prepProgress: Record<string, { prepared: number; total: number }> = {};
   Object.entries(prepByEventState).forEach(([id, items]) => {
