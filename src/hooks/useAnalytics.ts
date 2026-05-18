@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collectionGroup, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Event, PreparationItem, AnalyticsData } from '../types';
 import { calculateAnalyticsData } from '../lib/analytics';
@@ -22,47 +22,29 @@ export function useAnalytics(staticEvents: Event[]) {
       return;
     }
 
-    // Listen to all prep item sub-collections by fetching per-event
-    // We use a simpler approach: snapshot the top-level prepItems collection
-    // which stores items as events/<id>/prepItems
-    const prepByEvent: Record<string, PreparationItem[]> = {};
-    let resolved = 0;
-    const total = staticEvents.length;
+    const eventIdSet = new Set(staticEvents.map(e => e.id));
 
-    if (total === 0) {
-      setData(calculateAnalyticsData(staticEvents, {}));
-      setLoading(false);
-      setPrepByEventState({});
-      return;
-    }
+    const unsub = onSnapshot(
+      collectionGroup(db, 'preparationItems'),
+      snap => {
+        const prepByEvent: Record<string, PreparationItem[]> = {};
+        snap.docs.forEach(d => {
+          const eventId = d.ref.parent.parent?.id;
+          if (!eventId || !eventIdSet.has(eventId)) return;
+          if (!prepByEvent[eventId]) prepByEvent[eventId] = [];
+          prepByEvent[eventId].push({ id: d.id, ...d.data() } as PreparationItem);
+        });
+        setData(calculateAnalyticsData(staticEvents, prepByEvent));
+        setPrepByEventState(prepByEvent);
+        setLoading(false);
+      },
+      () => {
+        setData(calculateAnalyticsData(staticEvents, {}));
+        setLoading(false);
+      }
+    );
 
-    const unsubs: (() => void)[] = [];
-
-    staticEvents.forEach(event => {
-      const unsub = onSnapshot(
-        collection(db, 'events', event.id, 'prepItems'),
-        snap => {
-          prepByEvent[event.id] = snap.docs.map(d => ({ id: d.id, ...d.data() } as PreparationItem));
-          resolved++;
-          if (resolved >= total) {
-            setData(calculateAnalyticsData(staticEvents, prepByEvent));
-            setPrepByEventState({ ...prepByEvent });
-            setLoading(false);
-          }
-        },
-        () => {
-          resolved++;
-          if (resolved >= total) {
-            setData(calculateAnalyticsData(staticEvents, prepByEvent));
-            setPrepByEventState({ ...prepByEvent });
-            setLoading(false);
-          }
-        }
-      );
-      unsubs.push(unsub);
-    });
-
-    return () => unsubs.forEach(u => u());
+    return () => unsub();
   }, [eventIds]);
 
   const prepProgress: Record<string, { prepared: number; total: number }> = {};
