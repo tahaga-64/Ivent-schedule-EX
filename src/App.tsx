@@ -18,6 +18,7 @@ import {
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
 import { registerFcmToken } from './lib/fcm';
+import { recordUserLogin, notifyEventUpdated } from './lib/notifications';
 
 // 安全なlocalStorage読み込み
 function safeGetItem<T>(key: string, fallback: T): T {
@@ -262,7 +263,12 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u ?? null);
-      if (u) registerFcmToken(u.uid);
+      if (u) {
+        registerFcmToken(u.uid);
+        recordUserLogin(u).catch(error => {
+          console.error('User profile upsert error:', error);
+        });
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -367,7 +373,7 @@ export default function App() {
   }, [allEvents, regionFilter, typeFilter, monthFilter, searchQuery]);
 
   const calendarDensityPreview =
-    process.env.NODE_ENV === "development" &&
+    import.meta.env.DEV &&
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("calPreview") === "density";
 
@@ -459,6 +465,11 @@ export default function App() {
         body: JSON.stringify({ title: '✏️ イベント更新', body: `${selected.venue} が更新されました` }),
       }).catch(console.error);
       setIsSaving(false);
+      if (canEditEvent && user) {
+        notifyEventUpdated(selected, user).catch(error => {
+          console.error('Notification fanout error:', error);
+        });
+      }
       return true;
     } catch (error) {
       console.error('Firestore save error:', error);
@@ -1104,7 +1115,7 @@ export default function App() {
                 height: showPrepList ? '90vh' : undefined,
               }}
               exit={{ opacity: 0, y: 40 }}
-              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[520px] lg:max-w-[520px] max-h-[92vh] lg:max-h-[90vh]"
               style={showPrepList ? { width: '95vw', maxWidth: '1600px', height: '90vh' } : {}}
             >
@@ -1274,11 +1285,21 @@ export default function App() {
                           <input type="number" min={0} disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm disabled:bg-gray-50 disabled:text-gray-400" value={selected.grossProfit ?? ''} onChange={e => handleUpdateEvent(selected.id, { grossProfit: e.target.value ? Number(e.target.value) : undefined })} placeholder="粗利（円）" />
                         </div>
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">来場実績</p>
-                        <div className="grid grid-cols-3 gap-3">
-                          <input type="number" min={0} disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm disabled:bg-gray-50 disabled:text-gray-400" value={selected.attendance ?? ''} onChange={e => handleUpdateEvent(selected.id, { attendance: e.target.value ? Number(e.target.value) : undefined })} placeholder="来場数" />
-                          <input type="number" min={0} disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm disabled:bg-gray-50 disabled:text-gray-400" value={selected.seatedCount ?? ''} onChange={e => handleUpdateEvent(selected.id, { seatedCount: e.target.value ? Number(e.target.value) : undefined })} placeholder="着座数" />
-                          <input type="number" min={0} disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm disabled:bg-gray-50 disabled:text-gray-400" value={selected.contracts ?? ''} onChange={e => handleUpdateEvent(selected.id, { contracts: e.target.value ? Number(e.target.value) : undefined })} placeholder="成約数" />
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-gray-500">①イベント参加人数</label>
+                            <input type="number" min={0} inputMode="numeric" disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400" value={selected.attendance ?? ''} onChange={e => handleUpdateEvent(selected.id, { attendance: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 52" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-gray-500">②着座数</label>
+                            <input type="number" min={0} inputMode="numeric" disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400" value={selected.seatedCount ?? ''} onChange={e => handleUpdateEvent(selected.id, { seatedCount: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 28" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-gray-500">③成約数</label>
+                            <input type="number" min={0} inputMode="numeric" disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400" value={selected.contracts ?? ''} onChange={e => handleUpdateEvent(selected.id, { contracts: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 11" />
+                          </div>
                         </div>
+                        <p className="text-[10px] text-gray-400">何を書けばいいか迷う場合は、<span className="font-bold">実数（当日の最終集計）</span>をそのまま入力してください。</p>
                         <div className="flex items-center justify-between">
                           <p className="text-[11px] font-bold text-gray-500">分析レポート</p>
                           {!selected.analysisReport?.createdAt && (
@@ -2137,7 +2158,10 @@ function ListView({ data, onSelect, onHover, onHoverEnd, lastEditedId }: ListVie
                     <div className="text-[11px] text-slate-400 mt-0.5 font-medium">{d.client || "—"}</div>
                   </td>
                   <td className="px-6 py-4 align-middle text-right">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <span
+                      className="text-[10px] font-black uppercase tracking-widest text-slate-400"
+                      style={{ background: rs(d.region).bg }}
+                    >
                       {d.status || "SCHEDULED"}
                     </span>
                   </td>

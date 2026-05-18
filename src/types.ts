@@ -60,6 +60,16 @@ export interface EventPhoto {
   uploadedAt: string;
   caption?: string;
   thumbnailUrl?: string;
+  thumbnailStoragePath?: string;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  lastLoginAt: any;
+  createdAt?: any;
 }
 
 export interface Notification {
@@ -68,6 +78,10 @@ export interface Notification {
   title: string;
   message: string;
   eventId?: string;
+  recipientUid?: string;
+  actorUid?: string;
+  actorName?: string | null;
+  actorEmail?: string | null;
   userId?: string;
   read: boolean;
   createdAt: { toDate(): Date; toMillis(): number } | Date | null;

@@ -1,4 +1,5 @@
-import { supabase, PHOTO_BUCKET } from './supabase';
+import { EventPhoto } from '../types';
+import { SUPABASE_PHOTO_BUCKET, supabase } from './supabase';
 
 export const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 export const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
@@ -10,22 +11,85 @@ export function validateImageFile(file: File): string | null {
   return null;
 }
 
-export async function uploadToSupabase(
-  file: File,
-  storagePath: string,
-  onProgress?: (pct: number) => void,
-): Promise<string> {
-  onProgress?.(10);
-  const { error } = await supabase.storage
-    .from(PHOTO_BUCKET)
-    .upload(storagePath, file, { upsert: false, contentType: file.type });
-  if (error) throw new Error(error.message);
-  onProgress?.(90);
-  const { data } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(storagePath);
+async function resizeToWebpBlob(file: File, maxWidth: number, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const scale = Math.min(1, maxWidth / img.width);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        blob => {
+          canvas.width = 0;
+          canvas.height = 0;
+          if (!blob) { reject(new Error('圧縮に失敗しました')); return; }
+          resolve(blob);
+        },
+        'image/webp',
+        quality
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('画像の読み込みに失敗しました'));
+    };
+    img.src = objectUrl;
+  });
+}
+
+function getPublicUrl(path: string): string {
+  const { data } = supabase.storage.from(SUPABASE_PHOTO_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
 
-export async function deleteFromSupabase(storagePath: string): Promise<void> {
-  const { error } = await supabase.storage.from(PHOTO_BUCKET).remove([storagePath]);
-  if (error) throw new Error(error.message);
+function buildPhotoPath(eventId: string, photoId: string, fileName: string): string {
+  const safeEventId = eventId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `events/${safeEventId}/${photoId}/${fileName}`;
+}
+
+async function uploadBlob(path: string, blob: Blob): Promise<void> {
+  const { error } = await supabase.storage.from(SUPABASE_PHOTO_BUCKET).upload(path, blob, {
+    contentType: 'image/webp',
+    upsert: false,
+  });
+  if (error) throw error;
+}
+
+export async function uploadEventPhoto(eventId: string, file: File): Promise<EventPhoto> {
+  const photoId = crypto.randomUUID();
+  const storagePath = buildPhotoPath(eventId, photoId, 'photo.webp');
+  const thumbnailStoragePath = buildPhotoPath(eventId, photoId, 'thumb.webp');
+
+  const [photoBlob, thumbnailBlob] = await Promise.all([
+    resizeToWebpBlob(file, 800, 0.82),
+    resizeToWebpBlob(file, 200, 0.75),
+  ]);
+
+  await Promise.all([
+    uploadBlob(storagePath, photoBlob),
+    uploadBlob(thumbnailStoragePath, thumbnailBlob),
+  ]);
+
+  return {
+    id: photoId,
+    url: getPublicUrl(storagePath),
+    thumbnailUrl: getPublicUrl(thumbnailStoragePath),
+    storagePath,
+    thumbnailStoragePath,
+    uploadedAt: new Date().toISOString(),
+  };
+}
+
+export async function deleteStoredPhoto(photo: EventPhoto): Promise<void> {
+  const paths = [photo.storagePath, photo.thumbnailStoragePath].filter((path): path is string => Boolean(path));
+  if (paths.length === 0) return;
+
+  const { error } = await supabase.storage.from(SUPABASE_PHOTO_BUCKET).remove(paths);
+  if (error) throw error;
 }
