@@ -28,10 +28,25 @@ service cloud.firestore {
           && data.type is string;
     }
 
+    /** メイン編集者以外が events ドキュメントを触れるのは、これらのトップレベルキーの変更のみ（UI の全員記入欄と一致） */
+    function isCollaboratorOnlyEventFieldPatch() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'detailMemo',
+            'detailMemoAttribution',
+            'assigneeNote',
+            'assigneeNoteAttribution',
+            'note',
+            'analysisReport',
+            'client',
+          ]);
+    }
+
     match /events/{eventId} {
       allow read:  if isAuthenticated();
       allow create: if isEventEditor() && isValidEvent();
-      allow update: if isEventEditor();
+      allow update: if isEventEditor()
+          || (isAuthenticated() && isCollaboratorOnlyEventFieldPatch());
       allow delete: if isEventEditor();
 
       // 準備物: ログイン済みユーザー全員が編集可（canEditPreparationList と一致）
