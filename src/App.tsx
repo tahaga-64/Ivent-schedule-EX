@@ -219,7 +219,6 @@ export default function App() {
   const [sideOpen, setSideOpen] = useState(true);
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
   const [searchQuery, setSearchQuery] = useState("");
-  const [showPrepList, setShowPrepList] = useState(false);
   const [prepEvent, setPrepEvent] = useState<Event | null>(null);
   const [modalTab, setModalTab] = useState<'detail' | 'photos'>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
@@ -541,7 +540,6 @@ export default function App() {
 
     // モーダルを即座に閉じ、UIから楽観的に削除
     setSelected(null);
-    setShowPrepList(false);
     setHasUnsavedChanges(false);
     setValidationErrors([]);
     setModalTab('detail');
@@ -573,7 +571,6 @@ export default function App() {
       }
     }
     setSelected(null);
-    setShowPrepList(false);
     setHasUnsavedChanges(false);
     setValidationErrors([]);
     setModalTab('detail');
@@ -1040,19 +1037,33 @@ export default function App() {
                         <div className="text-center py-12 text-slate-400 text-sm">イベントがありません</div>
                       ) : (
                         <div className="flex flex-col gap-2">
-                          {[...allEvents].sort((a, b) => a.start.localeCompare(b.start)).map(ev => (
+                          {[...allEvents].sort((a, b) => a.start.localeCompare(b.start)).map(ev => {
+                            const prog = prepProgress[ev.id];
+                            const pct = prog && prog.total > 0 ? Math.round((prog.prepared / prog.total) * 100) : 0;
+                            return (
                             <button
                               key={ev.id}
                               onClick={() => setPrepEvent(ev)}
                               className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between"
                             >
-                              <div>
-                                <div className="font-bold text-slate-800 text-sm">{ev.venue}</div>
-                                <div className="text-xs text-slate-400 mt-0.5">{ev.start} → {ev.end}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
+                                  {prog && prog.total > 0 && (
+                                    <span className="text-xs font-black text-indigo-600 shrink-0 ml-2">{pct}%</span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
+                                {prog && prog.total > 0 && (
+                                  <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1">
+                                    <div className="bg-indigo-500 h-1 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                  </div>
+                                )}
                               </div>
-                              <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                              <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
                             </button>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -1152,24 +1163,11 @@ export default function App() {
             />
             <motion.div
               initial={{ opacity: 0, y: 40 }}
-              animate={{
-                opacity: 1,
-                y: 0,
-                width: showPrepList ? '95vw' : undefined,
-                height: showPrepList ? '90vh' : undefined,
-              }}
+              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 40 }}
               onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[520px] lg:max-w-[520px] max-h-[92vh] lg:max-h-[90vh]"
-              style={showPrepList ? { width: '95vw', maxWidth: '1600px', height: '90vh' } : {}}
             >
-              {showPrepList ? (
-                <PreparationList
-                  event={selected}
-                  onBack={() => setShowPrepList(false)}
-                  canEdit={canEditPreparationList}
-                />
-              ) : (
                 <div className="p-6 lg:p-8 overflow-y-auto overflow-x-hidden">
                   {/* Header: タグ + 閉じるボタン */}
                   <div className="flex justify-between items-center mb-5">
@@ -1432,7 +1430,7 @@ export default function App() {
                       </button>
                     )}
                     <button
-                      onClick={() => setShowPrepList(true)}
+                      onClick={() => { if (selected) { setPrepEvent(selected); setView('prep'); setSelected(null); } }}
                       className="flex-1 py-4 rounded-2xl bg-indigo-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20"
                     >
                       <ClipboardList size={18} />
@@ -1477,7 +1475,6 @@ export default function App() {
                   </AnimatePresence>
                   </>}
                 </div>
-              )}
             </motion.div>
           </div>
         )}
