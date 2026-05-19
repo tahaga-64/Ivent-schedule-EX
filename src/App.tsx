@@ -1369,16 +1369,6 @@ export default function App() {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">NOTES・備考</label>
-                      <textarea
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px] resize-none"
-                        value={selected.note}
-                        placeholder="メモ..."
-                        onChange={e => handleUpdateEvent(selected.id, { note: e.target.value })}
-                      />
-                    </div>
-
                     <details className="border border-gray-200 rounded-xl p-4 bg-gray-50/70">
                       <summary className="cursor-pointer text-xs font-bold text-gray-700">📊 イベント実績（開催後に入力）</summary>
                       <div className="mt-3 space-y-3">
