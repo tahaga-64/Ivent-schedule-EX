@@ -71,10 +71,15 @@ export async function uploadEventPhoto(eventId: string, file: File): Promise<Eve
     resizeToWebpBlob(file, 400, 0.75),
   ]);
 
-  await Promise.all([
-    uploadBlob(storagePath, photoBlob),
-    uploadBlob(thumbnailStoragePath, thumbnailBlob),
-  ]);
+  try {
+    await Promise.all([
+      uploadBlob(storagePath, photoBlob),
+      uploadBlob(thumbnailStoragePath, thumbnailBlob),
+    ]);
+  } catch (uploadError) {
+    supabase.storage.from(SUPABASE_PHOTO_BUCKET).remove([storagePath, thumbnailStoragePath]).catch(() => {});
+    throw uploadError;
+  }
 
   return {
     id: photoId,
