@@ -413,14 +413,27 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                       />
                     </td>
                     <td className="p-0 border-r border-gray-100">
-                      <input
-                        type="text"
-                        readOnly={!canEdit}
-                        value={item.url || ''}
-                        onChange={e => updateItem(item.id, { url: e.target.value })}
-                        placeholder="https://..."
-                        className="w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm text-indigo-500 read-only:cursor-default"
-                      />
+                      {canEdit ? (
+                        <input
+                          type="text"
+                          value={item.url || ''}
+                          onChange={e => updateItem(item.id, { url: e.target.value })}
+                          placeholder="https://..."
+                          className="w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm text-indigo-500"
+                        />
+                      ) : item.url ? (
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-4 py-2.5 text-sm text-indigo-500 hover:text-indigo-700 underline underline-offset-2 break-all"
+                        >
+                          {item.url}
+                          <ExternalLink size={12} className="shrink-0 opacity-60" />
+                        </a>
+                      ) : (
+                        <span className="px-4 py-2.5 block text-sm text-gray-300">—</span>
+                      )}
                     </td>
                     <td className="px-2 py-2.5 text-center">
                       <button
