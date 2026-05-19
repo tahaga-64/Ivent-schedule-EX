@@ -1369,16 +1369,6 @@ export default function App() {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">NOTES・備考</label>
-                      <textarea
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px] resize-none"
-                        value={selected.note}
-                        placeholder="メモ..."
-                        onChange={e => handleUpdateEvent(selected.id, { note: e.target.value })}
-                      />
-                    </div>
-
                   </div>
 
                   {/* 統計パネル */}
