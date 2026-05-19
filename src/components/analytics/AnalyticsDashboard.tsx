@@ -318,34 +318,6 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
         </motion.div>
       </div>
 
-      {/* Row 6: Recent analysis reports */}
-      {data.recentAnalysisReports.length > 0 && (
-        <motion.div initial={{opacity:0,y:20}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{delay:0.5}} className="bg-white rounded-2xl border border-slate-100 p-6">
-          <SectionHeader title="分析レポート" sub="最近のイベント振り返り" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {data.recentAnalysisReports.map(r => (
-              <div key={r.eventId} className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 hover:bg-white transition-colors">
-                <div className="font-black text-sm text-slate-800 truncate mb-0.5">{r.venue}</div>
-                <div className="text-[10px] font-bold text-slate-400 mb-3">{r.start}</div>
-                {r.analysisReport.title && <div className="text-xs font-bold text-indigo-600 mb-2 truncate">{r.analysisReport.title}</div>}
-                {r.analysisReport.goodPoints && (
-                  <div className="mb-2 pl-2 border-l-2 border-emerald-400">
-                    <div className="text-[10px] font-black text-emerald-600 mb-0.5">良かった点</div>
-                    <p className="text-xs text-slate-600 line-clamp-2">{r.analysisReport.goodPoints}</p>
-                  </div>
-                )}
-                {r.analysisReport.improvements && (
-                  <div className="pl-2 border-l-2 border-amber-400">
-                    <div className="text-[10px] font-black text-amber-600 mb-0.5">改善点</div>
-                    <p className="text-xs text-slate-600 line-clamp-2">{r.analysisReport.improvements}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
       {/* Row 7: Client table */}
       {data.clientStats.length > 0 && (
         <motion.div

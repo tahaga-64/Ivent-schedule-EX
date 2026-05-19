@@ -58,32 +58,25 @@ async function run() {
 
   const supabase = createClient(url, key);
 
-  // ── STEP 1: バケット存在確認 ──────────────────────────────
-  console.log('📦 STEP 1: バケット存在確認...');
-  const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-  if (bucketsError) {
-    console.error('❌ バケット一覧取得失敗:', bucketsError.message);
-    process.exit(1);
-  }
-  const found = buckets?.find(b => b.name === bucket);
-  if (!found) {
-    console.error(`❌ バケット "${bucket}" が存在しません。`);
-    console.error('   Supabase Dashboard → Storage → New bucket で作成してください。');
-    process.exit(1);
-  }
-  console.log(`   ✅ バケット "${bucket}" 確認済み (public: ${found.public})\n`);
-
-  // ── STEP 2: テスト画像アップロード ───────────────────────
+  // ── STEP 1: テスト画像アップロード（バケット疎通も兼ねる）──
   const testPath = `test/integration-test-${Date.now()}.png`;
   const pngBuffer = make1x1PngBuffer();
 
-  console.log('📤 STEP 2: テスト画像アップロード...');
+  console.log('📤 STEP 1: テスト画像アップロード...');
   const { error: uploadError } = await supabase.storage
     .from(bucket)
     .upload(testPath, pngBuffer, { contentType: 'image/png', upsert: false });
 
   if (uploadError) {
-    console.error('❌ アップロード失敗:', uploadError.message);
+    if (uploadError.message.includes('Bucket not found') || uploadError.message.includes('bucket')) {
+      console.error(`❌ バケット "${bucket}" が存在しません。`);
+      console.error('   Supabase Dashboard → Storage → New bucket で作成してください。');
+    } else if (uploadError.message.includes('policy') || uploadError.message.includes('permission') || uploadError.message.includes('Unauthorized')) {
+      console.error('❌ アップロード権限エラー:', uploadError.message);
+      console.error('   Supabase Dashboard → Storage → Policies でアップロードポリシーを確認してください。');
+    } else {
+      console.error('❌ アップロード失敗:', uploadError.message);
+    }
     process.exit(1);
   }
   console.log(`   ✅ アップロード成功: ${testPath}\n`);

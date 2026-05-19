@@ -140,5 +140,4 @@ export interface AnalyticsData {
   totalContracts: number;
   avgCarrierSwitchRate: number;
   carrierInflowTotal: CarrierInflow;
-  recentAnalysisReports: { eventId: string; venue: string; start: string; analysisReport: AnalysisReport }[];
 }

@@ -4,7 +4,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS } from './constants';
 import { Event, PreparationItem, type FieldAuthorAttribution } from './types';
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera, Trash2 } from 'lucide-react';
+import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera, Trash2, Archive } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import PreparationList from './components/PreparationList';
@@ -190,9 +190,9 @@ function buildCalendarDensityPreviewEvents(
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
-  const [view, setView] = useState<"calendar" | "analytics" | "prep">(() => {
+  const [view, setView] = useState<"calendar" | "analytics" | "prep" | "archive">(() => {
     const saved = localStorage.getItem('viewMode');
-    return (saved === 'calendar' || saved === 'analytics' || saved === 'prep') ? saved : 'calendar';
+    return (saved === 'calendar' || saved === 'analytics' || saved === 'prep' || saved === 'archive') ? saved : 'calendar';
   });
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
@@ -564,7 +564,7 @@ export default function App() {
 
   // 種別削除：該当種別を持つイベントのtypeをFirestoreから一括クリア
   const handleDeleteType = async (label: string) => {
-    const affected = events.filter(e => e.type === label);
+    const affected = allEvents.filter(e => e.type === label);
     const msg = affected.length > 0
       ? `「${label}」を削除します。\nこの種別が設定されている ${affected.length} 件のイベントから種別をクリアします。\n続行しますか？`
       : `「${label}」を削除しますか？`;
@@ -678,7 +678,7 @@ export default function App() {
           </div>
           <div className="sm:hidden flex flex-col">
             <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{calYear}年{calMonth}月</div>
-            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'calendar' ? 'カレンダー' : view === 'analytics' ? '分析' : view === 'prep' ? '準備物リスト' : ''}</div>
+            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'calendar' ? 'カレンダー' : view === 'analytics' ? '分析' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : ''}</div>
           </div>
         </div>
 
@@ -704,6 +704,7 @@ export default function App() {
               { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
               { id: "analytics", icon: <BarChart2 size={14} />, label: "分析" },
               { id: "prep", icon: <ClipboardList size={14} />, label: "準備物" },
+              { id: "archive", icon: <Archive size={14} />, label: "アーカイブ" },
             ].map(v => (
               <button
                 key={v.id}
@@ -1057,59 +1058,109 @@ export default function App() {
                   </div>
                 </>
               )}
-              {view === "prep" && (
-                prepEvent ? (
-                  <PreparationList
-                    event={prepEvent}
-                    onBack={() => setPrepEvent(null)}
-                    canEdit={canEditPreparationList}
-                  />
-                ) : (
+              {(view === "prep" || view === "archive") && prepEvent ? (
+                <PreparationList
+                  event={prepEvent}
+                  onBack={() => setPrepEvent(null)}
+                  canEdit={canEditPreparationList}
+                />
+              ) : view === "prep" ? (() => {
+                const today = new Date().toISOString().slice(0, 10);
+                const activeEvents = [...allEvents]
+                  .filter(ev => ev.end >= today)
+                  .sort((a, b) => a.start.localeCompare(b.start));
+                return (
                   <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
                     <div className="px-4 py-4">
                       <h2 className="text-base font-black text-slate-800 mb-3">準備物リスト</h2>
-                      {allEvents.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400 text-sm">イベントがありません</div>
+                      {activeEvents.length === 0 ? (
+                        <div className="text-center py-12 text-slate-400 text-sm">進行中のイベントがありません</div>
                       ) : (
                         <div className="flex flex-col gap-2">
-                          {[...allEvents].sort((a, b) => a.start.localeCompare(b.start)).map(ev => {
+                          {activeEvents.map(ev => {
                             const prog = prepProgress[ev.id];
                             const pct = prog && prog.total > 0 ? Math.round((prog.prepared / prog.total) * 100) : 0;
                             return (
-                            <button
-                              key={ev.id}
-                              onClick={() => setPrepEvent(ev)}
-                              className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-0.5">
-                                  <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
+                              <button
+                                key={ev.id}
+                                onClick={() => setPrepEvent(ev)}
+                                className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-0.5">
+                                    <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
+                                    {prog && prog.total > 0 && (
+                                      <span className="text-xs font-black text-indigo-600 shrink-0 ml-2">{pct}%</span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
                                   {prog && prog.total > 0 && (
-                                    <span className="text-xs font-black text-indigo-600 shrink-0 ml-2">{pct}%</span>
+                                    <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1">
+                                      <div className="bg-indigo-500 h-1 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                    </div>
                                   )}
                                 </div>
-                                <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
-                                {prog && prog.total > 0 && (
-                                  <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1">
-                                    <div className="bg-indigo-500 h-1 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                                  </div>
-                                )}
-                              </div>
-                              <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
-                            </button>
+                                <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
+                              </button>
                             );
                           })}
                         </div>
                       )}
                     </div>
                   </div>
-                )
-              )}
+                );
+              })() : view === "archive" ? (() => {
+                const today = new Date().toISOString().slice(0, 10);
+                const archivedEvents = [...allEvents]
+                  .filter(ev => ev.end < today)
+                  .sort((a, b) => b.end.localeCompare(a.end));
+                return (
+                  <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
+                    <div className="px-4 py-4">
+                      <h2 className="text-base font-black text-slate-800 mb-1">アーカイブ</h2>
+                      <p className="text-xs text-slate-400 mb-3">終了したイベントの準備物を確認できます</p>
+                      {archivedEvents.length === 0 ? (
+                        <div className="text-center py-12 text-slate-400 text-sm">アーカイブされたイベントがありません</div>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          {archivedEvents.map(ev => {
+                            const prog = prepProgress[ev.id];
+                            const pct = prog && prog.total > 0 ? Math.round((prog.prepared / prog.total) * 100) : 0;
+                            return (
+                              <button
+                                key={ev.id}
+                                onClick={() => setPrepEvent(ev)}
+                                className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between opacity-75"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-0.5">
+                                    <div className="font-bold text-slate-600 text-sm truncate">{ev.venue}</div>
+                                    {prog && prog.total > 0 && (
+                                      <span className={`text-xs font-black shrink-0 ml-2 ${pct === 100 ? 'text-emerald-600' : 'text-slate-400'}`}>{pct}%</span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
+                                  {prog && prog.total > 0 && (
+                                    <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1">
+                                      <div className={`h-1 rounded-full transition-all ${pct === 100 ? 'bg-emerald-400' : 'bg-slate-300'}`} style={{ width: `${pct}%` }} />
+                                    </div>
+                                  )}
+                                </div>
+                                <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })() : null}
               {view === "analytics" && analyticsData && (
                 <AnalyticsDashboard data={analyticsData} loading={analyticsLoading} events={allEvents} />
               )}
               {view === "analytics" && !analyticsData && analyticsLoading && (
-                <AnalyticsDashboard data={{ totalEvents: 0, completedEvents: 0, totalBudget: 0, avgBudget: 0, completionRate: 0, onTimeRate: 0, avgPreparationDays: 0, activeRegions: 0, topVenues: [], topRegion: '', busiestMonth: '', monthlyTrends: [], regionStats: [], typeStats: [], clientStats: [], totalSales: 0, totalGrossProfit: 0, totalAttendance: 0, totalSeatedCount: 0, totalContracts: 0, avgCarrierSwitchRate: 0, carrierInflowTotal: { docomo: 0, au: 0, softbank: 0, rakuten: 0, other: 0 }, recentAnalysisReports: [] }} loading={true} />
+                <AnalyticsDashboard data={{ totalEvents: 0, completedEvents: 0, totalBudget: 0, avgBudget: 0, completionRate: 0, onTimeRate: 0, avgPreparationDays: 0, activeRegions: 0, topVenues: [], topRegion: '', busiestMonth: '', monthlyTrends: [], regionStats: [], typeStats: [], clientStats: [], totalSales: 0, totalGrossProfit: 0, totalAttendance: 0, totalSeatedCount: 0, totalContracts: 0, avgCarrierSwitchRate: 0, carrierInflowTotal: { docomo: 0, au: 0, softbank: 0, rakuten: 0, other: 0 } }} loading={true} />
               )}
             </motion.div>
           </AnimatePresence>
@@ -1388,96 +1439,6 @@ export default function App() {
                         <p className="mt-1.5 text-[11px] text-amber-700/90">ログインすると担当者欄を記入・保存できます。</p>
                       )}
                     </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">NOTES・備考</label>
-                      <textarea
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px] resize-none"
-                        value={selected.note}
-                        placeholder="メモ..."
-                        onChange={e => handleUpdateEvent(selected.id, { note: e.target.value })}
-                      />
-                    </div>
-
-                    <details className="border border-gray-200 rounded-xl p-4 bg-gray-50/70">
-                      <summary className="cursor-pointer text-xs font-bold text-gray-700">📊 イベント実績（開催後に入力）</summary>
-                      <div className="mt-3 space-y-3">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">売上 · 粗利</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <input type="number" min={0} disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm disabled:bg-gray-50 disabled:text-gray-400" value={selected.sales ?? ''} onChange={e => handleUpdateEvent(selected.id, { sales: e.target.value ? Number(e.target.value) : undefined })} placeholder="売上（円）" />
-                          <input type="number" min={0} disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm disabled:bg-gray-50 disabled:text-gray-400" value={selected.grossProfit ?? ''} onChange={e => handleUpdateEvent(selected.id, { grossProfit: e.target.value ? Number(e.target.value) : undefined })} placeholder="粗利（円）" />
-                        </div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">来場実績</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div className="space-y-1">
-                            <label className="block text-[10px] font-bold text-gray-500">①イベント参加人数</label>
-                            <input type="number" min={0} inputMode="numeric" disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400" value={selected.attendance ?? ''} onChange={e => handleUpdateEvent(selected.id, { attendance: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 52" />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="block text-[10px] font-bold text-gray-500">②着座数</label>
-                            <input type="number" min={0} inputMode="numeric" disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400" value={selected.seatedCount ?? ''} onChange={e => handleUpdateEvent(selected.id, { seatedCount: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 28" />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="block text-[10px] font-bold text-gray-500">③成約数</label>
-                            <input type="number" min={0} inputMode="numeric" disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400" value={selected.contracts ?? ''} onChange={e => handleUpdateEvent(selected.id, { contracts: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 11" />
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-gray-400">何を書けばいいか迷う場合は、<span className="font-bold">実数（当日の最終集計）</span>をそのまま入力してください。</p>
-                        <div className="flex items-center justify-between">
-                          <p className="text-[11px] font-bold text-gray-500">分析レポート</p>
-                          {!selected.analysisReport?.createdAt && (
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateEvent(selected.id, {
-                                analysisReport: {
-                                  createdAt: new Date().toISOString(),
-                                  title: `${selected.venue} 分析レポート`,
-                                },
-                              })}
-                              className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-700 transition-colors"
-                            >
-                              新規作成
-                            </button>
-                          )}
-                        </div>
-                        {selected.analysisReport?.createdAt ? (
-                          <div className="space-y-2">
-                            <input
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm placeholder:text-gray-400"
-                              value={selected.analysisReport.title || ''}
-                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString() }), title: e.target.value } })}
-                              placeholder="このレポートのタイトル（例: 会場名 分析レポート）"
-                            />
-                            <textarea
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
-                              value={selected.analysisReport.summary || ''}
-                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), summary: e.target.value } })}
-                              placeholder="例: 来場者52名、成約11件。DJI体験の反応が特に良好だった"
-                            />
-                            <textarea
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
-                              value={selected.analysisReport.goodPoints || ''}
-                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), goodPoints: e.target.value } })}
-                              placeholder="例: スタッフの動線改善で受付待ちが減少 / 天候に恵まれ集客が目標超え"
-                            />
-                            <textarea
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
-                              value={selected.analysisReport.improvements || ''}
-                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), improvements: e.target.value } })}
-                              placeholder="例: パンフ在庫不足→次回200部増刷 / BGM音量の事前調整が必要"
-                            />
-                            <textarea
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
-                              value={selected.analysisReport.nextActions || ''}
-                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), nextActions: e.target.value } })}
-                              placeholder="例: 好評コーナーのスペース拡張 / SNS告知を1週間前から開始する"
-                            />
-                          </div>
-                        ) : (
-                          <p className="text-[11px] text-gray-400">「新規作成」で分析レポートを追加できます。</p>
-                        )}
-                      </div>
-                    </details>
                   </div>
 
                   {/* 統計パネル */}
@@ -1569,13 +1530,13 @@ export default function App() {
       {/* Mobile Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around pb-safe z-20 lg:hidden">
         {[
-          { id: "calendar",  icon: <Calendar size={22} />,    label: "カレンダー" },
-          { id: "analytics", icon: <BarChart2 size={22} />,   label: "分析" },
-          { id: "prep",      icon: <ClipboardList size={22} />, label: "準備物" },
+          { id: "calendar", icon: <Calendar size={22} />,     label: "カレンダー" },
+          { id: "prep",     icon: <ClipboardList size={22} />, label: "準備物" },
+          { id: "archive",  icon: <Archive size={22} />,       label: "アーカイブ" },
         ].map(tab => (
           <button
             key={tab.id}
-            onClick={() => { if (tab.id !== 'prep') setPrepEvent(null); setView(tab.id as any); }}
+            onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); setView(tab.id as any); }}
             className={`flex flex-col items-center gap-0.5 px-4 py-3 text-[10px] font-bold transition-colors ${
               view === tab.id ? "text-indigo-600" : "text-slate-400"
             }`}
