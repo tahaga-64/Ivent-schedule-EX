@@ -52,12 +52,13 @@ export default function LoginScreen() {
       >
         {/* MERCURY logo */}
         <motion.div variants={item} className="mb-7">
-          <img
-            src="/mercury-logo.svg"
-            alt="MERCURY"
-            className="w-40 mx-auto drop-shadow-sm"
-            style={{ filter: 'brightness(0) invert(1)' }}
-          />
+          <div className="bg-white rounded-2xl px-6 py-4 w-48 mx-auto shadow-lg">
+            <img
+              src="/mercury-logo.png"
+              alt="MERCURY"
+              className="w-full"
+            />
+          </div>
         </motion.div>
 
         {/* Title */}
