@@ -3,7 +3,7 @@ import { db, auth, loginWithGoogle } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS } from './constants';
-import { Event, PreparationItem } from './types';
+import { Event, PreparationItem, type FieldAuthorAttribution } from './types';
 import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera, Trash2, Archive } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
@@ -55,6 +55,31 @@ function validateEvent(event: Partial<Event>): ValidationError[] {
   }
   
   return errors;
+}
+
+function buildFieldAttribution(user: User | null): FieldAuthorAttribution | undefined {
+  if (!user) return undefined;
+  return {
+    updatedByUid: user.uid,
+    updatedByEmail: user.email ?? null,
+    updatedByName: user.displayName ?? null,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function formatAttributionLine(meta: FieldAuthorAttribution | undefined): string | null {
+  if (!meta?.updatedAt) return null;
+  const date = new Date(meta.updatedAt);
+  const dateStr = Number.isNaN(date.getTime())
+    ? meta.updatedAt
+    : date.toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' });
+  const name = meta.updatedByName?.trim();
+  const email = meta.updatedByEmail?.trim();
+  if (name && email) return `最終記入: ${name}（${email}）・${dateStr}`;
+  if (email) return `最終記入: ${email}・${dateStr}`;
+  if (name) return `最終記入: ${name}・${dateStr}`;
+  if (meta.updatedByUid) return `最終記入: UID ${meta.updatedByUid.slice(0, 8)}…・${dateStr}`;
+  return `最終記入: ${dateStr}`;
 }
 
 /* ═══════════════════════════════════════
@@ -1369,6 +1394,51 @@ export default function App() {
                       />
                     </div>
 
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">メモ</label>
+                      <textarea
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[88px] resize-none read-only:bg-gray-50 read-only:text-gray-500"
+                        value={selected.detailMemo ?? ''}
+                        placeholder="例：搬入は西口ローリング床／15:00までに主電源・Wi-Fi確認"
+                        readOnly={!user}
+                        onChange={e => {
+                          const detailMemo = e.target.value;
+                          handleUpdateEvent(selected.id, {
+                            detailMemo,
+                            detailMemoAttribution: buildFieldAttribution(user) ?? selected.detailMemoAttribution,
+                          });
+                        }}
+                      />
+                      {formatAttributionLine(selected.detailMemoAttribution) ? (
+                        <p className="mt-1.5 text-[11px] text-gray-500">{formatAttributionLine(selected.detailMemoAttribution)}</p>
+                      ) : null}
+                      {!user && (
+                        <p className="mt-1.5 text-[11px] text-amber-700/90">ログインするとメモを記入・保存できます。</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">担当者</label>
+                      <textarea
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[72px] resize-none read-only:bg-gray-50 read-only:text-gray-500"
+                        value={selected.assigneeNote ?? ''}
+                        placeholder="例：当日責任 山田／設営サポート 佐藤・伊藤／受付 外部スタッフ"
+                        readOnly={!user}
+                        onChange={e => {
+                          const assigneeNote = e.target.value;
+                          handleUpdateEvent(selected.id, {
+                            assigneeNote,
+                            assigneeNoteAttribution: buildFieldAttribution(user) ?? selected.assigneeNoteAttribution,
+                          });
+                        }}
+                      />
+                      {formatAttributionLine(selected.assigneeNoteAttribution) ? (
+                        <p className="mt-1.5 text-[11px] text-gray-500">{formatAttributionLine(selected.assigneeNoteAttribution)}</p>
+                      ) : null}
+                      {!user && (
+                        <p className="mt-1.5 text-[11px] text-amber-700/90">ログインすると担当者欄を記入・保存できます。</p>
+                      )}
+                    </div>
                   </div>
 
                   {/* 統計パネル */}
