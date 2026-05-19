@@ -137,7 +137,10 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
   const totals = useMemo(() => {
     const subtotal = items.reduce((s, i) => s + (i.amount || 0), 0);
     const shipping = items.reduce((s, i) => s + (i.shippingFee || 0), 0);
-    return { subtotal, shipping, total: subtotal + shipping, prepared: items.filter(i => i.prepared).length };
+    const arrived = items.filter(i => i.arrived).length;
+    const prepared = items.filter(i => i.prepared).length;
+    const done = items.filter(i => i.arrived || i.prepared).length;
+    return { subtotal, shipping, total: subtotal + shipping, arrived, prepared, done };
   }, [items]);
 
 
@@ -414,13 +417,20 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                     </td>
                     <td className="p-0 border-r border-gray-100">
                       {canEdit ? (
-                        <input
-                          type="text"
-                          value={item.url || ''}
-                          onChange={e => updateItem(item.id, { url: e.target.value })}
-                          placeholder="https://..."
-                          className="w-full px-4 py-2.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm text-indigo-500"
-                        />
+                        <div className="flex items-center gap-1 px-2 py-1">
+                          <input
+                            type="text"
+                            value={item.url || ''}
+                            onChange={e => updateItem(item.id, { url: e.target.value })}
+                            placeholder="https://..."
+                            className="flex-1 px-2 py-1.5 bg-transparent outline-none focus:bg-indigo-50/30 text-sm text-indigo-500 min-w-0"
+                          />
+                          {item.url && (
+                            <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-indigo-400 hover:text-indigo-600 p-1">
+                              <ExternalLink size={13} />
+                            </a>
+                          )}
+                        </div>
                       ) : item.url ? (
                         <a
                           href={item.url}
@@ -436,20 +446,15 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                       )}
                     </td>
                     <td className="px-2 py-2.5 text-center">
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.id)}
-                        disabled={items.length <= 1 || !canEdit}
-                        className={`p-1 text-gray-200 transition-colors ${
-                          items.length <= 1
-                            ? 'opacity-0 pointer-events-none'
-                            : !canEdit
-                              ? 'opacity-30 cursor-not-allowed'
-                              : 'hover:text-red-400'
-                        }`}
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      {canEdit && items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeItem(item.id)}
+                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -498,17 +503,23 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
           <div className="flex items-center justify-between mb-2">
             <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">PROGRESS · 進捗</div>
             <div className="text-xs font-black text-indigo-600">
-              {items.length > 0 ? Math.round((totals.prepared / items.length) * 100) : 0}%
+              {items.length > 0 ? Math.round((totals.done / items.length) * 100) : 0}%
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1.5">
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: `${items.length > 0 ? (totals.prepared / items.length) * 100 : 0}%` }}
+              animate={{ width: `${items.length > 0 ? (totals.done / items.length) * 100 : 0}%` }}
               className="bg-indigo-600 h-1.5 rounded-full"
             />
           </div>
-          <div className="text-[10px] text-gray-400 font-bold">{totals.prepared} / {items.length} done</div>
+          <div className="flex gap-2 text-[10px] font-bold text-gray-400">
+            <span>到着 {totals.arrived}</span>
+            <span className="text-gray-300">·</span>
+            <span>準備 {totals.prepared}</span>
+            <span className="text-gray-300">·</span>
+            <span>{items.length} 件</span>
+          </div>
         </div>
       </div>
       </div>
