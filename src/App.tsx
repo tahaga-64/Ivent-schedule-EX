@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import { db, auth, loginWithGoogle } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS } from './constants';
 import { Event, PreparationItem, type FieldAuthorAttribution } from './types';
 import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera, Trash2 } from 'lucide-react';
@@ -562,6 +562,42 @@ export default function App() {
     }
   };
 
+  // 種別削除：該当種別を持つイベントのtypeをFirestoreから一括クリア
+  const handleDeleteType = async (label: string) => {
+    const affected = events.filter(e => e.type === label);
+    const msg = affected.length > 0
+      ? `「${label}」を削除します。\nこの種別が設定されている ${affected.length} 件のイベントから種別をクリアします。\n続行しますか？`
+      : `「${label}」を削除しますか？`;
+    if (!window.confirm(msg)) return;
+
+    if (affected.length > 0) {
+      const batch = writeBatch(db);
+      for (const ev of affected) {
+        batch.set(doc(db, 'events', ev.id), { type: '' }, { merge: true });
+      }
+      try {
+        await batch.commit();
+        setDbEvents(prev => {
+          const next = { ...prev };
+          for (const ev of affected) {
+            next[ev.id] = { ...(next[ev.id] ?? ev), type: '' };
+          }
+          return next;
+        });
+        if (selected?.type === label) {
+          setSelected(prev => prev ? { ...prev, type: '' } : prev);
+        }
+      } catch (error) {
+        console.error('Type cascade delete error:', error);
+        alert('種別削除中にエラーが発生しました。もう一度お試しください。');
+        return;
+      }
+    }
+
+    setSidebarTypes(prev => prev.filter(t => t.label !== label));
+    if (typeFilter === label) setTypeFilter('すべて');
+  };
+
   // モーダルを閉じる（未保存の変更がある場合は確認）
   const handleCloseModal = useCallback(() => {
     if (hasUnsavedChanges) {
@@ -832,8 +868,7 @@ export default function App() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSidebarTypes(prev => prev.filter(t => t.label !== type.label));
-                          if (typeFilter === type.label) setTypeFilter('すべて');
+                          handleDeleteType(type.label);
                         }}
                         className="absolute right-1 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
                         aria-label={`${type.label}を削除`}

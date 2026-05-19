@@ -1,26 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 230 162">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 210">
+  <!-- M stroke: left leg → valley → right leg, thick rounded -->
   <path
-    d="M 20 115
-       C 18 74 26 18 58 15
-       C 82 13 92 68 92 76
-       C 92 84 102 18 130 16
-       C 154 14 156 62 156 80
-       L 156 114"
+    d="M 30 155
+       C 26 105, 38 18, 78 16
+       C 106 14, 118 76, 126 96
+       C 134 116, 148 30, 178 18
+       C 202 10, 222 76, 226 155"
     fill="none"
-    stroke="#1e3c7e"
-    stroke-width="17"
+    stroke="#1e3a7a"
+    stroke-width="26"
     stroke-linecap="round"
     stroke-linejoin="round"
   />
-  <circle cx="177" cy="13" r="14" fill="#1e3c7e"/>
+  <!-- dot above right peak -->
+  <circle cx="254" cy="20" r="18" fill="#1e3a7a"/>
+  <!-- MERCURY text -->
   <text
-    x="115"
-    y="150"
+    x="148"
+    y="200"
     text-anchor="middle"
-    font-family="Arial, Helvetica Neue, sans-serif"
+    font-family="'Arial Black', 'Helvetica Neue', Arial, sans-serif"
     font-weight="900"
-    font-size="21"
+    font-size="24"
     letter-spacing="6"
-    fill="#1e3c7e"
+    fill="#1e3a7a"
   >MERCURY</text>
 </svg>
