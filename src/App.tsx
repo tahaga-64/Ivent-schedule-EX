@@ -7,6 +7,7 @@ import { Event, PreparationItem, type FieldAuthorAttribution } from './types';
 import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera, Trash2, Archive } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
+import ProfileSetupScreen from './components/ProfileSetupScreen';
 import PreparationList from './components/PreparationList';
 import NotificationCenter from './components/notifications/NotificationCenter';
 import AnalyticsDashboard from './components/analytics/AnalyticsDashboard';
@@ -190,6 +191,7 @@ function buildCalendarDensityPreviewEvents(
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
+  const [needsNameSetup, setNeedsNameSetup] = useState(false);
   const [view, setView] = useState<"calendar" | "analytics" | "prep" | "archive">(() => {
     const saved = localStorage.getItem('viewMode');
     return (saved === 'calendar' || saved === 'analytics' || saved === 'prep' || saved === 'archive') ? saved : 'calendar';
@@ -260,10 +262,17 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u ?? null);
       if (u) {
-        registerFcmToken(u.uid);
-        recordUserLogin(u).catch(error => {
-          console.error('User profile upsert error:', error);
-        });
+        if (!u.displayName?.trim()) {
+          setNeedsNameSetup(true);
+        } else {
+          setNeedsNameSetup(false);
+          registerFcmToken(u.uid);
+          recordUserLogin(u).catch(error => {
+            console.error('User profile upsert error:', error);
+          });
+        }
+      } else {
+        setNeedsNameSetup(false);
       }
     });
     return () => unsubscribe();
@@ -661,6 +670,18 @@ export default function App() {
     </div>
   );
   if (!user) return <LoginScreen />;
+  if (needsNameSetup) return (
+    <ProfileSetupScreen
+      user={user}
+      onComplete={() => {
+        setNeedsNameSetup(false);
+        registerFcmToken(user.uid);
+        recordUserLogin(user).catch(error => {
+          console.error('User profile upsert error:', error);
+        });
+      }}
+    />
+  );
 
   return (
     <div className="flex flex-col min-h-screen transition-colors duration-300">
