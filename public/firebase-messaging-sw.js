@@ -1,5 +1,6 @@
-importScripts('https://www.gstatic.com/firebasejs/10.0.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.0.0/firebase-messaging-compat.js');
+// クライアントの firebase パッケージとメジャーを揃える（互換性のため）
+importScripts('https://www.gstatic.com/firebasejs/12.13.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/12.13.0/firebase-messaging-compat.js');
 
 firebase.initializeApp({
   apiKey: "AIzaSyB6KpVGCcKyPb5Sb6jCdM0YILQdw_TZ6z0",
@@ -9,9 +10,11 @@ firebase.initializeApp({
 });
 
 const messaging = firebase.messaging();
-messaging.onBackgroundMessage(payload => {
-  self.registration.showNotification(payload.notification.title, {
-    body: payload.notification.body,
+messaging.onBackgroundMessage((payload) => {
+  const title = payload.notification?.title ?? '通知';
+  const body = payload.notification?.body ?? '';
+  self.registration.showNotification(title, {
+    body,
     icon: '/icon.png',
   });
 });

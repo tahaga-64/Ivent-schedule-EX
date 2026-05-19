@@ -581,6 +581,11 @@ export default function App() {
 
       // イベント本体を削除
       await deleteDoc(doc(db, 'events', eventId));
+      fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '🗑️ イベント削除', body: `「${deletedVenue}」が削除されました` }),
+      }).catch(console.error);
       if (user) notifyEventDeleted(deletedVenue, eventId, user).catch(console.error);
     } catch (error) {
       console.error('Delete error:', error);

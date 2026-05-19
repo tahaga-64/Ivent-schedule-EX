@@ -60,6 +60,15 @@ EX事業部では、イベントの日程管理や準備物の確認をスプレ
 
 ⸻
 
+## 通知（無料で利用可能）
+
+- **アプリ内通知**: Firestore の `users/{uid}/notifications` に保存され、通知センターから参照（Firebase の無料枠内）。
+- **プッシュ通知（FCM）**（任意）:
+  1. Firebase Console → プロジェクトの設定 → Cloud Messaging → Web プッシュ証明書でキーペアを作成し、**公開鍵**を `VITE_FIREBASE_VAPID_KEY` に設定する。
+  2. ホスティング先（例: Vercel）の環境変数にサービスアカウント JSON を `FIREBASE_SERVICE_ACCOUNT_JSON` として設定し、`/api/notify` からマルチキャスト送信する（サーバーレス無料枠 + FCM 無料枠の範囲でコストなし）。
+
+⸻
+
 ## 技術スタック
 
 ### フロントエンド
