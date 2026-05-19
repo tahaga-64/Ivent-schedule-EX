@@ -38,9 +38,8 @@ export interface Event {
   /** 詳細画面の共有メモ（自由記入・全員可） */
   detailMemo?: string;
   detailMemoAttribution?: FieldAuthorAttribution;
-  /** 担当者・役割など（自由記入・全員可） */
-  assigneeNote?: string;
-  assigneeNoteAttribution?: FieldAuthorAttribution;
+  /** 担当者（スタッフリストから選択） */
+  assignees?: string[];
   emoji?: string;
   photos?: EventPhoto[];
   status?: EventStatus;
@@ -140,5 +139,4 @@ export interface AnalyticsData {
   totalContracts: number;
   avgCarrierSwitchRate: number;
   carrierInflowTotal: CarrierInflow;
-  recentAnalysisReports: { eventId: string; venue: string; start: string; analysisReport: AnalysisReport }[];
 }

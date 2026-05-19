@@ -73,13 +73,6 @@ export function calculateAnalyticsData(
   });
   const avgCarrierSwitchRate = totalAttendance > 0 ? (totalContracts / totalAttendance) * 100 : 0;
 
-  // Recent analysis reports
-  const recentAnalysisReports = events
-    .filter(e => e.analysisReport?.createdAt)
-    .sort((a, b) => (b.start || '').localeCompare(a.start || ''))
-    .slice(0, 5)
-    .map(e => ({ eventId: e.id, venue: e.venue, start: e.start, analysisReport: e.analysisReport! }));
-
   // Monthly trends
   const monthMap: Record<string, { count: number; budget: number; sales: number; attendance: number; contracts: number }> = {};
   events.forEach((e, i) => {
@@ -174,6 +167,5 @@ export function calculateAnalyticsData(
     totalContracts,
     avgCarrierSwitchRate,
     carrierInflowTotal,
-    recentAnalysisReports,
   };
 }
