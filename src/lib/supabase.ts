@@ -31,4 +31,4 @@ if (supabaseUrl === FALLBACK_SUPABASE_URL || supabaseAnonKey === FALLBACK_SUPABA
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export const SUPABASE_PHOTO_BUCKET = import.meta.env.VITE_SUPABASE_PHOTO_BUCKET || 'event-photos';
+export const SUPABASE_PHOTO_BUCKET = import.meta.env.VITE_SUPABASE_PHOTO_BUCKET || 'photo';
