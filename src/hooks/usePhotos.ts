@@ -31,7 +31,8 @@ export function usePhotos(eventId: string) {
           console.error('Uploaded photo cleanup failed:', error);
         });
       }
-      setError('アップロードに失敗しました');
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(`アップロードに失敗しました: ${msg}`);
       return null;
     } finally {
       setUploading(false);
