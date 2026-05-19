@@ -60,6 +60,7 @@ export interface EventPhoto {
   uploadedAt: string;
   caption?: string;
   thumbnailUrl?: string;
+  thumbnailStoragePath?: string;
 }
 
 export interface UserProfile {

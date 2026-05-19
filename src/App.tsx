@@ -17,7 +17,8 @@ import {
   canEditEvent as computeCanEditEvent,
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
-import { notifyEventUpdated, recordUserLogin } from './lib/notifications';
+import { registerFcmToken } from './lib/fcm';
+import { recordUserLogin, notifyEventUpdated } from './lib/notifications';
 
 // 安全なlocalStorage読み込み
 function safeGetItem<T>(key: string, fallback: T): T {
@@ -219,7 +220,6 @@ export default function App() {
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
   const [searchQuery, setSearchQuery] = useState("");
   const [showPrepList, setShowPrepList] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
   const [modalTab, setModalTab] = useState<'detail' | 'photos'>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
@@ -264,6 +264,7 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u ?? null);
       if (u) {
+        registerFcmToken(u.uid);
         recordUserLogin(u).catch(error => {
           console.error('User profile upsert error:', error);
         });
@@ -372,7 +373,7 @@ export default function App() {
   }, [allEvents, regionFilter, typeFilter, monthFilter, searchQuery]);
 
   const calendarDensityPreview =
-    process.env.NODE_ENV === "development" &&
+    import.meta.env.DEV &&
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("calPreview") === "density";
 
@@ -458,6 +459,11 @@ export default function App() {
       setDbEvents(prev => ({ ...prev, [selected.id]: selected }));
       setHasUnsavedChanges(false);
       setLastEditedId(selected.id);
+      fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '✏️ イベント更新', body: `${selected.venue} が更新されました` }),
+      }).catch(console.error);
       setIsSaving(false);
       if (canEditEvent && user) {
         notifyEventUpdated(selected, user).catch(error => {
@@ -494,6 +500,11 @@ export default function App() {
     setLastEditedId(id);
     try {
       await setDoc(doc(db, "events", id), newEvent);
+      fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '📅 新しいイベント', body: `${newEvent.venue} が作成されました` }),
+      }).catch(console.error);
     } catch (error) {
       console.error('Firestore create error:', error);
       setSaveError(formatSaveError(error));
@@ -519,7 +530,6 @@ export default function App() {
     // モーダルを即座に閉じ、UIから楽観的に削除
     setSelected(null);
     setShowPrepList(false);
-    setIsEditMode(false);
     setHasUnsavedChanges(false);
     setValidationErrors([]);
     setModalTab('detail');
@@ -552,7 +562,6 @@ export default function App() {
     }
     setSelected(null);
     setShowPrepList(false);
-    setIsEditMode(false);
     setHasUnsavedChanges(false);
     setValidationErrors([]);
     setModalTab('detail');
@@ -1106,7 +1115,7 @@ export default function App() {
                 height: showPrepList ? '90vh' : undefined,
               }}
               exit={{ opacity: 0, y: 40 }}
-              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[520px] lg:max-w-[520px] max-h-[92vh] lg:max-h-[90vh]"
               style={showPrepList ? { width: '95vw', maxWidth: '1600px', height: '90vh' } : {}}
             >
@@ -1215,50 +1224,35 @@ export default function App() {
                   {modalTab === 'detail' && <><div className="space-y-5">
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">VENUE・会場</label>
-                      {isEditMode ? (
-                        <input
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          value={selected.venue}
-                          placeholder="会場を入力..."
-                          onChange={e => handleUpdateEvent(selected.id, { venue: e.target.value })}
-                        />
-                      ) : (
-                        <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800">
-                          {selected.venue || "—"}
-                        </div>
-                      )}
+                      <input
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                        value={selected.venue}
+                        placeholder="会場を入力..."
+                        disabled={!canEditEvent}
+                        onChange={e => handleUpdateEvent(selected.id, { venue: e.target.value })}
+                      />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">START</label>
-                        {isEditMode ? (
-                          <input
-                            type="date"
-                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            value={selected.start}
-                            onChange={e => handleUpdateEvent(selected.id, { start: e.target.value })}
-                          />
-                        ) : (
-                          <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800">
-                            {selected.start || "—"}
-                          </div>
-                        )}
+                        <input
+                          type="date"
+                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                          value={selected.start}
+                          disabled={!canEditEvent}
+                          onChange={e => handleUpdateEvent(selected.id, { start: e.target.value })}
+                        />
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">END</label>
-                        {isEditMode ? (
-                          <input
-                            type="date"
-                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            value={selected.end}
-                            onChange={e => handleUpdateEvent(selected.id, { end: e.target.value })}
-                          />
-                        ) : (
-                          <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800">
-                            {selected.end || "—"}
-                          </div>
-                        )}
+                        <input
+                          type="date"
+                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                          value={selected.end}
+                          disabled={!canEditEvent}
+                          onChange={e => handleUpdateEvent(selected.id, { end: e.target.value })}
+                        />
                       </div>
                     </div>
 
@@ -1287,23 +1281,25 @@ export default function App() {
                       <div className="mt-3 space-y-3">
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">売上 · 粗利</p>
                         <div className="grid grid-cols-2 gap-3">
-                          <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.sales ?? ''} onChange={e => handleUpdateEvent(selected.id, { sales: e.target.value ? Number(e.target.value) : undefined })} placeholder="売上（円）" />
-                          <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.grossProfit ?? ''} onChange={e => handleUpdateEvent(selected.id, { grossProfit: e.target.value ? Number(e.target.value) : undefined })} placeholder="粗利（円）" />
+                          <input type="number" min={0} disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm disabled:bg-gray-50 disabled:text-gray-400" value={selected.sales ?? ''} onChange={e => handleUpdateEvent(selected.id, { sales: e.target.value ? Number(e.target.value) : undefined })} placeholder="売上（円）" />
+                          <input type="number" min={0} disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm disabled:bg-gray-50 disabled:text-gray-400" value={selected.grossProfit ?? ''} onChange={e => handleUpdateEvent(selected.id, { grossProfit: e.target.value ? Number(e.target.value) : undefined })} placeholder="粗利（円）" />
                         </div>
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">来場実績</p>
-                        <div className="grid grid-cols-3 gap-3">
-                          <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.attendance ?? ''} onChange={e => handleUpdateEvent(selected.id, { attendance: e.target.value ? Number(e.target.value) : undefined })} placeholder="来場数" />
-                          <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.seatedCount ?? ''} onChange={e => handleUpdateEvent(selected.id, { seatedCount: e.target.value ? Number(e.target.value) : undefined })} placeholder="着座数" />
-                          <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.contracts ?? ''} onChange={e => handleUpdateEvent(selected.id, { contracts: e.target.value ? Number(e.target.value) : undefined })} placeholder="成約数" />
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-gray-500">①イベント参加人数</label>
+                            <input type="number" min={0} inputMode="numeric" disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400" value={selected.attendance ?? ''} onChange={e => handleUpdateEvent(selected.id, { attendance: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 52" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-gray-500">②着座数</label>
+                            <input type="number" min={0} inputMode="numeric" disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400" value={selected.seatedCount ?? ''} onChange={e => handleUpdateEvent(selected.id, { seatedCount: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 28" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-bold text-gray-500">③成約数</label>
+                            <input type="number" min={0} inputMode="numeric" disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400" value={selected.contracts ?? ''} onChange={e => handleUpdateEvent(selected.id, { contracts: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 11" />
+                          </div>
                         </div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">キャリア流入内訳（件数）</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.carrierInflow?.docomo ?? ''} onChange={e => handleUpdateEvent(selected.id, { carrierInflow: { ...(selected.carrierInflow || {}), docomo: Number(e.target.value) || 0 } })} placeholder="docomo" />
-                          <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.carrierInflow?.au ?? ''} onChange={e => handleUpdateEvent(selected.id, { carrierInflow: { ...(selected.carrierInflow || {}), au: Number(e.target.value) || 0 } })} placeholder="au" />
-                          <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.carrierInflow?.softbank ?? ''} onChange={e => handleUpdateEvent(selected.id, { carrierInflow: { ...(selected.carrierInflow || {}), softbank: Number(e.target.value) || 0 } })} placeholder="SoftBank" />
-                          <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" value={selected.carrierInflow?.rakuten ?? ''} onChange={e => handleUpdateEvent(selected.id, { carrierInflow: { ...(selected.carrierInflow || {}), rakuten: Number(e.target.value) || 0 } })} placeholder="楽天" />
-                          <input type="number" min={0} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm col-span-2" value={selected.carrierInflow?.other ?? ''} onChange={e => handleUpdateEvent(selected.id, { carrierInflow: { ...(selected.carrierInflow || {}), other: Number(e.target.value) || 0 } })} placeholder="その他" />
-                        </div>
+                        <p className="text-[10px] text-gray-400">何を書けばいいか迷う場合は、<span className="font-bold">実数（当日の最終集計）</span>をそのまま入力してください。</p>
                         <div className="flex items-center justify-between">
                           <p className="text-[11px] font-bold text-gray-500">分析レポート</p>
                           {!selected.analysisReport?.createdAt && (
@@ -1381,30 +1377,14 @@ export default function App() {
 
                   {/* ボタン */}
                   <div className="mt-6 flex gap-3">
-                    {hasUnsavedChanges ? (
+                    {hasUnsavedChanges && (
                       <button
-                        onClick={async () => { await handleSaveEvent(); setIsEditMode(false); }}
+                        onClick={handleSaveEvent}
                         disabled={isSaving}
                         className="flex-1 py-4 rounded-2xl bg-amber-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-amber-600 disabled:opacity-60 transition-colors shadow-lg shadow-amber-500/20"
                       >
                         <Save size={16} />
                         {isSaving ? "保存中..." : "保存する"}
-                      </button>
-                    ) : isEditMode ? (
-                      <button
-                        onClick={async () => { await handleSaveEvent(); setIsEditMode(false); }}
-                        disabled={isSaving}
-                        className="flex-1 py-4 rounded-2xl bg-amber-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-amber-600 disabled:opacity-60 transition-colors shadow-lg shadow-amber-500/20"
-                      >
-                        <Save size={16} />
-                        {isSaving ? "保存中..." : "保存する"}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setIsEditMode(true)}
-                        className="flex-1 py-4 rounded-2xl border border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        編集
                       </button>
                     )}
                     <button
@@ -1440,7 +1420,7 @@ export default function App() {
                         ))}
                       </motion.div>
                     )}
-                    {hasUnsavedChanges && isEditMode && validationErrors.length === 0 && (
+                    {hasUnsavedChanges && validationErrors.length === 0 && (
                       <motion.p
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -2178,7 +2158,10 @@ function ListView({ data, onSelect, onHover, onHoverEnd, lastEditedId }: ListVie
                     <div className="text-[11px] text-slate-400 mt-0.5 font-medium">{d.client || "—"}</div>
                   </td>
                   <td className="px-6 py-4 align-middle text-right">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <span
+                      className="text-[10px] font-black uppercase tracking-widest text-slate-400"
+                      style={{ background: rs(d.region).bg }}
+                    >
                       {d.status || "SCHEDULED"}
                     </span>
                   </td>

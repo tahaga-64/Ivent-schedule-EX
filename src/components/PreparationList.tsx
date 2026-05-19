@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { PreparationItem, Event } from '../types';
-import { Trash2, Plus, ArrowLeft, Save, Download } from 'lucide-react';
+import { Trash2, Plus, ArrowLeft, Save } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface Props {
@@ -138,31 +138,6 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
     return { subtotal, shipping, total: subtotal + shipping, prepared: items.filter(i => i.prepared).length };
   }, [items]);
 
-  const csvCell = (v: string | number): string => {
-    const s = String(v);
-    // Prefix dangerous formula characters to prevent CSV injection
-    const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
-    // Wrap in quotes and escape inner double-quotes
-    return `"${safe.replace(/"/g, '""')}"`;
-  };
-
-  const handleExportCSV = () => {
-    const headers = ['#', '品名', '数量', '単価', '金額', '配送料', '到着', '準備', '備考', 'URL'];
-    const rows = items.map((item, i) => [
-      csvCell(i + 1), csvCell(item.name), csvCell(item.quantity), csvCell(item.unitPrice),
-      csvCell(item.amount), csvCell(item.shippingFee),
-      csvCell(item.arrived ? '✓' : ''), csvCell(item.prepared ? '✓' : ''),
-      csvCell(item.note || ''), csvCell(item.url || ''),
-    ]);
-    const csv = [headers.map(csvCell), ...rows].map(r => r.join(',')).join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${event.venue}_準備物.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
@@ -211,13 +186,6 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
               {isSaving ? '保存中...' : '保存'}
             </button>
           )}
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            <Download size={13} />
-            <span className="hidden sm:inline">CSV エクスポート</span>
-          </button>
           {canEdit && (
             <button
               onClick={addItem}

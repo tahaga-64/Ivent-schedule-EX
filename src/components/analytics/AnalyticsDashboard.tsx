@@ -7,7 +7,6 @@ import EventMetricsChart from '../charts/EventMetricsChart';
 import BudgetAnalysisChart from '../charts/BudgetAnalysisChart';
 import VenueUtilizationChart from '../charts/VenueUtilizationChart';
 import AttendanceHeatmap from '../charts/AttendanceHeatmap';
-import CarrierInflowChart from '../charts/CarrierInflowChart';
 
 interface Props {
   data: AnalyticsData;
@@ -158,9 +157,8 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
         </motion.div>
       </div>
 
-      {/* Row 3: Conversion funnel + Carrier inflow - 2 cols */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: custom funnel */}
+      {/* Row 3: Conversion funnel */}
+      <div className="grid grid-cols-1 gap-6">
         <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.4}} className="bg-white rounded-2xl border border-slate-100 p-6">
           <SectionHeader title="コンバージョンファネル" sub="来場 → 着座 → 成約の転換率" />
           <div className="space-y-5 mt-4">
@@ -185,11 +183,6 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
           </div>
         </motion.div>
 
-        {/* Right: CarrierInflowChart */}
-        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.45}} className="bg-white rounded-2xl border border-slate-100 p-6">
-          <SectionHeader title="キャリア流入内訳" sub="キャリア別の流入件数" />
-          <CarrierInflowChart data={data.carrierInflowTotal} />
-        </motion.div>
       </div>
 
       {/* Row 4: Attendance heatmap - full width */}
