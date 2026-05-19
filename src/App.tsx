@@ -539,7 +539,7 @@ export default function App() {
 
   // 種別削除：該当種別を持つイベントのtypeをFirestoreから一括クリア
   const handleDeleteType = async (label: string) => {
-    const affected = events.filter(e => e.type === label);
+    const affected = allEvents.filter(e => e.type === label);
     const msg = affected.length > 0
       ? `「${label}」を削除します。\nこの種別が設定されている ${affected.length} 件のイベントから種別をクリアします。\n続行しますか？`
       : `「${label}」を削除しますか？`;
@@ -1135,7 +1135,7 @@ export default function App() {
                 <AnalyticsDashboard data={analyticsData} loading={analyticsLoading} events={allEvents} />
               )}
               {view === "analytics" && !analyticsData && analyticsLoading && (
-                <AnalyticsDashboard data={{ totalEvents: 0, completedEvents: 0, totalBudget: 0, avgBudget: 0, completionRate: 0, onTimeRate: 0, avgPreparationDays: 0, activeRegions: 0, topVenues: [], topRegion: '', busiestMonth: '', monthlyTrends: [], regionStats: [], typeStats: [], clientStats: [], totalSales: 0, totalGrossProfit: 0, totalAttendance: 0, totalSeatedCount: 0, totalContracts: 0, avgCarrierSwitchRate: 0, carrierInflowTotal: { docomo: 0, au: 0, softbank: 0, rakuten: 0, other: 0 }, recentAnalysisReports: [] }} loading={true} />
+                <AnalyticsDashboard data={{ totalEvents: 0, completedEvents: 0, totalBudget: 0, avgBudget: 0, completionRate: 0, onTimeRate: 0, avgPreparationDays: 0, activeRegions: 0, topVenues: [], topRegion: '', busiestMonth: '', monthlyTrends: [], regionStats: [], typeStats: [], clientStats: [], totalSales: 0, totalGrossProfit: 0, totalAttendance: 0, totalSeatedCount: 0, totalContracts: 0, avgCarrierSwitchRate: 0, carrierInflowTotal: { docomo: 0, au: 0, softbank: 0, rakuten: 0, other: 0 } }} loading={true} />
               )}
             </motion.div>
           </AnimatePresence>
@@ -1369,85 +1369,16 @@ export default function App() {
                       />
                     </div>
 
-                    <details className="border border-gray-200 rounded-xl p-4 bg-gray-50/70">
-                      <summary className="cursor-pointer text-xs font-bold text-gray-700">📊 イベント実績（開催後に入力）</summary>
-                      <div className="mt-3 space-y-3">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">売上 · 粗利</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <input type="number" min={0} disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm disabled:bg-gray-50 disabled:text-gray-400" value={selected.sales ?? ''} onChange={e => handleUpdateEvent(selected.id, { sales: e.target.value ? Number(e.target.value) : undefined })} placeholder="売上（円）" />
-                          <input type="number" min={0} disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm disabled:bg-gray-50 disabled:text-gray-400" value={selected.grossProfit ?? ''} onChange={e => handleUpdateEvent(selected.id, { grossProfit: e.target.value ? Number(e.target.value) : undefined })} placeholder="粗利（円）" />
-                        </div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">来場実績</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div className="space-y-1">
-                            <label className="block text-[10px] font-bold text-gray-500">①イベント参加人数</label>
-                            <input type="number" min={0} inputMode="numeric" disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400" value={selected.attendance ?? ''} onChange={e => handleUpdateEvent(selected.id, { attendance: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 52" />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="block text-[10px] font-bold text-gray-500">②着座数</label>
-                            <input type="number" min={0} inputMode="numeric" disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400" value={selected.seatedCount ?? ''} onChange={e => handleUpdateEvent(selected.id, { seatedCount: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 28" />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="block text-[10px] font-bold text-gray-500">③成約数</label>
-                            <input type="number" min={0} inputMode="numeric" disabled={!canEditEvent} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white disabled:bg-gray-50 disabled:text-gray-400" value={selected.contracts ?? ''} onChange={e => handleUpdateEvent(selected.id, { contracts: e.target.value ? Number(e.target.value) : undefined })} placeholder="例: 11" />
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-gray-400">何を書けばいいか迷う場合は、<span className="font-bold">実数（当日の最終集計）</span>をそのまま入力してください。</p>
-                        <div className="flex items-center justify-between">
-                          <p className="text-[11px] font-bold text-gray-500">分析レポート</p>
-                          {!selected.analysisReport?.createdAt && (
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateEvent(selected.id, {
-                                analysisReport: {
-                                  createdAt: new Date().toISOString(),
-                                  title: `${selected.venue} 分析レポート`,
-                                },
-                              })}
-                              className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-700 transition-colors"
-                            >
-                              新規作成
-                            </button>
-                          )}
-                        </div>
-                        {selected.analysisReport?.createdAt ? (
-                          <div className="space-y-2">
-                            <input
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm placeholder:text-gray-400"
-                              value={selected.analysisReport.title || ''}
-                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString() }), title: e.target.value } })}
-                              placeholder="このレポートのタイトル（例: 会場名 分析レポート）"
-                            />
-                            <textarea
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
-                              value={selected.analysisReport.summary || ''}
-                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), summary: e.target.value } })}
-                              placeholder="例: 来場者52名、成約11件。DJI体験の反応が特に良好だった"
-                            />
-                            <textarea
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
-                              value={selected.analysisReport.goodPoints || ''}
-                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), goodPoints: e.target.value } })}
-                              placeholder="例: スタッフの動線改善で受付待ちが減少 / 天候に恵まれ集客が目標超え"
-                            />
-                            <textarea
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
-                              value={selected.analysisReport.improvements || ''}
-                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), improvements: e.target.value } })}
-                              placeholder="例: パンフ在庫不足→次回200部増刷 / BGM音量の事前調整が必要"
-                            />
-                            <textarea
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-[72px] placeholder:text-gray-400"
-                              value={selected.analysisReport.nextActions || ''}
-                              onChange={e => handleUpdateEvent(selected.id, { analysisReport: { ...(selected.analysisReport || { createdAt: new Date().toISOString(), title: `${selected.venue} 分析レポート` }), nextActions: e.target.value } })}
-                              placeholder="例: 好評コーナーのスペース拡張 / SNS告知を1週間前から開始する"
-                            />
-                          </div>
-                        ) : (
-                          <p className="text-[11px] text-gray-400">「新規作成」で分析レポートを追加できます。</p>
-                        )}
-                      </div>
-                    </details>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">NOTES・備考</label>
+                      <textarea
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px] resize-none"
+                        value={selected.note}
+                        placeholder="メモ..."
+                        onChange={e => handleUpdateEvent(selected.id, { note: e.target.value })}
+                      />
+                    </div>
+
                   </div>
 
                   {/* 統計パネル */}
