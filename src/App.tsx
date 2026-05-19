@@ -1,9 +1,14 @@
 import { useState, useMemo, useEffect, useCallback, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import { db, auth, loginWithGoogle } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS } from './constants';
 import { Event, PreparationItem, type FieldAuthorAttribution } from './types';
+
+interface StaffMember {
+  id: string;
+  name: string;
+}
 import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera, Trash2, Archive } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
@@ -244,6 +249,8 @@ export default function App() {
     localStorage.setItem('sidebarTypes', JSON.stringify(sidebarTypes));
   }, [sidebarTypes]);
 
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
+
   // 未保存変更の警告（ブラウザを閉じる・リロード時）
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -274,6 +281,16 @@ export default function App() {
       } else {
         setNeedsNameSetup(false);
       }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // スタッフリスト購読
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'staff'), (snap) => {
+      const list: StaffMember[] = snap.docs.map(d => ({ id: d.id, name: d.data().name as string }));
+      list.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+      setStaffList(list);
     });
     return () => unsubscribe();
   }, []);
@@ -607,6 +624,27 @@ export default function App() {
     if (typeFilter === label) setTypeFilter('すべて');
   };
 
+  const handleAddStaff = async () => {
+    const name = prompt('スタッフ名を入力してください:');
+    const trimmed = name?.trim() ?? '';
+    if (!trimmed || trimmed.length > 50) return;
+    if (staffList.some(s => s.name === trimmed)) { alert('その名前は既に登録されています'); return; }
+    try {
+      await addDoc(collection(db, 'staff'), { name: trimmed, createdAt: serverTimestamp() });
+    } catch {
+      alert('スタッフの追加に失敗しました');
+    }
+  };
+
+  const handleDeleteStaff = async (staff: StaffMember) => {
+    if (!window.confirm(`「${staff.name}」を削除しますか？`)) return;
+    try {
+      await deleteDoc(doc(db, 'staff', staff.id));
+    } catch {
+      alert('スタッフの削除に失敗しました');
+    }
+  };
+
   // モーダルを閉じる（未保存の変更がある場合は確認）
   const handleCloseModal = useCallback(() => {
     if (hasUnsavedChanges) {
@@ -894,6 +932,47 @@ export default function App() {
                         }}
                         className="absolute right-1 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
                         aria-label={`${type.label}を削除`}
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* STAFF Section */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-black text-slate-700">スタッフ</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">STAFF</span>
+                  {canEditEvent && (
+                    <button
+                      onClick={handleAddStaff}
+                      className="p-1 hover:bg-indigo-50 rounded text-indigo-400 hover:text-indigo-600 transition-colors"
+                    >
+                      <Plus size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col gap-0.5">
+                {staffList.length === 0 && (
+                  <p className="px-3 py-2 text-xs text-slate-400">スタッフ未登録</p>
+                )}
+                {staffList.map((staff) => (
+                  <div key={staff.id} className="group relative flex items-center">
+                    <div className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600">
+                      <span className="text-sm">👤</span>
+                      <span className="text-xs font-bold font-sans">{staff.name}</span>
+                    </div>
+                    {canEditEvent && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteStaff(staff)}
+                        className="absolute right-1 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                        aria-label={`${staff.name}を削除`}
                       >
                         <X size={12} />
                       </button>
@@ -1440,24 +1519,38 @@ export default function App() {
 
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">担当者</label>
-                      <textarea
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[72px] resize-none read-only:bg-gray-50 read-only:text-gray-500"
-                        value={selected.assigneeNote ?? ''}
-                        placeholder="例：当日責任 山田／設営サポート 佐藤・伊藤／受付 外部スタッフ"
-                        readOnly={!user}
-                        onChange={e => {
-                          const assigneeNote = e.target.value;
-                          handleUpdateEvent(selected.id, {
-                            assigneeNote,
-                            assigneeNoteAttribution: buildFieldAttribution(user) ?? selected.assigneeNoteAttribution,
-                          });
-                        }}
-                      />
-                      {formatAttributionLine(selected.assigneeNoteAttribution) ? (
-                        <p className="mt-1.5 text-[11px] text-gray-500">{formatAttributionLine(selected.assigneeNoteAttribution)}</p>
-                      ) : null}
+                      {staffList.length === 0 ? (
+                        <p className="text-xs text-gray-400 py-2">サイドバーのスタッフ欄からメンバーを追加してください。</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {staffList.map(staff => {
+                            const isAssigned = (selected.assignees ?? []).includes(staff.name);
+                            return (
+                              <button
+                                key={staff.id}
+                                type="button"
+                                disabled={!user}
+                                onClick={() => {
+                                  const current = selected.assignees ?? [];
+                                  const next = isAssigned
+                                    ? current.filter(n => n !== staff.name)
+                                    : [...current, staff.name];
+                                  handleUpdateEvent(selected.id, { assignees: next });
+                                }}
+                                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                                  isAssigned
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed'
+                                }`}
+                              >
+                                {staff.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                       {!user && (
-                        <p className="mt-1.5 text-[11px] text-amber-700/90">ログインすると担当者欄を記入・保存できます。</p>
+                        <p className="mt-1.5 text-[11px] text-amber-700/90">ログインすると担当者を選択できます。</p>
                       )}
                     </div>
                   </div>

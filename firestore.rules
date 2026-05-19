@@ -34,8 +34,7 @@ service cloud.firestore {
           .hasOnly([
             'detailMemo',
             'detailMemoAttribution',
-            'assigneeNote',
-            'assigneeNoteAttribution',
+            'assignees',
             'note',
             'analysisReport',
             'client',
@@ -59,6 +58,11 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow create, update, delete: if isAuthenticated() && isValidId(itemId);
       }
+    }
+
+    match /staff/{staffId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isEventEditor();
     }
 
     match /users/{userId} {
