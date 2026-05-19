@@ -52,6 +52,10 @@
     --ring: rgba(139, 92, 246, 0.15);
   }
 
+  html {
+    overflow-x: clip;
+  }
+
   body {
     @apply bg-[var(--bg-app)] text-[var(--text-primary)] antialiased transition-colors duration-500 overflow-x-hidden;
   }

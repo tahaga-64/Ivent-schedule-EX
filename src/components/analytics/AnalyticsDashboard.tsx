@@ -1,5 +1,5 @@
-import React, { memo } from 'react';
-import { motion } from 'motion/react';
+import React, { memo, useRef, useEffect, useState } from 'react';
+import { motion, useInView } from 'motion/react';
 import { TrendingUp, Calendar, MapPin, DollarSign, Award, Zap, BarChart2, ArrowUpRight, Users } from 'lucide-react';
 import { AnalyticsData, Event } from '../../types';
 import { formatCurrencyCompact } from '../../lib/analytics';
@@ -14,25 +14,53 @@ interface Props {
   events?: Event[];
 }
 
+function useCountUp(target: number, inView: boolean, duration = 1200): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!inView) return;
+    let rafId: number;
+    let startTime: number | null = null;
+    const tick = (timestamp: number) => {
+      if (startTime === null) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(target * eased);
+      if (progress < 1) rafId = requestAnimationFrame(tick);
+      else setCount(target);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [inView, target, duration]);
+  return count;
+}
+
 const KpiCard = memo(function KpiCard({
   icon,
   label,
-  value,
   sub,
   color,
   delay,
+  rawValue,
+  formatter,
 }: {
   icon: React.ReactNode;
   label: string;
-  value: string;
   sub?: string;
   color: string;
   delay: number;
+  rawValue: number;
+  formatter: (n: number) => string;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-50px' });
+  const animatedValue = useCountUp(rawValue, inView);
+
   return (
     <motion.div
+      ref={ref}
       initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      animate={inView ? { opacity: 1, y: 0 } : undefined}
       transition={{ delay, duration: 0.4 }}
       className="bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-md transition-shadow"
     >
@@ -42,7 +70,9 @@ const KpiCard = memo(function KpiCard({
         </div>
         <ArrowUpRight size={14} className="text-slate-300" />
       </div>
-      <div className="text-2xl font-black text-slate-800 tracking-tight">{value}</div>
+      <div className="text-2xl font-black text-slate-800 tracking-tight">
+        {formatter(animatedValue)}
+      </div>
       <div className="text-xs font-bold text-slate-500 mt-1">{label}</div>
       {sub && <div className="text-[11px] text-slate-400 mt-0.5">{sub}</div>}
     </motion.div>
@@ -115,22 +145,23 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
       {/* Row 1: 8 KPI cards - 4 per row, 2 rows */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Row A */}
-        <KpiCard icon={<Calendar size={18} className="text-indigo-600"/>} label="総イベント数" value={String(data.totalEvents)} sub={`完了: ${data.completedEvents}`} color="bg-indigo-50" delay={0} />
-        <KpiCard icon={<DollarSign size={18} className="text-emerald-600"/>} label="総売上" value={formatCurrencyCompact(data.totalSales)} sub={`粗利: ${formatCurrencyCompact(data.totalGrossProfit)}`} color="bg-emerald-50" delay={0.05} />
-        <KpiCard icon={<TrendingUp size={18} className="text-violet-600"/>} label="粗利" value={formatCurrencyCompact(data.totalGrossProfit)} sub={data.totalSales > 0 ? `利益率 ${Math.round((data.totalGrossProfit/data.totalSales)*100)}%` : '—'} color="bg-violet-50" delay={0.1} />
-        <KpiCard icon={<Users size={18} className="text-cyan-600"/>} label="来場数合計" value={data.totalAttendance.toLocaleString()} sub={`着座: ${data.totalSeatedCount.toLocaleString()}`} color="bg-cyan-50" delay={0.15} />
+        <KpiCard icon={<Calendar size={18} className="text-indigo-600"/>} label="総イベント数" rawValue={data.totalEvents} formatter={n => String(Math.round(n))} sub={`完了: ${data.completedEvents}`} color="bg-indigo-50" delay={0} />
+        <KpiCard icon={<DollarSign size={18} className="text-emerald-600"/>} label="総売上" rawValue={data.totalSales} formatter={n => formatCurrencyCompact(n)} sub={`粗利: ${formatCurrencyCompact(data.totalGrossProfit)}`} color="bg-emerald-50" delay={0.05} />
+        <KpiCard icon={<TrendingUp size={18} className="text-violet-600"/>} label="粗利" rawValue={data.totalGrossProfit} formatter={n => formatCurrencyCompact(n)} sub={data.totalSales > 0 ? `利益率 ${Math.round((data.totalGrossProfit/data.totalSales)*100)}%` : '—'} color="bg-violet-50" delay={0.1} />
+        <KpiCard icon={<Users size={18} className="text-cyan-600"/>} label="来場数合計" rawValue={data.totalAttendance} formatter={n => Math.round(n).toLocaleString()} sub={`着座: ${data.totalSeatedCount.toLocaleString()}`} color="bg-cyan-50" delay={0.15} />
         {/* Row B */}
-        <KpiCard icon={<MapPin size={18} className="text-orange-600"/>} label="着座数" value={data.totalSeatedCount.toLocaleString()} sub={data.totalAttendance > 0 ? `着座率 ${Math.round((data.totalSeatedCount/data.totalAttendance)*100)}%` : '—'} color="bg-orange-50" delay={0.2} />
-        <KpiCard icon={<Award size={18} className="text-rose-600"/>} label="成約数" value={data.totalContracts.toLocaleString()} sub={data.totalAttendance > 0 ? `成約率 ${Math.round((data.totalContracts/data.totalAttendance)*100)}%` : '—'} color="bg-rose-50" delay={0.25} />
-        <KpiCard icon={<Zap size={18} className="text-amber-600"/>} label="乗り換え率" value={`${data.avgCarrierSwitchRate.toFixed(1)}%`} sub={`成約 ${data.totalContracts} / 来場 ${data.totalAttendance}`} color="bg-amber-50" delay={0.3} />
-        <KpiCard icon={<BarChart2 size={18} className="text-slate-600"/>} label="完了率" value={`${data.completionRate.toFixed(0)}%`} sub={`繁忙月: ${data.busiestMonth ? data.busiestMonth.replace('-', '年')+'月' : '—'}`} color="bg-slate-50" delay={0.35} />
+        <KpiCard icon={<MapPin size={18} className="text-orange-600"/>} label="着座数" rawValue={data.totalSeatedCount} formatter={n => Math.round(n).toLocaleString()} sub={data.totalAttendance > 0 ? `着座率 ${Math.round((data.totalSeatedCount/data.totalAttendance)*100)}%` : '—'} color="bg-orange-50" delay={0.2} />
+        <KpiCard icon={<Award size={18} className="text-rose-600"/>} label="成約数" rawValue={data.totalContracts} formatter={n => Math.round(n).toLocaleString()} sub={data.totalAttendance > 0 ? `成約率 ${Math.round((data.totalContracts/data.totalAttendance)*100)}%` : '—'} color="bg-rose-50" delay={0.25} />
+        <KpiCard icon={<Zap size={18} className="text-amber-600"/>} label="乗り換え率" rawValue={data.avgCarrierSwitchRate} formatter={n => `${n.toFixed(1)}%`} sub={`成約 ${data.totalContracts} / 来場 ${data.totalAttendance}`} color="bg-amber-50" delay={0.3} />
+        <KpiCard icon={<BarChart2 size={18} className="text-slate-600"/>} label="完了率" rawValue={data.completionRate} formatter={n => `${n.toFixed(0)}%`} sub={`繁忙月: ${data.busiestMonth ? data.busiestMonth.replace('-', '年')+'月' : '—'}`} color="bg-slate-50" delay={0.35} />
       </div>
 
       {/* Row 2: Monthly trends - 2 cols */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
           transition={{ delay: 0.2 }}
           className="bg-white rounded-2xl border border-slate-100 p-6"
         >
@@ -144,7 +175,8 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
           transition={{ delay: 0.25 }}
           className="bg-white rounded-2xl border border-slate-100 p-6"
         >
@@ -159,7 +191,7 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
 
       {/* Row 3: Conversion funnel */}
       <div className="grid grid-cols-1 gap-6">
-        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.4}} className="bg-white rounded-2xl border border-slate-100 p-6">
+        <motion.div initial={{opacity:0,y:20}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{delay:0.4}} className="bg-white rounded-2xl border border-slate-100 p-6">
           <SectionHeader title="コンバージョンファネル" sub="来場 → 着座 → 成約の転換率" />
           <div className="space-y-5 mt-4">
             {[
@@ -187,7 +219,7 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
 
       {/* Row 4: Attendance heatmap - full width */}
       {dailyAttendance.length > 0 && (
-        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.5}} className="bg-white rounded-2xl border border-slate-100 p-6">
+        <motion.div initial={{opacity:0,y:20}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{delay:0.5}} className="bg-white rounded-2xl border border-slate-100 p-6">
           <SectionHeader title="来場数ヒートマップ" sub="日別の来場者数の推移（過去52週）" />
           <AttendanceHeatmap dailyAttendance={dailyAttendance} />
         </motion.div>
@@ -198,7 +230,8 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
         {/* Top venues */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
           transition={{ delay: 0.3 }}
           className="bg-white rounded-2xl border border-slate-100 p-6 lg:col-span-1"
         >
@@ -213,7 +246,8 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
         {/* Region breakdown */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
           transition={{ delay: 0.35 }}
           className="bg-white rounded-2xl border border-slate-100 p-6"
         >
@@ -244,7 +278,8 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
         {/* Event type breakdown */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
           transition={{ delay: 0.4 }}
           className="bg-white rounded-2xl border border-slate-100 p-6"
         >
@@ -285,7 +320,7 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
 
       {/* Row 6: Recent analysis reports */}
       {data.recentAnalysisReports.length > 0 && (
-        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.5}} className="bg-white rounded-2xl border border-slate-100 p-6">
+        <motion.div initial={{opacity:0,y:20}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{delay:0.5}} className="bg-white rounded-2xl border border-slate-100 p-6">
           <SectionHeader title="分析レポート" sub="最近のイベント振り返り" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {data.recentAnalysisReports.map(r => (
@@ -315,7 +350,8 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
       {data.clientStats.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
           transition={{ delay: 0.45 }}
           className="bg-white rounded-2xl border border-slate-100 p-6"
         >

@@ -112,9 +112,9 @@ export function getNotificationColor(type: AppNotification['type']): string {
   return colors[type] || 'bg-slate-100 text-slate-700';
 }
 
-export function getNotificationTime(createdAt: any): string {
+export function getNotificationTime(createdAt: { toDate(): Date } | Date | string | null | undefined): string {
   if (!createdAt) return '';
-  const date = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
+  const date = (createdAt as { toDate?(): Date }).toDate ? (createdAt as { toDate(): Date }).toDate() : new Date(createdAt as Date | string);
   const diff = Date.now() - date.getTime();
   const min = Math.floor(diff / 60000);
   if (min < 1) return 'たった今';

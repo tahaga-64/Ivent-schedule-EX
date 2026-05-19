@@ -17,6 +17,14 @@ export interface AnalysisReport {
   nextActions?: string;
 }
 
+/** 自由記入欄の「最終記入」（Firebase Auth を手がかりに保存） */
+export interface FieldAuthorAttribution {
+  updatedByUid?: string | null;
+  updatedByEmail?: string | null;
+  updatedByName?: string | null;
+  updatedAt?: string;
+}
+
 export interface Event {
   id: string;
   start: string;
@@ -27,6 +35,12 @@ export interface Event {
   venue: string;
   client: string;
   note: string;
+  /** 詳細画面の共有メモ（自由記入・全員可） */
+  detailMemo?: string;
+  detailMemoAttribution?: FieldAuthorAttribution;
+  /** 担当者・役割など（自由記入・全員可） */
+  assigneeNote?: string;
+  assigneeNoteAttribution?: FieldAuthorAttribution;
   emoji?: string;
   photos?: EventPhoto[];
   status?: EventStatus;
@@ -68,8 +82,8 @@ export interface UserProfile {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  lastLoginAt: any;
-  createdAt?: any;
+  lastLoginAt: { toDate(): Date } | Date | null;
+  createdAt?: { toDate(): Date } | Date | null;
 }
 
 export interface Notification {

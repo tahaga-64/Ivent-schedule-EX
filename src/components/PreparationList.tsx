@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { PreparationItem, Event } from '../types';
-import { Trash2, Plus, ArrowLeft, Save } from 'lucide-react';
+import { Trash2, Plus, ArrowLeft, Save, ExternalLink } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface Props {
@@ -64,13 +64,15 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const hasChangesRef = useRef(hasChanges);
+  hasChangesRef.current = hasChanges;
 
   useEffect(() => {
     const path = `events/${event.id}/preparationItems`;
     const unsubscribe = onSnapshot(collection(db, path), (snapshot) => {
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PreparationItem));
-      if (hasChanges) {
-        // While editing, only remove items deleted remotely (to avoid overwriting local edits)
+      if (hasChangesRef.current) {
+        // While editing, only remove items deleted remotely — do NOT overwrite local edits
         const remoteIds = new Set(data.map(i => i.id));
         setItems(prev => prev.filter(i => remoteIds.has(i.id)));
         return;
@@ -81,7 +83,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       console.error('PreparationList load error:', error);
     });
     return () => unsubscribe();
-  }, [event.id, hasChanges]);
+  }, [event.id]); // hasChanges は ref 経由で参照するため deps 不要
 
   const handleSaveAll = async () => {
     if (!canEdit) return;
@@ -186,21 +188,146 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
               {isSaving ? '保存中...' : '保存'}
             </button>
           )}
-          {canEdit && (
-            <button
-              onClick={addItem}
-              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors"
-            >
-              <Plus size={13} />
-              <span className="hidden sm:inline">行を追加</span>
-              <span className="sm:hidden">追加</span>
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto p-4 sm:p-6">
+      {/* Mobile card list */}
+      <div className="block lg:hidden flex-1 overflow-y-auto p-3 space-y-2">
+        {items.map((item, idx) => (
+          <div
+            key={item.id}
+            className={`bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden ${item.prepared ? 'opacity-70' : ''}`}
+          >
+            {/* Row 1: # + 品名 + delete */}
+            <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+              <span className="text-[10px] text-gray-400 font-mono w-5 shrink-0">{idx + 1}</span>
+              <input
+                type="text"
+                readOnly={!canEdit}
+                value={item.name}
+                onChange={e => updateItem(item.id, { name: e.target.value })}
+                placeholder="アイテム名..."
+                className={`flex-1 text-sm font-bold text-gray-800 bg-transparent outline-none read-only:cursor-default ${item.prepared ? 'line-through text-gray-400' : ''}`}
+              />
+              <button
+                type="button"
+                onClick={() => removeItem(item.id)}
+                disabled={items.length <= 1 || !canEdit}
+                className={`p-1 shrink-0 transition-colors ${
+                  items.length <= 1 ? 'opacity-0 pointer-events-none' : !canEdit ? 'opacity-30 cursor-not-allowed' : 'text-gray-300 hover:text-red-400'
+                }`}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+            {/* Row 2: 数量 / 単価 / 金額 */}
+            <div className="grid grid-cols-3 border-t border-gray-100">
+              <div className="px-3 py-2 border-r border-gray-100">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">数量</div>
+                <input
+                  type="number"
+                  readOnly={!canEdit}
+                  value={item.quantity || ''}
+                  onChange={e => updateItem(item.id, { quantity: parseInt(e.target.value) || 0 })}
+                  className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
+                />
+              </div>
+              <div className="px-3 py-2 border-r border-gray-100">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">単価</div>
+                <div className="flex items-center gap-0.5">
+                  <span className="text-[10px] text-gray-400">¥</span>
+                  <input
+                    type="number"
+                    readOnly={!canEdit}
+                    value={item.unitPrice || ''}
+                    onChange={e => updateItem(item.id, { unitPrice: parseInt(e.target.value) || 0 })}
+                    className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
+                  />
+                </div>
+              </div>
+              <div className="px-3 py-2 bg-indigo-50/30">
+                <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1">金額</div>
+                <div className="text-sm font-black text-indigo-600 font-mono">¥{(item.amount || 0).toLocaleString()}</div>
+              </div>
+            </div>
+            {/* Row 3: 配送料 / 到着 / 準備 */}
+            <div className="grid grid-cols-3 border-t border-gray-100">
+              <div className="px-3 py-2 border-r border-gray-100">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">配送料</div>
+                <div className="flex items-center gap-0.5">
+                  <span className="text-[10px] text-gray-400">¥</span>
+                  <input
+                    type="number"
+                    readOnly={!canEdit}
+                    value={item.shippingFee || ''}
+                    onChange={e => updateItem(item.id, { shippingFee: parseInt(e.target.value) || 0 })}
+                    placeholder="0"
+                    className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
+                  />
+                </div>
+              </div>
+              <div className="px-3 py-2 flex flex-col items-center border-r border-gray-100">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">到着</div>
+                <Checkbox checked={item.arrived} disabled={!canEdit} onChange={() => updateItem(item.id, { arrived: !item.arrived })} />
+              </div>
+              <div className="px-3 py-2 flex flex-col items-center">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">準備</div>
+                <Checkbox checked={item.prepared} disabled={!canEdit} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
+              </div>
+            </div>
+            {/* Row 4: 備考 (shown if has content or canEdit) */}
+            {(item.note || canEdit) && (
+              <div className="border-t border-gray-100 px-3 py-2">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">備考</div>
+                <PreparationNoteField value={item.note || ''} readOnly={!canEdit} onChange={note => updateItem(item.id, { note })} />
+              </div>
+            )}
+            {/* Row 5: URL (shown if has content or canEdit) */}
+            {(item.url || canEdit) && (
+              <div className="border-t border-gray-100 px-3 py-2">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">URL</div>
+                {canEdit ? (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={item.url || ''}
+                      onChange={e => updateItem(item.id, { url: e.target.value })}
+                      placeholder="https://..."
+                      className="flex-1 text-sm text-indigo-500 bg-transparent outline-none min-w-0"
+                    />
+                    {item.url && (
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-indigo-400 hover:text-indigo-600">
+                        <ExternalLink size={14} />
+                      </a>
+                    )}
+                  </div>
+                ) : item.url ? (
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-indigo-500 underline underline-offset-2 break-all"
+                  >
+                    {item.url}
+                  </a>
+                ) : null}
+              </div>
+            )}
+          </div>
+        ))}
+        {canEdit && (
+          <button
+            type="button"
+            onClick={addItem}
+            className="w-full py-4 bg-white border-2 border-dashed border-gray-200 hover:border-indigo-300 text-gray-400 hover:text-indigo-500 text-xs font-black uppercase tracking-widest rounded-2xl transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus size={14} /> 新しい項目を追加
+          </button>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden lg:block flex-1 overflow-auto p-6">
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm" style={{ minWidth: '1100px' }}>
@@ -329,7 +456,19 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       </div>
 
       {/* Footer */}
-      <div className="px-4 sm:px-6 py-4 bg-white border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
+      <div className="px-4 sm:px-6 py-4 bg-white border-t border-gray-100 shrink-0">
+        {hasChanges && canEdit && (
+          <button
+            type="button"
+            onClick={handleSaveAll}
+            disabled={isSaving}
+            className="w-full mb-3 flex items-center justify-center gap-2 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black text-sm transition-colors disabled:opacity-60"
+          >
+            <Save size={16} />
+            {isSaving ? '保存中...' : '変更を保存'}
+          </button>
+        )}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
           <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">SUBTOTAL · 商品計</div>
           <div className="text-xl font-black text-gray-900 font-mono">¥{totals.subtotal.toLocaleString()}</div>
@@ -358,6 +497,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
           </div>
           <div className="text-[10px] text-gray-400 font-bold">{totals.prepared} / {items.length} done</div>
         </div>
+      </div>
       </div>
     </div>
   );

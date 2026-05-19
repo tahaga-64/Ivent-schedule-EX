@@ -3,9 +3,10 @@ import { db, auth, loginWithGoogle } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS } from './constants';
-import { Event, PreparationItem } from './types';
+import { Event, PreparationItem, type FieldAuthorAttribution } from './types';
 import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import LoginScreen from './components/LoginScreen';
 import PreparationList from './components/PreparationList';
 import NotificationCenter from './components/notifications/NotificationCenter';
 import AnalyticsDashboard from './components/analytics/AnalyticsDashboard';
@@ -18,7 +19,7 @@ import {
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
 import { registerFcmToken } from './lib/fcm';
-import { recordUserLogin, notifyEventUpdated } from './lib/notifications';
+import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted } from './lib/notifications';
 
 // 安全なlocalStorage読み込み
 function safeGetItem<T>(key: string, fallback: T): T {
@@ -54,6 +55,31 @@ function validateEvent(event: Partial<Event>): ValidationError[] {
   }
   
   return errors;
+}
+
+function buildFieldAttribution(user: User | null): FieldAuthorAttribution | undefined {
+  if (!user) return undefined;
+  return {
+    updatedByUid: user.uid,
+    updatedByEmail: user.email ?? null,
+    updatedByName: user.displayName ?? null,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function formatAttributionLine(meta: FieldAuthorAttribution | undefined): string | null {
+  if (!meta?.updatedAt) return null;
+  const date = new Date(meta.updatedAt);
+  const dateStr = Number.isNaN(date.getTime())
+    ? meta.updatedAt
+    : date.toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' });
+  const name = meta.updatedByName?.trim();
+  const email = meta.updatedByEmail?.trim();
+  if (name && email) return `最終記入: ${name}（${email}）・${dateStr}`;
+  if (email) return `最終記入: ${email}・${dateStr}`;
+  if (name) return `最終記入: ${name}・${dateStr}`;
+  if (meta.updatedByUid) return `最終記入: UID ${meta.updatedByUid.slice(0, 8)}…・${dateStr}`;
+  return `最終記入: ${dateStr}`;
 }
 
 /* ═══════════════════════════════════════
@@ -161,42 +187,12 @@ function buildCalendarDensityPreviewEvents(
   return out;
 }
 
-function LoginScreen() {
-  const [loading, setLoading] = useState(false);
-  const handleLogin = async () => {
-    setLoading(true);
-    try { await loginWithGoogle(); } finally { setLoading(false); }
-  };
-  return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl p-10 shadow-xl max-w-sm w-full text-center">
-        <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-2xl shadow-indigo-200 shadow-xl mx-auto mb-6">EX</div>
-        <h1 className="text-2xl font-black text-slate-800 mb-1">Ivent Manager</h1>
-        <p className="text-sm text-slate-500 mb-8">EX事業部 イベント管理システム</p>
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-3 hover:bg-indigo-700 transition-colors disabled:opacity-60"
-        >
-          <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-          </svg>
-          {loading ? 'ログイン中...' : 'Googleでログイン'}
-        </button>
-        <p className="text-[11px] text-slate-400 mt-6">Googleアカウントでのみアクセス可能です</p>
-      </div>
-    </div>
-  );
-}
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
-  const [view, setView] = useState<"calendar" | "list" | "analytics">(() => {
+  const [view, setView] = useState<"calendar" | "analytics" | "prep">(() => {
     const saved = localStorage.getItem('viewMode');
-    return (saved === 'calendar' || saved === 'list' || saved === 'analytics') ? saved : 'calendar';
+    return (saved === 'calendar' || saved === 'analytics' || saved === 'prep') ? saved : 'calendar';
   });
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
@@ -219,7 +215,7 @@ export default function App() {
   const [sideOpen, setSideOpen] = useState(true);
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
   const [searchQuery, setSearchQuery] = useState("");
-  const [showPrepList, setShowPrepList] = useState(false);
+  const [prepEvent, setPrepEvent] = useState<Event | null>(null);
   const [modalTab, setModalTab] = useState<'detail' | 'photos'>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
@@ -273,7 +269,18 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const canEditEvent = computeCanEditEvent(user);
+  const [narrowViewport, setNarrowViewport] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const apply = () => setNarrowViewport(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  const canEditEvent = computeCanEditEvent(user, narrowViewport);
   const canEditPreparationList = computeCanEditPreparationList(user);
 
   // Firestoreから書き換えられたイベントデータを購読
@@ -500,6 +507,7 @@ export default function App() {
     setLastEditedId(id);
     try {
       await setDoc(doc(db, "events", id), newEvent);
+      if (user) notifyEventCreated(newEvent, user).catch(console.error);
       fetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -526,10 +534,10 @@ export default function App() {
     if (!confirmed) return;
 
     const eventId = selected.id;
+    const deletedVenue = selected.venue;
 
     // モーダルを即座に閉じ、UIから楽観的に削除
     setSelected(null);
-    setShowPrepList(false);
     setHasUnsavedChanges(false);
     setValidationErrors([]);
     setModalTab('detail');
@@ -547,6 +555,7 @@ export default function App() {
 
       // イベント本体を削除
       await deleteDoc(doc(db, 'events', eventId));
+      if (user) notifyEventDeleted(deletedVenue, eventId, user).catch(console.error);
     } catch (error) {
       console.error('Delete error:', error);
       alert('削除に失敗しました。もう一度お試しください。');
@@ -561,7 +570,6 @@ export default function App() {
       }
     }
     setSelected(null);
-    setShowPrepList(false);
     setHasUnsavedChanges(false);
     setValidationErrors([]);
     setModalTab('detail');
@@ -634,7 +642,7 @@ export default function App() {
           </div>
           <div className="sm:hidden flex flex-col">
             <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{calYear}年{calMonth}月</div>
-            <div className="font-black text-sm text-slate-800 leading-tight">イベント一覧</div>
+            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'calendar' ? 'カレンダー' : view === 'analytics' ? '分析' : view === 'prep' ? '準備物リスト' : ''}</div>
           </div>
         </div>
 
@@ -655,11 +663,11 @@ export default function App() {
 
         {/* 右: ビュー切替 + 新規 + アバター */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="flex bg-slate-100 p-1 rounded-xl">
+          <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
             {[
               { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
-              { id: "list", icon: <List size={14} />, label: "リスト" },
               { id: "analytics", icon: <BarChart2 size={14} />, label: "分析" },
+              { id: "prep", icon: <ClipboardList size={14} />, label: "準備物" },
             ].map(v => (
               <button
                 key={v.id}
@@ -675,6 +683,7 @@ export default function App() {
             ))}
           </div>
 
+          {!narrowViewport && (
           <button
             onClick={() => handleCreateEvent()}
             className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black transition-all shadow-indigo-200 shadow-md"
@@ -682,6 +691,7 @@ export default function App() {
             <Plus size={14} strokeWidth={3} />
             <span className="hidden sm:inline">新規イベント</span>
           </button>
+          )}
 
           <NotificationCenter />
 
@@ -781,10 +791,11 @@ export default function App() {
                   <button
                     onClick={() => {
                     const newType = prompt("新しい案件種別を入力してください:");
-                    if (newType) {
-                      const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
-                      setSidebarTypes(prev => [...prev, { label: newType, icon }]);
-                    }
+                    const trimmed = newType?.trim() ?? '';
+                    if (!trimmed || trimmed.length > 50) return;
+                    if (sidebarTypes.some(t => t.label === trimmed)) { alert('その種別は既に存在します'); return; }
+                    const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
+                    setSidebarTypes(prev => [...prev, { label: trimmed, icon }]);
                   }}
                   className="p-1 hover:bg-indigo-50 rounded text-indigo-400 hover:text-indigo-600 transition-colors"
                 >
@@ -1011,9 +1022,53 @@ export default function App() {
                   </div>
                 </>
               )}
-              {view === "list" && (
-                filtered.length === 0 ? <EmptyState /> :
-                <ListView data={filtered} onSelect={handleEventSelect} onHover={handleEventHover} onHoverEnd={handleEventHoverEnd} lastEditedId={lastEditedId} />
+              {view === "prep" && (
+                prepEvent ? (
+                  <PreparationList
+                    event={prepEvent}
+                    onBack={() => setPrepEvent(null)}
+                    canEdit={canEditPreparationList}
+                  />
+                ) : (
+                  <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
+                    <div className="px-4 py-4">
+                      <h2 className="text-base font-black text-slate-800 mb-3">準備物リスト</h2>
+                      {allEvents.length === 0 ? (
+                        <div className="text-center py-12 text-slate-400 text-sm">イベントがありません</div>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          {[...allEvents].sort((a, b) => a.start.localeCompare(b.start)).map(ev => {
+                            const prog = prepProgress[ev.id];
+                            const pct = prog && prog.total > 0 ? Math.round((prog.prepared / prog.total) * 100) : 0;
+                            return (
+                            <button
+                              key={ev.id}
+                              onClick={() => setPrepEvent(ev)}
+                              className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
+                                  {prog && prog.total > 0 && (
+                                    <span className="text-xs font-black text-indigo-600 shrink-0 ml-2">{pct}%</span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
+                                {prog && prog.total > 0 && (
+                                  <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1">
+                                    <div className="bg-indigo-500 h-1 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                  </div>
+                                )}
+                              </div>
+                              <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
+                            </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
               )}
               {view === "analytics" && analyticsData && (
                 <AnalyticsDashboard data={analyticsData} loading={analyticsLoading} events={allEvents} />
@@ -1108,25 +1163,12 @@ export default function App() {
             />
             <motion.div
               initial={{ opacity: 0, y: 40 }}
-              animate={{
-                opacity: 1,
-                y: 0,
-                width: showPrepList ? '95vw' : undefined,
-                height: showPrepList ? '90vh' : undefined,
-              }}
+              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 40 }}
               onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[520px] lg:max-w-[520px] max-h-[92vh] lg:max-h-[90vh]"
-              style={showPrepList ? { width: '95vw', maxWidth: '1600px', height: '90vh' } : {}}
             >
-              {showPrepList ? (
-                <PreparationList
-                  event={selected}
-                  onBack={() => setShowPrepList(false)}
-                  canEdit={canEditPreparationList}
-                />
-              ) : (
-                <div className="p-6 lg:p-8 overflow-y-auto">
+                <div className="p-6 lg:p-8 overflow-y-auto overflow-x-hidden">
                   {/* Header: タグ + 閉じるボタン */}
                   <div className="flex justify-between items-center mb-5">
                     <div className="flex flex-col gap-2 flex-1 min-w-0">
@@ -1267,6 +1309,52 @@ export default function App() {
                     </div>
 
                     <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">メモ</label>
+                      <textarea
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[88px] resize-none read-only:bg-gray-50 read-only:text-gray-500"
+                        value={selected.detailMemo ?? ''}
+                        placeholder="例：搬入は西口ローリング床／15:00までに主電源・Wi-Fi確認"
+                        readOnly={!user}
+                        onChange={e => {
+                          const detailMemo = e.target.value;
+                          handleUpdateEvent(selected.id, {
+                            detailMemo,
+                            detailMemoAttribution: buildFieldAttribution(user) ?? selected.detailMemoAttribution,
+                          });
+                        }}
+                      />
+                      {formatAttributionLine(selected.detailMemoAttribution) ? (
+                        <p className="mt-1.5 text-[11px] text-gray-500">{formatAttributionLine(selected.detailMemoAttribution)}</p>
+                      ) : null}
+                      {!user && (
+                        <p className="mt-1.5 text-[11px] text-amber-700/90">ログインするとメモを記入・保存できます。</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">担当者</label>
+                      <textarea
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[72px] resize-none read-only:bg-gray-50 read-only:text-gray-500"
+                        value={selected.assigneeNote ?? ''}
+                        placeholder="例：当日責任 山田／設営サポート 佐藤・伊藤／受付 外部スタッフ"
+                        readOnly={!user}
+                        onChange={e => {
+                          const assigneeNote = e.target.value;
+                          handleUpdateEvent(selected.id, {
+                            assigneeNote,
+                            assigneeNoteAttribution: buildFieldAttribution(user) ?? selected.assigneeNoteAttribution,
+                          });
+                        }}
+                      />
+                      {formatAttributionLine(selected.assigneeNoteAttribution) ? (
+                        <p className="mt-1.5 text-[11px] text-gray-500">{formatAttributionLine(selected.assigneeNoteAttribution)}</p>
+                      ) : null}
+                      {!user && (
+                        <p className="mt-1.5 text-[11px] text-amber-700/90">ログインすると担当者欄を記入・保存できます。</p>
+                      )}
+                    </div>
+
+                    <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">NOTES・備考</label>
                       <textarea
                         className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px] resize-none"
@@ -1388,7 +1476,7 @@ export default function App() {
                       </button>
                     )}
                     <button
-                      onClick={() => setShowPrepList(true)}
+                      onClick={() => { if (selected) { setPrepEvent(selected); setView('prep'); setSelected(null); } }}
                       className="flex-1 py-4 rounded-2xl bg-indigo-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20"
                     >
                       <ClipboardList size={18} />
@@ -1433,7 +1521,6 @@ export default function App() {
                   </AnimatePresence>
                   </>}
                 </div>
-              )}
             </motion.div>
           </div>
         )}
@@ -1448,13 +1535,12 @@ export default function App() {
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around pb-safe z-20 lg:hidden">
         {[
           { id: "calendar",  icon: <Calendar size={22} />,    label: "カレンダー" },
-          { id: "list",      icon: <List size={22} />,        label: "リスト" },
           { id: "analytics", icon: <BarChart2 size={22} />,   label: "分析" },
           { id: "prep",      icon: <ClipboardList size={22} />, label: "準備物" },
         ].map(tab => (
           <button
             key={tab.id}
-            onClick={() => { if (tab.id !== "prep") setView(tab.id as any); }}
+            onClick={() => { if (tab.id !== 'prep') setPrepEvent(null); setView(tab.id as any); }}
             className={`flex flex-col items-center gap-0.5 px-4 py-3 text-[10px] font-bold transition-colors ${
               view === tab.id ? "text-indigo-600" : "text-slate-400"
             }`}
