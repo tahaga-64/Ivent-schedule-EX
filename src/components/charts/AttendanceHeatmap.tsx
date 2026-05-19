@@ -1,3 +1,5 @@
+import { motion } from 'motion/react';
+
 interface Props {
   dailyAttendance: { date: string; attendance: number }[];
 }
@@ -64,7 +66,13 @@ export default function AttendanceHeatmap({ dailyAttendance }: Props) {
   };
 
   return (
-    <div className="overflow-x-auto">
+    <motion.div
+      initial={{ opacity: 0 }}
+      whileInView={{ opacity: 1 }}
+      viewport={{ once: true, margin: '-80px' }}
+      transition={{ duration: 0.8 }}
+      className="overflow-x-auto"
+    >
       <div className="min-w-[900px]">
         <div className="ml-10 mb-2 relative h-5">
           {monthLabels.map((m) => (
@@ -99,6 +107,6 @@ export default function AttendanceHeatmap({ dailyAttendance }: Props) {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

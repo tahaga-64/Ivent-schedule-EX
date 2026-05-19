@@ -67,8 +67,8 @@ export async function uploadEventPhoto(eventId: string, file: File): Promise<Eve
   const thumbnailStoragePath = buildPhotoPath(eventId, photoId, 'thumb.webp');
 
   const [photoBlob, thumbnailBlob] = await Promise.all([
-    resizeToWebpBlob(file, 800, 0.82),
-    resizeToWebpBlob(file, 200, 0.75),
+    resizeToWebpBlob(file, 2000, 0.88),
+    resizeToWebpBlob(file, 400, 0.75),
   ]);
 
   await Promise.all([

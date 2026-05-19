@@ -82,8 +82,8 @@ export interface UserProfile {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  lastLoginAt: any;
-  createdAt?: any;
+  lastLoginAt: { toDate(): Date } | Date | null;
+  createdAt?: { toDate(): Date } | Date | null;
 }
 
 export interface Notification {
