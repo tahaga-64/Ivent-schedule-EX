@@ -4,7 +4,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS } from './constants';
 import { Event, PreparationItem } from './types';
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera, Trash2 } from 'lucide-react';
+import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera, Trash2, Archive } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import PreparationList from './components/PreparationList';
@@ -165,9 +165,9 @@ function buildCalendarDensityPreviewEvents(
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
-  const [view, setView] = useState<"calendar" | "analytics" | "prep">(() => {
+  const [view, setView] = useState<"calendar" | "analytics" | "prep" | "archive">(() => {
     const saved = localStorage.getItem('viewMode');
-    return (saved === 'calendar' || saved === 'analytics' || saved === 'prep') ? saved : 'calendar';
+    return (saved === 'calendar' || saved === 'analytics' || saved === 'prep' || saved === 'archive') ? saved : 'calendar';
   });
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
@@ -653,7 +653,7 @@ export default function App() {
           </div>
           <div className="sm:hidden flex flex-col">
             <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{calYear}年{calMonth}月</div>
-            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'calendar' ? 'カレンダー' : view === 'analytics' ? '分析' : view === 'prep' ? '準備物リスト' : ''}</div>
+            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'calendar' ? 'カレンダー' : view === 'analytics' ? '分析' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : ''}</div>
           </div>
         </div>
 
@@ -679,6 +679,7 @@ export default function App() {
               { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
               { id: "analytics", icon: <BarChart2 size={14} />, label: "分析" },
               { id: "prep", icon: <ClipboardList size={14} />, label: "準備物" },
+              { id: "archive", icon: <Archive size={14} />, label: "アーカイブ" },
             ].map(v => (
               <button
                 key={v.id}
@@ -1032,54 +1033,104 @@ export default function App() {
                   </div>
                 </>
               )}
-              {view === "prep" && (
-                prepEvent ? (
-                  <PreparationList
-                    event={prepEvent}
-                    onBack={() => setPrepEvent(null)}
-                    canEdit={canEditPreparationList}
-                  />
-                ) : (
+              {(view === "prep" || view === "archive") && prepEvent ? (
+                <PreparationList
+                  event={prepEvent}
+                  onBack={() => setPrepEvent(null)}
+                  canEdit={canEditPreparationList}
+                />
+              ) : view === "prep" ? (() => {
+                const today = new Date().toISOString().slice(0, 10);
+                const activeEvents = [...allEvents]
+                  .filter(ev => ev.end >= today)
+                  .sort((a, b) => a.start.localeCompare(b.start));
+                return (
                   <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
                     <div className="px-4 py-4">
                       <h2 className="text-base font-black text-slate-800 mb-3">準備物リスト</h2>
-                      {allEvents.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400 text-sm">イベントがありません</div>
+                      {activeEvents.length === 0 ? (
+                        <div className="text-center py-12 text-slate-400 text-sm">進行中のイベントがありません</div>
                       ) : (
                         <div className="flex flex-col gap-2">
-                          {[...allEvents].sort((a, b) => a.start.localeCompare(b.start)).map(ev => {
+                          {activeEvents.map(ev => {
                             const prog = prepProgress[ev.id];
                             const pct = prog && prog.total > 0 ? Math.round((prog.prepared / prog.total) * 100) : 0;
                             return (
-                            <button
-                              key={ev.id}
-                              onClick={() => setPrepEvent(ev)}
-                              className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-0.5">
-                                  <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
+                              <button
+                                key={ev.id}
+                                onClick={() => setPrepEvent(ev)}
+                                className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-0.5">
+                                    <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
+                                    {prog && prog.total > 0 && (
+                                      <span className="text-xs font-black text-indigo-600 shrink-0 ml-2">{pct}%</span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
                                   {prog && prog.total > 0 && (
-                                    <span className="text-xs font-black text-indigo-600 shrink-0 ml-2">{pct}%</span>
+                                    <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1">
+                                      <div className="bg-indigo-500 h-1 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                    </div>
                                   )}
                                 </div>
-                                <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
-                                {prog && prog.total > 0 && (
-                                  <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1">
-                                    <div className="bg-indigo-500 h-1 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                                  </div>
-                                )}
-                              </div>
-                              <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
-                            </button>
+                                <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
+                              </button>
                             );
                           })}
                         </div>
                       )}
                     </div>
                   </div>
-                )
-              )}
+                );
+              })() : view === "archive" ? (() => {
+                const today = new Date().toISOString().slice(0, 10);
+                const archivedEvents = [...allEvents]
+                  .filter(ev => ev.end < today)
+                  .sort((a, b) => b.end.localeCompare(a.end));
+                return (
+                  <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
+                    <div className="px-4 py-4">
+                      <h2 className="text-base font-black text-slate-800 mb-1">アーカイブ</h2>
+                      <p className="text-xs text-slate-400 mb-3">終了したイベントの準備物を確認できます</p>
+                      {archivedEvents.length === 0 ? (
+                        <div className="text-center py-12 text-slate-400 text-sm">アーカイブされたイベントがありません</div>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          {archivedEvents.map(ev => {
+                            const prog = prepProgress[ev.id];
+                            const pct = prog && prog.total > 0 ? Math.round((prog.prepared / prog.total) * 100) : 0;
+                            return (
+                              <button
+                                key={ev.id}
+                                onClick={() => setPrepEvent(ev)}
+                                className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between opacity-75"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-0.5">
+                                    <div className="font-bold text-slate-600 text-sm truncate">{ev.venue}</div>
+                                    {prog && prog.total > 0 && (
+                                      <span className={`text-xs font-black shrink-0 ml-2 ${pct === 100 ? 'text-emerald-600' : 'text-slate-400'}`}>{pct}%</span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
+                                  {prog && prog.total > 0 && (
+                                    <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1">
+                                      <div className={`h-1 rounded-full transition-all ${pct === 100 ? 'bg-emerald-400' : 'bg-slate-300'}`} style={{ width: `${pct}%` }} />
+                                    </div>
+                                  )}
+                                </div>
+                                <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })() : null}
               {view === "analytics" && analyticsData && (
                 <AnalyticsDashboard data={analyticsData} loading={analyticsLoading} events={allEvents} />
               )}
@@ -1498,13 +1549,13 @@ export default function App() {
       {/* Mobile Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around pb-safe z-20 lg:hidden">
         {[
-          { id: "calendar",  icon: <Calendar size={22} />,    label: "カレンダー" },
-          { id: "analytics", icon: <BarChart2 size={22} />,   label: "分析" },
-          { id: "prep",      icon: <ClipboardList size={22} />, label: "準備物" },
+          { id: "calendar", icon: <Calendar size={22} />,     label: "カレンダー" },
+          { id: "prep",     icon: <ClipboardList size={22} />, label: "準備物" },
+          { id: "archive",  icon: <Archive size={22} />,       label: "アーカイブ" },
         ].map(tab => (
           <button
             key={tab.id}
-            onClick={() => { if (tab.id !== 'prep') setPrepEvent(null); setView(tab.id as any); }}
+            onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); setView(tab.id as any); }}
             className={`flex flex-col items-center gap-0.5 px-4 py-3 text-[10px] font-bold transition-colors ${
               view === tab.id ? "text-indigo-600" : "text-slate-400"
             }`}
