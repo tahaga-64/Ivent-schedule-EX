@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { loginWithGoogle } from '../lib/firebase';
+import EXLogo from './EXLogo';
 
 const container = {
   hidden: {},
@@ -50,15 +51,9 @@ export default function LoginScreen() {
         animate="visible"
         className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl px-10 py-10 max-w-sm w-full text-center shadow-[0_8px_40px_rgba(0,0,0,0.35)] relative z-10"
       >
-        {/* MERCURY logo */}
-        <motion.div variants={item} className="mb-7">
-          <div className="bg-white rounded-2xl px-6 py-4 w-48 mx-auto shadow-lg">
-            <img
-              src="/mercury-logo.png"
-              alt="MERCURY"
-              className="w-full"
-            />
-          </div>
+        {/* EX logo */}
+        <motion.div variants={item} className="mb-7 flex justify-center">
+          <EXLogo size="md" showSubtitle />
         </motion.div>
 
         {/* Title */}
