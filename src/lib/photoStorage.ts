@@ -2,7 +2,7 @@ import { EventPhoto } from '../types';
 import { SUPABASE_PHOTO_BUCKET, supabase } from './supabase';
 
 export const MAX_SIZE_BYTES = 10 * 1024 * 1024;
-export const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
+export const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
 export const MAX_PHOTOS = 3;
 
 export function validateImageFile(file: File): string | null {
