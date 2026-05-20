@@ -21,6 +21,7 @@ import { usePhotos } from './hooks/usePhotos';
 import {
   canEditEvent as computeCanEditEvent,
   canEditPreparationList as computeCanEditPreparationList,
+  canUploadPhoto as computeCanUploadPhoto,
 } from './lib/permissions';
 import { registerFcmToken } from './lib/fcm';
 import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted } from './lib/notifications';
@@ -306,6 +307,7 @@ export default function App() {
 
   const canEditEvent = computeCanEditEvent(user, narrowViewport);
   const canEditPreparationList = computeCanEditPreparationList(user);
+  const canUploadPhoto = computeCanUploadPhoto(user);
 
   // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {
@@ -1321,7 +1323,7 @@ export default function App() {
               onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[520px] lg:max-w-[520px] max-h-[92vh] lg:max-h-[90vh]"
             >
-                <div className="p-6 lg:p-8 overflow-y-auto overflow-x-hidden">
+                <div className="p-6 lg:p-8 pb-[calc(1.5rem+env(safe-area-inset-bottom))] overflow-y-auto overflow-x-hidden">
                   {/* Header: タグ + 閉じるボタン */}
                   <div className="flex justify-between items-center mb-5">
                     <div className="flex flex-col gap-2 flex-1 min-w-0">
@@ -1393,7 +1395,7 @@ export default function App() {
                   {/* 写真タブ */}
                   {modalTab === 'photos' && (
                     <div className="space-y-4">
-                      {canEditEvent && (selected.photos?.length ?? 0) < 3 && (
+                      {canUploadPhoto && (selected.photos?.length ?? 0) < 3 && (
                         <PhotoUpload
                           onUpload={async (file) => { await uploadPhoto(file); }}
                           uploading={photoUploading}
@@ -1402,7 +1404,7 @@ export default function App() {
                           maxPhotos={3}
                         />
                       )}
-                      {canEditEvent && (selected.photos?.length ?? 0) >= 3 && (
+                      {canUploadPhoto && (selected.photos?.length ?? 0) >= 3 && (
                         <p className="text-xs text-center text-slate-400 py-2">写真は最大3枚までです</p>
                       )}
                       {photoError && <p className="text-xs text-red-500 font-bold">{photoError}</p>}
@@ -1410,7 +1412,7 @@ export default function App() {
                         photos={selected.photos || []}
                         onDelete={photo => deleteEventPhoto(photo)}
                         onUpdateCaption={(photo, caption) => updatePhotoCaption(photo, caption)}
-                        canEdit={canEditEvent}
+                        canEdit={canUploadPhoto}
                       />
                     </div>
                   )}

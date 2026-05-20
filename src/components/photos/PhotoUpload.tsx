@@ -55,7 +55,7 @@ export default function PhotoUpload({ onUpload, uploading, uploadProgress, curre
         <input
           ref={inputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.heic,.heif"
           className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
         />
@@ -65,7 +65,7 @@ export default function PhotoUpload({ onUpload, uploading, uploadProgress, curre
         <div className="text-center">
           <p className="text-sm font-bold text-slate-600">クリックまたはドラッグ＆ドロップ</p>
           <p className="text-xs text-slate-400 mt-0.5">
-            JPEG, PNG, WebP, GIF · 最大10MB · あと{remaining}枚追加可能
+            JPEG / PNG / WebP / HEIC など · 最大10MB · あと{remaining}枚追加可能
           </p>
         </div>
         {uploading && (
