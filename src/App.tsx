@@ -9,16 +9,14 @@ interface StaffMember {
   id: string;
   name: string;
 }
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, BarChart2, Camera, Trash2, Archive } from 'lucide-react';
+import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, Camera, Trash2, Archive } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
 import PreparationList from './components/PreparationList';
 import NotificationCenter from './components/notifications/NotificationCenter';
-import AnalyticsDashboard from './components/analytics/AnalyticsDashboard';
 import PhotoUpload from './components/photos/PhotoUpload';
 import PhotoGallery from './components/photos/PhotoGallery';
-import { useAnalytics } from './hooks/useAnalytics';
 import { usePhotos } from './hooks/usePhotos';
 import {
   canEditEvent as computeCanEditEvent,
@@ -197,9 +195,9 @@ function buildCalendarDensityPreviewEvents(
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [needsNameSetup, setNeedsNameSetup] = useState(false);
-  const [view, setView] = useState<"calendar" | "analytics" | "prep" | "archive">(() => {
+  const [view, setView] = useState<"calendar" | "prep" | "archive">(() => {
     const saved = localStorage.getItem('viewMode');
-    return (saved === 'calendar' || saved === 'analytics' || saved === 'prep' || saved === 'archive') ? saved : 'calendar';
+    return (saved === 'calendar' || saved === 'prep' || saved === 'archive') ? saved : 'calendar';
   });
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
@@ -418,7 +416,6 @@ export default function App() {
     );
   }, [filtered, calendarDensityPreview, calYear, calMonth, regionFilter, typeFilter]);
 
-  const { data: analyticsData, loading: analyticsLoading, prepProgress } = useAnalytics(allEvents);
   const {
     uploading: photoUploading,
     uploadProgress,
@@ -742,7 +739,7 @@ export default function App() {
           </div>
           <div className="sm:hidden flex flex-col">
             <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{calYear}年{calMonth}月</div>
-            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'calendar' ? 'カレンダー' : view === 'analytics' ? '分析' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : ''}</div>
+            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'calendar' ? 'カレンダー' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : ''}</div>
           </div>
         </div>
 
@@ -766,7 +763,6 @@ export default function App() {
           <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
             {[
               { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
-              { id: "analytics", icon: <BarChart2 size={14} />, label: "分析" },
               { id: "prep", icon: <ClipboardList size={14} />, label: "準備物" },
               { id: "archive", icon: <Archive size={14} />, label: "アーカイブ" },
             ].map(v => (
@@ -1182,33 +1178,19 @@ export default function App() {
                         <div className="text-center py-12 text-slate-400 text-sm">進行中のイベントがありません</div>
                       ) : (
                         <div className="flex flex-col gap-2">
-                          {activeEvents.map(ev => {
-                            const prog = prepProgress[ev.id];
-                            const pct = prog && prog.total > 0 ? Math.round((prog.prepared / prog.total) * 100) : 0;
-                            return (
-                              <button
-                                key={ev.id}
-                                onClick={() => setPrepEvent(ev)}
-                                className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between mb-0.5">
-                                    <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
-                                    {prog && prog.total > 0 && (
-                                      <span className="text-xs font-black text-indigo-600 shrink-0 ml-2">{pct}%</span>
-                                    )}
-                                  </div>
-                                  <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
-                                  {prog && prog.total > 0 && (
-                                    <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1">
-                                      <div className="bg-indigo-500 h-1 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                                    </div>
-                                  )}
-                                </div>
-                                <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
-                              </button>
-                            );
-                          })}
+                          {activeEvents.map(ev => (
+                            <button
+                              key={ev.id}
+                              onClick={() => setPrepEvent(ev)}
+                              className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
+                                <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
+                              </div>
+                              <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
+                            </button>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -1228,45 +1210,25 @@ export default function App() {
                         <div className="text-center py-12 text-slate-400 text-sm">アーカイブされたイベントがありません</div>
                       ) : (
                         <div className="flex flex-col gap-2">
-                          {archivedEvents.map(ev => {
-                            const prog = prepProgress[ev.id];
-                            const pct = prog && prog.total > 0 ? Math.round((prog.prepared / prog.total) * 100) : 0;
-                            return (
-                              <button
-                                key={ev.id}
-                                onClick={() => setPrepEvent(ev)}
-                                className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between opacity-75"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between mb-0.5">
-                                    <div className="font-bold text-slate-600 text-sm truncate">{ev.venue}</div>
-                                    {prog && prog.total > 0 && (
-                                      <span className={`text-xs font-black shrink-0 ml-2 ${pct === 100 ? 'text-emerald-600' : 'text-slate-400'}`}>{pct}%</span>
-                                    )}
-                                  </div>
-                                  <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
-                                  {prog && prog.total > 0 && (
-                                    <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1">
-                                      <div className={`h-1 rounded-full transition-all ${pct === 100 ? 'bg-emerald-400' : 'bg-slate-300'}`} style={{ width: `${pct}%` }} />
-                                    </div>
-                                  )}
-                                </div>
-                                <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
-                              </button>
-                            );
-                          })}
+                          {archivedEvents.map(ev => (
+                            <button
+                              key={ev.id}
+                              onClick={() => setPrepEvent(ev)}
+                              className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between opacity-75"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-slate-600 text-sm truncate">{ev.venue}</div>
+                                <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
+                              </div>
+                              <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
+                            </button>
+                          ))}
                         </div>
                       )}
                     </div>
                   </div>
                 );
               })() : null}
-              {view === "analytics" && analyticsData && (
-                <AnalyticsDashboard data={analyticsData} loading={analyticsLoading} events={allEvents} />
-              )}
-              {view === "analytics" && !analyticsData && analyticsLoading && (
-                <AnalyticsDashboard data={{ totalEvents: 0, completedEvents: 0, totalBudget: 0, avgBudget: 0, completionRate: 0, onTimeRate: 0, avgPreparationDays: 0, activeRegions: 0, topVenues: [], topRegion: '', busiestMonth: '', monthlyTrends: [], regionStats: [], typeStats: [], clientStats: [], totalSales: 0, totalGrossProfit: 0, totalAttendance: 0, totalSeatedCount: 0, totalContracts: 0, avgCarrierSwitchRate: 0, carrierInflowTotal: { docomo: 0, au: 0, softbank: 0, rakuten: 0, other: 0 } }} loading={true} />
-              )}
             </motion.div>
           </AnimatePresence>
           </div>
@@ -1643,7 +1605,7 @@ export default function App() {
 
       {/* Hover Preview Card（PC only） */}
       {hoveredEvent && (
-        <HoverCard event={hoveredEvent} pos={hoverPos} prepProgress={prepProgress[hoveredEvent.id]} />
+        <HoverCard event={hoveredEvent} pos={hoverPos} />
       )}
 
       {/* Mobile Bottom Navigation */}
@@ -2376,21 +2338,12 @@ function ListView({ data, onSelect, onHover, onHoverEnd, lastEditedId }: ListVie
   );
 }
 
-function HoverCard({ event, pos, prepProgress }: {
+function HoverCard({ event, pos }: {
   event: Event;
   pos: { x: number; y: number };
-  prepProgress?: { prepared: number; total: number };
 }) {
   const left = pos.x + 260 > window.innerWidth ? pos.x - 270 : pos.x + 16;
   const top = pos.y + 240 > window.innerHeight ? pos.y - 220 : pos.y + 8;
-
-  // prep progress logic
-  const pct = prepProgress && prepProgress.total > 0
-    ? Math.round((prepProgress.prepared / prepProgress.total) * 100)
-    : null;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const start = new Date(event.start || ''); start.setHours(0,0,0,0);
-  const daysUntil = Math.ceil((start.getTime() - today.getTime()) / 86400000);
 
   return (
     <div
@@ -2418,36 +2371,6 @@ function HoverCard({ event, pos, prepProgress }: {
         </div>
         {event.client && <div className="text-slate-500">{event.client}</div>}
         {event.note && <div className="text-slate-400 line-clamp-2">{event.note}</div>}
-        {pct !== null && prepProgress && prepProgress.total > 0 && (
-          <div className={`mt-3 pt-3 border-t border-slate-100 rounded-lg px-1 ${
-            pct < 100 && daysUntil > 0
-              ? daysUntil <= 3 ? 'bg-red-50' : daysUntil <= 14 ? 'bg-amber-50' : daysUntil <= 30 ? 'bg-blue-50' : ''
-              : ''
-          }`}>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-bold text-slate-500">準備進捗</span>
-              <span className={`text-[10px] font-black ${
-                pct === 100 ? 'text-emerald-600'
-                : daysUntil <= 3 ? 'text-red-600'
-                : daysUntil <= 14 ? 'text-amber-600'
-                : 'text-blue-600'
-              }`}>
-                {prepProgress.prepared}/{prepProgress.total} ({pct}%)
-              </span>
-            </div>
-            <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  pct === 100 ? 'bg-emerald-500'
-                  : daysUntil <= 3 ? 'bg-red-500'
-                  : daysUntil <= 14 ? 'bg-amber-500'
-                  : 'bg-blue-400'
-                }`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

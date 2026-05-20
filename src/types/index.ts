@@ -1,5 +1,5 @@
 // メインの型定義を再エクスポート
-export type { Event, PreparationItem, EventPhoto, Notification, AnalyticsData, MonthlyTrend, RegionStats } from '../types';
+export type { Event, PreparationItem, EventPhoto, Notification } from '../types';
 
 // 後方互換性のための型エイリアス
 export type Region = '東北' | '関東' | '中部' | '近畿' | '中国' | '四国' | '九州';

@@ -1,7 +1,16 @@
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
 import { doc, setDoc } from 'firebase/firestore';
 import { getApp } from 'firebase/app';
-import { db } from './firebase';
+import { db, app } from './firebase';
+
+async function getSwRegistration(): Promise<ServiceWorkerRegistration> {
+  const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+  // Wait for the SW to be active before sending config
+  const sw = await navigator.serviceWorker.ready;
+  // Send Firebase config so the SW can initialize without hardcoded values
+  sw.active?.postMessage({ type: 'FIREBASE_CONFIG', config: app.options });
+  return reg;
+}
 
 function readVapidKey(): string | undefined {
   const key = import.meta.env.VITE_FIREBASE_VAPID_KEY?.trim();
@@ -9,13 +18,9 @@ function readVapidKey(): string | undefined {
   return key;
 }
 
-/**
- * Web Push（FCM）用。Firebase Console > Project settings > Cloud Messaging で
- * Web Push 証明書（キーペア）を作成し、公開鍵を VITE_FIREBASE_VAPID_KEY に設定する。
- */
 export async function registerFcmToken(userId: string): Promise<void> {
   try {
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) return;
     if (!(await isSupported())) return;
 
     const vapidKey = readVapidKey();
@@ -26,11 +31,14 @@ export async function registerFcmToken(userId: string): Promise<void> {
       return;
     }
 
-    const messaging = getMessaging(getApp());
+    // Skip if already denied — don't nag the user
+    if (Notification.permission === 'denied') return;
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return;
 
-    const token = await getToken(messaging, { vapidKey });
+    const swReg = await getSwRegistration();
+    const messaging = getMessaging(getApp());
+    const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swReg });
     if (token) {
       await setDoc(
         doc(db, 'users', userId),
@@ -43,10 +51,6 @@ export async function registerFcmToken(userId: string): Promise<void> {
   }
 }
 
-/**
- * アプリがフォアグラウンドのときはサービスワーカー経由の通知が出ないため、
- * 受信時にブラウザの Notification API で表示する。
- */
 export async function subscribeForegroundFcm(
   onNotification: (title: string, body: string) => void,
 ): Promise<(() => void) | undefined> {
