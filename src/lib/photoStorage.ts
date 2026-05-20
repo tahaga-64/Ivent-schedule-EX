@@ -1,5 +1,6 @@
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { EventPhoto } from '../types';
-import { SUPABASE_PHOTO_BUCKET, supabase } from './supabase';
+import { storage } from './firebase';
 
 export const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 export const MAX_PHOTOS = 3;
@@ -48,22 +49,15 @@ async function resizeToWebpBlob(file: File, maxWidth: number, quality: number): 
   });
 }
 
-function getPublicUrl(path: string): string {
-  const { data } = supabase.storage.from(SUPABASE_PHOTO_BUCKET).getPublicUrl(path);
-  return data.publicUrl;
-}
-
 function buildPhotoPath(eventId: string, photoId: string, fileName: string): string {
   const safeEventId = eventId.replace(/[^a-zA-Z0-9_-]/g, '_');
   return `events/${safeEventId}/${photoId}/${fileName}`;
 }
 
-async function uploadBlob(path: string, blob: Blob): Promise<void> {
-  const { error } = await supabase.storage.from(SUPABASE_PHOTO_BUCKET).upload(path, blob, {
-    contentType: 'image/webp',
-    upsert: false,
-  });
-  if (error) throw error;
+async function uploadBlob(path: string, blob: Blob): Promise<string> {
+  const fileRef = ref(storage, path);
+  await uploadBytes(fileRef, blob, { contentType: 'image/webp' });
+  return getDownloadURL(fileRef);
 }
 
 export async function uploadEventPhoto(eventId: string, file: File): Promise<EventPhoto> {
@@ -76,20 +70,25 @@ export async function uploadEventPhoto(eventId: string, file: File): Promise<Eve
     resizeToWebpBlob(file, 400, 0.75),
   ]);
 
+  let photoUrl: string;
+  let thumbnailUrl: string;
   try {
-    await Promise.all([
+    [photoUrl, thumbnailUrl] = await Promise.all([
       uploadBlob(storagePath, photoBlob),
       uploadBlob(thumbnailStoragePath, thumbnailBlob),
     ]);
   } catch (uploadError) {
-    supabase.storage.from(SUPABASE_PHOTO_BUCKET).remove([storagePath, thumbnailStoragePath]).catch(() => {});
+    Promise.allSettled([
+      deleteObject(ref(storage, storagePath)),
+      deleteObject(ref(storage, thumbnailStoragePath)),
+    ]).catch(() => {});
     throw uploadError;
   }
 
   return {
     id: photoId,
-    url: getPublicUrl(storagePath),
-    thumbnailUrl: getPublicUrl(thumbnailStoragePath),
+    url: photoUrl,
+    thumbnailUrl,
     storagePath,
     thumbnailStoragePath,
     uploadedAt: new Date().toISOString(),
@@ -98,8 +97,11 @@ export async function uploadEventPhoto(eventId: string, file: File): Promise<Eve
 
 export async function deleteStoredPhoto(photo: EventPhoto): Promise<void> {
   const paths = [photo.storagePath, photo.thumbnailStoragePath].filter((path): path is string => Boolean(path));
-  if (paths.length === 0) return;
-
-  const { error } = await supabase.storage.from(SUPABASE_PHOTO_BUCKET).remove(paths);
-  if (error) throw error;
+  await Promise.all(paths.map(async (path) => {
+    try {
+      await deleteObject(ref(storage, path));
+    } catch (e) {
+      console.error(`Failed to delete ${path}:`, e);
+    }
+  }));
 }
