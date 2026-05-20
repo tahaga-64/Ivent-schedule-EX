@@ -18,35 +18,30 @@ export function validateImageFile(file: File): string | null {
 }
 
 async function resizeToWebpBlob(file: File, maxWidth: number, quality: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      const scale = Math.min(1, maxWidth / img.width);
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
-      canvas.toBlob(
-        blob => {
-          canvas.width = 0;
-          canvas.height = 0;
-          if (!blob) { reject(new Error('圧縮に失敗しました')); return; }
-          resolve(blob);
-        },
-        'image/webp',
-        quality
-      );
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error('画像の読み込みに失敗しました'));
-    };
-    img.src = objectUrl;
-  });
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxWidth / bitmap.width);
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+
+  let blob: Blob | null;
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const canvas = new OffscreenCanvas(w, h);
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close();
+    blob = await canvas.convertToBlob({ type: 'image/webp', quality });
+  } else {
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close();
+    blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', quality));
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+
+  if (!blob) throw new Error('圧縮に失敗しました');
+  return blob;
 }
 
 function buildPhotoPath(eventId: string, photoId: string, fileName: string): string {
