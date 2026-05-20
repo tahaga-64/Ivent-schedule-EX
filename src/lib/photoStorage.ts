@@ -2,11 +2,16 @@ import { EventPhoto } from '../types';
 import { SUPABASE_PHOTO_BUCKET, supabase } from './supabase';
 
 export const MAX_SIZE_BYTES = 10 * 1024 * 1024;
-export const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
 export const MAX_PHOTOS = 3;
 
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif', '.avif', '.bmp', '.tiff'];
+
 export function validateImageFile(file: File): string | null {
-  if (!ACCEPTED_TYPES.includes(file.type)) return '対応画像形式: JPEG, PNG, WebP, GIF, HEIC';
+  const type = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  const isImage = type.startsWith('image/') ||
+    IMAGE_EXTENSIONS.some(ext => name.endsWith(ext));
+  if (!isImage) return '画像ファイルを選択してください';
   if (file.size > MAX_SIZE_BYTES) return 'ファイルサイズは10MB以下にしてください';
   return null;
 }
