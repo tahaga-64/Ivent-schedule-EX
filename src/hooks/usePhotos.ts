@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { doc, updateDoc, runTransaction, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, setDoc, runTransaction, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { deleteStoredPhoto, uploadEventPhoto, validateImageFile } from '../lib/photoStorage';
 import { EventPhoto } from '../types';
@@ -21,7 +21,8 @@ export function usePhotos(eventId: string) {
       setUploadProgress(20);
       uploadedPhoto = await uploadEventPhoto(eventId, file);
       setUploadProgress(80);
-      await updateDoc(doc(db, 'events', eventId), { photos: arrayUnion(uploadedPhoto) });
+      // setDoc with merge: true — creates the doc if it doesn't exist (静的データのイベントにも対応)
+      await setDoc(doc(db, 'events', eventId), { photos: arrayUnion(uploadedPhoto) }, { merge: true });
       setUploadProgress(100);
       return uploadedPhoto;
     } catch (e) {
@@ -43,7 +44,7 @@ export function usePhotos(eventId: string) {
   async function deleteEventPhoto(photo: EventPhoto): Promise<void> {
     setError(null);
     try {
-      await updateDoc(doc(db, 'events', eventId), { photos: arrayRemove(photo) });
+      await setDoc(doc(db, 'events', eventId), { photos: arrayRemove(photo) }, { merge: true });
       deleteStoredPhoto(photo).catch(err => {
         console.error('Stored photo delete failed:', err);
       });
