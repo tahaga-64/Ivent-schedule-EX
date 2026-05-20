@@ -43,7 +43,9 @@ service cloud.firestore {
 
     match /events/{eventId} {
       allow read:  if isAuthenticated();
-      allow create: if isEventEditor() && isValidEvent();
+      // isValidEvent() = フル作成, photos-only = 静的データのイベントへの写真追加
+      allow create: if isEventEditor()
+          && (isValidEvent() || request.resource.data.keys().hasOnly(['photos']));
       allow update: if isEventEditor()
           || (isAuthenticated() && isCollaboratorOnlyEventFieldPatch());
       allow delete: if isEventEditor();
