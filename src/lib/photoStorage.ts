@@ -1,7 +1,7 @@
 import { EventPhoto } from '../types';
 
 export const MAX_SIZE_BYTES = 10 * 1024 * 1024;
-export const MAX_PHOTOS = 3;
+export const MAX_PHOTOS = 5;
 
 const CLOUD_NAME = 'dqwvmz3hk';
 const UPLOAD_PRESET = 'events photo';
@@ -49,10 +49,15 @@ export async function uploadEventPhoto(eventId: string, file: File): Promise<Eve
   };
 }
 
-// Cloudinary の削除はAPIシークレットが必要なためサーバーサイド処理が必要。
-// 現状はFirestoreから参照を外すのみで、ストレージ側の実ファイルは残る。
 export async function deleteStoredPhoto(photo: EventPhoto): Promise<void> {
-  if (photo.storagePath) {
-    console.warn('Cloudinary file not deleted (requires server-side secret):', photo.storagePath);
+  if (!photo.storagePath) return;
+  try {
+    await fetch('/api/deletePhoto', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publicId: photo.storagePath }),
+    });
+  } catch (e) {
+    console.warn('Cloudinary deletion failed:', e);
   }
 }
