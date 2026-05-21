@@ -18,6 +18,7 @@ import NotificationCenter from './components/notifications/NotificationCenter';
 import PhotoUpload from './components/photos/PhotoUpload';
 import PhotoGallery from './components/photos/PhotoGallery';
 import { usePhotos } from './hooks/usePhotos';
+import { MAX_PHOTOS } from './lib/photoStorage';
 import {
   canEditEvent as computeCanEditEvent,
   canEditPreparationList as computeCanEditPreparationList,
@@ -1395,17 +1396,17 @@ export default function App() {
                   {/* 写真タブ */}
                   {modalTab === 'photos' && (
                     <div className="space-y-4">
-                      {canUploadPhoto && (selected.photos?.length ?? 0) < 3 && (
+                      {canUploadPhoto && (selected.photos?.length ?? 0) < MAX_PHOTOS && (
                         <PhotoUpload
                           onUpload={async (file) => { await uploadPhoto(file); }}
                           uploading={photoUploading}
                           uploadProgress={photoUploading ? uploadProgress : 0}
                           currentCount={selected.photos?.length ?? 0}
-                          maxPhotos={3}
+                          maxPhotos={MAX_PHOTOS}
                         />
                       )}
-                      {canUploadPhoto && (selected.photos?.length ?? 0) >= 3 && (
-                        <p className="text-xs text-center text-slate-400 py-2">写真は最大3枚までです</p>
+                      {canUploadPhoto && (selected.photos?.length ?? 0) >= MAX_PHOTOS && (
+                        <p className="text-xs text-center text-slate-400 py-2">写真は最大{MAX_PHOTOS}枚までです</p>
                       )}
                       {photoError && <p className="text-xs text-red-500 font-bold">{photoError}</p>}
                       <PhotoGallery
@@ -1836,7 +1837,7 @@ function MobileMonthWeekGrid({
           return (
             <div
               key={`${year}-${month}-${idx}`}
-              className={`flex min-h-[7.5rem] flex-col rounded-lg border border-slate-200/90 bg-white p-0.5 shadow-sm ${
+              className={`flex min-h-[8.5rem] flex-col rounded-lg border border-slate-200/90 bg-white p-0.5 shadow-sm ${
                 isToday ? "ring-2 ring-indigo-400/40" : ""
               }`}
             >
@@ -1871,16 +1872,15 @@ function MobileMonthWeekGrid({
                         borderLeftColor: typeSty.border,
                         minHeight: CAL_EVENT_ROW_MIN_HEIGHT_TOUCH,
                       }}
-                      title={captionNd || undefined}
                       aria-label={captionNd ? `${ev.venue}。${captionNd}` : ev.venue}
-                      className="flex w-full shrink-0 items-center gap-0.5 overflow-hidden rounded border border-slate-200 bg-white px-0.5 text-left text-[10px] font-semibold leading-tight text-slate-900 ring-1 ring-inset ring-slate-900/[0.04]"
+                      className="flex w-full shrink-0 flex-col justify-center overflow-hidden rounded border border-slate-200 bg-white px-1 py-0.5 text-left ring-1 ring-inset ring-slate-900/[0.04]"
                     >
-                      <span
-                        className="h-1 w-1 shrink-0 rounded-full border border-slate-900/20"
-                        style={{ backgroundColor: typeSty.border }}
-                        aria-hidden
-                      />
-                      <span className="min-w-0 flex-1 truncate whitespace-nowrap">{ev.venue}</span>
+                      <span className="w-full truncate text-[11px] font-bold leading-tight text-slate-900">
+                        {ev.venue}
+                      </span>
+                      <span className="w-full truncate text-[9px] leading-tight text-slate-400">
+                        {ev.region}{ev.type ? `・${ev.type}` : ''}
+                      </span>
                     </button>
                   );
                 })}
