@@ -13,6 +13,7 @@ import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, Clipboar
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
+import AccessDeniedScreen from './components/AccessDeniedScreen';
 import PreparationList from './components/PreparationList';
 import NotificationCenter from './components/notifications/NotificationCenter';
 import PhotoUpload from './components/photos/PhotoUpload';
@@ -26,6 +27,7 @@ import {
 } from './lib/permissions';
 import { registerFcmToken } from './lib/fcm';
 import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted } from './lib/notifications';
+import { checkUserAllowed } from './lib/allowedUsers';
 
 // 安全なlocalStorage読み込み
 function safeGetItem<T>(key: string, fallback: T): T {
@@ -196,6 +198,7 @@ function buildCalendarDensityPreviewEvents(
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [needsNameSetup, setNeedsNameSetup] = useState(false);
   const [view, setView] = useState<"calendar" | "prep" | "archive">(() => {
     const saved = localStorage.getItem('viewMode');
@@ -267,20 +270,30 @@ export default function App() {
 
   // Auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u ?? null);
-      if (u) {
-        if (!u.displayName?.trim()) {
-          setNeedsNameSetup(true);
-        } else {
-          setNeedsNameSetup(false);
-          registerFcmToken(u.uid);
-          recordUserLogin(u).catch(error => {
-            console.error('User profile upsert error:', error);
-          });
-        }
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      if (!u) {
+        setUser(null);
+        setNeedsNameSetup(false);
+        return;
+      }
+
+      const allowed = await checkUserAllowed(u).catch(() => false);
+      if (!allowed) {
+        setAccessDenied(true);
+        await auth.signOut();
+        return;
+      }
+
+      setAccessDenied(false);
+      setUser(u);
+      if (!u.displayName?.trim()) {
+        setNeedsNameSetup(true);
       } else {
         setNeedsNameSetup(false);
+        registerFcmToken(u.uid);
+        recordUserLogin(u).catch(error => {
+          console.error('User profile upsert error:', error);
+        });
       }
     });
     return () => unsubscribe();
@@ -346,7 +359,7 @@ export default function App() {
         const items = snapshot.docs.map(d => d.data() as PreparationItem);
         setEventStats({
           itemCount: items.length,
-          preparedCount: items.filter(i => i.prepared).length,
+          preparedCount: items.filter(i => i.arrived && i.prepared).length,
           budget: items.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0),
         });
       }
@@ -356,6 +369,7 @@ export default function App() {
 
   // 全イベントの準備物進捗マップ（ホバーカード用）
   useEffect(() => {
+    if (!user) return;
     const unsubscribe = onSnapshot(
       collectionGroup(db, 'preparationItems'),
       (snapshot) => {
@@ -369,10 +383,13 @@ export default function App() {
           if (item.arrived && item.prepared) map[eventId].done += 1;
         });
         setPrepProgressMap(map);
+      },
+      (error) => {
+        console.warn('prepProgressMap subscription error:', error);
       }
     );
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     localStorage.setItem('viewMode', view);
@@ -597,13 +614,13 @@ export default function App() {
     });
 
     try {
-      // preparationItems サブコレクションを全件削除
+      // イベント本体を先に削除（先に削除することで部分失敗による準備物消失を防ぐ）
+      await deleteDoc(doc(db, 'events', eventId));
+
+      // preparationItems サブコレクションを削除（ベストエフォート）
       const prepPath = `events/${eventId}/preparationItems`;
       const prepSnapshot = await getDocs(collection(db, prepPath));
       await Promise.all(prepSnapshot.docs.map(d => deleteDoc(d.ref)));
-
-      // イベント本体を削除
-      await deleteDoc(doc(db, 'events', eventId));
       fetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -732,6 +749,12 @@ export default function App() {
     };
   }, []);
 
+  if (accessDenied) return (
+    <AccessDeniedScreen
+      email={auth.currentUser?.email ?? null}
+      onRetry={() => setAccessDenied(false)}
+    />
+  );
   if (user === undefined) return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center">
       <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
