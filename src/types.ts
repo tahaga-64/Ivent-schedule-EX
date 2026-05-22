@@ -1,21 +1,4 @@
-export type EventStatus = 'scheduled' | 'completed' | 'cancelled';
-
-export interface CarrierInflow {
-  docomo?: number;
-  au?: number;
-  softbank?: number;
-  rakuten?: number;
-  other?: number;
-}
-
-export interface AnalysisReport {
-  createdAt: string;
-  title?: string;
-  summary?: string;
-  goodPoints?: string;
-  improvements?: string;
-  nextActions?: string;
-}
+export type EventStatus = 'scheduled' | 'in_progress' | 'waiting' | 'ready' | 'completed' | 'cancelled';
 
 /** 自由記入欄の「最終記入」（Firebase Auth を手がかりに保存） */
 export interface FieldAuthorAttribution {
@@ -43,13 +26,6 @@ export interface Event {
   emoji?: string;
   photos?: EventPhoto[];
   status?: EventStatus;
-  sales?: number;
-  grossProfit?: number;
-  attendance?: number;
-  seatedCount?: number;
-  contracts?: number;
-  carrierInflow?: CarrierInflow;
-  analysisReport?: AnalysisReport;
 }
 
 export interface PreparationItem {
