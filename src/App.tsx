@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import { db, auth, loginWithGoogle } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, collectionGroup, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS } from './constants';
 import { Event, PreparationItem, type FieldAuthorAttribution } from './types';
 
@@ -234,6 +234,7 @@ export default function App() {
   const [hoveredEvent, setHoveredEvent] = useState<Event | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [prepProgressMap, setPrepProgressMap] = useState<Record<string, { total: number; done: number }>>({});
   const [sidebarTypes, setSidebarTypes] = useState<{label: string, icon: string}[]>(() => 
     safeGetItem('sidebarTypes', [
       { label: "職業体験", icon: "🎓" },
@@ -352,6 +353,26 @@ export default function App() {
     );
     return () => unsubscribe();
   }, [selected?.id]);
+
+  // 全イベントの準備物進捗マップ（ホバーカード用）
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collectionGroup(db, 'preparationItems'),
+      (snapshot) => {
+        const map: Record<string, { total: number; done: number }> = {};
+        snapshot.docs.forEach(d => {
+          const eventId = d.ref.parent.parent?.id;
+          if (!eventId) return;
+          const item = d.data() as PreparationItem;
+          if (!map[eventId]) map[eventId] = { total: 0, done: 0 };
+          map[eventId].total += 1;
+          if (item.arrived && item.prepared) map[eventId].done += 1;
+        });
+        setPrepProgressMap(map);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('viewMode', view);
@@ -554,6 +575,7 @@ export default function App() {
 
   const handleDeleteEvent = async () => {
     if (!selected) return;
+    if (!canEditEvent) return;
     const confirmed = window.confirm(
       `「${selected.venue}」を削除しますか？\n準備物リストも含めてすべて削除されます。この操作は元に戻せません。`
     );
@@ -561,6 +583,7 @@ export default function App() {
 
     const eventId = selected.id;
     const deletedVenue = selected.venue;
+    const eventSnapshot = { ...selected };
 
     // モーダルを即座に閉じ、UIから楽観的に削除
     setSelected(null);
@@ -589,6 +612,8 @@ export default function App() {
       if (user) notifyEventDeleted(deletedVenue, eventId, user).catch(console.error);
     } catch (error) {
       console.error('Delete error:', error);
+      setDbEvents(prev => ({ ...prev, [eventId]: eventSnapshot }));
+      setSelected(eventSnapshot);
       alert('削除に失敗しました。もう一度お試しください。');
     }
   };
@@ -1608,7 +1633,7 @@ export default function App() {
 
       {/* Hover Preview Card（PC only） */}
       {hoveredEvent && (
-        <HoverCard event={hoveredEvent} pos={hoverPos} />
+        <HoverCard event={hoveredEvent} pos={hoverPos} prepStats={prepProgressMap[hoveredEvent.id]} />
       )}
 
       {/* Mobile Bottom Navigation */}
@@ -2340,12 +2365,14 @@ function ListView({ data, onSelect, onHover, onHoverEnd, lastEditedId }: ListVie
   );
 }
 
-function HoverCard({ event, pos }: {
+function HoverCard({ event, pos, prepStats }: {
   event: Event;
   pos: { x: number; y: number };
+  prepStats?: { total: number; done: number };
 }) {
   const left = pos.x + 260 > window.innerWidth ? pos.x - 270 : pos.x + 16;
-  const top = pos.y + 240 > window.innerHeight ? pos.y - 220 : pos.y + 8;
+  const top = pos.y + 280 > window.innerHeight ? pos.y - 260 : pos.y + 8;
+  const pct = prepStats && prepStats.total > 0 ? Math.round((prepStats.done / prepStats.total) * 100) : null;
 
   return (
     <div
@@ -2374,6 +2401,23 @@ function HoverCard({ event, pos }: {
         {event.client && <div className="text-slate-500">{event.client}</div>}
         {event.note && <div className="text-slate-400 line-clamp-2">{event.note}</div>}
       </div>
+      {prepStats && prepStats.total > 0 && (
+        <div className="mt-3 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">準備物</span>
+            <span className="text-[10px] font-black text-indigo-600">{pct}%</span>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-1.5">
+            <div
+              className="bg-indigo-600 h-1.5 rounded-full transition-all"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <div className="mt-1 text-[10px] text-slate-400 font-bold">
+            {prepStats.done} / {prepStats.total} 完了
+          </div>
+        </div>
+      )}
     </div>
   );
 }
