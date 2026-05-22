@@ -96,6 +96,17 @@ function formatAttributionLine(meta: FieldAuthorAttribution | undefined): string
 const rs = (r: string) => REGION_STYLE[r] || { bg: "#f1f5f9", text: "#334155", dot: "#94a3b8", calBg: "rgba(241, 245, 249, 0.4)", calBorder: "#cbd5e1" };
 const ts = (t: string) => TYPE_STYLE[t] || { bg: "#f8fafc", border: "#64748b", text: "#1e293b", icon: "📋" };
 const fmtShort = (d: string) => { if (!d) return "—"; const [, m, day] = d.split("-"); return `${parseInt(m)}/${parseInt(day)}`; };
+
+function statusStyle(status?: string): { label: string; bg: string; text: string; dot: string } {
+  switch (status) {
+    case 'in_progress': return { label: '準備中',    bg: 'bg-amber-50',   text: 'text-amber-600',  dot: '#f59e0b' };
+    case 'waiting':     return { label: '入荷待ち',  bg: 'bg-blue-50',    text: 'text-blue-600',   dot: '#3b82f6' };
+    case 'ready':       return { label: '準備完了',  bg: 'bg-emerald-50', text: 'text-emerald-600',dot: '#10b981' };
+    case 'completed':   return { label: '終了',      bg: 'bg-slate-100',  text: 'text-slate-500',  dot: '#94a3b8' };
+    case 'cancelled':   return { label: 'キャンセル',bg: 'bg-red-50',     text: 'text-red-500',    dot: '#ef4444' };
+    default:            return { label: '予定',      bg: 'bg-slate-50',   text: 'text-slate-400',  dot: '#cbd5e1' };
+  }
+}
 const getMonth = (d: string) => { if (!d) return null; return parseInt(d.split("-")[1]); };
 
 /** 日セルには出さない: 種別・日付/期間など（日別一覧・ホバー・読み上げ用の任意行） */
@@ -207,6 +218,7 @@ export default function App() {
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
   const [monthFilter, setMonthFilter] = useState(() => localStorage.getItem('monthFilter') || "すべて");
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [calYear, setCalYear] = useState(() => {
     const val = parseInt(localStorage.getItem('calYear') || String(new Date().getFullYear()));
     return isNaN(val) ? new Date().getFullYear() : val;
@@ -432,7 +444,7 @@ export default function App() {
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return allEvents.filter(d => {
+    let filtered = allEvents.filter(d => {
       if (regionFilter !== "すべて" && d.region !== regionFilter) return false;
       if (typeFilter !== "すべて" && d.type !== typeFilter) return false;
       if (monthFilter !== "すべて") {
@@ -441,8 +453,12 @@ export default function App() {
       }
       if (q && !d.venue.toLowerCase().includes(q) && !(d.client || "").toLowerCase().includes(q)) return false;
       return true;
-    }).sort((a, b) => (a.start || "9999") < (b.start || "9999") ? -1 : 1);
-  }, [allEvents, regionFilter, typeFilter, monthFilter, searchQuery]);
+    });
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(ev => (ev.status ?? 'scheduled') === statusFilter);
+    }
+    return filtered.sort((a, b) => (a.start || "9999") < (b.start || "9999") ? -1 : 1);
+  }, [allEvents, regionFilter, typeFilter, monthFilter, searchQuery, statusFilter]);
 
   const calendarDensityPreview =
     import.meta.env.DEV &&
@@ -878,17 +894,17 @@ export default function App() {
               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WORKSPACE</div>
               <div className="flex flex-col gap-0.5">
                 {[
-                  { label: "すべてのイベント", icon: <Calendar size={14} />, count: stats.total, value: "すべて" },
-                  { label: "準備中", icon: <ClipboardList size={14} />, count: stats.byStatus["準備中"], value: "準備中" },
-                  { label: "入荷待ち", icon: <Building2 size={14} />, count: stats.byStatus["入荷待ち"], value: "入荷待ち" },
+                  { label: "すべてのイベント", icon: <Calendar size={14} />, count: stats.total, statusValue: "all" },
+                  { label: "準備中", icon: <ClipboardList size={14} />, count: stats.byStatus["準備中"], statusValue: "in_progress" },
+                  { label: "入荷待ち", icon: <Building2 size={14} />, count: stats.byStatus["入荷待ち"], statusValue: "waiting" },
                 ].map((item) => (
-                  <button 
-                    key={item.label} 
+                  <button
+                    key={item.label}
                     onClick={() => {
                       setRegionFilter("すべて");
                       setTypeFilter("すべて");
                       setMonthFilter("すべて");
-                      // ステータスフィルターがあればここに追加
+                      setStatusFilter(item.statusValue);
                     }}
                     className="group flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white hover:shadow-sm hover:border-slate-100 border border-transparent transition-all"
                   >
@@ -991,6 +1007,31 @@ export default function App() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* ステータスフィルター */}
+            <div className="space-y-1 pt-2">
+              <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] px-1 opacity-60 mb-3">ステータス</div>
+              {[
+                { label: 'すべて',    value: 'all',         dot: null },
+                { label: '準備中',   value: 'in_progress',  dot: '#f59e0b' },
+                { label: '入荷待ち', value: 'waiting',       dot: '#3b82f6' },
+                { label: '準備完了', value: 'ready',         dot: '#10b981' },
+                { label: '終了',     value: 'completed',    dot: '#94a3b8' },
+              ].map(({ label, value, dot }) => (
+                <button
+                  key={value}
+                  onClick={() => setStatusFilter(value)}
+                  className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                    statusFilter === value
+                      ? 'bg-amber-500 text-white shadow-md'
+                      : 'text-[var(--text-secondary)] hover:text-amber-500'
+                  }`}
+                >
+                  {dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusFilter === value ? 'white' : dot }} />}
+                  {label}
+                </button>
+              ))}
             </div>
 
             {/* STAFF Section */}
@@ -1103,6 +1144,7 @@ export default function App() {
                       onOpenDayDetail={handleOpenDayDetail}
                       lastEditedId={lastEditedId}
                       densityPreview={calendarDensityPreview}
+                      prepProgressMap={prepProgressMap}
                     />
                   </div>
                   <div className="lg:hidden space-y-3">
@@ -1180,6 +1222,7 @@ export default function App() {
                           onOpenDayDetail={handleOpenDayDetail}
                           lastEditedId={lastEditedId}
                           densityPreview={calendarDensityPreview}
+                          prepProgressMap={prepProgressMap}
                         />
                       </div>
                     )}
@@ -1571,6 +1614,34 @@ export default function App() {
                         <p className="mt-1.5 text-[11px] text-amber-700/90">ログインすると担当者を選択できます。</p>
                       )}
                     </div>
+
+                    {/* ステータス */}
+                    {canEditEvent && (
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">ステータス</label>
+                        <div className="flex flex-wrap gap-2">
+                          {(['scheduled','in_progress','waiting','ready','completed','cancelled'] as const).map(s => {
+                            const sty = statusStyle(s);
+                            const isActive = (selected?.status ?? 'scheduled') === s;
+                            return (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={() => handleUpdateEvent(selected.id, { status: s })}
+                                className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all ${
+                                  isActive
+                                    ? `${sty.bg} ${sty.text} border-current`
+                                    : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
+                                }`}
+                              >
+                                {isActive && <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5" style={{ background: sty.dot }} />}
+                                {sty.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* 統計パネル */}
@@ -1657,6 +1728,18 @@ export default function App() {
       {/* Hover Preview Card（PC only） */}
       {hoveredEvent && (
         <HoverCard event={hoveredEvent} pos={hoverPos} prepStats={prepProgressMap[hoveredEvent.id]} />
+      )}
+
+      {/* モバイル FAB — 新規イベント作成 */}
+      {canEditEvent && view === 'calendar' && (
+        <button
+          type="button"
+          onClick={() => handleCreateEvent()}
+          className="fixed bottom-[4.5rem] right-4 z-30 lg:hidden w-14 h-14 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-full shadow-xl shadow-indigo-500/40 flex items-center justify-center transition-all"
+          aria-label="新規イベントを作成"
+        >
+          <Plus size={24} />
+        </button>
       )}
 
       {/* Mobile Bottom Navigation */}
@@ -1873,6 +1956,7 @@ function MobileMonthWeekGrid({
         {weekSlice.map((cell, i) => {
           const idx = weekRowIndex * 7 + i;
           const isSun = idx % 7 === 0;
+          const isSat = idx % 7 === 6;
           const isToday =
             cell.current &&
             today.getFullYear() === year &&
@@ -1891,12 +1975,12 @@ function MobileMonthWeekGrid({
             >
               <div
                 className={`mb-0.5 shrink-0 border-b border-slate-100 pb-0.5 text-center ${
-                  !cell.current ? "text-slate-300" : isSun ? "text-red-500" : "text-slate-600"
+                  !cell.current ? "text-slate-300" : isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-slate-600"
                 }`}
               >
                 <div className="text-[9px] font-bold text-slate-400">{DAYS_JP[idx % 7]}</div>
                 <div
-                  className={`text-[11px] font-black tabular-nums ${
+                  className={`text-[13px] font-bold tabular-nums ${
                     cell.current && isToday ? "rounded-md bg-indigo-600 px-1 py-0.5 text-white" : ""
                   }`}
                 >
@@ -2094,9 +2178,10 @@ interface CalendarViewProps {
   onOpenDayDetail: (ctx: { year: number; month: number; day: number; events: Event[] }) => void;
   lastEditedId: string | null;
   densityPreview?: boolean;
+  prepProgressMap?: Record<string, { total: number; done: number }>;
 }
 
-function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHover, onHoverEnd, onCreateEvent, onOpenDayDetail, lastEditedId, densityPreview }: CalendarViewProps) {
+function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHover, onHoverEnd, onCreateEvent, onOpenDayDetail, lastEditedId, densityPreview, prepProgressMap = {} }: CalendarViewProps) {
   const cells = buildMonthGridCells(year, month);
 
   const [narrowViewport, setNarrowViewport] = useState(
@@ -2160,6 +2245,7 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
         
         {cells.map((cell, idx) => {
           const isSun = idx % 7 === 0;
+          const isSatCal = idx % 7 === 6;
           const isToday = cell.current && today.getFullYear() === year && today.getMonth() === month - 1 && today.getDate() === cell.day;
           const dayEvents = cell.current ? events.filter((ev) => eventCoversDate(ev, year, month, cell.day)) : [];
           const visibleEvents = dayEvents.slice(0, maxEventsInCell);
@@ -2187,8 +2273,8 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
                 <div className="flex h-7 shrink-0 items-center border-b border-slate-100/90 px-0.5">
                   <span
                     className={`
-                      inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-md text-[11px] font-bold tabular-nums
-                      ${!cell.current ? "text-slate-300" : isToday ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200/60" : isSun ? "text-red-500" : "text-slate-700"}
+                      inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-md text-[13px] font-bold tabular-nums
+                      ${!cell.current ? "text-slate-300" : isToday ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200/60" : isSun ? "text-red-500" : isSatCal ? "text-blue-500" : "text-slate-700"}
                     `}
                   >
                     {cell.day}
@@ -2231,7 +2317,7 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
                             ? (captionNoDates ? `${ev.venue}。${captionNoDates}` : ev.venue)
                             : (captionFull ? `${ev.venue}。${captionFull}` : ev.venue)
                         }
-                        className="flex w-full shrink-0 items-center gap-1.5 overflow-hidden rounded-md border border-solid border-slate-200 bg-white px-1.5 py-0.5 text-left shadow-sm ring-1 ring-inset ring-slate-900/[0.04] transition hover:border-slate-300 hover:bg-slate-50/90"
+                        className="relative overflow-hidden flex w-full shrink-0 items-center gap-1.5 rounded-md border border-solid border-slate-200 bg-white px-1.5 py-0.5 text-left shadow-sm ring-1 ring-inset ring-slate-900/[0.04] transition hover:border-slate-300 hover:bg-slate-50/90"
                       >
                         <span
                           className="h-1.5 w-1.5 shrink-0 rounded-full border border-slate-900/20"
@@ -2241,6 +2327,17 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
                         <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[12px] font-semibold leading-tight text-slate-900 max-xl:text-[11px]">
                           {ev.venue}
                         </span>
+                        {/* 準備物進捗バー */}
+                        {(() => {
+                          const prog = prepProgressMap[ev.id];
+                          if (!prog || prog.total === 0) return null;
+                          const pct = Math.round((prog.done / prog.total) * 100);
+                          return (
+                            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100">
+                              <div className="h-full bg-emerald-400 transition-all" style={{ width: `${pct}%` }} />
+                            </div>
+                          );
+                        })()}
                       </button>
                     );
                     })}

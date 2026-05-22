@@ -18,6 +18,15 @@
   --shadow-neon-blue: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-soft-depth: 0 1px 3px rgba(0, 0, 0, 0.05);
 
+  --color-success:      #10b981;
+  --color-success-bg:   #ecfdf5;
+  --color-warning:      #f59e0b;
+  --color-warning-bg:   #fffbeb;
+  --color-danger:       #ef4444;
+  --color-danger-bg:    #fef2f2;
+  --color-info:         #3b82f6;
+  --color-info-bg:      #eff6ff;
+
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
@@ -50,6 +59,14 @@
     --border: rgba(255, 255, 255, 0.08);
     --glass: rgba(18, 18, 20, 0.75);
     --ring: rgba(139, 92, 246, 0.15);
+    --color-success:      #34d399;
+    --color-success-bg:   rgba(16,185,129,0.12);
+    --color-warning:      #fbbf24;
+    --color-warning-bg:   rgba(245,158,11,0.12);
+    --color-danger:       #f87171;
+    --color-danger-bg:    rgba(239,68,68,0.12);
+    --color-info:         #60a5fa;
+    --color-info-bg:      rgba(59,130,246,0.12);
   }
 
   html {
