@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { PreparationItem, Event } from '../types';
-import { Trash2, Plus, ArrowLeft, Save, ExternalLink } from 'lucide-react';
+import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface Props {
@@ -139,7 +139,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
     const shipping = items.reduce((s, i) => s + (i.shippingFee || 0), 0);
     const arrived = items.filter(i => i.arrived).length;
     const prepared = items.filter(i => i.prepared).length;
-    const done = items.filter(i => i.arrived || i.prepared).length;
+    const done = items.filter(i => i.arrived && i.prepared).length;
     return { subtotal, shipping, total: subtotal + shipping, arrived, prepared, done };
   }, [items]);
 
@@ -196,7 +196,13 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
 
       {/* Mobile card list */}
       <div className="block lg:hidden flex-1 overflow-y-auto p-3 space-y-2">
-        {items.map((item, idx) => (
+        {!canEdit && items.filter(i => !isEmptyItem(i)).length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-300">
+            <ClipboardList size={36} className="mb-3" />
+            <p className="text-sm font-bold text-slate-400">準備物が登録されていません</p>
+          </div>
+        )}
+        {items.filter(item => canEdit || !isEmptyItem(item)).map((item, idx) => (
           <div
             key={item.id}
             className={`bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden ${item.prepared ? 'opacity-70' : ''}`}
@@ -331,6 +337,13 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
 
       {/* Desktop table */}
       <div className="hidden lg:block flex-1 overflow-auto p-6">
+        {!canEdit && items.filter(i => !isEmptyItem(i)).length === 0 && (
+          <div className="flex flex-col items-center justify-center py-24 text-slate-300">
+            <ClipboardList size={40} className="mb-3" />
+            <p className="text-sm font-bold text-slate-400">準備物が登録されていません</p>
+          </div>
+        )}
+        {(canEdit || items.filter(i => !isEmptyItem(i)).length > 0) && (
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm" style={{ minWidth: '1100px' }}>
@@ -471,6 +484,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
             </button>
           )}
         </div>
+        )}
       </div>
 
       {/* Footer */}
