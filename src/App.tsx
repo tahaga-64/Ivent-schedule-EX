@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef, type MouseEvent as ReactMouseEvent } from 'react';
-import { db, auth, loginWithGoogle } from './lib/firebase';
+import { db, auth, loginWithGoogle, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, collectionGroup, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS } from './constants';
@@ -765,6 +765,25 @@ export default function App() {
     };
   }, []);
 
+  if (firebaseConfigError) return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
+      <div className="max-w-md">
+        <div className="text-5xl mb-4">🔧</div>
+        <h1 className="text-xl font-black text-slate-800 mb-2">Firebase 設定が不足しています</h1>
+        <p className="text-sm text-slate-500 mb-4">Vercel の Environment Variables に以下を追加してください:</p>
+        <pre className="text-left text-xs bg-slate-100 rounded-xl p-4 mb-6 overflow-auto text-red-600">
+{`VITE_FIREBASE_API_KEY
+VITE_FIREBASE_AUTH_DOMAIN
+VITE_FIREBASE_PROJECT_ID
+VITE_FIREBASE_STORAGE_BUCKET
+VITE_FIREBASE_MESSAGING_SENDER_ID
+VITE_FIREBASE_APP_ID
+VITE_FIREBASE_DATABASE_ID`}
+        </pre>
+        <p className="text-xs text-slate-400">{firebaseConfigError}</p>
+      </div>
+    </div>
+  );
   if (accessDenied) return (
     <AccessDeniedScreen
       email={auth.currentUser?.email ?? null}
