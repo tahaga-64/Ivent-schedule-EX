@@ -24,7 +24,6 @@ import { MAX_PHOTOS } from './lib/photoStorage';
 import {
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
-import AdminPanel from './components/AdminPanel';
 import Dashboard from './components/Dashboard';
 import { registerFcmToken } from './lib/fcm';
 import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted, notifyAssigneesAdded } from './lib/notifications';
@@ -250,6 +249,46 @@ function buildCalendarDensityPreviewEvents(
 }
 
 
+// 在庫管理アプリのURLが決まったらここに入力する
+const INVENTORY_APP_URL = '';
+
+function InventoryAppBanner() {
+  const ready = INVENTORY_APP_URL.length > 0;
+  return (
+    <div className="mt-10 mb-6">
+      <div className="relative overflow-hidden rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/50 px-6 py-5 flex items-center gap-4">
+        <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl shrink-0">📦</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-sm font-black text-slate-700">イベント在庫管理</span>
+            {!ready && (
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 uppercase tracking-wide">新機能実装予定</span>
+            )}
+          </div>
+          <p className="text-xs text-slate-400">備品・消耗品の在庫をリアルタイムで管理できる機能を開発中です</p>
+        </div>
+        {ready ? (
+          <a
+            href={INVENTORY_APP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black transition-colors"
+          >
+            開く
+          </a>
+        ) : (
+          <button
+            disabled
+            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-100 text-indigo-300 text-xs font-black cursor-not-allowed"
+          >
+            開く
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [accessDenied, setAccessDenied] = useState(false);
@@ -380,10 +419,10 @@ export default function App() {
     return () => mq.removeEventListener("change", apply);
   }, []);
 
-  const { roles, isEventEditor, isAdmin, addUser, updateRole, removeUser } = useRoles();
+  const { isEventEditor } = useRoles();
   const canEditEvent = !narrowViewport && !!user && isEventEditor(user.email);
   const canEditPreparationList = computeCanEditPreparationList(user);
-  const canUploadPhoto = !!user && isEventEditor(user.email);
+  const canUploadPhoto = !!user;
 
   // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {
@@ -1210,16 +1249,9 @@ export default function App() {
                       densityPreview={calendarDensityPreview}
                       prepProgressMap={prepProgressMap}
                     />
-                    {/* Dashboard + Admin below desktop calendar */}
+                    {/* Dashboard + 在庫管理アプリ導線 */}
                     <Dashboard events={allEvents} />
-                    {user && isAdmin(user.email) && (
-                      <AdminPanel
-                        roles={roles}
-                        onAddUser={addUser}
-                        onUpdateRole={updateRole}
-                        onRemoveUser={removeUser}
-                      />
-                    )}
+                    <InventoryAppBanner />
                   </div>
                   <div className="lg:hidden space-y-3">
                     <div className="flex gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="カレンダー表示の切替">
@@ -1325,17 +1357,11 @@ export default function App() {
                       />
                     )}
                   </div>
-                  {/* Dashboard section - below mobile calendar */}
-                  <Dashboard events={allEvents} />
-                  {/* Admin section - only for admin users */}
-                  {user && isAdmin(user.email) && (
-                    <AdminPanel
-                      roles={roles}
-                      onAddUser={addUser}
-                      onUpdateRole={updateRole}
-                      onRemoveUser={removeUser}
-                    />
-                  )}
+                  {/* モバイル: Dashboard + 在庫管理アプリ導線 */}
+                  <div className="lg:hidden">
+                    <Dashboard events={allEvents} />
+                    <InventoryAppBanner />
+                  </div>
                 </>
               )}
               {(view === "prep" || view === "archive") && prepEvent ? (
