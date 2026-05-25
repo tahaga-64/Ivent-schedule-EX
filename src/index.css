@@ -88,6 +88,78 @@
   }
 }
 
+/* ── 印刷スタイル ─────────────────────────── */
+@media print {
+  /* 印刷エリア以外をすべて非表示 */
+  body > *:not(#prep-print-area),
+  #root > *:not(#prep-print-area),
+  header, aside, nav, .print\:hidden {
+    display: none !important;
+  }
+
+  #prep-print-area {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: white;
+    z-index: 9999;
+    overflow: visible;
+    height: auto !important;
+  }
+
+  /* ページヘッダー情報 */
+  #prep-print-area::before {
+    content: attr(data-print-title);
+    display: block;
+    font-size: 14pt;
+    font-weight: bold;
+    padding: 8px 16px 4px;
+    border-bottom: 2px solid #1e293b;
+    margin-bottom: 8px;
+  }
+
+  /* テーブルを1ページに収める */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
+
+  th, td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 4px 6px !important;
+  }
+
+  /* チェックボックスを ☑/☐ に変換 */
+  input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    position: relative;
+  }
+  input[type="checkbox"]::after {
+    content: '☐';
+    font-size: 12pt;
+    position: absolute;
+    top: -2px;
+    left: 0;
+  }
+  input[type="checkbox"]:checked::after {
+    content: '☑';
+  }
+
+  /* ボタン・スクロールバーを非表示 */
+  button {
+    display: none !important;
+  }
+
+  /* フッターを末尾に */
+  .print\:block {
+    display: block !important;
+  }
+}
+
 /* Custom Checkbox Animation */
 @keyframes check {
   0% { transform: scale(0); }

@@ -128,6 +128,47 @@ export async function notifyAssigneesAdded(
   }
 
   if (ops > 0) await batch.commit();
+
+  // Email notification to assignees
+  const emailTargets = usersSnapshot.docs
+    .filter(d => {
+      const data = d.data();
+      return addedNames.includes(data.displayName) && d.id !== actor.uid && data.email;
+    })
+    .map(d => d.data().email as string);
+
+  if (emailTargets.length > 0) {
+    const dateLabel = event.start === event.end
+      ? event.start
+      : `${event.start} 〜 ${event.end}`;
+    const html = `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+        <h2 style="font-size:16px;color:#1e293b;margin-bottom:8px;">担当者に追加されました</h2>
+        <p style="font-size:14px;color:#475569;margin-bottom:16px;">
+          ${actor.displayName || actor.email} さんがあなたをイベントの担当者に追加しました。
+        </p>
+        <div style="background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:20px;">
+          <div style="font-size:13px;color:#64748b;margin-bottom:4px;">会場</div>
+          <div style="font-size:16px;font-weight:bold;color:#1e293b;margin-bottom:12px;">${event.venue}</div>
+          <div style="font-size:13px;color:#64748b;margin-bottom:4px;">日程</div>
+          <div style="font-size:14px;color:#1e293b;">${dateLabel}</div>
+        </div>
+        <a href="${process.env.VITE_APP_URL || 'https://ivent-schedule.vercel.app'}"
+           style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:bold;">
+          アプリを開く
+        </a>
+      </div>
+    `;
+    fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: emailTargets,
+        subject: `【Ivent】${event.venue} の担当者に追加されました`,
+        html,
+      }),
+    }).catch(err => console.warn('[email notification] failed:', err));
+  }
 }
 
 export function getNotificationIcon(type: AppNotification['type']): string {

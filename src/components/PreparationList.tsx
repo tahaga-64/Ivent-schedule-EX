@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { db } from '../lib/firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { PreparationItem, Event } from '../types';
-import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList } from 'lucide-react';
+import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface Props {
@@ -59,6 +59,10 @@ function formatSaveError(error: unknown): string {
   return '保存に失敗しました。もう一度お試しください。';
 }
 
+function handlePrint() {
+  window.print();
+}
+
 export default function PreparationList({ event, onBack, canEdit }: Props) {
   const [items, setItems] = useState<PreparationItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -93,6 +97,8 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       await Promise.all(items.map(item =>
         setDoc(doc(db, `events/${event.id}/preparationItems`, item.id), item)
       ));
+      const total = items.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0);
+      updateDoc(doc(db, 'events', event.id), { prepBudgetTotal: total }).catch(() => {});
       setHasChanges(false);
       setIsSaving(false);
     } catch (error) {
@@ -145,7 +151,11 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
 
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div
+      id="prep-print-area"
+      data-print-title={`${event.venue}　準備物リスト　${event.start}〜${event.end}`}
+      className="flex flex-col h-full bg-gray-50"
+    >
       {!canEdit && (
         <div className="px-6 py-2.5 bg-slate-100 border-b border-slate-200 text-slate-600 text-[11px] font-bold text-center">
           閲覧のみ（準備物の編集にはログインが必要です）
@@ -181,6 +191,14 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl font-bold text-xs transition-colors print:hidden"
+            title="印刷"
+          >
+            <Printer size={13} />
+            <span className="hidden sm:inline">印刷</span>
+          </button>
           {hasChanges && canEdit && (
             <button
               onClick={handleSaveAll}
