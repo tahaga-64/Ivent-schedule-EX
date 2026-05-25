@@ -1,7 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { getFirestore, doc, getDocFromServer } from "firebase/firestore";
-import { getAnalytics, isSupported } from "firebase/analytics";
 
 const viteEnv = import.meta.env as Record<string, string | undefined>;
 
@@ -29,7 +28,6 @@ const firestoreDatabaseId = readEnvValue("VITE_FIREBASE_DATABASE_ID") || "(defau
 export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firestoreDatabaseId);
 export const auth = getAuth(app);
-export const analytics = isSupported().then(ok => ok ? getAnalytics(app) : null);
 
 const googleProvider = new GoogleAuthProvider();
 

@@ -9,7 +9,7 @@ interface StaffMember {
   id: string;
   name: string;
 }
-import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, BarChart2, Trash2, Archive } from 'lucide-react';
+import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
@@ -29,7 +29,7 @@ import { registerFcmToken } from './lib/fcm';
 import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted } from './lib/notifications';
 import { checkUserAllowed } from './lib/allowedUsers';
 
-type ViewMode = "calendar" | "analytics" | "prep" | "archive";
+type ViewMode = "calendar" | "prep" | "archive";
 type ModalTab = "detail" | "photos";
 
 // 安全なlocalStorage読み込み
@@ -830,7 +830,6 @@ export default function App() {
             {(
               [
                 { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
-                { id: "analytics", icon: <BarChart2 size={14} />, label: "分析" },
                 { id: "prep", icon: <ClipboardList size={14} />, label: "準備物" },
                 { id: "archive", icon: <Archive size={14} />, label: "アーカイブ" },
               ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
