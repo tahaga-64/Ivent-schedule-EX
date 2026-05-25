@@ -633,7 +633,12 @@ export default function App() {
     try {
       // 写真はarrayUnion/arrayRemoveで別途管理されるため、保存時はDBの最新値を使う
       const latestPhotos = dbEvents[selected.id]?.photos ?? selected.photos;
-      const eventToSave = { ...selected, photos: latestPhotos };
+      // latestPhotos が undefined のとき photos: undefined を Firestore に渡すと
+      // Firebase v12 が "Unsupported field value: undefined" で弾くため、undefined の場合はキーごと除外する
+      const { photos: _p, ...eventBase } = selected;
+      const eventToSave = latestPhotos !== undefined
+        ? { ...eventBase, photos: latestPhotos }
+        : { ...eventBase };
       await setDoc(doc(db, "events", selected.id), eventToSave);
       // 楽観的にローカルキャッシュも更新（onSnapshot反映までのラグ対策）
       setDbEvents(prev => ({ ...prev, [selected.id]: eventToSave }));
