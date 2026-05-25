@@ -1391,74 +1391,82 @@ VITE_FIREBASE_DATABASE_ID`}
                   else monthGroups.push({ month: label, events: [ev] });
                 }
                 return (
-                  <div className="flex flex-col h-full overflow-y-auto pb-20 bg-[#F2F2F7]">
-                    <div className="px-4 py-5">
-                      {/* Apple-style Header */}
-                      <div className="mb-6">
-                        <h2 className="text-[28px] font-bold text-black tracking-tight leading-tight">準備物リスト</h2>
-                        <p className="text-[15px] text-[#8E8E93] mt-1">進行中のイベント</p>
-                      </div>
-                      {activeEvents.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 px-4">
-                          <div className="w-16 h-16 rounded-full bg-[#E5E5EA] flex items-center justify-center mb-4">
-                            <ClipboardList size={28} className="text-[#8E8E93]" />
-                          </div>
-                          <p className="text-[17px] font-semibold text-[#8E8E93] text-center">進行中のイベントが<br />ありません</p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-6">
-                          {monthGroups.map(({ month, events: evs }) => (
-                            <div key={month}>
-                              <div className="text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide px-4 mb-2">{month}</div>
-                              <div className="bg-white rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-                                {evs.map((ev, idx) => {
-                                  const s = fmtDateJP(ev.start);
-                                  const until = daysUntil(ev.start);
-                                  const isToday = until === 0;
-                                  const isSoon = until > 0 && until <= 7;
-                                  const isOngoing = until < 0 && ev.end >= today;
-                                  const urgencyBadge = isToday
-                                    ? { label: '今日', cls: 'bg-[#FF3B30] text-white' }
-                                    : isOngoing
-                                    ? { label: '開催中', cls: 'bg-[#34C759] text-white' }
-                                    : isSoon
-                                    ? { label: `${until}日後`, cls: 'bg-[#FF9500] text-white' }
-                                    : null;
-                                  return (
-                                    <button
-                                      key={ev.id}
-                                      onClick={() => setPrepEvent(ev)}
-                                      className={`w-full text-left flex items-center gap-3 px-4 py-3 transition-colors active:bg-[#E5E5EA] ${
-                                        idx !== evs.length - 1 ? 'border-b border-[rgba(60,60,67,0.12)]' : ''
-                                      }`}
-                                    >
-                                      {/* Apple-style Date Circle */}
-                                      <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl shrink-0 ${
-                                        isToday ? 'bg-[#FF3B30]' : isOngoing ? 'bg-[#34C759]' : isSoon ? 'bg-[#FF9500]' : 'bg-[#007AFF]'
-                                      }`}>
-                                        <span className="text-[10px] font-semibold text-white/80 leading-none">{s.month}月</span>
-                                        <span className="text-[18px] font-bold text-white leading-tight">{s.day}</span>
-                                      </div>
-                                      {/* コンテンツ */}
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-0.5">
-                                          <span className="font-semibold text-black text-[15px] truncate">{ev.venue}</span>
-                                          {urgencyBadge && (
-                                            <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${urgencyBadge.cls}`}>{urgencyBadge.label}</span>
-                                          )}
-                                        </div>
-                                        <div className="text-[13px] text-[#8E8E93] truncate">{fmtDateRange(ev.start, ev.end)}</div>
-                                      </div>
-                                      <ChevronRight size={18} className="text-[#C7C7CC] shrink-0" />
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                  <div className="flex flex-col h-full overflow-y-auto pb-24">
+                    {/* Editorial header - asymmetric, intentional */}
+                    <div className="pt-8 pb-6 px-5">
+                      <p className="text-footnote text-[var(--text-secondary)] mb-1 tracking-wide">{activeEvents.length} 件のイベント</p>
+                      <h1 className="text-largeTitle text-[var(--text-primary)] tracking-tight">準備物</h1>
                     </div>
+                    
+                    {activeEvents.length === 0 ? (
+                      <div className="flex-1 flex flex-col items-center justify-center px-8 -mt-12">
+                        <div className="w-20 h-20 rounded-full bg-[var(--surface-tertiary)] flex items-center justify-center mb-5">
+                          <ClipboardList size={32} className="text-[var(--text-tertiary)]" strokeWidth={1.5} />
+                        </div>
+                        <p className="text-title3 text-[var(--text-primary)] text-center mb-2">イベントがありません</p>
+                        <p className="text-subheadline text-[var(--text-secondary)] text-center">進行中のイベントが表示されます</p>
+                      </div>
+                    ) : (
+                      <div className="px-5 space-y-8">
+                        {monthGroups.map(({ month, events: evs }) => (
+                          <div key={month}>
+                            <h2 className="text-caption1 font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3 px-1">{month}</h2>
+                            <div className="space-y-2">
+                              {evs.map((ev) => {
+                                const s = fmtDateJP(ev.start);
+                                const until = daysUntil(ev.start);
+                                const isToday = until === 0;
+                                const isSoon = until > 0 && until <= 7;
+                                const isOngoing = until < 0 && ev.end >= today;
+                                
+                                const statusColor = isToday 
+                                  ? '#FF3B30' 
+                                  : isOngoing 
+                                  ? '#34C759' 
+                                  : isSoon 
+                                  ? '#FF9500' 
+                                  : '#007AFF';
+                                
+                                return (
+                                  <button
+                                    key={ev.id}
+                                    onClick={() => setPrepEvent(ev)}
+                                    className="w-full text-left bg-[var(--surface)] rounded-2xl p-4 transition-all active:scale-[0.98] active:opacity-80 border border-[var(--border)]"
+                                  >
+                                    <div className="flex items-start gap-4">
+                                      {/* Date block - vertical rhythm */}
+                                      <div className="flex flex-col items-center w-12 shrink-0">
+                                        <span className="text-caption2 font-medium text-[var(--text-secondary)]">{s.month}月</span>
+                                        <span className="text-title1 font-bold" style={{ color: statusColor }}>{s.day}</span>
+                                        <span className="text-caption2 text-[var(--text-tertiary)]">{s.dow}</span>
+                                      </div>
+                                      
+                                      {/* Content */}
+                                      <div className="flex-1 min-w-0 pt-1">
+                                        <h3 className="text-headline text-[var(--text-primary)] truncate">{ev.venue}</h3>
+                                        <p className="text-footnote text-[var(--text-secondary)] mt-1 truncate">{fmtDateRange(ev.start, ev.end)}</p>
+                                        
+                                        {/* Status indicator */}
+                                        {(isToday || isOngoing || isSoon) && (
+                                          <div className="mt-2.5 flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: statusColor }} />
+                                            <span className="text-caption2 font-medium" style={{ color: statusColor }}>
+                                              {isToday ? '本日' : isOngoing ? '開催中' : `${until}日後`}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                      
+                                      <ChevronRight size={20} className="text-[var(--text-tertiary)] shrink-0 mt-2" />
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })() : view === "archive" ? (() => {
@@ -1475,56 +1483,59 @@ VITE_FIREBASE_DATABASE_ID`}
                   else monthGroups.push({ month: label, events: [ev] });
                 }
                 return (
-                  <div className="flex flex-col h-full overflow-y-auto pb-20 bg-[#F2F2F7]">
-                    <div className="px-4 py-5">
-                      {/* Apple-style Header */}
-                      <div className="mb-6">
-                        <h2 className="text-[28px] font-bold text-black tracking-tight leading-tight">アーカイブ</h2>
-                        <p className="text-[15px] text-[#8E8E93] mt-1">終了したイベントの記録</p>
-                      </div>
-                      {archivedEvents.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 px-4">
-                          <div className="w-16 h-16 rounded-full bg-[#E5E5EA] flex items-center justify-center mb-4">
-                            <Archive size={28} className="text-[#8E8E93]" />
-                          </div>
-                          <p className="text-[17px] font-semibold text-[#8E8E93] text-center">アーカイブされた<br />イベントがありません</p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-6">
-                          {monthGroups.map(({ month, events: evs }) => (
-                            <div key={month}>
-                              <div className="text-[13px] font-semibold text-[#8E8E93] uppercase tracking-wide px-4 mb-2">{month}</div>
-                              <div className="bg-white rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-                                {evs.map((ev, idx) => {
-                                  const s = fmtDateJP(ev.start);
-                                  return (
-                                    <button
-                                      key={ev.id}
-                                      onClick={() => setPrepEvent(ev)}
-                                      className={`w-full text-left flex items-center gap-3 px-4 py-3 transition-colors active:bg-[#E5E5EA] ${
-                                        idx !== evs.length - 1 ? 'border-b border-[rgba(60,60,67,0.12)]' : ''
-                                      }`}
-                                    >
-                                      {/* Apple-style Date Circle (Gray for archived) */}
-                                      <div className="flex flex-col items-center justify-center w-12 h-12 rounded-xl shrink-0 bg-[#E5E5EA]">
-                                        <span className="text-[10px] font-semibold text-[#8E8E93] leading-none">{s.month}月</span>
-                                        <span className="text-[18px] font-bold text-[#636366] leading-tight">{s.day}</span>
-                                      </div>
-                                      {/* コンテンツ */}
-                                      <div className="flex-1 min-w-0">
-                                        <div className="font-semibold text-[#636366] text-[15px] truncate mb-0.5">{ev.venue}</div>
-                                        <div className="text-[13px] text-[#8E8E93] truncate">{fmtDateRange(ev.start, ev.end)}</div>
-                                      </div>
-                                      <ChevronRight size={18} className="text-[#C7C7CC] shrink-0" />
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                  <div className="flex flex-col h-full overflow-y-auto pb-24">
+                    {/* Editorial header */}
+                    <div className="pt-8 pb-6 px-5">
+                      <p className="text-footnote text-[var(--text-secondary)] mb-1 tracking-wide">{archivedEvents.length} 件の記録</p>
+                      <h1 className="text-largeTitle text-[var(--text-primary)] tracking-tight">アーカイブ</h1>
                     </div>
+                    
+                    {archivedEvents.length === 0 ? (
+                      <div className="flex-1 flex flex-col items-center justify-center px-8 -mt-12">
+                        <div className="w-20 h-20 rounded-full bg-[var(--surface-tertiary)] flex items-center justify-center mb-5">
+                          <Archive size={32} className="text-[var(--text-tertiary)]" strokeWidth={1.5} />
+                        </div>
+                        <p className="text-title3 text-[var(--text-primary)] text-center mb-2">アーカイブはありません</p>
+                        <p className="text-subheadline text-[var(--text-secondary)] text-center">終了したイベントが表示されます</p>
+                      </div>
+                    ) : (
+                      <div className="px-5 space-y-8">
+                        {monthGroups.map(({ month, events: evs }) => (
+                          <div key={month}>
+                            <h2 className="text-caption1 font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3 px-1">{month}</h2>
+                            <div className="space-y-2">
+                              {evs.map((ev) => {
+                                const s = fmtDateJP(ev.start);
+                                return (
+                                  <button
+                                    key={ev.id}
+                                    onClick={() => setPrepEvent(ev)}
+                                    className="w-full text-left bg-[var(--surface)] rounded-2xl p-4 transition-all active:scale-[0.98] active:opacity-80 border border-[var(--border)]"
+                                  >
+                                    <div className="flex items-start gap-4">
+                                      {/* Date block - muted for archive */}
+                                      <div className="flex flex-col items-center w-12 shrink-0 opacity-50">
+                                        <span className="text-caption2 font-medium text-[var(--text-secondary)]">{s.month}月</span>
+                                        <span className="text-title1 font-bold text-[var(--text-secondary)]">{s.day}</span>
+                                        <span className="text-caption2 text-[var(--text-tertiary)]">{s.dow}</span>
+                                      </div>
+                                      
+                                      {/* Content */}
+                                      <div className="flex-1 min-w-0 pt-1">
+                                        <h3 className="text-headline text-[var(--text-secondary)] truncate">{ev.venue}</h3>
+                                        <p className="text-footnote text-[var(--text-tertiary)] mt-1 truncate">{fmtDateRange(ev.start, ev.end)}</p>
+                                      </div>
+                                      
+                                      <ChevronRight size={20} className="text-[var(--text-tertiary)] shrink-0 mt-2 opacity-50" />
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })() : null}
@@ -2010,26 +2021,28 @@ VITE_FIREBASE_DATABASE_ID`}
         </button>
       )}
 
-      {/* Apple-style Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-[rgba(255,255,255,0.72)] backdrop-blur-xl border-t border-[rgba(60,60,67,0.12)] flex items-center justify-around pb-safe z-20 lg:hidden">
-        {(
-          [
-            { id: "calendar", icon: <Calendar size={24} />,     label: "カレンダー" },
-            { id: "prep",     icon: <ClipboardList size={24} />, label: "準備物" },
-            { id: "archive",  icon: <Archive size={24} />,       label: "アーカイブ" },
-          ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
-        ).map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); setView(tab.id); }}
-            className={`flex flex-col items-center gap-0.5 px-4 py-2 text-[10px] font-medium transition-colors ${
-              view === tab.id ? "text-[#007AFF]" : "text-[#8E8E93]"
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+      {/* Bottom navigation - minimal, intentional */}
+      <nav className="fixed bottom-0 left-0 right-0 glass-nav pb-safe z-20 lg:hidden">
+        <div className="flex items-center justify-around h-12">
+          {(
+            [
+              { id: "calendar", icon: <Calendar size={22} strokeWidth={1.8} />, label: "カレンダー" },
+              { id: "prep",     icon: <ClipboardList size={22} strokeWidth={1.8} />, label: "準備物" },
+              { id: "archive",  icon: <Archive size={22} strokeWidth={1.8} />,       label: "アーカイブ" },
+            ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
+          ).map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); setView(tab.id); }}
+              className={`flex flex-col items-center justify-center gap-0.5 w-20 h-full transition-colors ${
+                view === tab.id ? "text-[#007AFF]" : "text-[var(--text-tertiary)]"
+              }`}
+            >
+              {tab.icon}
+              <span className="text-caption2">{tab.label}</span>
+            </button>
+          ))}
+        </div>
       </nav>
     </div>
   );
@@ -2064,36 +2077,49 @@ function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps) {
   }, [events]);
 
   return (
-    <div className="space-y-6 pb-2">
+    <div className="space-y-6">
       {grouped.map(([date, evs]) => (
         <div key={date}>
-          <div className="flex items-center gap-3 mb-3 px-1">
-            <span className="text-[15px] font-semibold text-black">{fmtGroup(date)}</span>
-            <div className="flex-1 h-px bg-[rgba(60,60,67,0.12)]" />
-            <span className="text-[13px] font-medium text-[#8E8E93]">{evs.length}件</span>
+          {/* Date header - clean typography */}
+          <div className="flex items-baseline gap-3 mb-3 px-1">
+            <span className="text-headline text-[var(--text-primary)]">{fmtGroup(date)}</span>
+            <span className="text-caption1 text-[var(--text-tertiary)]">{evs.length}件</span>
           </div>
-          <div className="bg-white rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-            {evs.map((ev, idx) => (
+          
+          {/* Event cards - minimal, clean */}
+          <div className="space-y-2">
+            {evs.map((ev) => (
               <button
                 key={ev.id}
                 onClick={() => onSelect(ev)}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors active:bg-[#E5E5EA] ${
-                  idx !== evs.length - 1 ? 'border-b border-[rgba(60,60,67,0.12)]' : ''
-                }`}
+                className="w-full text-left bg-[var(--surface)] rounded-2xl p-4 transition-all active:scale-[0.98] active:opacity-80 border border-[var(--border)]"
               >
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: rs(ev.region || "").calBg || '#F2F2F7' }}>
-                  <span className="text-lg">{ev.emoji || ts(ev.type || "").icon}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-black text-[15px] truncate">{ev.venue}</div>
-                  <div className="text-[13px] text-[#8E8E93] mt-0.5">
-                    {ev.region}・{ev.type || "その他"}
+                <div className="flex items-center gap-3">
+                  {/* Type indicator */}
+                  <div 
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `${rs(ev.region || "").calBg || 'var(--surface-tertiary)'}` }}
+                  >
+                    <span className="text-lg">{ev.emoji || ts(ev.type || "").icon}</span>
                   </div>
+                  
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-headline text-[var(--text-primary)] truncate">{ev.venue}</h3>
+                    <p className="text-footnote text-[var(--text-secondary)] mt-0.5">
+                      {ev.region}{ev.type ? ` · ${ev.type}` : ''}
+                    </p>
+                  </div>
+                  
+                  {/* Duration badge if multi-day */}
+                  {ev.end && ev.end !== ev.start && (
+                    <span className="text-caption2 text-[var(--text-tertiary)] bg-[var(--surface-tertiary)] px-2 py-1 rounded-md shrink-0">
+                      →{fmtShort(ev.end)}
+                    </span>
+                  )}
+                  
+                  <ChevronRight size={18} className="text-[var(--text-tertiary)] shrink-0" />
                 </div>
-                {ev.end && ev.end !== ev.start && (
-                  <span className="text-[13px] text-[#8E8E93] font-medium shrink-0">→{fmtShort(ev.end)}</span>
-                )}
-                <ChevronRight size={18} className="text-[#C7C7CC] shrink-0" />
               </button>
             ))}
           </div>
@@ -2119,20 +2145,25 @@ function MobileWeekStrip({ events }: MobileWeekStripProps) {
   const dayLabels = ["日", "月", "火", "水", "木", "金", "土"];
 
   return (
-    <div className="bg-white rounded-2xl p-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+    <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border)] p-4">
       <div className="flex justify-between">
         {days.map((d, i) => {
           const isToday = d.toDateString() === today.toDateString();
           const hasEvent = events.some((ev) => ev.start && new Date(ev.start).toDateString() === d.toDateString());
+          const isPast = d < today && !isToday;
           return (
-            <div key={i} className="flex flex-col items-center gap-1.5">
-              <span className={`text-[11px] font-semibold ${i === 0 ? "text-[#FF3B30]" : i === 6 ? "text-[#007AFF]" : "text-[#8E8E93]"}`}>{dayLabels[i]}</span>
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[15px] font-semibold transition-all ${
-                isToday ? "bg-[#007AFF] text-white" : "text-black"
+            <div key={i} className="flex flex-col items-center gap-2">
+              <span className={`text-caption2 font-medium ${i === 0 ? "text-[#FF3B30]" : i === 6 ? "text-[#007AFF]" : "text-[var(--text-secondary)]"}`}>{dayLabels[i]}</span>
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-subheadline font-semibold transition-all ${
+                isToday 
+                  ? "bg-[#007AFF] text-white" 
+                  : isPast 
+                  ? "text-[var(--text-tertiary)]" 
+                  : "text-[var(--text-primary)]"
               }`}>
                 {d.getDate()}
               </div>
-              <div className={`w-1.5 h-1.5 rounded-full transition-all ${hasEvent ? 'bg-[#007AFF]' : 'bg-transparent'}`} />
+              <div className={`w-1 h-1 rounded-full transition-all ${hasEvent ? 'bg-[#007AFF]' : 'bg-transparent'}`} />
             </div>
           );
         })}

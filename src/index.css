@@ -1,172 +1,180 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-mono: "SF Mono", ui-monospace, SFMono-Regular, monospace;
   
-  --color-apple-blue: #007AFF;
-  --color-apple-gray: #8E8E93;
-  --color-apple-gray-2: #636366;
-  --color-apple-gray-3: #48484A;
-  --color-apple-gray-4: #3A3A3C;
-  --color-apple-gray-5: #2C2C2E;
-  --color-apple-gray-6: #1C1C1E;
-  --bg-app: #F2F2F7;
+  /* Precise Apple system colors */
+  --color-system-blue: #007AFF;
+  --color-system-green: #34C759;
+  --color-system-orange: #FF9500;
+  --color-system-red: #FF3B30;
+  --color-system-teal: #5AC8FA;
+  --color-system-indigo: #5856D6;
+  
+  /* Semantic grays - ultra refined */
+  --gray-1: #8E8E93;
+  --gray-2: #AEAEB2;
+  --gray-3: #C7C7CC;
+  --gray-4: #D1D1D6;
+  --gray-5: #E5E5EA;
+  --gray-6: #F2F2F7;
+  
+  --bg-app: #FFFFFF;
   --surface: #FFFFFF;
-  --surface-raised: #FFFFFF;
-  --border: rgba(60, 60, 67, 0.12);
-  --text-primary: #000000;
-  --text-secondary: #8E8E93;
+  --surface-secondary: #F9F9F9;
+  --border: rgba(60, 60, 67, 0.08);
+  --separator: rgba(60, 60, 67, 0.12);
+  --text-primary: #1D1D1F;
+  --text-secondary: #86868B;
+  --text-tertiary: #AEAEB2;
   
-  /* Apple-style shadows */
-  --shadow-apple-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-apple-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
-  --shadow-apple-lg: 0 8px 28px rgba(0, 0, 0, 0.12), 0 4px 10px rgba(0, 0, 0, 0.06);
-  --shadow-soft-depth: 0 1px 3px rgba(0, 0, 0, 0.05);
+  /* Refined shadows - barely there */
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.12);
 
   --color-success:      #34C759;
-  --color-success-bg:   rgba(52, 199, 89, 0.12);
+  --color-success-bg:   rgba(52, 199, 89, 0.08);
   --color-warning:      #FF9500;
-  --color-warning-bg:   rgba(255, 149, 0, 0.12);
+  --color-warning-bg:   rgba(255, 149, 0, 0.08);
   --color-danger:       #FF3B30;
-  --color-danger-bg:    rgba(255, 59, 48, 0.12);
+  --color-danger-bg:    rgba(255, 59, 48, 0.08);
   --color-info:         #007AFF;
-  --color-info-bg:      rgba(0, 122, 255, 0.12);
+  --color-info-bg:      rgba(0, 122, 255, 0.08);
 
-  @keyframes pulse {
+  @keyframes subtle-pulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+    50% { opacity: 0.6; }
   }
   
-  @keyframes apple-bounce {
+  @keyframes gentle-scale {
     0%, 100% { transform: scale(1); }
-    50% { transform: scale(0.97); }
+    50% { transform: scale(0.98); }
   }
 }
 
 @layer base {
   :root {
-    --bg-app: #F2F2F7;
+    --bg-app: #FFFFFF;
     --surface: #FFFFFF;
-    --surface-raised: #FFFFFF;
+    --surface-secondary: #FAFAFA;
+    --surface-tertiary: #F5F5F7;
     --primary: #007AFF;
     --accent: #5856D6;
-    --text-primary: #000000;
-    --text-secondary: #8E8E93;
-    --text-tertiary: #C7C7CC;
-    --border: rgba(60, 60, 67, 0.12);
-    --separator: rgba(60, 60, 67, 0.29);
-    --glass: rgba(255, 255, 255, 0.72);
-    --glass-thick: rgba(255, 255, 255, 0.85);
-    --ring: rgba(0, 122, 255, 0.2);
+    --text-primary: #1D1D1F;
+    --text-secondary: #86868B;
+    --text-tertiary: #AEAEB2;
+    --border: rgba(0, 0, 0, 0.04);
+    --separator: rgba(60, 60, 67, 0.12);
+    --glass: rgba(255, 255, 255, 0.8);
+    --glass-thick: rgba(255, 255, 255, 0.92);
+    --ring: rgba(0, 122, 255, 0.12);
   }
 
   .dark {
     --bg-app: #000000;
     --surface: #1C1C1E;
-    --surface-raised: #2C2C2E;
+    --surface-secondary: #2C2C2E;
+    --surface-tertiary: #3A3A3C;
     --elevated: #3A3A3C;
     --primary: #0A84FF;
     --accent: #5E5CE6;
-    --text-primary: #FFFFFF;
-    --text-secondary: #8E8E93;
+    --text-primary: #F5F5F7;
+    --text-secondary: #86868B;
     --text-tertiary: #48484A;
-    --border: rgba(84, 84, 88, 0.65);
+    --border: rgba(255, 255, 255, 0.06);
     --separator: rgba(84, 84, 88, 0.65);
-    --glass: rgba(28, 28, 30, 0.72);
-    --glass-thick: rgba(28, 28, 30, 0.85);
-    --ring: rgba(10, 132, 255, 0.25);
+    --glass: rgba(28, 28, 30, 0.8);
+    --glass-thick: rgba(28, 28, 30, 0.92);
+    --ring: rgba(10, 132, 255, 0.2);
     --color-success:      #30D158;
-    --color-success-bg:   rgba(48, 209, 88, 0.15);
+    --color-success-bg:   rgba(48, 209, 88, 0.12);
     --color-warning:      #FF9F0A;
-    --color-warning-bg:   rgba(255, 159, 10, 0.15);
+    --color-warning-bg:   rgba(255, 159, 10, 0.12);
     --color-danger:       #FF453A;
-    --color-danger-bg:    rgba(255, 69, 58, 0.15);
+    --color-danger-bg:    rgba(255, 69, 58, 0.12);
     --color-info:         #0A84FF;
-    --color-info-bg:      rgba(10, 132, 255, 0.15);
+    --color-info-bg:      rgba(10, 132, 255, 0.12);
   }
 
   html {
     overflow-x: clip;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   body {
-    @apply bg-[var(--bg-app)] text-[var(--text-primary)] antialiased transition-colors duration-300 overflow-x-hidden;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    letter-spacing: -0.01em;
+    @apply bg-[var(--bg-app)] text-[var(--text-primary)] antialiased transition-colors duration-200 overflow-x-hidden;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+    letter-spacing: -0.017em;
+    font-weight: 400;
   }
+
+  /* Typography scale - Apple HIG inspired */
+  .text-largeTitle { font-size: 34px; line-height: 41px; font-weight: 700; letter-spacing: 0.37px; }
+  .text-title1 { font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: 0.36px; }
+  .text-title2 { font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: 0.35px; }
+  .text-title3 { font-size: 20px; line-height: 25px; font-weight: 600; letter-spacing: 0.38px; }
+  .text-headline { font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: -0.43px; }
+  .text-body { font-size: 17px; line-height: 22px; font-weight: 400; letter-spacing: -0.43px; }
+  .text-callout { font-size: 16px; line-height: 21px; font-weight: 400; letter-spacing: -0.32px; }
+  .text-subheadline { font-size: 15px; line-height: 20px; font-weight: 400; letter-spacing: -0.24px; }
+  .text-footnote { font-size: 13px; line-height: 18px; font-weight: 400; letter-spacing: -0.08px; }
+  .text-caption1 { font-size: 12px; line-height: 16px; font-weight: 400; letter-spacing: 0; }
+  .text-caption2 { font-size: 11px; line-height: 13px; font-weight: 400; letter-spacing: 0.07px; }
 }
 
 @layer components {
-  /* Apple Glass Effect */
-  .glass-card {
-    @apply backdrop-blur-2xl bg-[var(--glass)] border border-[var(--border)] rounded-2xl;
-    box-shadow: var(--shadow-apple-md);
+  /* Minimal glass effect - used sparingly */
+  .glass-nav {
+    @apply backdrop-blur-xl bg-[var(--glass)] border-b border-[var(--separator)];
+    backdrop-saturate: 180%;
   }
 
-  .glass-card-thick {
-    @apply backdrop-blur-3xl bg-[var(--glass-thick)] border border-[var(--border)] rounded-2xl;
-    box-shadow: var(--shadow-apple-lg);
-  }
-
-  /* Apple-style Card */
-  .apple-card {
-    @apply bg-[var(--surface)] rounded-2xl;
-    box-shadow: var(--shadow-apple-sm);
+  /* Clean card - no shadow by default */
+  .surface-card {
+    @apply bg-[var(--surface)] rounded-[20px] border border-[var(--border)];
   }
   
-  .apple-card-elevated {
-    @apply bg-[var(--surface)] rounded-2xl;
-    box-shadow: var(--shadow-apple-md);
+  .surface-card-elevated {
+    @apply bg-[var(--surface)] rounded-[20px];
+    box-shadow: var(--shadow-soft);
   }
 
-  /* Apple-style List Item */
-  .apple-list-item {
-    @apply flex items-center gap-3 px-4 py-3 bg-[var(--surface)] transition-colors duration-150;
+  /* Grouped list - iOS style */
+  .grouped-list {
+    @apply bg-[var(--surface)] rounded-[12px] overflow-hidden;
   }
   
-  .apple-list-item:active {
-    @apply bg-[var(--border)];
-  }
-
-  /* Apple-style Button */
-  .apple-button {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all duration-150;
+  .grouped-list-item {
+    @apply flex items-center gap-3 px-4 min-h-[44px] transition-colors duration-100;
   }
   
-  .apple-button:active {
-    transform: scale(0.97);
-  }
-  
-  .apple-button-primary {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all duration-150 bg-[var(--primary)] text-white;
+  .grouped-list-item:active {
+    @apply bg-[var(--surface-tertiary)];
   }
 
-  .apple-button-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all duration-150 bg-[var(--border)] text-[var(--text-primary)];
+  /* Minimal pill/badge */
+  .status-pill {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-caption2 font-medium;
   }
 
-  /* Apple-style Pill */
-  .apple-pill {
-    @apply px-3 py-1.5 rounded-full text-xs font-semibold tracking-tight items-center flex gap-1.5 transition-all;
+  /* Touch target - 44pt minimum */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
   }
 
-  /* Apple-style Section Header */
-  .apple-section-header {
-    @apply text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide px-4 py-2;
-  }
-
-  /* Apple-style Grouped List */
-  .apple-grouped-list {
-    @apply bg-[var(--surface)] rounded-2xl overflow-hidden divide-y divide-[var(--border)];
-    box-shadow: var(--shadow-apple-sm);
+  /* Section header - uppercase, muted */
+  .section-label {
+    @apply text-caption1 font-medium text-[var(--text-secondary)] uppercase tracking-wide;
   }
 
   .modern-pill {
-    @apply px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wide items-center flex gap-1.5 transition-all;
+    @apply px-2.5 py-1 rounded-full text-caption2 font-medium items-center flex gap-1 transition-all;
   }
 }
 
