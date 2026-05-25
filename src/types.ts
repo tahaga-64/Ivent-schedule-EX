@@ -28,6 +28,7 @@ export interface Event {
   emoji?: string;
   photos?: EventPhoto[];
   status?: EventStatus;
+  prepBudgetTotal?: number;
 }
 
 export interface PreparationItem {

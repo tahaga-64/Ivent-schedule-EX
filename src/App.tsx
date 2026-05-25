@@ -19,12 +19,13 @@ import NotificationCenter from './components/notifications/NotificationCenter';
 import PhotoUpload from './components/photos/PhotoUpload';
 import PhotoGallery from './components/photos/PhotoGallery';
 import { usePhotos } from './hooks/usePhotos';
+import { useRoles } from './hooks/useRoles';
 import { MAX_PHOTOS } from './lib/photoStorage';
 import {
-  canEditEvent as computeCanEditEvent,
   canEditPreparationList as computeCanEditPreparationList,
-  canUploadPhoto as computeCanUploadPhoto,
 } from './lib/permissions';
+import AdminPanel from './components/AdminPanel';
+import Dashboard from './components/Dashboard';
 import { registerFcmToken } from './lib/fcm';
 import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted, notifyAssigneesAdded } from './lib/notifications';
 import { checkUserAllowed } from './lib/allowedUsers';
@@ -136,7 +137,10 @@ const getDaysInRange = (start: string, end: string): string[] => {
   const current = new Date(start + 'T00:00:00');
   const endDate = new Date(end + 'T00:00:00');
   while (current <= endDate) {
-    days.push(current.toISOString().split('T')[0]);
+    const y = current.getFullYear();
+    const m = String(current.getMonth() + 1).padStart(2, '0');
+    const d = String(current.getDate()).padStart(2, '0');
+    days.push(`${y}-${m}-${d}`);
     current.setDate(current.getDate() + 1);
   }
   return days;
@@ -343,6 +347,12 @@ export default function App() {
         recordUserLogin(u).catch(error => {
           console.error('User profile upsert error:', error);
         });
+        setDoc(doc(db, 'userProfiles', u.uid), {
+          uid: u.uid,
+          email: u.email,
+          displayName: u.displayName,
+          updatedAt: serverTimestamp(),
+        }, { merge: true }).catch(() => {});
       }
     });
     return () => unsubscribe();
@@ -370,9 +380,10 @@ export default function App() {
     return () => mq.removeEventListener("change", apply);
   }, []);
 
-  const canEditEvent = computeCanEditEvent(user, narrowViewport);
+  const { roles, isEventEditor, isAdmin, addUser, updateRole, removeUser } = useRoles();
+  const canEditEvent = !narrowViewport && !!user && isEventEditor(user.email);
   const canEditPreparationList = computeCanEditPreparationList(user);
-  const canUploadPhoto = computeCanUploadPhoto(user);
+  const canUploadPhoto = !!user && isEventEditor(user.email);
 
   // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {
@@ -390,6 +401,13 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
   }, []);
+
+  // 他ユーザーの変更をモーダルにリアルタイム反映（未保存の編集中は上書きしない）
+  useEffect(() => {
+    if (!selected || hasUnsavedChanges) return;
+    const latest = dbEvents[selected.id];
+    if (latest) setSelected(latest);
+  }, [dbEvents, selected?.id, hasUnsavedChanges]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 選択イベントの準備物統計をリアルタイム購読
   useEffect(() => {
@@ -1192,6 +1210,16 @@ export default function App() {
                       densityPreview={calendarDensityPreview}
                       prepProgressMap={prepProgressMap}
                     />
+                    {/* Dashboard + Admin below desktop calendar */}
+                    <Dashboard events={allEvents} />
+                    {user && isAdmin(user.email) && (
+                      <AdminPanel
+                        roles={roles}
+                        onAddUser={addUser}
+                        onUpdateRole={updateRole}
+                        onRemoveUser={removeUser}
+                      />
+                    )}
                   </div>
                   <div className="lg:hidden space-y-3">
                     <div className="flex gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="カレンダー表示の切替">
@@ -1297,6 +1325,17 @@ export default function App() {
                       />
                     )}
                   </div>
+                  {/* Dashboard section - below mobile calendar */}
+                  <Dashboard events={allEvents} />
+                  {/* Admin section - only for admin users */}
+                  {user && isAdmin(user.email) && (
+                    <AdminPanel
+                      roles={roles}
+                      onAddUser={addUser}
+                      onUpdateRole={updateRole}
+                      onRemoveUser={removeUser}
+                    />
+                  )}
                 </>
               )}
               {(view === "prep" || view === "archive") && prepEvent ? (
@@ -1772,14 +1811,21 @@ export default function App() {
                                       disabled={!user}
                                       placeholder="役割を入力"
                                       onChange={e => {
-                                        const updatedDailyRoles: Record<string, Record<string, string>> = {
-                                          ...(selected.dailyRoles ?? {}),
-                                          [date]: {
-                                            ...(selected.dailyRoles?.[date] ?? {}),
-                                            [memberName]: e.target.value,
-                                          },
-                                        };
-                                        handleUpdateEvent(selected.id, { dailyRoles: updatedDailyRoles });
+                                        const val = e.target.value;
+                                        setSelected(prev => {
+                                          if (!prev) return prev;
+                                          return {
+                                            ...prev,
+                                            dailyRoles: {
+                                              ...(prev.dailyRoles ?? {}),
+                                              [date]: {
+                                                ...(prev.dailyRoles?.[date] ?? {}),
+                                                [memberName]: val,
+                                              },
+                                            },
+                                          };
+                                        });
+                                        setHasUnsavedChanges(true);
                                       }}
                                       className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
                                     />
