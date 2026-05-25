@@ -154,10 +154,10 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
     <div
       id="prep-print-area"
       data-print-title={`${event.venue}　準備物リスト　${event.start}〜${event.end}`}
-      className="flex flex-col h-full bg-gray-50"
+      className="flex flex-col h-full bg-[#F2F2F7]"
     >
       {!canEdit && (
-        <div className="px-6 py-2.5 bg-slate-100 border-b border-slate-200 text-slate-600 text-[11px] font-bold text-center">
+        <div className="px-6 py-2.5 bg-[#E5E5EA] border-b border-[rgba(60,60,67,0.12)] text-[#636366] text-[13px] font-medium text-center">
           閲覧のみ（準備物の編集にはログインが必要です）
         </div>
       )}
@@ -165,154 +165,154 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         <div
           role="alert"
           onClick={() => setSaveError(null)}
-          className="px-6 py-3 bg-red-50 border-b border-red-100 text-red-700 text-xs font-bold flex items-center gap-2 cursor-pointer"
+          className="px-6 py-3 bg-[#FF3B30]/10 border-b border-[#FF3B30]/20 text-[#FF3B30] text-[13px] font-medium flex items-center gap-2 cursor-pointer"
         >
           <span>⚠️</span>
           <span className="flex-1">{saveError}</span>
-          <span className="text-[10px] opacity-60">タップで閉じる</span>
+          <span className="text-[11px] opacity-60">タップで閉じる</span>
         </div>
       )}
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-100 shrink-0">
+      {/* Apple-style Header */}
+      <div className="flex items-center justify-between px-4 py-3 bg-[rgba(255,255,255,0.72)] backdrop-blur-xl border-b border-[rgba(60,60,67,0.12)] shrink-0 sticky top-0 z-10">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1 text-[#007AFF] font-medium text-[17px] active:opacity-50 transition-opacity"
+        >
+          <ArrowLeft size={22} strokeWidth={2.5} />
+          <span>戻る</span>
+        </button>
         <div className="flex items-center gap-3">
           <button
-            onClick={onBack}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h2 className="text-lg font-black text-gray-900 leading-tight">{event.venue}</h2>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[11px] text-gray-400 font-mono">{event.start} → {event.end}</span>
-              <span className="text-gray-300">·</span>
-              <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">PREPARATION LIST</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl font-bold text-xs transition-colors print:hidden"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[#007AFF] font-medium text-[15px] active:opacity-50 transition-opacity print:hidden"
             title="印刷"
           >
-            <Printer size={13} />
-            <span className="hidden sm:inline">印刷</span>
+            <Printer size={18} />
           </button>
           {hasChanges && canEdit && (
             <button
               onClick={handleSaveAll}
               disabled={isSaving}
-              className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-xl font-bold text-xs hover:bg-amber-600 transition-colors disabled:opacity-60"
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#007AFF] text-white rounded-full font-semibold text-[15px] active:opacity-80 transition-opacity disabled:opacity-60"
             >
-              <Save size={13} />
+              <Save size={15} />
               {isSaving ? '保存中...' : '保存'}
             </button>
           )}
         </div>
       </div>
 
-      {/* Mobile card list */}
-      <div className="block lg:hidden flex-1 overflow-y-auto p-3 space-y-2">
+      {/* Event Title */}
+      <div className="px-4 py-4 bg-white border-b border-[rgba(60,60,67,0.12)]">
+        <h2 className="text-[22px] font-bold text-black leading-tight">{event.venue}</h2>
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-[15px] text-[#8E8E93]">{event.start} → {event.end}</span>
+        </div>
+      </div>
+
+      {/* Mobile card list - Apple style */}
+      <div className="block lg:hidden flex-1 overflow-y-auto p-4 space-y-3">
         {!canEdit && items.filter(i => !isEmptyItem(i)).length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-slate-300">
-            <ClipboardList size={36} className="mb-3" />
-            <p className="text-sm font-bold text-slate-400">準備物が登録されていません</p>
+          <div className="flex flex-col items-center justify-center py-16 text-[#8E8E93]">
+            <div className="w-16 h-16 rounded-full bg-[#E5E5EA] flex items-center justify-center mb-4">
+              <ClipboardList size={28} className="text-[#8E8E93]" />
+            </div>
+            <p className="text-[17px] font-semibold text-center">準備物が登録されていません</p>
           </div>
         )}
         {items.filter(item => canEdit || !isEmptyItem(item)).map((item, idx) => (
           <div
             key={item.id}
-            className={`bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden ${item.prepared ? 'opacity-70' : ''}`}
+            className={`bg-white rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.08)] ${item.prepared ? 'opacity-60' : ''}`}
           >
             {/* Row 1: # + 品名 + delete */}
-            <div className="flex items-center gap-2 px-3 pt-3 pb-2">
-              <span className="text-[10px] text-gray-400 font-mono w-5 shrink-0">{idx + 1}</span>
+            <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+              <span className="text-[13px] text-[#8E8E93] font-medium w-6 shrink-0">{idx + 1}</span>
               <input
                 type="text"
                 readOnly={!canEdit}
                 value={item.name}
                 onChange={e => updateItem(item.id, { name: e.target.value })}
                 placeholder="アイテム名..."
-                className={`flex-1 text-sm font-bold text-gray-800 bg-transparent outline-none read-only:cursor-default ${item.prepared ? 'line-through text-gray-400' : ''}`}
+                className={`flex-1 text-[17px] font-semibold text-black bg-transparent outline-none read-only:cursor-default ${item.prepared ? 'line-through text-[#8E8E93]' : ''}`}
               />
               <button
                 type="button"
                 onClick={() => removeItem(item.id)}
                 disabled={items.length <= 1 || !canEdit}
-                className={`p-1 shrink-0 transition-colors ${
-                  items.length <= 1 ? 'opacity-0 pointer-events-none' : !canEdit ? 'opacity-30 cursor-not-allowed' : 'text-gray-300 hover:text-red-400'
+                className={`p-1.5 shrink-0 transition-colors rounded-full ${
+                  items.length <= 1 ? 'opacity-0 pointer-events-none' : !canEdit ? 'opacity-30 cursor-not-allowed' : 'text-[#8E8E93] active:bg-[#E5E5EA]'
                 }`}
               >
-                <Trash2 size={14} />
+                <Trash2 size={18} />
               </button>
             </div>
             {/* Row 2: 数量 / 単価 / 金額 */}
-            <div className="grid grid-cols-3 border-t border-gray-100">
-              <div className="px-3 py-2 border-r border-gray-100">
-                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">数量</div>
+            <div className="grid grid-cols-3 border-t border-[rgba(60,60,67,0.12)]">
+              <div className="px-4 py-3 border-r border-[rgba(60,60,67,0.12)]">
+                <div className="text-[11px] font-medium text-[#8E8E93] uppercase tracking-wide mb-1">数量</div>
                 <input
                   type="number"
                   readOnly={!canEdit}
                   value={item.quantity || ''}
                   onChange={e => updateItem(item.id, { quantity: parseInt(e.target.value) || 0 })}
-                  className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
+                  className="w-full text-[17px] font-medium text-black bg-transparent outline-none read-only:cursor-default"
                 />
               </div>
-              <div className="px-3 py-2 border-r border-gray-100">
-                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">単価</div>
+              <div className="px-4 py-3 border-r border-[rgba(60,60,67,0.12)]">
+                <div className="text-[11px] font-medium text-[#8E8E93] uppercase tracking-wide mb-1">単価</div>
                 <div className="flex items-center gap-0.5">
-                  <span className="text-[10px] text-gray-400">¥</span>
+                  <span className="text-[13px] text-[#8E8E93]">¥</span>
                   <input
                     type="number"
                     readOnly={!canEdit}
                     value={item.unitPrice || ''}
                     onChange={e => updateItem(item.id, { unitPrice: parseInt(e.target.value) || 0 })}
-                    className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
+                    className="w-full text-[17px] font-medium text-black bg-transparent outline-none read-only:cursor-default"
                   />
                 </div>
               </div>
-              <div className="px-3 py-2 bg-indigo-50/30">
-                <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1">金額</div>
-                <div className="text-sm font-black text-indigo-600 font-mono">¥{(item.amount || 0).toLocaleString()}</div>
+              <div className="px-4 py-3 bg-[#007AFF]/5">
+                <div className="text-[11px] font-medium text-[#007AFF] uppercase tracking-wide mb-1">金額</div>
+                <div className="text-[17px] font-bold text-[#007AFF]">¥{(item.amount || 0).toLocaleString()}</div>
               </div>
             </div>
             {/* Row 3: 配送料 / 到着 / 準備 */}
-            <div className="grid grid-cols-3 border-t border-gray-100">
-              <div className="px-3 py-2 border-r border-gray-100">
-                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">配送料</div>
+            <div className="grid grid-cols-3 border-t border-[rgba(60,60,67,0.12)]">
+              <div className="px-4 py-3 border-r border-[rgba(60,60,67,0.12)]">
+                <div className="text-[11px] font-medium text-[#8E8E93] uppercase tracking-wide mb-1">配送料</div>
                 <div className="flex items-center gap-0.5">
-                  <span className="text-[10px] text-gray-400">¥</span>
+                  <span className="text-[13px] text-[#8E8E93]">¥</span>
                   <input
                     type="number"
                     readOnly={!canEdit}
                     value={item.shippingFee || ''}
                     onChange={e => updateItem(item.id, { shippingFee: parseInt(e.target.value) || 0 })}
                     placeholder="0"
-                    className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
+                    className="w-full text-[17px] font-medium text-black bg-transparent outline-none read-only:cursor-default"
                   />
                 </div>
               </div>
-              <div className="px-3 py-2 flex flex-col items-center border-r border-gray-100">
-                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">到着</div>
+              <div className="px-4 py-3 flex flex-col items-center justify-center border-r border-[rgba(60,60,67,0.12)]">
+                <div className="text-[11px] font-medium text-[#8E8E93] uppercase tracking-wide mb-2">到着</div>
                 <Checkbox checked={item.arrived} disabled={!canEdit} onChange={() => updateItem(item.id, { arrived: !item.arrived })} />
               </div>
-              <div className="px-3 py-2 flex flex-col items-center">
-                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">準備完了</div>
+              <div className="px-4 py-3 flex flex-col items-center justify-center">
+                <div className="text-[11px] font-medium text-[#8E8E93] uppercase tracking-wide mb-2">準備完了</div>
                 <Checkbox checked={item.prepared} disabled={!canEdit} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
               </div>
             </div>
             {/* Row 4: 備考 (shown if has content or canEdit) */}
             {(item.note || canEdit) && (
-              <div className="border-t border-gray-100 px-3 py-2">
-                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">備考</div>
+              <div className="border-t border-[rgba(60,60,67,0.12)] px-4 py-3">
+                <div className="text-[11px] font-medium text-[#8E8E93] uppercase tracking-wide mb-1">備考</div>
                 <PreparationNoteField value={item.note || ''} readOnly={!canEdit} onChange={note => updateItem(item.id, { note })} />
               </div>
             )}
             {/* Row 5: URL (shown if has content or canEdit) */}
             {(item.url || canEdit) && (
-              <div className="border-t border-gray-100 px-3 py-2">
-                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">URL</div>
+              <div className="border-t border-[rgba(60,60,67,0.12)] px-4 py-3">
+                <div className="text-[11px] font-medium text-[#8E8E93] uppercase tracking-wide mb-1">URL</div>
                 {canEdit ? (
                   <div className="flex items-center gap-1.5">
                     <input
@@ -320,11 +320,11 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                       value={item.url || ''}
                       onChange={e => updateItem(item.id, { url: e.target.value })}
                       placeholder="https://..."
-                      className="flex-1 text-sm text-indigo-500 bg-transparent outline-none min-w-0"
+                      className="flex-1 text-[15px] text-[#007AFF] bg-transparent outline-none min-w-0"
                     />
                     {item.url && (
-                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-indigo-400 hover:text-indigo-600">
-                        <ExternalLink size={14} />
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-[#007AFF] active:opacity-50">
+                        <ExternalLink size={18} />
                       </a>
                     )}
                   </div>
@@ -333,7 +333,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-indigo-500 underline underline-offset-2 break-all"
+                    className="text-[15px] text-[#007AFF] break-all"
                   >
                     {item.url}
                   </a>
@@ -346,9 +346,9 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
           <button
             type="button"
             onClick={addItem}
-            className="w-full py-4 bg-white border-2 border-dashed border-gray-200 hover:border-indigo-300 text-gray-400 hover:text-indigo-500 text-xs font-black uppercase tracking-widest rounded-2xl transition-colors flex items-center justify-center gap-2"
+            className="w-full py-4 bg-white text-[#007AFF] text-[15px] font-semibold rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.08)] active:bg-[#F2F2F7] transition-colors flex items-center justify-center gap-2"
           >
-            <Plus size={14} /> 新しい項目を追加
+            <Plus size={18} /> 新しい項目を追加
           </button>
         )}
       </div>
@@ -514,52 +514,52 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         )}
       </div>
 
-      {/* Footer */}
-      <div className="px-4 sm:px-6 py-4 bg-white border-t border-gray-100 shrink-0">
+      {/* Apple-style Footer */}
+      <div className="px-4 py-4 bg-white border-t border-[rgba(60,60,67,0.12)] shrink-0">
         {hasChanges && canEdit && (
           <button
             type="button"
             onClick={handleSaveAll}
             disabled={isSaving}
-            className="w-full mb-3 flex items-center justify-center gap-2 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black text-sm transition-colors disabled:opacity-60"
+            className="w-full mb-4 flex items-center justify-center gap-2 py-3.5 bg-[#007AFF] text-white rounded-xl font-semibold text-[17px] active:opacity-80 transition-opacity disabled:opacity-60"
           >
-            <Save size={16} />
+            <Save size={18} />
             {isSaving ? '保存中...' : '変更を保存'}
           </button>
         )}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-          <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">SUBTOTAL · 商品計</div>
-          <div className="text-xl font-black text-gray-900 font-mono">¥{totals.subtotal.toLocaleString()}</div>
+        <div className="bg-[#F2F2F7] rounded-2xl p-4">
+          <div className="text-[11px] font-medium text-[#8E8E93] uppercase tracking-wide mb-1">商品計</div>
+          <div className="text-[22px] font-bold text-black">¥{totals.subtotal.toLocaleString()}</div>
         </div>
-        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-          <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">SHIPPING · 配送料</div>
-          <div className="text-xl font-black text-gray-900 font-mono">¥{totals.shipping.toLocaleString()}</div>
+        <div className="bg-[#F2F2F7] rounded-2xl p-4">
+          <div className="text-[11px] font-medium text-[#8E8E93] uppercase tracking-wide mb-1">配送料</div>
+          <div className="text-[22px] font-bold text-black">¥{totals.shipping.toLocaleString()}</div>
         </div>
-        <div className="bg-indigo-600 rounded-2xl p-4">
-          <div className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-1">TOTAL · 総支払</div>
-          <div className="text-xl font-black text-white font-mono">¥{totals.total.toLocaleString()}</div>
+        <div className="bg-[#007AFF] rounded-2xl p-4">
+          <div className="text-[11px] font-medium text-white/70 uppercase tracking-wide mb-1">合計</div>
+          <div className="text-[22px] font-bold text-white">¥{totals.total.toLocaleString()}</div>
         </div>
-        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col justify-between">
+        <div className="bg-[#F2F2F7] rounded-2xl p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">PROGRESS · 進捗</div>
-            <div className="text-xs font-black text-indigo-600">
+            <div className="text-[11px] font-medium text-[#8E8E93] uppercase tracking-wide">進捗</div>
+            <div className="text-[13px] font-bold text-[#007AFF]">
               {items.length > 0 ? Math.round((totals.done / items.length) * 100) : 0}%
             </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1.5">
+          <div className="w-full bg-[#E5E5EA] rounded-full h-2 mb-2">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${items.length > 0 ? (totals.done / items.length) * 100 : 0}%` }}
-              className="bg-indigo-600 h-1.5 rounded-full"
+              className="bg-[#007AFF] h-2 rounded-full"
             />
           </div>
-          <div className="flex gap-2 text-[10px] font-bold text-gray-400">
+          <div className="flex gap-2 text-[11px] font-medium text-[#8E8E93]">
             <span>到着 {totals.arrived}</span>
-            <span className="text-gray-300">·</span>
-            <span>準備完了 {totals.prepared}</span>
-            <span className="text-gray-300">·</span>
-            <span>{items.length} 件</span>
+            <span className="text-[#C7C7CC]">·</span>
+            <span>準備 {totals.prepared}</span>
+            <span className="text-[#C7C7CC]">·</span>
+            <span>{items.length}件</span>
           </div>
         </div>
       </div>
@@ -598,22 +598,19 @@ function PreparationNoteField({ value, onChange, readOnly, desktop }: { value: s
 
 function Checkbox({ checked, onChange, disabled, color = 'indigo' }: { checked: boolean; onChange: () => void; disabled?: boolean; color?: 'indigo' | 'emerald' }) {
   const activeClass = color === 'emerald'
-    ? 'bg-emerald-500 border-emerald-500'
-    : 'bg-indigo-600 border-indigo-600';
-  const hoverClass = color === 'emerald'
-    ? 'hover:border-emerald-400'
-    : 'hover:border-indigo-400';
+    ? 'bg-[#34C759]'
+    : 'bg-[#007AFF]';
   return (
     <button
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className={`w-6 h-6 rounded border-2 flex items-center justify-center mx-auto transition-all ${
-        checked ? activeClass : `border-gray-300 ${hoverClass}`
-      } disabled:opacity-40 disabled:pointer-events-none disabled:hover:border-gray-300`}
+      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-all active:scale-95 ${
+        checked ? activeClass : 'bg-[#E5E5EA]'
+      } disabled:opacity-40 disabled:pointer-events-none`}
     >
       {checked && (
-        <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
+        <svg className="w-4 h-4 text-white" viewBox="0 0 12 12" fill="none">
           <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
