@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { loginWithGoogle } from '../lib/firebase';
 import EXLogo from './EXLogo';
+import ScrollBackground from './ScrollBackground';
+
+const BG_IMAGES = [
+  'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1600&q=80', // イベント会場
+  'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1600&q=80', // カンファレンス
+  'https://images.unsplash.com/photo-1511578314322-379afb476865?w=1600&q=80', // 宴会・パーティー
+];
 
 const container = {
   hidden: {},
@@ -26,7 +33,8 @@ export default function LoginScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-indigo-700 to-cyan-600 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      <ScrollBackground images={BG_IMAGES} />
       {/* Floating blobs */}
       <motion.div
         animate={{ x: [0, 40, -20, 0], y: [0, -50, 20, 0] }}
