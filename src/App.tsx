@@ -1,15 +1,16 @@
 import { useState, useMemo, useEffect, useCallback, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import { db, auth } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, collectionGroup, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, collectionGroup, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS } from './constants';
 import { Event, PreparationItem, type FieldAuthorAttribution } from './types';
 
 interface StaffMember {
   id: string;
   name: string;
+  email?: string;
 }
-import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive } from 'lucide-react';
+import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
@@ -313,7 +314,7 @@ export default function App() {
   /** カレンダー日セルの「+N件」から開く、その日の全イベント一覧 */
   const [dayDetail, setDayDetail] = useState<{ year: number; month: number; day: number; events: Event[] } | null>(null);
   /** lg 未満のカレンダー画面: 一覧 / 月グリッド / 週 / 日 */
-  const [calendarMobileLayout, setCalendarMobileLayout] = useState<"list" | "month" | "week" | "day">("list");
+  const [calendarMobileLayout, setCalendarMobileLayout] = useState<"list" | "day">("list");
   const [mobileWeekRowIndex, setMobileWeekRowIndex] = useState(0);
   const [mobileAgendaDay, setMobileAgendaDay] = useState(() => new Date().getDate());
   const [sideOpen, setSideOpen] = useState(true);
@@ -401,7 +402,7 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'staff'), (snap) => {
       const collator = new Intl.Collator('ja', { sensitivity: 'base' });
-      const list: StaffMember[] = snap.docs.map(d => ({ id: d.id, name: d.data().name as string }));
+      const list: StaffMember[] = snap.docs.map(d => ({ id: d.id, name: d.data().name as string, email: d.data().email as string | undefined }));
       list.sort((a, b) => collator.compare(a.name, b.name));
       setStaffList(list);
     });
@@ -650,13 +651,15 @@ export default function App() {
         const newAssignees = selected.assignees ?? [];
         const added = newAssignees.filter(name => !oldAssignees.includes(name));
         if (added.length > 0) {
-          notifyAssigneesAdded(added, eventToSave, user).catch(console.error);
+          const addedStaff = added.map(name => ({
+            name,
+            email: staffList.find(s => s.name === name)?.email,
+          }));
+          notifyAssigneesAdded(addedStaff, eventToSave, user).catch(console.error);
         }
-        if (canEditEvent) {
-          notifyEventUpdated(selected, user).catch(error => {
-            console.error('Notification fanout error:', error);
-          });
-        }
+        notifyEventUpdated(selected, user).catch(error => {
+          console.error('Notification fanout error:', error);
+        });
       }
       return true;
     } catch (error) {
@@ -793,8 +796,12 @@ export default function App() {
     const trimmed = name?.trim() ?? '';
     if (!trimmed || trimmed.length > 50) return;
     if (staffList.some(s => s.name === trimmed)) { alert('その名前は既に登録されています'); return; }
+    const emailInput = prompt('Gmailアドレスを入力してください（省略可）:') ?? '';
+    const emailTrimmed = emailInput.trim();
+    const staffData: Record<string, unknown> = { name: trimmed, createdAt: serverTimestamp() };
+    if (emailTrimmed) staffData.email = emailTrimmed;
     try {
-      await addDoc(collection(db, 'staff'), { name: trimmed, createdAt: serverTimestamp() });
+      await addDoc(collection(db, 'staff'), staffData);
     } catch {
       alert('スタッフの追加に失敗しました');
     }
@@ -806,6 +813,17 @@ export default function App() {
       await deleteDoc(doc(db, 'staff', staff.id));
     } catch {
       alert('スタッフの削除に失敗しました');
+    }
+  };
+
+  const handleEditStaffEmail = async (staff: StaffMember) => {
+    const input = prompt(`「${staff.name}」のGmailアドレスを設定してください（削除する場合は空白）:`, staff.email ?? '');
+    if (input === null) return;
+    const trimmed = input.trim();
+    try {
+      await updateDoc(doc(db, 'staff', staff.id), { email: trimmed || deleteField() });
+    } catch {
+      alert('メールアドレスの更新に失敗しました');
     }
   };
 
@@ -1159,19 +1177,34 @@ export default function App() {
                 )}
                 {staffList.map((staff) => (
                   <div key={staff.id} className="group relative flex items-center">
-                    <div className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600">
-                      <span className="text-sm">👤</span>
-                      <span className="text-xs font-bold font-sans">{staff.name}</span>
+                    <div className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 min-w-0">
+                      <span className="text-sm shrink-0">👤</span>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-bold font-sans">{staff.name}</span>
+                        {staff.email && (
+                          <span className="text-[10px] text-slate-400 truncate">{staff.email}</span>
+                        )}
+                      </div>
                     </div>
                     {canEditEvent && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteStaff(staff)}
-                        className="absolute right-1 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                        aria-label={`${staff.name}を削除`}
-                      >
-                        <X size={12} />
-                      </button>
+                      <div className="absolute right-1 opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleEditStaffEmail(staff)}
+                          className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
+                          aria-label={`${staff.name}のGmailアドレスを設定`}
+                        >
+                          <Mail size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteStaff(staff)}
+                          className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                          aria-label={`${staff.name}を削除`}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -1258,8 +1291,6 @@ export default function App() {
                       {(
                         [
                           ["list", "一覧"],
-                          ["month", "月"],
-                          ["week", "週"],
                           ["day", "日"],
                         ] as const
                       ).map(([id, label]) => (
@@ -1270,25 +1301,6 @@ export default function App() {
                           aria-selected={calendarMobileLayout === id}
                           onClick={() => {
                             setCalendarMobileLayout(id);
-                            if (id === "week") {
-                              const cells = buildMonthGridCells(calYear, calMonth);
-                              const wRows = cells.length / 7;
-                              const t = new Date();
-                              let w = 0;
-                              if (t.getFullYear() === calYear && t.getMonth() + 1 === calMonth) {
-                                const td = t.getDate();
-                                outer: for (let wi = 0; wi < wRows; wi++) {
-                                  for (let c = 0; c < 7; c++) {
-                                    const cell = cells[wi * 7 + c];
-                                    if (cell.current && cell.day === td) {
-                                      w = wi;
-                                      break outer;
-                                    }
-                                  }
-                                }
-                              }
-                              setMobileWeekRowIndex(w);
-                            }
                             if (id === "day") {
                               const t = new Date();
                               if (t.getFullYear() === calYear && t.getMonth() + 1 === calMonth) {
@@ -1312,37 +1324,6 @@ export default function App() {
                           {filtered.length === 0 ? <EmptyState /> : <MobileTimelineView events={filtered} onSelect={handleEventSelect} />}
                         </div>
                       </>
-                    )}
-                    {calendarMobileLayout === "month" && (
-                      <div className="-mx-1 overflow-x-auto px-1 pb-2">
-                        <CalendarView
-                          events={desktopCalendarEvents}
-                          year={calYear}
-                          month={calMonth}
-                          setYear={setCalYear}
-                          setMonth={setCalMonth}
-                          onSelect={handleEventSelect}
-                          onHover={handleEventHover}
-                          onHoverEnd={handleEventHoverEnd}
-                          onCreateEvent={handleCreateEvent}
-                          onOpenDayDetail={handleOpenDayDetail}
-                          narrowViewport={narrowViewport}
-                          densityPreview={calendarDensityPreview}
-                          prepProgressMap={prepProgressMap}
-                        />
-                      </div>
-                    )}
-                    {calendarMobileLayout === "week" && (
-                      <MobileMonthWeekGrid
-                        year={calYear}
-                        month={calMonth}
-                        weekRowIndex={mobileWeekRowIndex}
-                        onWeekRowChange={setMobileWeekRowIndex}
-                        events={desktopCalendarEvents}
-                        onSelect={handleEventSelect}
-                        onOpenDayDetail={handleOpenDayDetail}
-                        onCreateEvent={handleCreateEvent}
-                      />
                     )}
                     {calendarMobileLayout === "day" && (
                       <MobileDayAgendaView
@@ -1676,7 +1657,9 @@ export default function App() {
                         <PhotoUpload
                           onUpload={async (file) => {
                             const newPhoto = await uploadPhoto(file);
-                            if (newPhoto) {
+                            // hasUnsavedChanges=true のとき onSnapshot が selected を更新しないため手動反映
+                            // false のときは onSnapshot が自動更新するので手動更新すると二重になる
+                            if (newPhoto && hasUnsavedChanges) {
                               setSelected(prev => prev ? { ...prev, photos: [...(prev.photos ?? []), newPhoto] } : prev);
                             }
                           }}
@@ -1750,9 +1733,10 @@ export default function App() {
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">CLIENT・クライアント</label>
                       <input
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
                         value={selected.client}
                         placeholder="クライアント名を入力..."
+                        disabled={!canEditEvent}
                         onChange={e => handleUpdateEvent(selected.id, { client: e.target.value })}
                       />
                     </div>
@@ -1763,7 +1747,7 @@ export default function App() {
                         className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[88px] resize-none read-only:bg-gray-50 read-only:text-gray-500"
                         value={selected.detailMemo ?? ''}
                         placeholder="例：搬入は西口ローリング床／15:00までに主電源・Wi-Fi確認"
-                        readOnly={!user}
+                        readOnly={!canEditEvent}
                         onChange={e => {
                           const detailMemo = e.target.value;
                           handleUpdateEvent(selected.id, {
@@ -1775,9 +1759,6 @@ export default function App() {
                       {formatAttributionLine(selected.detailMemoAttribution) ? (
                         <p className="mt-1.5 text-[11px] text-gray-500">{formatAttributionLine(selected.detailMemoAttribution)}</p>
                       ) : null}
-                      {!user && (
-                        <p className="mt-1.5 text-[11px] text-amber-700/90">ログインするとメモを記入・保存できます。</p>
-                      )}
                     </div>
 
                     <div>
@@ -1792,7 +1773,7 @@ export default function App() {
                               <button
                                 key={staff.id}
                                 type="button"
-                                disabled={!user}
+                                disabled={!canEditEvent}
                                 onClick={() => {
                                   const current = selected.assignees ?? [];
                                   const next = isAssigned
@@ -1811,9 +1792,6 @@ export default function App() {
                             );
                           })}
                         </div>
-                      )}
-                      {!user && (
-                        <p className="mt-1.5 text-[11px] text-amber-700/90">ログインすると担当者を選択できます。</p>
                       )}
                     </div>
 
@@ -1834,7 +1812,7 @@ export default function App() {
                                     <input
                                       type="text"
                                       value={selected.dailyRoles?.[date]?.[memberName] ?? ''}
-                                      disabled={!user}
+                                      disabled={!canEditEvent}
                                       placeholder="役割を入力"
                                       onChange={e => {
                                         const val = e.target.value;
@@ -1861,9 +1839,6 @@ export default function App() {
                             </div>
                           ))}
                         </div>
-                      )}
-                      {!user && (selected.assignees ?? []).length > 0 && (
-                        <p className="mt-1.5 text-[11px] text-amber-700/90">ログインすると役割を入力できます。</p>
                       )}
                     </div>
 

@@ -39,27 +39,14 @@ service cloud.firestore {
           && data.type is string;
     }
 
-    /** メイン編集者以外が events ドキュメントを触れるのは、これらのトップレベルキーの変更のみ（UI の全員記入欄と一致） */
-    function isCollaboratorOnlyEventFieldPatch() {
-      return request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly([
-            'detailMemo',
-            'detailMemoAttribution',
-            'assignees',
-            'note',
-            'analysisReport',
-            'client',
-            'photos',
-          ]);
-    }
-
     match /events/{eventId} {
       allow read:  if isAuthenticated();
       // isValidEvent() = フル作成, photos-only = 静的データのイベントへの写真追加（全員可）
       allow create: if (isEventEditor() && isValidEvent())
           || (isAuthenticated() && request.resource.data.keys().hasOnly(['photos']));
+      // 写真のみの変更は全員可、それ以外は編集者のみ
       allow update: if isEventEditor()
-          || (isAuthenticated() && isCollaboratorOnlyEventFieldPatch());
+          || (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photos']));
       allow delete: if isEventEditor();
 
       // 準備物: ログイン済みユーザー全員が編集可（canEditPreparationList と一致）
@@ -80,16 +67,15 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow get: if isAuthenticated()
-          && (request.auth.uid == userId || isEventEditor());
-      allow list: if isEventEditor();
+      allow read: if isAuthenticated();
       allow create, update: if isAuthenticated()
           && request.auth.uid == userId
           && request.resource.data.uid == userId;
 
       match /notifications/{notificationId} {
         allow read: if isAuthenticated() && request.auth.uid == userId;
-        allow create: if isEventEditor();
+        allow create: if isAuthenticated()
+            && request.resource.data.actorUid == request.auth.uid;
         allow update: if isAuthenticated()
             && request.auth.uid == userId
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
