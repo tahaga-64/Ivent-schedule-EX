@@ -142,11 +142,11 @@
   }
   
   .apple-button-primary {
-    @apply apple-button bg-[var(--primary)] text-white;
+    @apply inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all duration-150 bg-[var(--primary)] text-white;
   }
-  
+
   .apple-button-secondary {
-    @apply apple-button bg-[var(--border)] text-[var(--text-primary)];
+    @apply inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all duration-150 bg-[var(--border)] text-[var(--text-primary)];
   }
 
   /* Apple-style Pill */
