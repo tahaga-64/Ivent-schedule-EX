@@ -26,7 +26,7 @@ import {
   canUploadPhoto as computeCanUploadPhoto,
 } from './lib/permissions';
 import { registerFcmToken } from './lib/fcm';
-import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted } from './lib/notifications';
+import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted, notifyAssigneesAdded } from './lib/notifications';
 import { checkUserAllowed } from './lib/allowedUsers';
 
 type ViewMode = "calendar" | "prep" | "archive";
@@ -99,6 +99,25 @@ function formatAttributionLine(meta: FieldAuthorAttribution | undefined): string
 const rs = (r: string) => REGION_STYLE[r] || { bg: "#f1f5f9", text: "#334155", dot: "#94a3b8", calBg: "rgba(241, 245, 249, 0.4)", calBorder: "#cbd5e1" };
 const ts = (t: string) => TYPE_STYLE[t] || { bg: "#f8fafc", border: "#64748b", text: "#1e293b", icon: "📋" };
 const fmtShort = (d: string) => { if (!d) return "—"; const [, m, day] = d.split("-"); return `${parseInt(m)}/${parseInt(day)}`; };
+const DOW_JP = ['日', '月', '火', '水', '木', '金', '土'];
+function fmtDateJP(d: string): { month: number; day: number; dow: string; label: string } {
+  const date = new Date(d + 'T00:00:00');
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const dow = DOW_JP[date.getDay()];
+  return { month, day, dow, label: `${month}月${day}日（${dow}）` };
+}
+function fmtDateRange(start: string, end: string): string {
+  const s = fmtDateJP(start);
+  if (!end || end === start) return s.label;
+  const e = fmtDateJP(end);
+  const diffDays = Math.round((new Date(end + 'T00:00:00').getTime() - new Date(start + 'T00:00:00').getTime()) / 86400000) + 1;
+  return `${s.label} → ${e.month}月${e.day}日（${e.dow}）${diffDays > 1 ? ` · ${diffDays}日間` : ''}`;
+}
+function daysUntil(start: string): number {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.round((new Date(start + 'T00:00:00').getTime() - today.getTime()) / 86400000);
+}
 
 function statusStyle(status?: string): { label: string; bg: string; text: string; dot: string } {
   switch (status) {
@@ -111,6 +130,23 @@ function statusStyle(status?: string): { label: string; bg: string; text: string
   }
 }
 const getMonth = (d: string) => { if (!d) return null; return parseInt(d.split("-")[1]); };
+
+const getDaysInRange = (start: string, end: string): string[] => {
+  const days: string[] = [];
+  const current = new Date(start + 'T00:00:00');
+  const endDate = new Date(end + 'T00:00:00');
+  while (current <= endDate) {
+    days.push(current.toISOString().split('T')[0]);
+    current.setDate(current.getDate() + 1);
+  }
+  return days;
+};
+
+const formatDayLabel = (dateStr: string): string => {
+  const d = new Date(dateStr + 'T00:00:00');
+  const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+  return `${d.getMonth() + 1}月${d.getDate()}日（${dow}）`;
+};
 
 /** 日セルには出さない: 種別・日付/期間など（日別一覧・ホバー・読み上げ用の任意行） */
 function buildEventOptionalCaption(ev: Event, opts?: { includeDates?: boolean }): string {
@@ -315,8 +351,9 @@ export default function App() {
   // スタッフリスト購読
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'staff'), (snap) => {
+      const collator = new Intl.Collator('ja', { sensitivity: 'base' });
       const list: StaffMember[] = snap.docs.map(d => ({ id: d.id, name: d.data().name as string }));
-      list.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+      list.sort((a, b) => collator.compare(a.name, b.name));
       setStaffList(list);
     });
     return () => unsubscribe();
@@ -551,10 +588,18 @@ export default function App() {
         body: JSON.stringify({ title: '✏️ イベント更新', body: `${selected.venue} が更新されました` }),
       }).catch(console.error);
       setIsSaving(false);
-      if (canEditEvent && user) {
-        notifyEventUpdated(selected, user).catch(error => {
-          console.error('Notification fanout error:', error);
-        });
+      if (user) {
+        const oldAssignees = dbEvents[selected.id]?.assignees ?? [];
+        const newAssignees = selected.assignees ?? [];
+        const added = newAssignees.filter(name => !oldAssignees.includes(name));
+        if (added.length > 0) {
+          notifyAssigneesAdded(added, eventToSave, user).catch(console.error);
+        }
+        if (canEditEvent) {
+          notifyEventUpdated(selected, user).catch(error => {
+            console.error('Notification fanout error:', error);
+          });
+        }
       }
       return true;
     } catch (error) {
@@ -1265,26 +1310,71 @@ export default function App() {
                 const activeEvents = [...allEvents]
                   .filter(ev => ev.end >= today)
                   .sort((a, b) => a.start.localeCompare(b.start));
+                // 月ごとにグループ化
+                const monthGroups: { month: string; events: Event[] }[] = [];
+                for (const ev of activeEvents) {
+                  const [y, m] = ev.start.split('-');
+                  const key = `${y}-${m}`;
+                  const label = `${parseInt(y)}年${parseInt(m)}月`;
+                  const last = monthGroups[monthGroups.length - 1];
+                  if (last?.month === label) last.events.push(ev);
+                  else monthGroups.push({ month: label, events: [ev] });
+                }
                 return (
                   <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
                     <div className="px-4 py-4">
-                      <h2 className="text-base font-black text-slate-800 mb-3">準備物リスト</h2>
+                      <h2 className="text-base font-black text-slate-800 mb-4">準備物リスト</h2>
                       {activeEvents.length === 0 ? (
                         <div className="text-center py-12 text-slate-400 text-sm">進行中のイベントがありません</div>
                       ) : (
-                        <div className="flex flex-col gap-2">
-                          {activeEvents.map(ev => (
-                            <button
-                              key={ev.id}
-                              onClick={() => setPrepEvent(ev)}
-                              className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
-                                <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
+                        <div className="flex flex-col gap-5">
+                          {monthGroups.map(({ month, events: evs }) => (
+                            <div key={month}>
+                              <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2">{month}</div>
+                              <div className="flex flex-col gap-2">
+                                {evs.map(ev => {
+                                  const s = fmtDateJP(ev.start);
+                                  const until = daysUntil(ev.start);
+                                  const isToday = until === 0;
+                                  const isSoon = until > 0 && until <= 7;
+                                  const isOngoing = until < 0 && ev.end >= today;
+                                  const urgencyBadge = isToday
+                                    ? { label: '今日', cls: 'bg-red-500 text-white' }
+                                    : isOngoing
+                                    ? { label: '開催中', cls: 'bg-emerald-500 text-white' }
+                                    : isSoon
+                                    ? { label: `${until}日後`, cls: 'bg-amber-400 text-white' }
+                                    : null;
+                                  return (
+                                    <button
+                                      key={ev.id}
+                                      onClick={() => setPrepEvent(ev)}
+                                      className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm flex items-stretch overflow-hidden hover:border-indigo-200 hover:shadow-md transition-all"
+                                    >
+                                      {/* 日付バッジ */}
+                                      <div className={`flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 ${isToday ? 'bg-red-500' : isOngoing ? 'bg-emerald-500' : isSoon ? 'bg-amber-400' : 'bg-indigo-600'}`}>
+                                        <span className="text-[10px] font-black text-white/70 leading-none">{s.month}月</span>
+                                        <span className="text-xl font-black text-white leading-none mt-0.5">{s.day}</span>
+                                        <span className="text-[10px] font-black text-white/80 leading-none mt-0.5">{s.dow}</span>
+                                      </div>
+                                      {/* コンテンツ */}
+                                      <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                          <span className="font-bold text-slate-800 text-sm truncate">{ev.venue}</span>
+                                          {urgencyBadge && (
+                                            <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full ${urgencyBadge.cls}`}>{urgencyBadge.label}</span>
+                                          )}
+                                        </div>
+                                        <div className="text-xs text-slate-400 truncate">{fmtDateRange(ev.start, ev.end)}</div>
+                                      </div>
+                                      <div className="flex items-center pr-3">
+                                        <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                                      </div>
+                                    </button>
+                                  );
+                                })}
                               </div>
-                              <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
-                            </button>
+                            </div>
                           ))}
                         </div>
                       )}
@@ -1296,27 +1386,54 @@ export default function App() {
                 const archivedEvents = [...allEvents]
                   .filter(ev => ev.end < today)
                   .sort((a, b) => b.end.localeCompare(a.end));
+                const monthGroups: { month: string; events: Event[] }[] = [];
+                for (const ev of archivedEvents) {
+                  const [y, m] = ev.start.split('-');
+                  const label = `${parseInt(y)}年${parseInt(m)}月`;
+                  const last = monthGroups[monthGroups.length - 1];
+                  if (last?.month === label) last.events.push(ev);
+                  else monthGroups.push({ month: label, events: [ev] });
+                }
                 return (
                   <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
                     <div className="px-4 py-4">
                       <h2 className="text-base font-black text-slate-800 mb-1">アーカイブ</h2>
-                      <p className="text-xs text-slate-400 mb-3">終了したイベントの準備物を確認できます</p>
+                      <p className="text-xs text-slate-400 mb-4">終了したイベントの準備物を確認できます</p>
                       {archivedEvents.length === 0 ? (
                         <div className="text-center py-12 text-slate-400 text-sm">アーカイブされたイベントがありません</div>
                       ) : (
-                        <div className="flex flex-col gap-2">
-                          {archivedEvents.map(ev => (
-                            <button
-                              key={ev.id}
-                              onClick={() => setPrepEvent(ev)}
-                              className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between opacity-75"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="font-bold text-slate-600 text-sm truncate">{ev.venue}</div>
-                                <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
+                        <div className="flex flex-col gap-5">
+                          {monthGroups.map(({ month, events: evs }) => (
+                            <div key={month}>
+                              <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2">{month}</div>
+                              <div className="flex flex-col gap-2">
+                                {evs.map(ev => {
+                                  const s = fmtDateJP(ev.start);
+                                  return (
+                                    <button
+                                      key={ev.id}
+                                      onClick={() => setPrepEvent(ev)}
+                                      className="w-full text-left bg-white/60 rounded-2xl border border-slate-100 shadow-sm flex items-stretch overflow-hidden hover:border-slate-300 hover:shadow-md transition-all opacity-80 hover:opacity-100"
+                                    >
+                                      {/* 日付バッジ（グレー） */}
+                                      <div className="flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 bg-slate-200">
+                                        <span className="text-[10px] font-black text-slate-500 leading-none">{s.month}月</span>
+                                        <span className="text-xl font-black text-slate-500 leading-none mt-0.5">{s.day}</span>
+                                        <span className="text-[10px] font-black text-slate-400 leading-none mt-0.5">{s.dow}</span>
+                                      </div>
+                                      {/* コンテンツ */}
+                                      <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
+                                        <div className="font-bold text-slate-600 text-sm truncate mb-0.5">{ev.venue}</div>
+                                        <div className="text-xs text-slate-400 truncate">{fmtDateRange(ev.start, ev.end)}</div>
+                                      </div>
+                                      <div className="flex items-center pr-3">
+                                        <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                                      </div>
+                                    </button>
+                                  );
+                                })}
                               </div>
-                              <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
-                            </button>
+                            </div>
                           ))}
                         </div>
                       )}
@@ -1632,6 +1749,49 @@ export default function App() {
                       )}
                       {!user && (
                         <p className="mt-1.5 text-[11px] text-amber-700/90">ログインすると担当者を選択できます。</p>
+                      )}
+                    </div>
+
+                    {/* 日別役割 */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">日別役割</label>
+                      {(selected.assignees ?? []).length === 0 ? (
+                        <p className="text-xs text-gray-400 py-2">担当者を選択すると日別に役割を設定できます。</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {getDaysInRange(selected.start, selected.end).map(date => (
+                            <div key={date} className="border border-gray-100 rounded-xl p-3 bg-gray-50/50">
+                              <div className="text-[11px] font-bold text-gray-500 mb-2">{formatDayLabel(date)}</div>
+                              <div className="space-y-2">
+                                {(selected.assignees ?? []).map(memberName => (
+                                  <div key={memberName} className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-gray-700 w-20 shrink-0 truncate">{memberName}</span>
+                                    <input
+                                      type="text"
+                                      value={selected.dailyRoles?.[date]?.[memberName] ?? ''}
+                                      disabled={!user}
+                                      placeholder="役割を入力"
+                                      onChange={e => {
+                                        const updatedDailyRoles: Record<string, Record<string, string>> = {
+                                          ...(selected.dailyRoles ?? {}),
+                                          [date]: {
+                                            ...(selected.dailyRoles?.[date] ?? {}),
+                                            [memberName]: e.target.value,
+                                          },
+                                        };
+                                        handleUpdateEvent(selected.id, { dailyRoles: updatedDailyRoles });
+                                      }}
+                                      className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {!user && (selected.assignees ?? []).length > 0 && (
+                        <p className="mt-1.5 text-[11px] text-amber-700/90">ログインすると役割を入力できます。</p>
                       )}
                     </div>
 

@@ -90,6 +90,46 @@ export async function notifyEventDeleted(venue: string, eventId: string, actor: 
   }, actor);
 }
 
+/**
+ * 新たに担当者に追加されたメンバーへ通知を送る。
+ * staffNames と users コレクションの displayName を照合して対象 UID を特定する。
+ */
+export async function notifyAssigneesAdded(
+  addedNames: string[],
+  event: Event,
+  actor: User,
+): Promise<void> {
+  if (addedNames.length === 0) return;
+  const actorName = actor.displayName || actor.email || '編集者';
+  const usersSnapshot = await getDocs(collection(db, 'users'));
+  const batch = writeBatch(db);
+  let ops = 0;
+
+  for (const userDoc of usersSnapshot.docs) {
+    const data = userDoc.data();
+    if (!addedNames.includes(data.displayName)) continue;
+    // 自分自身には送らない
+    if (userDoc.id === actor.uid) continue;
+    const ref = doc(collection(db, 'users', userDoc.id, 'notifications'));
+    batch.set(ref, {
+      type: 'event_updated',
+      title: '担当者に追加されました',
+      message: `${actorName}さんが「${event.venue}」の担当者にあなたを追加しました`,
+      eventId: event.id,
+      userId: actor.uid,
+      recipientUid: userDoc.id,
+      actorUid: actor.uid,
+      actorName: actor.displayName,
+      actorEmail: actor.email,
+      read: false,
+      createdAt: serverTimestamp(),
+    });
+    ops += 1;
+  }
+
+  if (ops > 0) await batch.commit();
+}
+
 export function getNotificationIcon(type: AppNotification['type']): string {
   const icons: Record<AppNotification['type'], string> = {
     event_created: '✨',
