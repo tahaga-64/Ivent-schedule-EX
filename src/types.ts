@@ -23,6 +23,8 @@ export interface Event {
   detailMemoAttribution?: FieldAuthorAttribution;
   /** 担当者（スタッフリストから選択） */
   assignees?: string[];
+  /** 日別メンバー役割 { "YYYY-MM-DD": { "メンバー名": "役割テキスト" } } */
+  dailyRoles?: Record<string, Record<string, string>>;
   emoji?: string;
   photos?: EventPhoto[];
   status?: EventStatus;
