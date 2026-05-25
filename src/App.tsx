@@ -30,6 +30,15 @@ import { registerFcmToken } from './lib/fcm';
 import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted, notifyAssigneesAdded } from './lib/notifications';
 import { checkUserAllowed } from './lib/allowedUsers';
 
+async function pushNotify(currentUser: import('firebase/auth').User, title: string, body: string) {
+  const token = await currentUser.getIdToken();
+  return fetch('/api/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ title, body }),
+  });
+}
+
 type ViewMode = "calendar" | "prep" | "archive";
 type ModalTab = "detail" | "photos";
 
@@ -645,11 +654,7 @@ export default function App() {
       setSelected(eventToSave);
       setHasUnsavedChanges(false);
       setLastEditedId(selected.id);
-      fetch('/api/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: '✏️ イベント更新', body: `${selected.venue} が更新されました` }),
-      }).catch(console.error);
+      if (user) pushNotify(user, '✏️ イベント更新', `${selected.venue} が更新されました`).catch(console.error);
       setIsSaving(false);
       if (user) {
         const oldAssignees = dbEvents[selected.id]?.assignees ?? [];
@@ -697,11 +702,7 @@ export default function App() {
     try {
       await setDoc(doc(db, "events", id), newEvent);
       if (user) notifyEventCreated(newEvent, user).catch(console.error);
-      fetch('/api/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: '📅 新しいイベント', body: `${newEvent.venue} が作成されました` }),
-      }).catch(console.error);
+      if (user) pushNotify(user, '📅 新しいイベント', `${newEvent.venue} が作成されました`).catch(console.error);
     } catch (error) {
       console.error('Firestore create error:', error);
       setSaveError(formatSaveError(error));
@@ -746,11 +747,7 @@ export default function App() {
       const prepPath = `events/${eventId}/preparationItems`;
       const prepSnapshot = await getDocs(collection(db, prepPath));
       await Promise.all(prepSnapshot.docs.map(d => deleteDoc(d.ref)));
-      fetch('/api/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: '🗑️ イベント削除', body: `「${deletedVenue}」が削除されました` }),
-      }).catch(console.error);
+      if (user) pushNotify(user, '🗑️ イベント削除', `「${deletedVenue}」が削除されました`).catch(console.error);
       if (user) notifyEventDeleted(deletedVenue, eventId, user).catch(console.error);
     } catch (error) {
       console.error('Delete error:', error);
