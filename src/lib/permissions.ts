@@ -31,6 +31,10 @@ export function canUploadPhoto(user: User | null | undefined): boolean {
   return EVENT_EDITOR_EMAILS.includes(email);
 }
 
-export function canEditPreparationList(user: User | null | undefined, isMobile = false): boolean {
+/**
+ * 準備物リストの UI 編集可否。
+ * 仕様: ログイン済み（Firebase Auth のユーザーがいる）なら true。
+ */
+export function canEditPreparationList(user: User | null | undefined): boolean {
   return isSignedIn(user);
 }

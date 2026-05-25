@@ -16,8 +16,8 @@ function initIfNeeded(config) {
     const body  = payload.notification?.body  ?? '';
     self.registration.showNotification(title, {
       body,
-      icon: '/mercury-logo.png',
-      badge: '/mercury-logo.png',
+      icon: '/icon.png',
+      badge: '/icon.png',
     });
   });
 }

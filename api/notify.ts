@@ -32,13 +32,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const db = admin.firestore();
   const snap = await db.collection('users').get();
-  const tokens = snap.docs.map((d) => d.data().fcmToken as string).filter(Boolean);
+
+  // fcmToken が登録されているユーザーのみ対象（モバイルでSW登録済みのユーザー）
+  const tokens = snap.docs
+    .map(d => d.data().fcmToken as string | undefined)
+    .filter((t): t is string => Boolean(t));
 
   if (tokens.length === 0) return res.json({ sent: 0 });
 
-  const result = await admin.messaging().sendEachForMulticast({
-    tokens,
-    notification: { title, body },
-  });
-  res.json({ sent: result.successCount, failed: result.failureCount });
+  // 500件ずつに分割（FCM multicast 上限対策）
+  const CHUNK = 500;
+  let successCount = 0;
+  let failureCount = 0;
+
+  for (let i = 0; i < tokens.length; i += CHUNK) {
+    const chunk = tokens.slice(i, i + CHUNK);
+    const result = await admin.messaging().sendEachForMulticast({
+      tokens: chunk,
+      notification: { title, body },
+      webpush: {
+        notification: {
+          title,
+          body,
+          icon: '/icon.png',
+          badge: '/icon.png',
+        },
+        fcmOptions: { link: '/' },
+      },
+    });
+    successCount += result.successCount;
+    failureCount += result.failureCount;
+  }
+
+  res.json({ sent: successCount, failed: failureCount });
 }

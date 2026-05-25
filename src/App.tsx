@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef, type MouseEvent as ReactMouseEvent } from 'react';
-import { db, auth, loginWithGoogle } from './lib/firebase';
+import { db, auth } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, collectionGroup, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS } from './constants';
@@ -9,7 +9,7 @@ interface StaffMember {
   id: string;
   name: string;
 }
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, Camera, Trash2, Archive } from 'lucide-react';
+import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, BarChart2, Trash2, Archive } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
@@ -28,6 +28,9 @@ import {
 import { registerFcmToken } from './lib/fcm';
 import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted } from './lib/notifications';
 import { checkUserAllowed } from './lib/allowedUsers';
+
+type ViewMode = "calendar" | "analytics" | "prep" | "archive";
+type ModalTab = "detail" | "photos";
 
 // 安全なlocalStorage読み込み
 function safeGetItem<T>(key: string, fallback: T): T {
@@ -211,7 +214,7 @@ export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [accessDenied, setAccessDenied] = useState(false);
   const [needsNameSetup, setNeedsNameSetup] = useState(false);
-  const [view, setView] = useState<"calendar" | "prep" | "archive">(() => {
+  const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
     return (saved === 'calendar' || saved === 'prep' || saved === 'archive') ? saved : 'calendar';
   });
@@ -235,10 +238,10 @@ export default function App() {
   const [mobileWeekRowIndex, setMobileWeekRowIndex] = useState(0);
   const [mobileAgendaDay, setMobileAgendaDay] = useState(() => new Date().getDate());
   const [sideOpen, setSideOpen] = useState(true);
-  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
+  const isDark = localStorage.getItem('theme') !== 'light';
   const [searchQuery, setSearchQuery] = useState("");
   const [prepEvent, setPrepEvent] = useState<Event | null>(null);
-  const [modalTab, setModalTab] = useState<'detail' | 'photos'>('detail');
+  const [modalTab, setModalTab] = useState<ModalTab>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -272,8 +275,6 @@ export default function App() {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
         e.preventDefault();
-        e.returnValue = '未保存の変更があります。ページを離れますか？';
-        return e.returnValue;
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -348,16 +349,10 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // ダークモードの切り替え
+  // ダークモードの適用（初期マウント時のみ）
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDark]);
+    document.documentElement.classList.toggle('dark', isDark);
+  }, []);
 
   // 選択イベントの準備物統計をリアルタイム購読
   useEffect(() => {
@@ -485,15 +480,15 @@ export default function App() {
   const stats = useMemo(() => {
     const byRegion: Record<string, number> = {};
     const byType: Record<string, number> = {};
-    const byStatus: Record<string, number> = { "準備中": 0, "入荷待ち": 0 };
-    
-    allEvents.forEach(d => { 
+    const byStatus: Record<string, number> = { "scheduled": 0, "completed": 0, "cancelled": 0 };
+
+    allEvents.forEach(d => {
       if (d.region) byRegion[d.region] = (byRegion[d.region] || 0) + 1;
       if (d.type) byType[d.type] = (byType[d.type] || 0) + 1;
     });
 
     filtered.forEach(d => {
-      if (d.status) byStatus[d.status] = (byStatus[d.status] || 0) + 1;
+      if (d.status && d.status in byStatus) byStatus[d.status] = (byStatus[d.status] || 0) + 1;
     });
 
     return { total: allEvents.length, byRegion, byType, byStatus };
@@ -541,9 +536,13 @@ export default function App() {
     setIsSaving(true);
     setSaveError(null);
     try {
-      await setDoc(doc(db, "events", selected.id), selected);
+      // 写真はarrayUnion/arrayRemoveで別途管理されるため、保存時はDBの最新値を使う
+      const latestPhotos = dbEvents[selected.id]?.photos ?? selected.photos;
+      const eventToSave = { ...selected, photos: latestPhotos };
+      await setDoc(doc(db, "events", selected.id), eventToSave);
       // 楽観的にローカルキャッシュも更新（onSnapshot反映までのラグ対策）
-      setDbEvents(prev => ({ ...prev, [selected.id]: selected }));
+      setDbEvents(prev => ({ ...prev, [selected.id]: eventToSave }));
+      setSelected(eventToSave);
       setHasUnsavedChanges(false);
       setLastEditedId(selected.id);
       fetch('/api/notify', {
@@ -828,14 +827,17 @@ export default function App() {
         {/* 右: ビュー切替 + 新規 + アバター */}
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
-            {[
-              { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
-              { id: "prep", icon: <ClipboardList size={14} />, label: "準備物" },
-              { id: "archive", icon: <Archive size={14} />, label: "アーカイブ" },
-            ].map(v => (
+            {(
+              [
+                { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
+                { id: "analytics", icon: <BarChart2 size={14} />, label: "分析" },
+                { id: "prep", icon: <ClipboardList size={14} />, label: "準備物" },
+                { id: "archive", icon: <Archive size={14} />, label: "アーカイブ" },
+              ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
+            ).map(v => (
               <button
                 key={v.id}
-                onClick={() => setView(v.id as any)}
+                onClick={() => setView(v.id)}
                 className={`
                   flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all
                   ${view === v.id ? 'bg-white text-slate-800 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700'}
@@ -1142,7 +1144,7 @@ export default function App() {
                       onHoverEnd={handleEventHoverEnd}
                       onCreateEvent={handleCreateEvent}
                       onOpenDayDetail={handleOpenDayDetail}
-                      lastEditedId={lastEditedId}
+                      narrowViewport={narrowViewport}
                       densityPreview={calendarDensityPreview}
                       prepProgressMap={prepProgressMap}
                     />
@@ -1201,7 +1203,7 @@ export default function App() {
 
                     {calendarMobileLayout === "list" && (
                       <>
-                        <MobileWeekStrip year={calYear} month={calMonth} events={filtered} />
+                        <MobileWeekStrip events={filtered} />
                         <div className="mt-4">
                           {filtered.length === 0 ? <EmptyState /> : <MobileTimelineView events={filtered} onSelect={handleEventSelect} />}
                         </div>
@@ -1220,7 +1222,7 @@ export default function App() {
                           onHoverEnd={handleEventHoverEnd}
                           onCreateEvent={handleCreateEvent}
                           onOpenDayDetail={handleOpenDayDetail}
-                          lastEditedId={lastEditedId}
+                          narrowViewport={narrowViewport}
                           densityPreview={calendarDensityPreview}
                           prepProgressMap={prepProgressMap}
                         />
@@ -1470,13 +1472,15 @@ export default function App() {
 
                   {/* タブ切替 */}
                   <div className="flex bg-slate-100 rounded-xl p-1 mb-5">
-                    {[
-                      { id: 'detail', label: '詳細' },
-                      { id: 'photos', label: `写真${selected.photos?.length ? ` (${selected.photos.length})` : ''}` },
-                    ].map(t => (
+                    {(
+                      [
+                        { id: 'detail', label: '詳細' },
+                        { id: 'photos', label: `写真${selected.photos?.length ? ` (${selected.photos.length})` : ''}` },
+                      ] as { id: ModalTab; label: string }[]
+                    ).map(t => (
                       <button
                         key={t.id}
-                        onClick={() => setModalTab(t.id as any)}
+                        onClick={() => setModalTab(t.id)}
                         className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${modalTab === t.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
                       >
                         {t.label}
@@ -1489,7 +1493,12 @@ export default function App() {
                     <div className="space-y-4">
                       {canUploadPhoto && (selected.photos?.length ?? 0) < MAX_PHOTOS && (
                         <PhotoUpload
-                          onUpload={async (file) => { await uploadPhoto(file); }}
+                          onUpload={async (file) => {
+                            const newPhoto = await uploadPhoto(file);
+                            if (newPhoto) {
+                              setSelected(prev => prev ? { ...prev, photos: [...(prev.photos ?? []), newPhoto] } : prev);
+                            }
+                          }}
                           uploading={photoUploading}
                           uploadProgress={photoUploading ? uploadProgress : 0}
                           currentCount={selected.photos?.length ?? 0}
@@ -1502,8 +1511,20 @@ export default function App() {
                       {photoError && <p className="text-xs text-red-500 font-bold">{photoError}</p>}
                       <PhotoGallery
                         photos={selected.photos || []}
-                        onDelete={photo => deleteEventPhoto(photo)}
-                        onUpdateCaption={(photo, caption) => updatePhotoCaption(photo, caption)}
+                        onDelete={async (photo) => {
+                          await deleteEventPhoto(photo);
+                          setSelected(prev => prev ? {
+                            ...prev,
+                            photos: (prev.photos ?? []).filter(p => p.id !== photo.id)
+                          } : prev);
+                        }}
+                        onUpdateCaption={async (photo, caption) => {
+                          await updatePhotoCaption(photo, caption);
+                          setSelected(prev => prev ? {
+                            ...prev,
+                            photos: (prev.photos ?? []).map(p => p.id === photo.id ? { ...p, caption } : p)
+                          } : prev);
+                        }}
                         canEdit={canUploadPhoto}
                       />
                     </div>
@@ -1744,14 +1765,16 @@ export default function App() {
 
       {/* Mobile Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around pb-safe z-20 lg:hidden">
-        {[
-          { id: "calendar", icon: <Calendar size={22} />,     label: "カレンダー" },
-          { id: "prep",     icon: <ClipboardList size={22} />, label: "準備物" },
-          { id: "archive",  icon: <Archive size={22} />,       label: "アーカイブ" },
-        ].map(tab => (
+        {(
+          [
+            { id: "calendar", icon: <Calendar size={22} />,     label: "カレンダー" },
+            { id: "prep",     icon: <ClipboardList size={22} />, label: "準備物" },
+            { id: "archive",  icon: <Archive size={22} />,       label: "アーカイブ" },
+          ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
+        ).map(tab => (
           <button
             key={tab.id}
-            onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); setView(tab.id as any); }}
+            onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); setView(tab.id); }}
             className={`flex flex-col items-center gap-0.5 px-4 py-3 text-[10px] font-bold transition-colors ${
               view === tab.id ? "text-indigo-600" : "text-slate-400"
             }`}
@@ -1830,12 +1853,10 @@ function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps) {
 }
 
 interface MobileWeekStripProps {
-  year: number;
-  month: number;
   events: Event[];
 }
 
-function MobileWeekStrip({ year, month, events }: MobileWeekStripProps) {
+function MobileWeekStrip({ events }: MobileWeekStripProps) {
   const today = new Date();
   const startOfWeek = new Date(today);
   startOfWeek.setDate(today.getDate() - today.getDay());
@@ -2176,24 +2197,13 @@ interface CalendarViewProps {
   onCreateEvent: (data?: Partial<Event>) => void;
   /** 「+N件」押下時: その日の全イベントを渡して詳細導線（モーダル等）を開く */
   onOpenDayDetail: (ctx: { year: number; month: number; day: number; events: Event[] }) => void;
-  lastEditedId: string | null;
+  narrowViewport: boolean;
   densityPreview?: boolean;
   prepProgressMap?: Record<string, { total: number; done: number }>;
 }
 
-function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHover, onHoverEnd, onCreateEvent, onOpenDayDetail, lastEditedId, densityPreview, prepProgressMap = {} }: CalendarViewProps) {
+function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHover, onHoverEnd, onCreateEvent, onOpenDayDetail, narrowViewport, densityPreview, prepProgressMap = {} }: CalendarViewProps) {
   const cells = buildMonthGridCells(year, month);
-
-  const [narrowViewport, setNarrowViewport] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches
-  );
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 768px)");
-    const apply = () => setNarrowViewport(mq.matches);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
 
   const maxEventsInCell = narrowViewport ? MAX_EVENTS_IN_DAY_CELL_NARROW : MAX_EVENTS_IN_DAY_CELL;
   const eventRowMinHeight = narrowViewport ? CAL_EVENT_ROW_MIN_HEIGHT_TOUCH : CAL_DAY_CELL_EVENT_ROW_MIN_HEIGHT;
@@ -2383,107 +2393,6 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
 }
 
 
-interface ListViewProps {
-  data: Event[];
-  onSelect: (event: Event) => void;
-  onHover: (event: Event, e: ReactMouseEvent<HTMLElement>) => void;
-  onHoverEnd: () => void;
-  lastEditedId: string | null;
-}
-
-function ListView({ data, onSelect, onHover, onHoverEnd, lastEditedId }: ListViewProps) {
-  return (
-    <div className="flex flex-col">
-      {/* タイトル */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-baseline gap-2">
-          All events
-          <span className="text-slate-400 text-sm font-bold">· {data.length}</span>
-        </h2>
-      </div>
-
-      {/* テーブル */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white border border-slate-100 rounded-2xl overflow-hidden"
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">DATE</th>
-                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">本部</th>
-                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">種別</th>
-                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">会場</th>
-                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">状態</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {data.map((d) => (
-                <tr
-                  key={d.id}
-                  onClick={() => onSelect(d)}
-                  onMouseEnter={(e) => onHover(d, e)}
-                  onMouseLeave={onHoverEnd}
-                  className={`
-                    group cursor-pointer transition-colors
-                    ${d.id === lastEditedId ? "bg-amber-50/50" : "hover:bg-slate-50/50"}
-                  `}
-                >
-                  <td className="px-6 py-4 align-middle">
-                    <div className="text-xs font-bold text-slate-700">
-                      {fmtShort(d.start)}
-                      {d.end && d.start !== d.end ? `-${fmtShort(d.end)}` : ""}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 align-middle">
-                    <span
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap"
-                      style={{ background: rs(d.region).bg, color: rs(d.region).text }}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: rs(d.region).dot }}></span>
-                      {d.region}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 align-middle">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 whitespace-nowrap">
-                      <span>{d.emoji || ts(d.type || "").icon}</span>
-                      {d.type || "その他"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 align-middle">
-                    <div className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                      {d.venue}
-                      {d.id === lastEditedId && (
-                        <motion.span
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-black rounded tracking-widest uppercase"
-                        >
-                          Updated
-                        </motion.span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-slate-400 mt-0.5 font-medium">{d.client || "—"}</div>
-                  </td>
-                  <td className="px-6 py-4 align-middle text-right">
-                    <span
-                      className="text-[10px] font-black uppercase tracking-widest text-slate-400"
-                      style={{ background: rs(d.region).bg }}
-                    >
-                      {d.status || "SCHEDULED"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
 
 function HoverCard({ event, pos, prepStats }: {
   event: Event;
@@ -2538,39 +2447,6 @@ function HoverCard({ event, pos, prepStats }: {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-interface FilterGroupProps {
-  label: string;
-  options: string[];
-  value: string;
-  onChange: (value: string) => void;
-}
-
-function FilterGroup({ label, options, value, onChange }: FilterGroupProps) {
-  return (
-    <div className="space-y-4">
-      <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] px-1 opacity-60">{label}</div>
-      <div className="flex flex-col gap-1.5">
-        {options.map((opt) => (
-          <motion.button
-            key={opt}
-            whileHover={{ x: 4, backgroundColor: "rgba(245, 158, 11, 0.05)" }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => onChange(opt)}
-            className={`
-              w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all border border-transparent
-              ${value === opt 
-                ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20 border-amber-500/20" 
-                : "text-[var(--text-secondary)] hover:text-amber-500"}
-            `}
-          >
-            {opt}
-          </motion.button>
-        ))}
-      </div>
     </div>
   );
 }
