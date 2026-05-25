@@ -35,72 +35,114 @@ EX事業部では、イベントの日程管理や準備物の確認をスプレ
 
 ⸻
 
-## 特徴（現状）
+## 主な機能
 
-- イベント一覧管理
-- イベント作成 / 編集
-- リアルタイム同期
-- Firebase Authentication
-- Googleログイン
-- ダーク / ライトモード
-- レスポンシブUI
-- アニメーションUI
+### イベント管理
+- イベント作成 / 編集 / 削除（権限管理付き）
+- イベントステータス管理（予定 / 準備中 / 入荷待ち / 準備完了 / 終了 / キャンセル）
+- ステータスフィルター
+- 担当者割り当て（スタッフリストから選択）
+- 詳細メモ（全スタッフ記入可）
 
-⸻
+### カレンダー
+- 月表示 / 週表示（モバイル最適化）
+- 日付の視認性改善（曜日カラー対応）
+- イベントチップへのステータスカラー表示
+- 準備物進捗バー（カレンダーチップ・PCホバー）
+- モバイルFAB（新規イベント作成ボタン）
 
-## 機能
+### 準備物チェックリスト
+- 準備物の登録・編集・削除
+- 入荷済み / 準備完了の個別チェック
+- 進捗率の自動算出
 
-- 通知機能
-- 担当者割り当て
-- 準備物チェックリスト
-- カレンダー表示
-- イベント進行ステータス
-- AI補助機能
-- 権限管理
+### 写真アルバム
+- イベントごとの写真管理（最大5枚）
+- Cloudinaryによるクラウドストレージ
+- キャプション付き縦スクロールアルバムUI
+- 削除時のCloudinaryからの完全削除
 
-⸻
+### 通知
+- アプリ内通知（Firestore）
+- プッシュ通知（FCM / Web Push）
 
-## 通知（無料で利用可能）
-
-- **アプリ内通知**: Firestore の `users/{uid}/notifications` に保存され、通知センターから参照（Firebase の無料枠内）。
-- **プッシュ通知（FCM）**（任意）:
-  1. Firebase Console → プロジェクトの設定 → Cloud Messaging → Web プッシュ証明書でキーペアを作成し、**公開鍵**を `VITE_FIREBASE_VAPID_KEY` に設定する。
-  2. ホスティング先（例: Vercel）の環境変数にサービスアカウント JSON を `FIREBASE_SERVICE_ACCOUNT_JSON` として設定し、`/api/notify` からマルチキャスト送信する（サーバーレス無料枠 + FCM 無料枠の範囲でコストなし）。
+### 認証・権限管理
+- Googleログイン（Firebase Authentication）
+- Firestore `allowedUsers` コレクションによるログイン制限
+- 編集権限・閲覧権限の分離
 
 ⸻
 
 ## 技術スタック
 
 ### フロントエンド
-- React 19.0.1
-- TypeScript 5.8.2
-- Vite 6.2.3（ビルドツール）
-- Tailwind CSS 4.1.14
-- Framer Motion 12.23.24（motion/react）
-- Lucide React 0.546.0（アイコン）
+- React 19
+- TypeScript 5
+- Vite 6（ビルドツール）
+- Tailwind CSS 4
+- motion/react（Framer Motion）
+- Lucide React（アイコン）
 
 ### バックエンド / インフラ
-- Firebase Firestore（データベース）
+- Firebase Firestore（リアルタイムデータベース）
 - Firebase Auth（認証 / Google OAuth）
+- Firebase Cloud Messaging（プッシュ通知）
+- Cloudinary（写真ストレージ）
+- Vercel（ホスティング + Serverless Functions）
 
-### その他
-- @google/genai 1.29.0
-- Express 4.21.2
+⸻
+
+## 環境変数
+
+### フロントエンド（Vercel / `.env.local`）
+
+| 変数名 | 説明 |
+|--------|------|
+| `VITE_FIREBASE_API_KEY` | Firebase Web API キー |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase Auth ドメイン |
+| `VITE_FIREBASE_PROJECT_ID` | Firebase プロジェクト ID |
+| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase Storage バケット |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | FCM 送信者 ID |
+| `VITE_FIREBASE_APP_ID` | Firebase アプリ ID |
+| `VITE_FIREBASE_DATABASE_ID` | Firestore データベース ID（通常 `(default)`） |
+| `VITE_FIREBASE_VAPID_KEY` | Web Push 公開鍵 |
+
+### サーバーサイド（Vercel のみ）
+
+| 変数名 | 説明 |
+|--------|------|
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase Admin SDK サービスアカウント JSON |
+| `CLOUDINARY_API_KEY` | Cloudinary API キー |
+| `CLOUDINARY_API_SECRET` | Cloudinary API シークレット |
+
+⸻
+
+## ログイン制限の設定
+
+Firebase Console → Firestore Database で `allowedUsers` コレクションを作成し、
+許可するユーザーのメールアドレスをドキュメント ID として追加してください。
+
+```
+allowedUsers/
+  user@example.com  ← ドキュメントID がメールアドレス
+```
 
 ⸻
 
 ## Architecture
 
-- Monolithic SPA architecture
-- Firestore onSnapshot によるリアルタイム同期
-- Firebase中心のサーバーレス構成
-- CSS Variables + Tailwind dark: によるテーマ切替
+- Monolithic SPA（`src/App.tsx` 中心）
+- Firestore `onSnapshot` によるリアルタイム同期
+- Firebase 中心のサーバーレス構成
+- Vercel Serverless Functions（`/api/notify`, `/api/deletePhoto`）
+- CSS Variables + Tailwind `dark:` によるテーマ切替
+- セマンティックカラートークン（`--color-success` 等）
 
 ⸻
 
 ## Development Flow
 
-- Claude を用いた要件整理・壁打ち
+- Claude を用いた要件整理・設計・実装
 - Google AI Studio による初期プロトタイプ生成
 - Cursor を活用したUI改善・機能実装
 
