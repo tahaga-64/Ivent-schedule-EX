@@ -1,13 +1,13 @@
-import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { getFirestore, doc, getDocFromServer } from "firebase/firestore";
+import { initializeApp, FirebaseApp } from "firebase/app";
+import { getAuth, GoogleAuthProvider, signInWithPopup, Auth } from "firebase/auth";
+import { getFirestore, doc, getDocFromServer, Firestore } from "firebase/firestore";
+import { getAnalytics, isSupported } from "firebase/analytics";
 
 const viteEnv = import.meta.env as Record<string, string | undefined>;
 
 function readEnvValue(key: string): string {
   const value = viteEnv[key]?.trim();
   if (!value || value.includes("YOUR_")) {
-    console.error(`Missing Firebase config: ${key}`);
     return "";
   }
   return value;
@@ -25,26 +25,55 @@ const firebaseConfig = {
 
 const firestoreDatabaseId = readEnvValue("VITE_FIREBASE_DATABASE_ID") || "(default)";
 
-export const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firestoreDatabaseId);
-export const auth = getAuth(app);
+// Firebase の設定が揃っているか確認
+const missingKeys = (
+  ['VITE_FIREBASE_API_KEY', 'VITE_FIREBASE_AUTH_DOMAIN', 'VITE_FIREBASE_PROJECT_ID', 'VITE_FIREBASE_APP_ID'] as const
+).filter(k => !readEnvValue(k));
+
+let _configError: string | null = missingKeys.length > 0
+  ? `Firebase環境変数が未設定です: ${missingKeys.join(', ')}\nVercelのEnvironment Variablesに追加してください。`
+  : null;
+
+let app: FirebaseApp;
+let db: Firestore;
+let auth: Auth;
+
+if (!_configError) {
+  try {
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app, firestoreDatabaseId);
+    auth = getAuth(app);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    _configError = `Firebase初期化エラー: ${msg}`;
+    console.error('Firebase initialization failed:', msg);
+  }
+}
+
+export const firebaseConfigError: string | null = _configError;
+
+export { app, db, auth };
+export const analytics = !firebaseConfigError
+  ? isSupported().then(ok => ok ? getAnalytics(app) : null)
+  : Promise.resolve(null);
 
 const googleProvider = new GoogleAuthProvider();
 
 export const loginWithGoogle = () => signInWithPopup(auth, googleProvider);
 export const logout = () => auth.signOut();
 
-// Connection test
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
+// Connection test (only when configured)
+if (!firebaseConfigError) {
+  (async () => {
+    try {
+      await getDocFromServer(doc(db, 'test', 'connection'));
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('the client is offline')) {
+        console.error("Please check your Firebase configuration.");
+      }
     }
-  }
+  })();
 }
-testConnection();
 
 export enum OperationType {
   CREATE = 'create',
@@ -71,10 +100,10 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
+      userId: auth?.currentUser?.uid,
+      email: auth?.currentUser?.email,
+      emailVerified: auth?.currentUser?.emailVerified,
+      isAnonymous: auth?.currentUser?.isAnonymous,
     },
     operationType,
     path
