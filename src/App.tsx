@@ -1,15 +1,16 @@
 import { useState, useMemo, useEffect, useCallback, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import { db, auth, loginWithGoogle, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, collectionGroup, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, collectionGroup, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS } from './constants';
 import { Event, PreparationItem, type FieldAuthorAttribution } from './types';
 
 interface StaffMember {
   id: string;
   name: string;
+  email?: string;
 }
-import { Calendar, List, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, Settings, LogOut, Camera, Trash2, Archive } from 'lucide-react';
+import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
@@ -19,15 +20,18 @@ import NotificationCenter from './components/notifications/NotificationCenter';
 import PhotoUpload from './components/photos/PhotoUpload';
 import PhotoGallery from './components/photos/PhotoGallery';
 import { usePhotos } from './hooks/usePhotos';
+import { useRoles } from './hooks/useRoles';
 import { MAX_PHOTOS } from './lib/photoStorage';
 import {
-  canEditEvent as computeCanEditEvent,
   canEditPreparationList as computeCanEditPreparationList,
-  canUploadPhoto as computeCanUploadPhoto,
 } from './lib/permissions';
+import Dashboard from './components/Dashboard';
 import { registerFcmToken } from './lib/fcm';
-import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted } from './lib/notifications';
+import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted, notifyAssigneesAdded } from './lib/notifications';
 import { checkUserAllowed } from './lib/allowedUsers';
+
+type ViewMode = "calendar" | "prep" | "archive";
+type ModalTab = "detail" | "photos";
 
 // 安全なlocalStorage読み込み
 function safeGetItem<T>(key: string, fallback: T): T {
@@ -96,6 +100,25 @@ function formatAttributionLine(meta: FieldAuthorAttribution | undefined): string
 const rs = (r: string) => REGION_STYLE[r] || { bg: "#f1f5f9", text: "#334155", dot: "#94a3b8", calBg: "rgba(241, 245, 249, 0.4)", calBorder: "#cbd5e1" };
 const ts = (t: string) => TYPE_STYLE[t] || { bg: "#f8fafc", border: "#64748b", text: "#1e293b", icon: "📋" };
 const fmtShort = (d: string) => { if (!d) return "—"; const [, m, day] = d.split("-"); return `${parseInt(m)}/${parseInt(day)}`; };
+const DOW_JP = ['日', '月', '火', '水', '木', '金', '土'];
+function fmtDateJP(d: string): { month: number; day: number; dow: string; label: string } {
+  const date = new Date(d + 'T00:00:00');
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const dow = DOW_JP[date.getDay()];
+  return { month, day, dow, label: `${month}月${day}日（${dow}）` };
+}
+function fmtDateRange(start: string, end: string): string {
+  const s = fmtDateJP(start);
+  if (!end || end === start) return s.label;
+  const e = fmtDateJP(end);
+  const diffDays = Math.round((new Date(end + 'T00:00:00').getTime() - new Date(start + 'T00:00:00').getTime()) / 86400000) + 1;
+  return `${s.label} → ${e.month}月${e.day}日（${e.dow}）${diffDays > 1 ? ` · ${diffDays}日間` : ''}`;
+}
+function daysUntil(start: string): number {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.round((new Date(start + 'T00:00:00').getTime() - today.getTime()) / 86400000);
+}
 
 function statusStyle(status?: string): { label: string; bg: string; text: string; dot: string } {
   switch (status) {
@@ -108,6 +131,26 @@ function statusStyle(status?: string): { label: string; bg: string; text: string
   }
 }
 const getMonth = (d: string) => { if (!d) return null; return parseInt(d.split("-")[1]); };
+
+const getDaysInRange = (start: string, end: string): string[] => {
+  const days: string[] = [];
+  const current = new Date(start + 'T00:00:00');
+  const endDate = new Date(end + 'T00:00:00');
+  while (current <= endDate) {
+    const y = current.getFullYear();
+    const m = String(current.getMonth() + 1).padStart(2, '0');
+    const d = String(current.getDate()).padStart(2, '0');
+    days.push(`${y}-${m}-${d}`);
+    current.setDate(current.getDate() + 1);
+  }
+  return days;
+};
+
+const formatDayLabel = (dateStr: string): string => {
+  const d = new Date(dateStr + 'T00:00:00');
+  const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+  return `${d.getMonth() + 1}月${d.getDate()}日（${dow}）`;
+};
 
 /** 日セルには出さない: 種別・日付/期間など（日別一覧・ホバー・読み上げ用の任意行） */
 function buildEventOptionalCaption(ev: Event, opts?: { includeDates?: boolean }): string {
@@ -207,11 +250,51 @@ function buildCalendarDensityPreviewEvents(
 }
 
 
+// 在庫管理アプリのURLが決まったらここに入力する
+const INVENTORY_APP_URL = '';
+
+function InventoryAppBanner() {
+  const ready = INVENTORY_APP_URL.length > 0;
+  return (
+    <div className="mt-10 mb-6">
+      <div className="relative overflow-hidden rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/50 px-6 py-5 flex items-center gap-4">
+        <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl shrink-0">📦</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-sm font-black text-slate-700">イベント在庫管理</span>
+            {!ready && (
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 uppercase tracking-wide">新機能実装予定</span>
+            )}
+          </div>
+          <p className="text-xs text-slate-400">備品・消耗品の在庫をリアルタイムで管理できる機能を開発中です</p>
+        </div>
+        {ready ? (
+          <a
+            href={INVENTORY_APP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black transition-colors"
+          >
+            開く
+          </a>
+        ) : (
+          <button
+            disabled
+            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-100 text-indigo-300 text-xs font-black cursor-not-allowed"
+          >
+            開く
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [accessDenied, setAccessDenied] = useState(false);
   const [needsNameSetup, setNeedsNameSetup] = useState(false);
-  const [view, setView] = useState<"calendar" | "prep" | "archive">(() => {
+  const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
     return (saved === 'calendar' || saved === 'prep' || saved === 'archive') ? saved : 'calendar';
   });
@@ -231,14 +314,14 @@ export default function App() {
   /** カレンダー日セルの「+N件」から開く、その日の全イベント一覧 */
   const [dayDetail, setDayDetail] = useState<{ year: number; month: number; day: number; events: Event[] } | null>(null);
   /** lg 未満のカレンダー画面: 一覧 / 月グリッド / 週 / 日 */
-  const [calendarMobileLayout, setCalendarMobileLayout] = useState<"list" | "month" | "week" | "day">("list");
+  const [calendarMobileLayout, setCalendarMobileLayout] = useState<"list" | "day">("list");
   const [mobileWeekRowIndex, setMobileWeekRowIndex] = useState(0);
   const [mobileAgendaDay, setMobileAgendaDay] = useState(() => new Date().getDate());
   const [sideOpen, setSideOpen] = useState(true);
-  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
+  const isDark = localStorage.getItem('theme') !== 'light';
   const [searchQuery, setSearchQuery] = useState("");
   const [prepEvent, setPrepEvent] = useState<Event | null>(null);
-  const [modalTab, setModalTab] = useState<'detail' | 'photos'>('detail');
+  const [modalTab, setModalTab] = useState<ModalTab>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -272,8 +355,6 @@ export default function App() {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
         e.preventDefault();
-        e.returnValue = '未保存の変更があります。ページを離れますか？';
-        return e.returnValue;
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -306,6 +387,12 @@ export default function App() {
         recordUserLogin(u).catch(error => {
           console.error('User profile upsert error:', error);
         });
+        setDoc(doc(db, 'userProfiles', u.uid), {
+          uid: u.uid,
+          email: u.email,
+          displayName: u.displayName,
+          updatedAt: serverTimestamp(),
+        }, { merge: true }).catch(() => {});
       }
     });
     return () => unsubscribe();
@@ -314,8 +401,9 @@ export default function App() {
   // スタッフリスト購読
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'staff'), (snap) => {
-      const list: StaffMember[] = snap.docs.map(d => ({ id: d.id, name: d.data().name as string }));
-      list.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+      const collator = new Intl.Collator('ja', { sensitivity: 'base' });
+      const list: StaffMember[] = snap.docs.map(d => ({ id: d.id, name: d.data().name as string, email: d.data().email as string | undefined }));
+      list.sort((a, b) => collator.compare(a.name, b.name));
       setStaffList(list);
     });
     return () => unsubscribe();
@@ -332,9 +420,10 @@ export default function App() {
     return () => mq.removeEventListener("change", apply);
   }, []);
 
-  const canEditEvent = computeCanEditEvent(user, narrowViewport);
+  const { isEventEditor } = useRoles();
+  const canEditEvent = !narrowViewport && !!user && isEventEditor(user.email);
   const canEditPreparationList = computeCanEditPreparationList(user);
-  const canUploadPhoto = computeCanUploadPhoto(user);
+  const canUploadPhoto = !!user;
 
   // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {
@@ -348,16 +437,17 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // ダークモードの切り替え
+  // ダークモードの適用（初期マウント時のみ）
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDark]);
+    document.documentElement.classList.toggle('dark', isDark);
+  }, []);
+
+  // 他ユーザーの変更をモーダルにリアルタイム反映（未保存の編集中は上書きしない）
+  useEffect(() => {
+    if (!selected || hasUnsavedChanges) return;
+    const latest = dbEvents[selected.id];
+    if (latest) setSelected(latest);
+  }, [dbEvents, selected?.id, hasUnsavedChanges]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 選択イベントの準備物統計をリアルタイム購読
   useEffect(() => {
@@ -485,15 +575,15 @@ export default function App() {
   const stats = useMemo(() => {
     const byRegion: Record<string, number> = {};
     const byType: Record<string, number> = {};
-    const byStatus: Record<string, number> = { "準備中": 0, "入荷待ち": 0 };
-    
-    allEvents.forEach(d => { 
+    const byStatus: Record<string, number> = { "scheduled": 0, "completed": 0, "cancelled": 0 };
+
+    allEvents.forEach(d => {
       if (d.region) byRegion[d.region] = (byRegion[d.region] || 0) + 1;
       if (d.type) byType[d.type] = (byType[d.type] || 0) + 1;
     });
 
     filtered.forEach(d => {
-      if (d.status) byStatus[d.status] = (byStatus[d.status] || 0) + 1;
+      if (d.status && d.status in byStatus) byStatus[d.status] = (byStatus[d.status] || 0) + 1;
     });
 
     return { total: allEvents.length, byRegion, byType, byStatus };
@@ -541,9 +631,18 @@ export default function App() {
     setIsSaving(true);
     setSaveError(null);
     try {
-      await setDoc(doc(db, "events", selected.id), selected);
+      // 写真はarrayUnion/arrayRemoveで別途管理されるため、保存時はDBの最新値を使う
+      const latestPhotos = dbEvents[selected.id]?.photos ?? selected.photos;
+      // latestPhotos が undefined のとき photos: undefined を Firestore に渡すと
+      // Firebase v12 が "Unsupported field value: undefined" で弾くため、undefined の場合はキーごと除外する
+      const { photos: _p, ...eventBase } = selected;
+      const eventToSave = latestPhotos !== undefined
+        ? { ...eventBase, photos: latestPhotos }
+        : { ...eventBase };
+      await setDoc(doc(db, "events", selected.id), eventToSave);
       // 楽観的にローカルキャッシュも更新（onSnapshot反映までのラグ対策）
-      setDbEvents(prev => ({ ...prev, [selected.id]: selected }));
+      setDbEvents(prev => ({ ...prev, [selected.id]: eventToSave }));
+      setSelected(eventToSave);
       setHasUnsavedChanges(false);
       setLastEditedId(selected.id);
       fetch('/api/notify', {
@@ -552,7 +651,17 @@ export default function App() {
         body: JSON.stringify({ title: '✏️ イベント更新', body: `${selected.venue} が更新されました` }),
       }).catch(console.error);
       setIsSaving(false);
-      if (canEditEvent && user) {
+      if (user) {
+        const oldAssignees = dbEvents[selected.id]?.assignees ?? [];
+        const newAssignees = selected.assignees ?? [];
+        const added = newAssignees.filter(name => !oldAssignees.includes(name));
+        if (added.length > 0) {
+          const addedStaff = added.map(name => ({
+            name,
+            email: staffList.find(s => s.name === name)?.email,
+          }));
+          notifyAssigneesAdded(addedStaff, eventToSave, user).catch(console.error);
+        }
         notifyEventUpdated(selected, user).catch(error => {
           console.error('Notification fanout error:', error);
         });
@@ -692,8 +801,12 @@ export default function App() {
     const trimmed = name?.trim() ?? '';
     if (!trimmed || trimmed.length > 50) return;
     if (staffList.some(s => s.name === trimmed)) { alert('その名前は既に登録されています'); return; }
+    const emailInput = prompt('Gmailアドレスを入力してください（省略可）:') ?? '';
+    const emailTrimmed = emailInput.trim();
+    const staffData: Record<string, unknown> = { name: trimmed, createdAt: serverTimestamp() };
+    if (emailTrimmed) staffData.email = emailTrimmed;
     try {
-      await addDoc(collection(db, 'staff'), { name: trimmed, createdAt: serverTimestamp() });
+      await addDoc(collection(db, 'staff'), staffData);
     } catch {
       alert('スタッフの追加に失敗しました');
     }
@@ -705,6 +818,17 @@ export default function App() {
       await deleteDoc(doc(db, 'staff', staff.id));
     } catch {
       alert('スタッフの削除に失敗しました');
+    }
+  };
+
+  const handleEditStaffEmail = async (staff: StaffMember) => {
+    const input = prompt(`「${staff.name}」のGmailアドレスを設定してください（削除する場合は空白）:`, staff.email ?? '');
+    if (input === null) return;
+    const trimmed = input.trim();
+    try {
+      await updateDoc(doc(db, 'staff', staff.id), { email: trimmed || deleteField() });
+    } catch {
+      alert('メールアドレスの更新に失敗しました');
     }
   };
 
@@ -847,14 +971,16 @@ VITE_FIREBASE_DATABASE_ID`}
         {/* 右: ビュー切替 + 新規 + アバター */}
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
-            {[
-              { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
-              { id: "prep", icon: <ClipboardList size={14} />, label: "準備物" },
-              { id: "archive", icon: <Archive size={14} />, label: "アーカイブ" },
-            ].map(v => (
+            {(
+              [
+                { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
+                { id: "prep", icon: <ClipboardList size={14} />, label: "準備物" },
+                { id: "archive", icon: <Archive size={14} />, label: "アーカイブ" },
+              ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
+            ).map(v => (
               <button
                 key={v.id}
-                onClick={() => setView(v.id as any)}
+                onClick={() => setView(v.id)}
                 className={`
                   flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all
                   ${view === v.id ? 'bg-white text-slate-800 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700'}
@@ -1075,19 +1201,34 @@ VITE_FIREBASE_DATABASE_ID`}
                 )}
                 {staffList.map((staff) => (
                   <div key={staff.id} className="group relative flex items-center">
-                    <div className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600">
-                      <span className="text-sm">👤</span>
-                      <span className="text-xs font-bold font-sans">{staff.name}</span>
+                    <div className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 min-w-0">
+                      <span className="text-sm shrink-0">👤</span>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-bold font-sans">{staff.name}</span>
+                        {staff.email && (
+                          <span className="text-[10px] text-slate-400 truncate">{staff.email}</span>
+                        )}
+                      </div>
                     </div>
                     {canEditEvent && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteStaff(staff)}
-                        className="absolute right-1 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                        aria-label={`${staff.name}を削除`}
-                      >
-                        <X size={12} />
-                      </button>
+                      <div className="absolute right-1 opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleEditStaffEmail(staff)}
+                          className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
+                          aria-label={`${staff.name}のGmailアドレスを設定`}
+                        >
+                          <Mail size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteStaff(staff)}
+                          className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                          aria-label={`${staff.name}を削除`}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -1161,18 +1302,19 @@ VITE_FIREBASE_DATABASE_ID`}
                       onHoverEnd={handleEventHoverEnd}
                       onCreateEvent={handleCreateEvent}
                       onOpenDayDetail={handleOpenDayDetail}
-                      lastEditedId={lastEditedId}
+                      narrowViewport={narrowViewport}
                       densityPreview={calendarDensityPreview}
                       prepProgressMap={prepProgressMap}
                     />
+                    {/* Dashboard + 在庫管理アプリ導線 */}
+                    <Dashboard events={allEvents} />
+                    <InventoryAppBanner />
                   </div>
                   <div className="lg:hidden space-y-3">
                     <div className="flex gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="カレンダー表示の切替">
                       {(
                         [
                           ["list", "一覧"],
-                          ["month", "月"],
-                          ["week", "週"],
                           ["day", "日"],
                         ] as const
                       ).map(([id, label]) => (
@@ -1183,25 +1325,6 @@ VITE_FIREBASE_DATABASE_ID`}
                           aria-selected={calendarMobileLayout === id}
                           onClick={() => {
                             setCalendarMobileLayout(id);
-                            if (id === "week") {
-                              const cells = buildMonthGridCells(calYear, calMonth);
-                              const wRows = cells.length / 7;
-                              const t = new Date();
-                              let w = 0;
-                              if (t.getFullYear() === calYear && t.getMonth() + 1 === calMonth) {
-                                const td = t.getDate();
-                                outer: for (let wi = 0; wi < wRows; wi++) {
-                                  for (let c = 0; c < 7; c++) {
-                                    const cell = cells[wi * 7 + c];
-                                    if (cell.current && cell.day === td) {
-                                      w = wi;
-                                      break outer;
-                                    }
-                                  }
-                                }
-                              }
-                              setMobileWeekRowIndex(w);
-                            }
                             if (id === "day") {
                               const t = new Date();
                               if (t.getFullYear() === calYear && t.getMonth() + 1 === calMonth) {
@@ -1220,42 +1343,11 @@ VITE_FIREBASE_DATABASE_ID`}
 
                     {calendarMobileLayout === "list" && (
                       <>
-                        <MobileWeekStrip year={calYear} month={calMonth} events={filtered} />
+                        <MobileWeekStrip events={filtered} />
                         <div className="mt-4">
                           {filtered.length === 0 ? <EmptyState /> : <MobileTimelineView events={filtered} onSelect={handleEventSelect} />}
                         </div>
                       </>
-                    )}
-                    {calendarMobileLayout === "month" && (
-                      <div className="-mx-1 overflow-x-auto px-1 pb-2">
-                        <CalendarView
-                          events={desktopCalendarEvents}
-                          year={calYear}
-                          month={calMonth}
-                          setYear={setCalYear}
-                          setMonth={setCalMonth}
-                          onSelect={handleEventSelect}
-                          onHover={handleEventHover}
-                          onHoverEnd={handleEventHoverEnd}
-                          onCreateEvent={handleCreateEvent}
-                          onOpenDayDetail={handleOpenDayDetail}
-                          lastEditedId={lastEditedId}
-                          densityPreview={calendarDensityPreview}
-                          prepProgressMap={prepProgressMap}
-                        />
-                      </div>
-                    )}
-                    {calendarMobileLayout === "week" && (
-                      <MobileMonthWeekGrid
-                        year={calYear}
-                        month={calMonth}
-                        weekRowIndex={mobileWeekRowIndex}
-                        onWeekRowChange={setMobileWeekRowIndex}
-                        events={desktopCalendarEvents}
-                        onSelect={handleEventSelect}
-                        onOpenDayDetail={handleOpenDayDetail}
-                        onCreateEvent={handleCreateEvent}
-                      />
                     )}
                     {calendarMobileLayout === "day" && (
                       <MobileDayAgendaView
@@ -1270,6 +1362,11 @@ VITE_FIREBASE_DATABASE_ID`}
                       />
                     )}
                   </div>
+                  {/* モバイル: Dashboard + 在庫管理アプリ導線 */}
+                  <div className="lg:hidden">
+                    <Dashboard events={allEvents} />
+                    <InventoryAppBanner />
+                  </div>
                 </>
               )}
               {(view === "prep" || view === "archive") && prepEvent ? (
@@ -1283,26 +1380,71 @@ VITE_FIREBASE_DATABASE_ID`}
                 const activeEvents = [...allEvents]
                   .filter(ev => ev.end >= today)
                   .sort((a, b) => a.start.localeCompare(b.start));
+                // 月ごとにグループ化
+                const monthGroups: { month: string; events: Event[] }[] = [];
+                for (const ev of activeEvents) {
+                  const [y, m] = ev.start.split('-');
+                  const key = `${y}-${m}`;
+                  const label = `${parseInt(y)}年${parseInt(m)}月`;
+                  const last = monthGroups[monthGroups.length - 1];
+                  if (last?.month === label) last.events.push(ev);
+                  else monthGroups.push({ month: label, events: [ev] });
+                }
                 return (
                   <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
                     <div className="px-4 py-4">
-                      <h2 className="text-base font-black text-slate-800 mb-3">準備物リスト</h2>
+                      <h2 className="text-base font-black text-slate-800 mb-4">準備物リスト</h2>
                       {activeEvents.length === 0 ? (
                         <div className="text-center py-12 text-slate-400 text-sm">進行中のイベントがありません</div>
                       ) : (
-                        <div className="flex flex-col gap-2">
-                          {activeEvents.map(ev => (
-                            <button
-                              key={ev.id}
-                              onClick={() => setPrepEvent(ev)}
-                              className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
-                                <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
+                        <div className="flex flex-col gap-5">
+                          {monthGroups.map(({ month, events: evs }) => (
+                            <div key={month}>
+                              <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2">{month}</div>
+                              <div className="flex flex-col gap-2">
+                                {evs.map(ev => {
+                                  const s = fmtDateJP(ev.start);
+                                  const until = daysUntil(ev.start);
+                                  const isToday = until === 0;
+                                  const isSoon = until > 0 && until <= 7;
+                                  const isOngoing = until < 0 && ev.end >= today;
+                                  const urgencyBadge = isToday
+                                    ? { label: '今日', cls: 'bg-red-500 text-white' }
+                                    : isOngoing
+                                    ? { label: '開催中', cls: 'bg-emerald-500 text-white' }
+                                    : isSoon
+                                    ? { label: `${until}日後`, cls: 'bg-amber-400 text-white' }
+                                    : null;
+                                  return (
+                                    <button
+                                      key={ev.id}
+                                      onClick={() => setPrepEvent(ev)}
+                                      className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm flex items-stretch overflow-hidden hover:border-indigo-200 hover:shadow-md transition-all"
+                                    >
+                                      {/* 日付バッジ */}
+                                      <div className={`flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 ${isToday ? 'bg-red-500' : isOngoing ? 'bg-emerald-500' : isSoon ? 'bg-amber-400' : 'bg-indigo-600'}`}>
+                                        <span className="text-[10px] font-black text-white/70 leading-none">{s.month}月</span>
+                                        <span className="text-xl font-black text-white leading-none mt-0.5">{s.day}</span>
+                                        <span className="text-[10px] font-black text-white/80 leading-none mt-0.5">{s.dow}</span>
+                                      </div>
+                                      {/* コンテンツ */}
+                                      <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                          <span className="font-bold text-slate-800 text-sm truncate">{ev.venue}</span>
+                                          {urgencyBadge && (
+                                            <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full ${urgencyBadge.cls}`}>{urgencyBadge.label}</span>
+                                          )}
+                                        </div>
+                                        <div className="text-xs text-slate-400 truncate">{fmtDateRange(ev.start, ev.end)}</div>
+                                      </div>
+                                      <div className="flex items-center pr-3">
+                                        <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                                      </div>
+                                    </button>
+                                  );
+                                })}
                               </div>
-                              <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
-                            </button>
+                            </div>
                           ))}
                         </div>
                       )}
@@ -1314,27 +1456,54 @@ VITE_FIREBASE_DATABASE_ID`}
                 const archivedEvents = [...allEvents]
                   .filter(ev => ev.end < today)
                   .sort((a, b) => b.end.localeCompare(a.end));
+                const monthGroups: { month: string; events: Event[] }[] = [];
+                for (const ev of archivedEvents) {
+                  const [y, m] = ev.start.split('-');
+                  const label = `${parseInt(y)}年${parseInt(m)}月`;
+                  const last = monthGroups[monthGroups.length - 1];
+                  if (last?.month === label) last.events.push(ev);
+                  else monthGroups.push({ month: label, events: [ev] });
+                }
                 return (
                   <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
                     <div className="px-4 py-4">
                       <h2 className="text-base font-black text-slate-800 mb-1">アーカイブ</h2>
-                      <p className="text-xs text-slate-400 mb-3">終了したイベントの準備物を確認できます</p>
+                      <p className="text-xs text-slate-400 mb-4">終了したイベントの準備物を確認できます</p>
                       {archivedEvents.length === 0 ? (
                         <div className="text-center py-12 text-slate-400 text-sm">アーカイブされたイベントがありません</div>
                       ) : (
-                        <div className="flex flex-col gap-2">
-                          {archivedEvents.map(ev => (
-                            <button
-                              key={ev.id}
-                              onClick={() => setPrepEvent(ev)}
-                              className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between opacity-75"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="font-bold text-slate-600 text-sm truncate">{ev.venue}</div>
-                                <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
+                        <div className="flex flex-col gap-5">
+                          {monthGroups.map(({ month, events: evs }) => (
+                            <div key={month}>
+                              <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2">{month}</div>
+                              <div className="flex flex-col gap-2">
+                                {evs.map(ev => {
+                                  const s = fmtDateJP(ev.start);
+                                  return (
+                                    <button
+                                      key={ev.id}
+                                      onClick={() => setPrepEvent(ev)}
+                                      className="w-full text-left bg-white/60 rounded-2xl border border-slate-100 shadow-sm flex items-stretch overflow-hidden hover:border-slate-300 hover:shadow-md transition-all opacity-80 hover:opacity-100"
+                                    >
+                                      {/* 日付バッジ（グレー） */}
+                                      <div className="flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 bg-slate-200">
+                                        <span className="text-[10px] font-black text-slate-500 leading-none">{s.month}月</span>
+                                        <span className="text-xl font-black text-slate-500 leading-none mt-0.5">{s.day}</span>
+                                        <span className="text-[10px] font-black text-slate-400 leading-none mt-0.5">{s.dow}</span>
+                                      </div>
+                                      {/* コンテンツ */}
+                                      <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
+                                        <div className="font-bold text-slate-600 text-sm truncate mb-0.5">{ev.venue}</div>
+                                        <div className="text-xs text-slate-400 truncate">{fmtDateRange(ev.start, ev.end)}</div>
+                                      </div>
+                                      <div className="flex items-center pr-3">
+                                        <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                                      </div>
+                                    </button>
+                                  );
+                                })}
                               </div>
-                              <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
-                            </button>
+                            </div>
                           ))}
                         </div>
                       )}
@@ -1489,13 +1658,15 @@ VITE_FIREBASE_DATABASE_ID`}
 
                   {/* タブ切替 */}
                   <div className="flex bg-slate-100 rounded-xl p-1 mb-5">
-                    {[
-                      { id: 'detail', label: '詳細' },
-                      { id: 'photos', label: `写真${selected.photos?.length ? ` (${selected.photos.length})` : ''}` },
-                    ].map(t => (
+                    {(
+                      [
+                        { id: 'detail', label: '詳細' },
+                        { id: 'photos', label: `写真${selected.photos?.length ? ` (${selected.photos.length})` : ''}` },
+                      ] as { id: ModalTab; label: string }[]
+                    ).map(t => (
                       <button
                         key={t.id}
-                        onClick={() => setModalTab(t.id as any)}
+                        onClick={() => setModalTab(t.id)}
                         className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${modalTab === t.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
                       >
                         {t.label}
@@ -1508,7 +1679,14 @@ VITE_FIREBASE_DATABASE_ID`}
                     <div className="space-y-4">
                       {canUploadPhoto && (selected.photos?.length ?? 0) < MAX_PHOTOS && (
                         <PhotoUpload
-                          onUpload={async (file) => { await uploadPhoto(file); }}
+                          onUpload={async (file) => {
+                            const newPhoto = await uploadPhoto(file);
+                            // hasUnsavedChanges=true のとき onSnapshot が selected を更新しないため手動反映
+                            // false のときは onSnapshot が自動更新するので手動更新すると二重になる
+                            if (newPhoto && hasUnsavedChanges) {
+                              setSelected(prev => prev ? { ...prev, photos: [...(prev.photos ?? []), newPhoto] } : prev);
+                            }
+                          }}
                           uploading={photoUploading}
                           uploadProgress={photoUploading ? uploadProgress : 0}
                           currentCount={selected.photos?.length ?? 0}
@@ -1521,8 +1699,20 @@ VITE_FIREBASE_DATABASE_ID`}
                       {photoError && <p className="text-xs text-red-500 font-bold">{photoError}</p>}
                       <PhotoGallery
                         photos={selected.photos || []}
-                        onDelete={photo => deleteEventPhoto(photo)}
-                        onUpdateCaption={(photo, caption) => updatePhotoCaption(photo, caption)}
+                        onDelete={async (photo) => {
+                          await deleteEventPhoto(photo);
+                          setSelected(prev => prev ? {
+                            ...prev,
+                            photos: (prev.photos ?? []).filter(p => p.id !== photo.id)
+                          } : prev);
+                        }}
+                        onUpdateCaption={async (photo, caption) => {
+                          await updatePhotoCaption(photo, caption);
+                          setSelected(prev => prev ? {
+                            ...prev,
+                            photos: (prev.photos ?? []).map(p => p.id === photo.id ? { ...p, caption } : p)
+                          } : prev);
+                        }}
                         canEdit={canUploadPhoto}
                       />
                     </div>
@@ -1567,9 +1757,10 @@ VITE_FIREBASE_DATABASE_ID`}
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">CLIENT・クライアント</label>
                       <input
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
                         value={selected.client}
                         placeholder="クライアント名を入力..."
+                        disabled={!canEditEvent}
                         onChange={e => handleUpdateEvent(selected.id, { client: e.target.value })}
                       />
                     </div>
@@ -1580,7 +1771,7 @@ VITE_FIREBASE_DATABASE_ID`}
                         className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[88px] resize-none read-only:bg-gray-50 read-only:text-gray-500"
                         value={selected.detailMemo ?? ''}
                         placeholder="例：搬入は西口ローリング床／15:00までに主電源・Wi-Fi確認"
-                        readOnly={!user}
+                        readOnly={!canEditEvent}
                         onChange={e => {
                           const detailMemo = e.target.value;
                           handleUpdateEvent(selected.id, {
@@ -1592,9 +1783,6 @@ VITE_FIREBASE_DATABASE_ID`}
                       {formatAttributionLine(selected.detailMemoAttribution) ? (
                         <p className="mt-1.5 text-[11px] text-gray-500">{formatAttributionLine(selected.detailMemoAttribution)}</p>
                       ) : null}
-                      {!user && (
-                        <p className="mt-1.5 text-[11px] text-amber-700/90">ログインするとメモを記入・保存できます。</p>
-                      )}
                     </div>
 
                     <div>
@@ -1609,7 +1797,7 @@ VITE_FIREBASE_DATABASE_ID`}
                               <button
                                 key={staff.id}
                                 type="button"
-                                disabled={!user}
+                                disabled={!canEditEvent}
                                 onClick={() => {
                                   const current = selected.assignees ?? [];
                                   const next = isAssigned
@@ -1629,8 +1817,52 @@ VITE_FIREBASE_DATABASE_ID`}
                           })}
                         </div>
                       )}
-                      {!user && (
-                        <p className="mt-1.5 text-[11px] text-amber-700/90">ログインすると担当者を選択できます。</p>
+                    </div>
+
+                    {/* 日別役割 */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">日別役割</label>
+                      {(selected.assignees ?? []).length === 0 ? (
+                        <p className="text-xs text-gray-400 py-2">担当者を選択すると日別に役割を設定できます。</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {getDaysInRange(selected.start, selected.end).map(date => (
+                            <div key={date} className="border border-gray-100 rounded-xl p-3 bg-gray-50/50">
+                              <div className="text-[11px] font-bold text-gray-500 mb-2">{formatDayLabel(date)}</div>
+                              <div className="space-y-2">
+                                {(selected.assignees ?? []).map(memberName => (
+                                  <div key={memberName} className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-gray-700 w-20 shrink-0 truncate">{memberName}</span>
+                                    <input
+                                      type="text"
+                                      value={selected.dailyRoles?.[date]?.[memberName] ?? ''}
+                                      disabled={!canEditEvent}
+                                      placeholder="役割を入力"
+                                      onChange={e => {
+                                        const val = e.target.value;
+                                        setSelected(prev => {
+                                          if (!prev) return prev;
+                                          return {
+                                            ...prev,
+                                            dailyRoles: {
+                                              ...(prev.dailyRoles ?? {}),
+                                              [date]: {
+                                                ...(prev.dailyRoles?.[date] ?? {}),
+                                                [memberName]: val,
+                                              },
+                                            },
+                                          };
+                                        });
+                                        setHasUnsavedChanges(true);
+                                      }}
+                                      className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
 
@@ -1763,14 +1995,16 @@ VITE_FIREBASE_DATABASE_ID`}
 
       {/* Mobile Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around pb-safe z-20 lg:hidden">
-        {[
-          { id: "calendar", icon: <Calendar size={22} />,     label: "カレンダー" },
-          { id: "prep",     icon: <ClipboardList size={22} />, label: "準備物" },
-          { id: "archive",  icon: <Archive size={22} />,       label: "アーカイブ" },
-        ].map(tab => (
+        {(
+          [
+            { id: "calendar", icon: <Calendar size={22} />,     label: "カレンダー" },
+            { id: "prep",     icon: <ClipboardList size={22} />, label: "準備物" },
+            { id: "archive",  icon: <Archive size={22} />,       label: "アーカイブ" },
+          ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
+        ).map(tab => (
           <button
             key={tab.id}
-            onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); setView(tab.id as any); }}
+            onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); setView(tab.id); }}
             className={`flex flex-col items-center gap-0.5 px-4 py-3 text-[10px] font-bold transition-colors ${
               view === tab.id ? "text-indigo-600" : "text-slate-400"
             }`}
@@ -1849,12 +2083,10 @@ function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps) {
 }
 
 interface MobileWeekStripProps {
-  year: number;
-  month: number;
   events: Event[];
 }
 
-function MobileWeekStrip({ year, month, events }: MobileWeekStripProps) {
+function MobileWeekStrip({ events }: MobileWeekStripProps) {
   const today = new Date();
   const startOfWeek = new Date(today);
   startOfWeek.setDate(today.getDate() - today.getDay());
@@ -2195,24 +2427,13 @@ interface CalendarViewProps {
   onCreateEvent: (data?: Partial<Event>) => void;
   /** 「+N件」押下時: その日の全イベントを渡して詳細導線（モーダル等）を開く */
   onOpenDayDetail: (ctx: { year: number; month: number; day: number; events: Event[] }) => void;
-  lastEditedId: string | null;
+  narrowViewport: boolean;
   densityPreview?: boolean;
   prepProgressMap?: Record<string, { total: number; done: number }>;
 }
 
-function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHover, onHoverEnd, onCreateEvent, onOpenDayDetail, lastEditedId, densityPreview, prepProgressMap = {} }: CalendarViewProps) {
+function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHover, onHoverEnd, onCreateEvent, onOpenDayDetail, narrowViewport, densityPreview, prepProgressMap = {} }: CalendarViewProps) {
   const cells = buildMonthGridCells(year, month);
-
-  const [narrowViewport, setNarrowViewport] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches
-  );
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 768px)");
-    const apply = () => setNarrowViewport(mq.matches);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
 
   const maxEventsInCell = narrowViewport ? MAX_EVENTS_IN_DAY_CELL_NARROW : MAX_EVENTS_IN_DAY_CELL;
   const eventRowMinHeight = narrowViewport ? CAL_EVENT_ROW_MIN_HEIGHT_TOUCH : CAL_DAY_CELL_EVENT_ROW_MIN_HEIGHT;
@@ -2402,107 +2623,6 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
 }
 
 
-interface ListViewProps {
-  data: Event[];
-  onSelect: (event: Event) => void;
-  onHover: (event: Event, e: ReactMouseEvent<HTMLElement>) => void;
-  onHoverEnd: () => void;
-  lastEditedId: string | null;
-}
-
-function ListView({ data, onSelect, onHover, onHoverEnd, lastEditedId }: ListViewProps) {
-  return (
-    <div className="flex flex-col">
-      {/* タイトル */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-baseline gap-2">
-          All events
-          <span className="text-slate-400 text-sm font-bold">· {data.length}</span>
-        </h2>
-      </div>
-
-      {/* テーブル */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white border border-slate-100 rounded-2xl overflow-hidden"
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">DATE</th>
-                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">本部</th>
-                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">種別</th>
-                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400">会場</th>
-                <th className="px-6 py-3.5 font-black text-[10px] uppercase tracking-widest text-slate-400 text-right">状態</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {data.map((d) => (
-                <tr
-                  key={d.id}
-                  onClick={() => onSelect(d)}
-                  onMouseEnter={(e) => onHover(d, e)}
-                  onMouseLeave={onHoverEnd}
-                  className={`
-                    group cursor-pointer transition-colors
-                    ${d.id === lastEditedId ? "bg-amber-50/50" : "hover:bg-slate-50/50"}
-                  `}
-                >
-                  <td className="px-6 py-4 align-middle">
-                    <div className="text-xs font-bold text-slate-700">
-                      {fmtShort(d.start)}
-                      {d.end && d.start !== d.end ? `-${fmtShort(d.end)}` : ""}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 align-middle">
-                    <span
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap"
-                      style={{ background: rs(d.region).bg, color: rs(d.region).text }}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: rs(d.region).dot }}></span>
-                      {d.region}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 align-middle">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 whitespace-nowrap">
-                      <span>{d.emoji || ts(d.type || "").icon}</span>
-                      {d.type || "その他"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 align-middle">
-                    <div className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                      {d.venue}
-                      {d.id === lastEditedId && (
-                        <motion.span
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-black rounded tracking-widest uppercase"
-                        >
-                          Updated
-                        </motion.span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-slate-400 mt-0.5 font-medium">{d.client || "—"}</div>
-                  </td>
-                  <td className="px-6 py-4 align-middle text-right">
-                    <span
-                      className="text-[10px] font-black uppercase tracking-widest text-slate-400"
-                      style={{ background: rs(d.region).bg }}
-                    >
-                      {d.status || "SCHEDULED"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
 
 function HoverCard({ event, pos, prepStats }: {
   event: Event;
@@ -2557,39 +2677,6 @@ function HoverCard({ event, pos, prepStats }: {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-interface FilterGroupProps {
-  label: string;
-  options: string[];
-  value: string;
-  onChange: (value: string) => void;
-}
-
-function FilterGroup({ label, options, value, onChange }: FilterGroupProps) {
-  return (
-    <div className="space-y-4">
-      <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] px-1 opacity-60">{label}</div>
-      <div className="flex flex-col gap-1.5">
-        {options.map((opt) => (
-          <motion.button
-            key={opt}
-            whileHover={{ x: 4, backgroundColor: "rgba(245, 158, 11, 0.05)" }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => onChange(opt)}
-            className={`
-              w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all border border-transparent
-              ${value === opt 
-                ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20 border-amber-500/20" 
-                : "text-[var(--text-secondary)] hover:text-amber-500"}
-            `}
-          >
-            {opt}
-          </motion.button>
-        ))}
-      </div>
     </div>
   );
 }

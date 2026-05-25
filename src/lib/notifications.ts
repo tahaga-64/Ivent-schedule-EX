@@ -90,6 +90,109 @@ export async function notifyEventDeleted(venue: string, eventId: string, actor: 
   }, actor);
 }
 
+/**
+ * 新たに担当者に追加されたメンバーへ通知を送る。
+ * staff.email が設定されている場合はそのアドレスで照合し、未設定の場合は displayName で照合する。
+ */
+export async function notifyAssigneesAdded(
+  addedStaff: { name: string; email?: string }[],
+  event: Event,
+  actor: User,
+): Promise<void> {
+  if (addedStaff.length === 0) return;
+  const actorName = actor.displayName || actor.email || '編集者';
+
+  // in-app notifications（ユーザー一覧取得が必要。権限不足の場合はスキップ）
+  try {
+    const usersSnapshot = await getDocs(collection(db, 'users'));
+    const batch = writeBatch(db);
+    let ops = 0;
+
+    for (const staff of addedStaff) {
+      // email一致を優先、なければ displayName で照合
+      const userDoc = (
+        staff.email
+          ? usersSnapshot.docs.find(d => d.data().email === staff.email && d.id !== actor.uid)
+          : undefined
+      ) ?? usersSnapshot.docs.find(d => d.data().displayName === staff.name && d.id !== actor.uid);
+
+      if (!userDoc) continue;
+
+      const ref = doc(collection(db, 'users', userDoc.id, 'notifications'));
+      batch.set(ref, {
+        type: 'event_updated',
+        title: '担当者に追加されました',
+        message: `${actorName}さんが「${event.venue}」の担当者にあなたを追加しました`,
+        eventId: event.id,
+        userId: actor.uid,
+        recipientUid: userDoc.id,
+        actorUid: actor.uid,
+        actorName: actor.displayName,
+        actorEmail: actor.email,
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+      ops += 1;
+    }
+
+    if (ops > 0) await batch.commit();
+  } catch (e) {
+    console.warn('[notifications] in-app notification skipped:', e);
+  }
+
+  const targetEmails = addedStaff.filter(s => s.email).map(s => s.email as string);
+
+  // プッシュ通知（staff.email が設定されているメンバーのみ）
+  if (targetEmails.length > 0) {
+    fetch('/api/notify-assignees', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        assigneeEmails: targetEmails,
+        eventId: event.id,
+        eventVenue: event.venue,
+        actorName: actorName,
+      }),
+    }).catch(err => console.warn('[push notification] failed:', err));
+  }
+
+  // メール通知: staff.email が設定されていれば直接使用（ユーザー照合不要）
+  const emailTargets = targetEmails;
+
+  if (emailTargets.length > 0) {
+    const dateLabel = event.start === event.end
+      ? event.start
+      : `${event.start} 〜 ${event.end}`;
+    const html = `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+        <h2 style="font-size:16px;color:#1e293b;margin-bottom:8px;">担当者に追加されました</h2>
+        <p style="font-size:14px;color:#475569;margin-bottom:16px;">
+          ${actor.displayName || actor.email} さんがあなたをイベントの担当者に追加しました。
+        </p>
+        <div style="background:#f8fafc;border-radius:12px;padding:16px;margin-bottom:20px;">
+          <div style="font-size:13px;color:#64748b;margin-bottom:4px;">会場</div>
+          <div style="font-size:16px;font-weight:bold;color:#1e293b;margin-bottom:12px;">${event.venue}</div>
+          <div style="font-size:13px;color:#64748b;margin-bottom:4px;">日程</div>
+          <div style="font-size:14px;color:#1e293b;">${dateLabel}</div>
+        </div>
+        <a href="${import.meta.env.VITE_APP_URL || 'https://ivent-schedule.vercel.app'}"
+           style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:bold;">
+          アプリを開く
+        </a>
+      </div>
+    `;
+    fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: emailTargets,
+        subject: `【Ivent】${event.venue} の担当者に追加されました`,
+        html,
+      }),
+    }).catch(err => console.warn('[email notification] failed:', err));
+  }
+}
+
 export function getNotificationIcon(type: AppNotification['type']): string {
   const icons: Record<AppNotification['type'], string> = {
     event_created: '✨',
