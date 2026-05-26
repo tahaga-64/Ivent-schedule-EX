@@ -134,7 +134,7 @@ function statusStyle(status?: string): { label: string; bg: string; text: string
     case 'in_progress': return { label: '準備中',    bg: 'bg-amber-50',   text: 'text-amber-600',  dot: '#f59e0b' };
     case 'waiting':     return { label: '入荷待ち',  bg: 'bg-blue-50',    text: 'text-blue-600',   dot: '#3b82f6' };
     case 'ready':       return { label: '準備完了',  bg: 'bg-emerald-50', text: 'text-emerald-600',dot: '#10b981' };
-    case 'completed':   return { label: '終了',      bg: 'bg-orange-50',  text: 'text-orange-500', dot: '#f97316' };
+    case 'completed':   return { label: '終了',      bg: 'bg-orange-500', text: 'text-white',      dot: '#f97316' };
     case 'cancelled':   return { label: 'キャンセル',bg: 'bg-red-50',     text: 'text-red-500',    dot: '#ef4444' };
     default:            return { label: '予定',      bg: 'bg-slate-50',   text: 'text-slate-400',  dot: '#cbd5e1' };
   }
@@ -1160,7 +1160,7 @@ VITE_FIREBASE_DATABASE_ID`}
 
             {/* ステータスフィルター */}
             <div className="space-y-1 pt-2">
-              <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] px-1 opacity-60 mb-3">ステータス</div>
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1 mb-3">ステータス</div>
               {[
                 { label: 'すべて',    value: 'all',         dot: null },
                 { label: '準備中',   value: 'in_progress',  dot: '#f59e0b' },
@@ -1174,7 +1174,7 @@ VITE_FIREBASE_DATABASE_ID`}
                   className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                     statusFilter === value
                       ? 'bg-amber-500 text-white shadow-md'
-                      : 'text-[var(--text-secondary)] hover:text-amber-500'
+                      : 'text-slate-600 hover:text-amber-500'
                   }`}
                 >
                   {dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusFilter === value ? 'white' : dot }} />}
@@ -1623,9 +1623,9 @@ VITE_FIREBASE_DATABASE_ID`}
               className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[520px] lg:max-w-[520px] max-h-[92vh] lg:max-h-[90vh]"
             >
                 {selected.status === 'completed' && (
-                  <div className="flex items-center gap-2 px-4 py-3 bg-orange-50 border-b border-orange-100">
-                    <span className="text-orange-400">⚑</span>
-                    <span className="text-xs font-bold text-orange-500">このイベントは終了しました</span>
+                  <div className="flex items-center gap-2 px-4 py-3 bg-orange-500 border-b border-orange-600">
+                    <span className="text-white">⚑</span>
+                    <span className="text-xs font-bold text-white">このイベントは終了しました</span>
                   </div>
                 )}
                 <div className="p-6 lg:p-8 pb-[calc(1.5rem+env(safe-area-inset-bottom))] overflow-y-auto overflow-x-hidden">
