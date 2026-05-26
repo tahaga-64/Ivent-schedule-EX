@@ -2840,22 +2840,53 @@ function NotificationPermissionBanner({ userId }: { userId: string }) {
   const [perm, setPerm] = useState<NotificationPermission | null>(null);
   const [requesting, setRequesting] = useState(false);
   const [dismissed, setDismissed] = useState(() => localStorage.getItem('notif-banner-dismissed') === '1');
+  const [regError, setRegError] = useState<string | null>(null);
+
+  // iOS 判定
+  const isIos = /iP(hone|ad|od)/.test(navigator.userAgent);
+  // PWAとして起動しているか（ホーム画面追加済み）
+  const isPwa = window.matchMedia('(display-mode: standalone)').matches
+    || (navigator as { standalone?: boolean }).standalone === true;
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     setPerm(Notification.permission);
   }, []);
 
+  const dismiss = () => { setDismissed(true); localStorage.setItem('notif-banner-dismissed', '1'); };
+
+  // iOS Safari（非PWA）の場合：ホーム画面追加を促す
+  if (!dismissed && isIos && !isPwa) {
+    return (
+      <div className="flex items-start justify-between gap-3 px-4 py-3 bg-amber-50 border-b border-amber-100">
+        <div className="flex items-start gap-2 min-w-0">
+          <span className="text-base shrink-0 mt-0.5">📲</span>
+          <div>
+            <p className="text-xs font-bold text-amber-800">iPhoneで通知を受け取るには</p>
+            <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">
+              Safari下部の <strong>共有ボタン（□↑）→「ホーム画面に追加」</strong> でアプリをインストール後、再度開いて通知を許可してください。
+            </p>
+          </div>
+        </div>
+        <button type="button" onClick={dismiss} className="shrink-0 text-amber-400 hover:text-amber-600 text-xs pt-0.5">✕</button>
+      </div>
+    );
+  }
+
   if (dismissed || perm === 'granted' || perm === 'denied' || perm === null) return null;
 
   const handleAllow = async () => {
     setRequesting(true);
+    setRegError(null);
     try {
       const result = await Notification.requestPermission();
       setPerm(result);
       if (result === 'granted') {
         await registerFcmToken(userId);
       }
+    } catch (e) {
+      setRegError('登録に失敗しました。ページを再読み込みしてお試しください。');
+      console.error('FCM banner registration error:', e);
     } finally {
       setRequesting(false);
     }
@@ -2863,11 +2894,14 @@ function NotificationPermissionBanner({ userId }: { userId: string }) {
 
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-indigo-50 border-b border-indigo-100">
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-base shrink-0">🔔</span>
-        <span className="text-xs font-medium text-indigo-700 truncate">
-          イベントの更新をプッシュ通知で受け取りますか？
-        </span>
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-base shrink-0">🔔</span>
+          <span className="text-xs font-medium text-indigo-700">
+            イベントの更新をプッシュ通知で受け取りますか？
+          </span>
+        </div>
+        {regError && <p className="text-[11px] text-red-500 pl-6">{regError}</p>}
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <button
@@ -2878,13 +2912,7 @@ function NotificationPermissionBanner({ userId }: { userId: string }) {
         >
           {requesting ? '...' : '許可する'}
         </button>
-        <button
-          type="button"
-          onClick={() => { setDismissed(true); localStorage.setItem('notif-banner-dismissed', '1'); }}
-          className="px-2 py-1 text-indigo-400 hover:text-indigo-600 text-xs transition-colors"
-        >
-          ✕
-        </button>
+        <button type="button" onClick={dismiss} className="px-2 py-1 text-indigo-400 hover:text-indigo-600 text-xs transition-colors">✕</button>
       </div>
     </div>
   );
