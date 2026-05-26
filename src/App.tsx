@@ -1023,7 +1023,7 @@ VITE_FIREBASE_DATABASE_ID`}
               </div>
             )}
             {/* 通知登録ボタン（全デバイス共通） */}
-            <NotificationHeaderButton userId={user.uid} />
+            <NotificationHeaderButton userId={user.uid} currentUser={user} />
             <button
               onClick={() => setIsDark(v => !v)}
               className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-indigo-500 transition-colors"
@@ -2960,46 +2960,52 @@ function NotificationPermissionBanner({ userId }: { userId: string }) {
   );
 }
 
-function NotificationHeaderButton({ userId }: { userId: string }) {
+function NotificationHeaderButton({ userId, currentUser }: { userId: string; currentUser: import('firebase/auth').User }) {
   const [perm, setPerm] = useState<NotificationPermission | 'unsupported'>('unsupported');
-  const [running, setRunning] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [diagSteps, setDiagSteps] = useState<FcmDiagStep[]>([]);
+  const [diagRunning, setDiagRunning] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const [testRunning, setTestRunning] = useState(false);
 
   useEffect(() => {
     if ('Notification' in window) setPerm(Notification.permission);
     else setPerm('unsupported');
   }, []);
 
-  const handle = async () => {
-    if (perm === 'unsupported') {
-      setMsg('このブラウザは通知に対応していません。iOSの場合はホーム画面に追加してから開いてください。');
-      return;
-    }
-    if (perm === 'granted') {
-      setMsg(null);
-      setRunning(true);
-      const steps = await registerFcmTokenWithDiagnostics(userId);
-      setRunning(false);
-      const last = steps[steps.length - 1];
-      setMsg(last?.ok ? '✅ 通知登録済みです' : ('detail' in last ? last.detail : '失敗しました'));
-      return;
-    }
-    setRunning(true);
-    setMsg(null);
+  const runDiag = async () => {
+    setDiagRunning(true);
+    setDiagSteps([]);
+    setTestResult(null);
     const steps = await registerFcmTokenWithDiagnostics(userId);
-    setRunning(false);
+    setDiagSteps(steps);
+    setDiagRunning(false);
     const last = steps[steps.length - 1];
-    if (last?.ok) {
-      setPerm('granted');
-      setMsg('✅ 通知を登録しました');
-    } else {
-      setMsg('detail' in last ? last.detail : '失敗しました');
+    if (last?.ok) setPerm('granted');
+    else if ('Notification' in window) setPerm(Notification.permission);
+  };
+
+  const sendTest = async () => {
+    setTestRunning(true);
+    setTestResult(null);
+    try {
+      const res = await pushNotify(currentUser, '🔔 テスト通知', 'プッシュ通知が正常に動作しています');
+      if (res.ok) {
+        const data = await res.json();
+        setTestResult(`✅ 送信成功 (${data.sent}件送信, ${data.failed}件失敗)`);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setTestResult(`❌ 送信失敗 ${res.status}: ${data.error ?? data.detail ?? JSON.stringify(data)}`);
+      }
+    } catch (e) {
+      setTestResult(`❌ 送信エラー: ${String(e)}`);
     }
+    setTestRunning(false);
   };
 
   const iconColor =
     perm === 'granted' ? 'text-green-500' :
-    perm === 'denied' ? 'text-red-400' :
+    perm === 'denied'  ? 'text-red-400'   :
     perm === 'unsupported' ? 'text-slate-300' :
     'text-amber-400';
 
@@ -3007,20 +3013,61 @@ function NotificationHeaderButton({ userId }: { userId: string }) {
     <div className="relative">
       <button
         type="button"
-        onClick={handle}
-        disabled={running}
-        title="プッシュ通知の状態を確認"
-        className={`p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40 relative ${iconColor}`}
+        onClick={() => { setOpen(v => !v); if (!open && diagSteps.length === 0) runDiag(); }}
+        title="プッシュ通知の診断"
+        className={`p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors relative ${iconColor}`}
       >
-        {running ? <span className="w-[15px] h-[15px] border-2 border-current border-t-transparent rounded-full animate-spin block" /> : <Bell size={15} />}
+        <Bell size={15} />
         {perm === 'default' && (
           <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-amber-400 rounded-full" />
         )}
       </button>
-      {msg && (
-        <div className="absolute right-0 top-10 w-72 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-lg p-3 z-50 text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
-          {msg}
-          <button onClick={() => setMsg(null)} className="block mt-1 text-slate-400 text-[10px]">閉じる</button>
+
+      {open && (
+        <div className="absolute right-0 top-10 w-80 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl shadow-xl p-4 z-50 text-xs text-slate-700 dark:text-slate-200">
+          <div className="flex items-center justify-between mb-3">
+            <span className="font-bold text-sm">🔔 通知診断</span>
+            <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600 text-base leading-none">✕</button>
+          </div>
+
+          {/* 診断ステップ */}
+          {diagRunning && <p className="text-slate-400 animate-pulse mb-2">診断中...</p>}
+          {diagSteps.length > 0 && (
+            <div className="space-y-1 mb-3">
+              {diagSteps.map((s, i) => (
+                <div key={i} className="flex items-start gap-1.5">
+                  <span>{s.ok ? '✅' : '❌'}</span>
+                  <div className="min-w-0">
+                    <span className="font-medium">{s.step}</span>
+                    {'detail' in s && s.detail && (
+                      <p className="text-[10px] text-slate-400 break-words mt-0.5">{s.detail}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2 mt-1">
+            <button
+              onClick={runDiag}
+              disabled={diagRunning}
+              className="flex-1 py-1.5 bg-indigo-600 text-white rounded-lg font-bold disabled:opacity-50"
+            >
+              {diagRunning ? '診断中...' : '再診断'}
+            </button>
+            <button
+              onClick={sendTest}
+              disabled={testRunning}
+              className="flex-1 py-1.5 bg-emerald-600 text-white rounded-lg font-bold disabled:opacity-50"
+            >
+              {testRunning ? '送信中...' : 'テスト送信'}
+            </button>
+          </div>
+
+          {testResult && (
+            <p className="mt-2 text-[11px] break-words leading-relaxed bg-slate-50 dark:bg-zinc-800 rounded-lg p-2">{testResult}</p>
+          )}
         </div>
       )}
     </div>
