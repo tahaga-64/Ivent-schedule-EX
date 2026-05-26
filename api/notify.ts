@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
+import { getAuth } from 'firebase-admin/auth';
 
 function ensureAdmin(): void {
   if (getApps().length > 0) return;
@@ -21,9 +22,17 @@ function ensureAdmin(): void {
 /**
  * Vercel サーバーレス上で FCM マルチキャスト送信（Firebase の無料枠内）。
  * 環境変数 FIREBASE_SERVICE_ACCOUNT_JSON にサービスアカウント JSON を設定する。
+ * Authorization: Bearer <Firebase ID Token> ヘッダーが必須。
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end();
+
+  // Firebase ID Token による認証
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Bearer token required' });
+  }
+  const idToken = authHeader.slice(7);
 
   try {
     ensureAdmin();
@@ -33,6 +42,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       error: 'Push server is not configured (set FIREBASE_SERVICE_ACCOUNT_JSON on the host).',
       detail: initErr instanceof Error ? initErr.message : String(initErr),
     });
+  }
+
+  try {
+    await getAuth().verifyIdToken(idToken);
+  } catch {
+    return res.status(401).json({ error: 'Unauthorized: invalid or expired token' });
   }
 
   const { title, body } = req.body as { title: string; body: string };

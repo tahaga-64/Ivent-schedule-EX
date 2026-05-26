@@ -30,6 +30,15 @@ import { registerFcmToken } from './lib/fcm';
 import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted, notifyAssigneesAdded } from './lib/notifications';
 import { checkUserAllowed } from './lib/allowedUsers';
 
+async function pushNotify(currentUser: import('firebase/auth').User, title: string, body: string) {
+  const token = await currentUser.getIdToken();
+  return fetch('/api/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ title, body }),
+  });
+}
+
 type ViewMode = "calendar" | "prep" | "archive";
 type ModalTab = "detail" | "photos";
 
@@ -125,7 +134,7 @@ function statusStyle(status?: string): { label: string; bg: string; text: string
     case 'in_progress': return { label: '準備中',    bg: 'bg-amber-50',   text: 'text-amber-600',  dot: '#f59e0b' };
     case 'waiting':     return { label: '入荷待ち',  bg: 'bg-blue-50',    text: 'text-blue-600',   dot: '#3b82f6' };
     case 'ready':       return { label: '準備完了',  bg: 'bg-emerald-50', text: 'text-emerald-600',dot: '#10b981' };
-    case 'completed':   return { label: '終了',      bg: 'bg-slate-100',  text: 'text-slate-500',  dot: '#94a3b8' };
+    case 'completed':   return { label: '終了',      bg: 'bg-orange-50',  text: 'text-orange-500', dot: '#f97316' };
     case 'cancelled':   return { label: 'キャンセル',bg: 'bg-red-50',     text: 'text-red-500',    dot: '#ef4444' };
     default:            return { label: '予定',      bg: 'bg-slate-50',   text: 'text-slate-400',  dot: '#cbd5e1' };
   }
@@ -326,6 +335,7 @@ export default function App() {
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const hasUnsavedChangesRef = useRef(false);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastEditedId, setLastEditedId] = useState<string | null>(() => localStorage.getItem('lastEditedId'));
@@ -349,6 +359,8 @@ export default function App() {
   }, [sidebarTypes]);
 
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [staffExpanded, setStaffExpanded] = useState(false);
+  const STAFF_SHOW_COUNT = 5;
 
   // 未保存変更の警告（ブラウザを閉じる・リロード時）
   useEffect(() => {
@@ -444,10 +456,10 @@ export default function App() {
 
   // 他ユーザーの変更をモーダルにリアルタイム反映（未保存の編集中は上書きしない）
   useEffect(() => {
-    if (!selected || hasUnsavedChanges) return;
+    if (!selected || hasUnsavedChangesRef.current) return;
     const latest = dbEvents[selected.id];
     if (latest) setSelected(latest);
-  }, [dbEvents, selected?.id, hasUnsavedChanges]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dbEvents, selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 選択イベントの準備物統計をリアルタイム購読
   useEffect(() => {
@@ -598,6 +610,7 @@ export default function App() {
     // モーダルの表示（state）を即座に更新して入力をサクサクにする
     setSelected(newEvent);
     // 変更ありフラグを立てる
+    hasUnsavedChangesRef.current = true;
     setHasUnsavedChanges(true);
     // バリデーションエラーをクリア
     if (validationErrors.length > 0) {
@@ -643,13 +656,10 @@ export default function App() {
       // 楽観的にローカルキャッシュも更新（onSnapshot反映までのラグ対策）
       setDbEvents(prev => ({ ...prev, [selected.id]: eventToSave }));
       setSelected(eventToSave);
+      hasUnsavedChangesRef.current = false;
       setHasUnsavedChanges(false);
       setLastEditedId(selected.id);
-      fetch('/api/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: '✏️ イベント更新', body: `${selected.venue} が更新されました` }),
-      }).catch(console.error);
+      if (user) pushNotify(user, '✏️ イベント更新', `${selected.venue} が更新されました`).catch(console.error);
       setIsSaving(false);
       if (user) {
         const oldAssignees = dbEvents[selected.id]?.assignees ?? [];
@@ -697,11 +707,7 @@ export default function App() {
     try {
       await setDoc(doc(db, "events", id), newEvent);
       if (user) notifyEventCreated(newEvent, user).catch(console.error);
-      fetch('/api/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: '📅 新しいイベント', body: `${newEvent.venue} が作成されました` }),
-      }).catch(console.error);
+      if (user) pushNotify(user, '📅 新しいイベント', `${newEvent.venue} が作成されました`).catch(console.error);
     } catch (error) {
       console.error('Firestore create error:', error);
       setSaveError(formatSaveError(error));
@@ -729,6 +735,7 @@ export default function App() {
 
     // モーダルを即座に閉じ、UIから楽観的に削除
     setSelected(null);
+    hasUnsavedChangesRef.current = false;
     setHasUnsavedChanges(false);
     setValidationErrors([]);
     setModalTab('detail');
@@ -746,11 +753,7 @@ export default function App() {
       const prepPath = `events/${eventId}/preparationItems`;
       const prepSnapshot = await getDocs(collection(db, prepPath));
       await Promise.all(prepSnapshot.docs.map(d => deleteDoc(d.ref)));
-      fetch('/api/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: '🗑️ イベント削除', body: `「${deletedVenue}」が削除されました` }),
-      }).catch(console.error);
+      if (user) pushNotify(user, '🗑️ イベント削除', `「${deletedVenue}」が削除されました`).catch(console.error);
       if (user) notifyEventDeleted(deletedVenue, eventId, user).catch(console.error);
     } catch (error) {
       console.error('Delete error:', error);
@@ -840,6 +843,7 @@ export default function App() {
       }
     }
     setSelected(null);
+    hasUnsavedChangesRef.current = false;
     setHasUnsavedChanges(false);
     setValidationErrors([]);
     setModalTab('detail');
@@ -1199,7 +1203,10 @@ VITE_FIREBASE_DATABASE_ID`}
                 {staffList.length === 0 && (
                   <p className="px-3 py-2 text-xs text-slate-400">スタッフ未登録</p>
                 )}
-                {staffList.map((staff) => (
+                {[...staffList]
+                  .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+                  .slice(0, staffExpanded ? undefined : STAFF_SHOW_COUNT)
+                  .map((staff) => (
                   <div key={staff.id} className="group relative flex items-center">
                     <div className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 min-w-0">
                       <span className="text-sm shrink-0">👤</span>
@@ -1232,6 +1239,17 @@ VITE_FIREBASE_DATABASE_ID`}
                     )}
                   </div>
                 ))}
+                {staffList.length > STAFF_SHOW_COUNT && (
+                  <button
+                    type="button"
+                    onClick={() => setStaffExpanded(prev => !prev)}
+                    className="mx-3 mt-1 py-1.5 text-[10px] font-bold text-indigo-400 hover:text-indigo-600 transition-colors text-left"
+                  >
+                    {staffExpanded
+                      ? '▲ 閉じる'
+                      : `▼ もっと見る（あと${staffList.length - STAFF_SHOW_COUNT}人）`}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1589,6 +1607,7 @@ VITE_FIREBASE_DATABASE_ID`}
                     key={ev.id}
                     type="button"
                     onClick={() => handlePickEventFromDayDetail(ev)}
+                    title={ev.status === 'completed' ? '完了済み' : undefined}
                     style={{
                       borderLeftWidth: 3,
                       borderLeftColor: typeSty.border,
@@ -1631,6 +1650,12 @@ VITE_FIREBASE_DATABASE_ID`}
               onClick={(e) => e.stopPropagation()}
               className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[520px] lg:max-w-[520px] max-h-[92vh] lg:max-h-[90vh]"
             >
+                {selected.status === 'completed' && (
+                  <div className="flex items-center gap-2 px-4 py-3 bg-orange-50 border-b border-orange-100">
+                    <span className="text-orange-400">⚑</span>
+                    <span className="text-xs font-bold text-orange-500">このイベントは終了しました</span>
+                  </div>
+                )}
                 <div className="p-6 lg:p-8 pb-[calc(1.5rem+env(safe-area-inset-bottom))] overflow-y-auto overflow-x-hidden">
                   {/* Header: タグ + 閉じるボタン */}
                   <div className="flex justify-between items-center mb-5">
@@ -1881,6 +1906,7 @@ VITE_FIREBASE_DATABASE_ID`}
                                             },
                                           };
                                         });
+                                        hasUnsavedChangesRef.current = true;
                                         setHasUnsavedChanges(true);
                                       }}
                                       className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
@@ -2303,6 +2329,7 @@ function MobileMonthWeekGrid({
                       key={ev.id}
                       type="button"
                       onClick={() => onSelect(ev)}
+                      title={ev.status === 'completed' ? '完了済み' : undefined}
                       style={{
                         borderLeftWidth: 3,
                         borderLeftColor: typeSty.border,
@@ -2427,6 +2454,7 @@ function MobileDayAgendaView({
                 key={ev.id}
                 type="button"
                 onClick={() => onSelect(ev)}
+                title={ev.status === 'completed' ? '完了済み' : undefined}
                 className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-[#E5E5EA] ${
                   idx !== visible.length - 1 || hiddenCount > 0 ? 'border-b border-[rgba(60,60,67,0.12)]' : ''
                 }`}
@@ -2615,6 +2643,7 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
                             ? (captionNoDates ? `${ev.venue}。${captionNoDates}` : ev.venue)
                             : (captionFull ? `${ev.venue}。${captionFull}` : ev.venue)
                         }
+                        title={ev.status === 'completed' ? '完了済み' : undefined}
                         className="relative overflow-hidden flex w-full shrink-0 items-center gap-1.5 rounded-md border border-solid border-slate-200 bg-white px-1.5 py-0.5 text-left shadow-sm ring-1 ring-inset ring-slate-900/[0.04] transition hover:border-slate-300 hover:bg-slate-50/90"
                       >
                         <span

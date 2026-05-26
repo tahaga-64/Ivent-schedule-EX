@@ -160,7 +160,7 @@
 
   /* Minimal pill/badge */
   .status-pill {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-caption2 font-medium;
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] leading-[13px] font-medium;
   }
 
   /* Touch target - 44pt minimum */
@@ -170,11 +170,11 @@
 
   /* Section header - uppercase, muted */
   .section-label {
-    @apply text-caption1 font-medium text-[var(--text-secondary)] uppercase tracking-wide;
+    @apply text-xs leading-4 font-medium text-[var(--text-secondary)] uppercase tracking-wide;
   }
 
   .modern-pill {
-    @apply px-2.5 py-1 rounded-full text-caption2 font-medium items-center flex gap-1 transition-all;
+    @apply px-2.5 py-1 rounded-full text-[11px] leading-[13px] font-medium items-center flex gap-1 transition-all;
   }
 }
 
