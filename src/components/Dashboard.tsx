@@ -117,7 +117,7 @@ export default function Dashboard({ events }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* By region */}
         {stats.byRegion.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4" style={{ color: '#1e293b' }}>
             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">地域別件数</div>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={stats.byRegion} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
@@ -139,7 +139,7 @@ export default function Dashboard({ events }: Props) {
 
         {/* By type */}
         {stats.byType.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4" style={{ color: '#1e293b' }}>
             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">種別件数</div>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={stats.byType} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
@@ -157,7 +157,7 @@ export default function Dashboard({ events }: Props) {
 
         {/* Budget by month */}
         {stats.byBudget.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 lg:col-span-2">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 lg:col-span-2" style={{ color: '#1e293b' }}>
             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">月別予算合計</div>
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={stats.byBudget} margin={{ top: 0, right: 8, left: 10, bottom: 0 }}>
