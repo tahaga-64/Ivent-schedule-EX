@@ -2089,9 +2089,9 @@ interface MobileTimelineViewProps {
 
 function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps) {
   const fmtGroup = (d: string) => {
-    if (!d) return "—";
+    if (!d || d === "未定") return "日付未定";
     const [, m, day] = d.split("-");
-    const date = new Date(d);
+    const date = new Date(d + "T00:00:00");
     const dow = ["日","月","火","水","木","金","土"][date.getDay()];
     return `${parseInt(m)}/${parseInt(day)} ${dow}`;
   };
@@ -2128,7 +2128,7 @@ function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps) {
                 <div className="flex-1 py-4 min-w-0">
                   <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
                   <div className="text-[11px] text-slate-400 mt-0.5">
-                    {ev.region}・{ev.type || "その他"}
+                    {[ev.region, ev.type || "その他"].filter(Boolean).join("・")}
                   </div>
                 </div>
                 {ev.end && ev.end !== ev.start && (
