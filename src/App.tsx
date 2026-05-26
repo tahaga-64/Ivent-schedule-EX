@@ -1382,6 +1382,7 @@ VITE_FIREBASE_DATABASE_ID`}
                         onSelect={handleEventSelect}
                         onOpenDayDetail={handleOpenDayDetail}
                         onCreateEvent={handleCreateEvent}
+                        canEdit={canEditEvent}
                       />
                     )}
                   </div>
@@ -2332,6 +2333,7 @@ interface MobileDayAgendaViewProps {
   onSelect: (ev: Event) => void;
   onOpenDayDetail: (ctx: { year: number; month: number; day: number; events: Event[] }) => void;
   onCreateEvent: (data?: Partial<Event>) => void;
+  canEdit: boolean;
 }
 
 function MobileDayAgendaView({
@@ -2343,6 +2345,7 @@ function MobileDayAgendaView({
   onSelect,
   onOpenDayDetail,
   onCreateEvent,
+  canEdit,
 }: MobileDayAgendaViewProps) {
   const dim = new Date(year, month, 0).getDate();
   const day = Math.min(Math.max(1, agendaDay), dim);
@@ -2425,17 +2428,30 @@ function MobileDayAgendaView({
         </div>
       )}
 
-      <button
-        type="button"
-        className="flex min-h-11 w-full items-center justify-center rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 text-sm font-bold text-indigo-700"
-        onClick={() =>
-          onCreateEvent({
-            start: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
-          })
-        }
-      >
-        この日にイベントを追加
-      </button>
+      <div className="space-y-1">
+        <button
+          type="button"
+          disabled={!canEdit}
+          className={`flex min-h-11 w-full items-center justify-center rounded-xl border border-dashed text-sm font-bold transition-colors ${
+            canEdit
+              ? 'border-indigo-200 bg-indigo-50/50 text-indigo-700'
+              : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+          }`}
+          onClick={() =>
+            canEdit &&
+            onCreateEvent({
+              start: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+            })
+          }
+        >
+          この日にイベントを追加
+        </button>
+        {!canEdit && (
+          <p className="text-center text-[11px] text-slate-400">
+            ※ 権限がありません
+          </p>
+        )}
+      </div>
     </div>
   );
 }
