@@ -6,8 +6,8 @@ import ScrollBackground from './ScrollBackground';
 
 const BG_IMAGES = [
   'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1600&q=80', // イベント会場
-  'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1600&q=80', // カンファレンス
-  'https://images.unsplash.com/photo-1511578314322-379afb476865?w=1600&q=80', // 宴会・パーティー
+  '/mercury-logo.jpg',
+  '/mercury-office.jpg',
 ];
 
 const container = {
