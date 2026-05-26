@@ -121,8 +121,8 @@ export default function Dashboard({ events }: Props) {
             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">地域別件数</div>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={stats.byRegion} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 700, fill: '#475569' }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 700, fill: '#1e293b' }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#1e293b' }} />
                 <Tooltip
                   formatter={(v) => [`${v ?? 0} 件`, '件数']}
                   contentStyle={{ borderRadius: 8, fontSize: 12, border: '1px solid #e2e8f0' }}
@@ -143,8 +143,8 @@ export default function Dashboard({ events }: Props) {
             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">種別件数</div>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={stats.byType} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 700, fill: '#475569' }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 700, fill: '#1e293b' }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#1e293b' }} />
                 <Tooltip
                   formatter={(v) => [`${v ?? 0} 件`, '件数']}
                   contentStyle={{ borderRadius: 8, fontSize: 12, border: '1px solid #e2e8f0' }}
@@ -161,8 +161,8 @@ export default function Dashboard({ events }: Props) {
             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">月別予算合計</div>
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={stats.byBudget} margin={{ top: 0, right: 8, left: 10, bottom: 0 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 700, fill: '#475569' }} />
-                <YAxis tickFormatter={(v: number) => `¥${(v / 10000).toFixed(0)}万`} tick={{ fontSize: 11 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 700, fill: '#1e293b' }} />
+                <YAxis tickFormatter={(v: number) => `¥${(v / 10000).toFixed(0)}万`} tick={{ fontSize: 11, fill: '#1e293b' }} />
                 <Tooltip
                   formatter={(v) => [`¥${Number(v ?? 0).toLocaleString()}`, '予算合計']}
                   contentStyle={{ borderRadius: 8, fontSize: 12, border: '1px solid #e2e8f0' }}
