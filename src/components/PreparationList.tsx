@@ -364,7 +364,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         {(canEdit || items.filter(i => !isEmptyItem(i)).length > 0) && (
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm" style={{ minWidth: '1100px' }}>
+            <table className="w-full border-collapse text-sm" style={{ minWidth: '1400px' }}>
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="w-10 px-3 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center border-r border-gray-100">#</th>
@@ -374,7 +374,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                   <th className="w-32 px-3 py-3 text-[10px] font-black text-indigo-600 uppercase tracking-widest text-right border-r border-gray-100 bg-indigo-50/40">金額</th>
                   <th className="w-28 px-3 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-right border-r border-gray-100">配送料</th>
                   <th className="w-20 px-3 py-3 text-[10px] font-black text-emerald-600 uppercase tracking-widest text-center border-r border-gray-100 bg-emerald-50/40">到着</th>
-                  <th className="w-20 px-3 py-3 text-[10px] font-black text-indigo-600 uppercase tracking-widest text-center border-r border-gray-100 bg-indigo-50/40">準備完了</th>
+                  <th className="w-20 px-3 py-3 text-[10px] font-black text-indigo-600 uppercase tracking-widest text-center border-r border-gray-100 bg-indigo-50/40 whitespace-nowrap">準備完了</th>
                   <th className="px-4 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-left border-r border-gray-100" style={{ minWidth: '280px' }}>備考</th>
                   <th className="px-4 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-left border-r border-gray-100" style={{ minWidth: '160px' }}>URL</th>
                   <th className="w-10 px-2 py-3" />
@@ -420,7 +420,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                         />
                       </div>
                     </td>
-                    <td className="px-3 py-3 text-right font-mono font-black text-indigo-600 text-sm border-r border-gray-100 bg-indigo-50/30">
+                    <td className="px-3 py-3 text-right font-mono font-black text-indigo-600 text-sm border-r border-gray-100 bg-indigo-50/30 whitespace-nowrap">
                       ¥{(item.amount || 0).toLocaleString()}
                     </td>
                     <td className="p-0 border-r border-gray-100">
