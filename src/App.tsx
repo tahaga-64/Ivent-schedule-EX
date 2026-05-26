@@ -26,7 +26,7 @@ import {
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
 import Dashboard from './components/Dashboard';
-import { registerFcmToken } from './lib/fcm';
+import { registerFcmToken, registerFcmTokenWithDiagnostics, type FcmDiagStep } from './lib/fcm';
 import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted, notifyAssigneesAdded } from './lib/notifications';
 import { checkUserAllowed } from './lib/allowedUsers';
 
@@ -1271,7 +1271,7 @@ VITE_FIREBASE_DATABASE_ID`}
 
             {/* PUSH NOTIFICATION TEST — 編集者のみ表示 */}
             {canEditEvent && (
-              <PushNotifyTest pushNotify={(title, body) => user ? pushNotify(user, title, body) : Promise.resolve()} />
+              <PushNotifyTest pushNotify={(title, body) => user ? pushNotify(user, title, body) : Promise.resolve()} userId={user.uid} />
             )}
           </div>
         </aside>}
@@ -2750,13 +2750,14 @@ function EmptyState() {
   );
 }
 
-function PushNotifyTest({ pushNotify }: { pushNotify: (title: string, body: string) => Promise<Response | void> }) {
+function PushNotifyTest({ pushNotify, userId }: { pushNotify: (title: string, body: string) => Promise<Response | void>; userId: string }) {
   const [status, setStatus] = useState<'idle' | 'sending' | 'ok' | 'error'>('idle');
   const [result, setResult] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [tokenCount, setTokenCount] = useState<{ total: number; withToken: number } | null>(null);
+  const [diagSteps, setDiagSteps] = useState<FcmDiagStep[] | null>(null);
+  const [diagRunning, setDiagRunning] = useState(false);
 
-  // パネルを開いたときにトークン数を取得
   useEffect(() => {
     if (!open) return;
     getDocs(collection(db, 'users')).then(snap => {
@@ -2765,6 +2766,18 @@ function PushNotifyTest({ pushNotify }: { pushNotify: (title: string, body: stri
       setTokenCount({ total, withToken });
     }).catch(() => {});
   }, [open]);
+
+  const handleDiag = async () => {
+    setDiagRunning(true);
+    setDiagSteps(null);
+    const steps = await registerFcmTokenWithDiagnostics(userId);
+    setDiagSteps(steps);
+    setDiagRunning(false);
+    // トークン数も更新
+    getDocs(collection(db, 'users')).then(snap => {
+      setTokenCount({ total: snap.size, withToken: snap.docs.filter(d => Boolean(d.data().fcmToken)).length });
+    }).catch(() => {});
+  };
 
   const handleSend = async () => {
     setStatus('sending');
@@ -2814,6 +2827,33 @@ function PushNotifyTest({ pushNotify }: { pushNotify: (title: string, body: stri
                   該当ユーザーはアプリを開き直すと通知許可ダイアログが表示されます。
                 </p>
               )}
+            </div>
+          )}
+          {/* 診断ボタン */}
+          <button
+            type="button"
+            onClick={handleDiag}
+            disabled={diagRunning}
+            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-colors disabled:opacity-60"
+          >
+            {diagRunning ? '診断中...' : '🔍 このデバイスの通知診断'}
+          </button>
+          {diagSteps && (
+            <div className="bg-slate-50 rounded-xl p-2 space-y-1">
+              {diagSteps.map((s, i) => (
+                <div key={i} className="flex items-start gap-1.5">
+                  <span className="shrink-0 text-[11px]">{s.ok ? '✅' : '❌'}</span>
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-bold text-slate-700">{s.step}</span>
+                    {!s.ok && 'detail' in s && (
+                      <p className="text-[10px] text-red-500 break-all leading-snug">{s.detail}</p>
+                    )}
+                    {s.ok && 'detail' in s && s.detail && (
+                      <p className="text-[10px] text-slate-400 break-all leading-snug">{s.detail}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
           <button
