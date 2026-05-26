@@ -134,7 +134,7 @@ function statusStyle(status?: string): { label: string; bg: string; text: string
     case 'in_progress': return { label: '準備中',    bg: 'bg-amber-50',   text: 'text-amber-600',  dot: '#f59e0b' };
     case 'waiting':     return { label: '入荷待ち',  bg: 'bg-blue-50',    text: 'text-blue-600',   dot: '#3b82f6' };
     case 'ready':       return { label: '準備完了',  bg: 'bg-emerald-50', text: 'text-emerald-600',dot: '#10b981' };
-    case 'completed':   return { label: '終了',      bg: 'bg-orange-50',  text: 'text-orange-500', dot: '#f97316' };
+    case 'completed':   return { label: '終了',      bg: 'bg-orange-500', text: 'text-white',      dot: '#f97316' };
     case 'cancelled':   return { label: 'キャンセル',bg: 'bg-red-50',     text: 'text-red-500',    dot: '#ef4444' };
     default:            return { label: '予定',      bg: 'bg-slate-50',   text: 'text-slate-400',  dot: '#cbd5e1' };
   }
@@ -336,6 +336,7 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const hasUnsavedChangesRef = useRef(false);
+  const [localDailyRoles, setLocalDailyRoles] = useState<Record<string, Record<string, string>>>({});
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastEditedId, setLastEditedId] = useState<string | null>(() => localStorage.getItem('lastEditedId'));
@@ -460,6 +461,11 @@ export default function App() {
     const latest = dbEvents[selected.id];
     if (latest) setSelected(latest);
   }, [dbEvents, selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 日別役割のローカル状態をイベント切替時に初期化（Firestoreの同期と完全に分離）
+  useEffect(() => {
+    setLocalDailyRoles(selected?.dailyRoles ?? {});
+  }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 選択イベントの準備物統計をリアルタイム購読
   useEffect(() => {
@@ -602,17 +608,14 @@ export default function App() {
   }, [allEvents, filtered]);
 
   const handleUpdateEvent = (id: string, updates: Partial<Event>) => {
-    // 選択中のイベントをベースに更新
     if (!selected || selected.id !== id) return;
-    
-    const newEvent = { ...selected, ...updates };
-
-    // モーダルの表示（state）を即座に更新して入力をサクサクにする
-    setSelected(newEvent);
-    // 変更ありフラグを立てる
+    // 関数型更新で常に最新 state をベースにする（stale closure 防止）
+    setSelected(prev => {
+      if (!prev || prev.id !== id) return prev;
+      return { ...prev, ...updates };
+    });
     hasUnsavedChangesRef.current = true;
     setHasUnsavedChanges(true);
-    // バリデーションエラーをクリア
     if (validationErrors.length > 0) {
       setValidationErrors([]);
     }
@@ -649,9 +652,11 @@ export default function App() {
       // latestPhotos が undefined のとき photos: undefined を Firestore に渡すと
       // Firebase v12 が "Unsupported field value: undefined" で弾くため、undefined の場合はキーごと除外する
       const { photos: _p, ...eventBase } = selected;
-      const eventToSave = latestPhotos !== undefined
-        ? { ...eventBase, photos: latestPhotos }
-        : { ...eventBase };
+      const eventToSave = {
+        ...eventBase,
+        dailyRoles: localDailyRoles,
+        ...(latestPhotos !== undefined ? { photos: latestPhotos } : {}),
+      };
       await setDoc(doc(db, "events", selected.id), eventToSave);
       // 楽観的にローカルキャッシュも更新（onSnapshot反映までのラグ対策）
       setDbEvents(prev => ({ ...prev, [selected.id]: eventToSave }));
@@ -1160,7 +1165,7 @@ VITE_FIREBASE_DATABASE_ID`}
 
             {/* ステータスフィルター */}
             <div className="space-y-1 pt-2">
-              <div className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] px-1 opacity-60 mb-3">ステータス</div>
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1 mb-3">ステータス</div>
               {[
                 { label: 'すべて',    value: 'all',         dot: null },
                 { label: '準備中',   value: 'in_progress',  dot: '#f59e0b' },
@@ -1174,7 +1179,7 @@ VITE_FIREBASE_DATABASE_ID`}
                   className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                     statusFilter === value
                       ? 'bg-amber-500 text-white shadow-md'
-                      : 'text-[var(--text-secondary)] hover:text-amber-500'
+                      : 'text-slate-600 hover:text-amber-500'
                   }`}
                 >
                   {dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusFilter === value ? 'white' : dot }} />}
@@ -1377,6 +1382,7 @@ VITE_FIREBASE_DATABASE_ID`}
                         onSelect={handleEventSelect}
                         onOpenDayDetail={handleOpenDayDetail}
                         onCreateEvent={handleCreateEvent}
+                        canEdit={canEditEvent}
                       />
                     )}
                   </div>
@@ -1623,9 +1629,9 @@ VITE_FIREBASE_DATABASE_ID`}
               className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[520px] lg:max-w-[520px] max-h-[92vh] lg:max-h-[90vh]"
             >
                 {selected.status === 'completed' && (
-                  <div className="flex items-center gap-2 px-4 py-3 bg-orange-50 border-b border-orange-100">
-                    <span className="text-orange-400">⚑</span>
-                    <span className="text-xs font-bold text-orange-500">このイベントは終了しました</span>
+                  <div className="flex items-center gap-2 px-4 py-3 bg-orange-500 border-b border-orange-600">
+                    <span className="text-white">⚑</span>
+                    <span className="text-xs font-bold text-white">このイベントは終了しました</span>
                   </div>
                 )}
                 <div className="p-6 lg:p-8 pb-[calc(1.5rem+env(safe-area-inset-bottom))] overflow-y-auto overflow-x-hidden">
@@ -1860,24 +1866,15 @@ VITE_FIREBASE_DATABASE_ID`}
                                     <span className="text-xs font-medium text-gray-700 w-20 shrink-0 truncate">{memberName}</span>
                                     <input
                                       type="text"
-                                      value={selected.dailyRoles?.[date]?.[memberName] ?? ''}
+                                      value={localDailyRoles?.[date]?.[memberName] ?? ''}
                                       disabled={!canEditEvent}
                                       placeholder="役割を入力"
                                       onChange={e => {
                                         const val = e.target.value;
-                                        setSelected(prev => {
-                                          if (!prev) return prev;
-                                          return {
-                                            ...prev,
-                                            dailyRoles: {
-                                              ...(prev.dailyRoles ?? {}),
-                                              [date]: {
-                                                ...(prev.dailyRoles?.[date] ?? {}),
-                                                [memberName]: val,
-                                              },
-                                            },
-                                          };
-                                        });
+                                        setLocalDailyRoles(prev => ({
+                                          ...prev,
+                                          [date]: { ...(prev[date] ?? {}), [memberName]: val },
+                                        }));
                                         hasUnsavedChangesRef.current = true;
                                         setHasUnsavedChanges(true);
                                       }}
@@ -2336,6 +2333,7 @@ interface MobileDayAgendaViewProps {
   onSelect: (ev: Event) => void;
   onOpenDayDetail: (ctx: { year: number; month: number; day: number; events: Event[] }) => void;
   onCreateEvent: (data?: Partial<Event>) => void;
+  canEdit: boolean;
 }
 
 function MobileDayAgendaView({
@@ -2347,6 +2345,7 @@ function MobileDayAgendaView({
   onSelect,
   onOpenDayDetail,
   onCreateEvent,
+  canEdit,
 }: MobileDayAgendaViewProps) {
   const dim = new Date(year, month, 0).getDate();
   const day = Math.min(Math.max(1, agendaDay), dim);
@@ -2429,17 +2428,30 @@ function MobileDayAgendaView({
         </div>
       )}
 
-      <button
-        type="button"
-        className="flex min-h-11 w-full items-center justify-center rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 text-sm font-bold text-indigo-700"
-        onClick={() =>
-          onCreateEvent({
-            start: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
-          })
-        }
-      >
-        この日にイベントを追加
-      </button>
+      <div className="space-y-1">
+        <button
+          type="button"
+          disabled={!canEdit}
+          className={`flex min-h-11 w-full items-center justify-center rounded-xl border border-dashed text-sm font-bold transition-colors ${
+            canEdit
+              ? 'border-indigo-200 bg-indigo-50/50 text-indigo-700'
+              : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+          }`}
+          onClick={() =>
+            canEdit &&
+            onCreateEvent({
+              start: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+            })
+          }
+        >
+          この日にイベントを追加
+        </button>
+        {!canEdit && (
+          <p className="text-center text-[11px] text-slate-400">
+            ※ 権限がありません
+          </p>
+        )}
+      </div>
     </div>
   );
 }
