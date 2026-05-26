@@ -40,6 +40,7 @@ export interface PreparationItem {
   shippingFee: number;
   arrived: boolean;
   prepared: boolean;
+  arrivalDate?: string;
   note: string;
   url?: string;
   order: number;

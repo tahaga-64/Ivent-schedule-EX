@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { PreparationItem, Event } from '../types';
-import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer } from 'lucide-react';
+import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer, FileSpreadsheet } from 'lucide-react';
 import { motion } from 'motion/react';
+import * as XLSX from 'xlsx';
 
 interface Props {
   event: Event;
@@ -61,6 +62,34 @@ function formatSaveError(error: unknown): string {
 
 function handlePrint() {
   window.print();
+}
+
+function handleExportExcel(event: Event, items: PreparationItem[]) {
+  const rows = items.filter(i => !isEmptyItem(i)).map((item, idx) => ({
+    '#': idx + 1,
+    '到着予定日': item.arrivalDate ?? '',
+    '到着': item.arrived ? '✓' : '',
+    '準備完了': item.prepared ? '✓' : '',
+    '品名': item.name,
+    '数量': item.quantity,
+    '単価': item.unitPrice,
+    '金額': item.amount,
+    '配送料': item.shippingFee,
+    '備考': item.note,
+    'URL': item.url ?? '',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [
+    { wch: 4 }, { wch: 14 }, { wch: 6 }, { wch: 8 },
+    { wch: 30 }, { wch: 6 }, { wch: 10 }, { wch: 12 },
+    { wch: 10 }, { wch: 30 }, { wch: 40 },
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '準備物リスト');
+  const filename = `${event.venue}_準備物リスト_${event.start ?? ''}.xlsx`;
+  XLSX.writeFile(wb, filename);
 }
 
 export default function PreparationList({ event, onBack, canEdit }: Props) {
@@ -192,6 +221,14 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => handleExportExcel(event, items)}
+            className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl font-bold text-xs transition-colors print:hidden"
+            title="Excelエクスポート"
+          >
+            <FileSpreadsheet size={13} />
+            <span className="hidden sm:inline">Excel</span>
+          </button>
+          <button
             onClick={handlePrint}
             className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl font-bold text-xs transition-colors print:hidden"
             title="印刷"
@@ -277,9 +314,30 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                 <div className="text-sm font-black text-indigo-600 font-mono">¥{(item.amount || 0).toLocaleString()}</div>
               </div>
             </div>
-            {/* Row 3: 配送料 / 到着 / 準備 */}
+            {/* Row 3: 到着予定日 / 到着 / 準備 */}
             <div className="grid grid-cols-3 border-t border-gray-100">
               <div className="px-3 py-2 border-r border-gray-100">
+                <div className="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">到着予定日</div>
+                <input
+                  type="date"
+                  readOnly={!canEdit}
+                  value={item.arrivalDate ?? ''}
+                  onChange={e => updateItem(item.id, { arrivalDate: e.target.value })}
+                  className="w-full text-xs font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
+                />
+              </div>
+              <div className="px-3 py-2 flex flex-col items-center border-r border-gray-100">
+                <div className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1.5">到着</div>
+                <Checkbox checked={item.arrived} disabled={!canEdit} onChange={() => updateItem(item.id, { arrived: !item.arrived })} color="emerald" />
+              </div>
+              <div className="px-3 py-2 flex flex-col items-center">
+                <div className="text-[9px] font-black text-indigo-600 uppercase tracking-widest mb-1.5">準備完了</div>
+                <Checkbox checked={item.prepared} disabled={!canEdit} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
+              </div>
+            </div>
+            {/* Row 4: 配送料 */}
+            <div className="border-t border-gray-100">
+              <div className="px-3 py-2">
                 <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">配送料</div>
                 <div className="flex items-center gap-0.5">
                   <span className="text-[10px] text-gray-400">¥</span>
@@ -292,14 +350,6 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                     className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
                   />
                 </div>
-              </div>
-              <div className="px-3 py-2 flex flex-col items-center border-r border-gray-100">
-                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">到着</div>
-                <Checkbox checked={item.arrived} disabled={!canEdit} onChange={() => updateItem(item.id, { arrived: !item.arrived })} />
-              </div>
-              <div className="px-3 py-2 flex flex-col items-center">
-                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">準備完了</div>
-                <Checkbox checked={item.prepared} disabled={!canEdit} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
               </div>
             </div>
             {/* Row 4: 備考 (shown if has content or canEdit) */}
@@ -364,18 +414,19 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         {(canEdit || items.filter(i => !isEmptyItem(i)).length > 0) && (
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm" style={{ minWidth: '1400px' }}>
+            <table className="w-full border-collapse text-sm" style={{ minWidth: '1200px' }}>
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="w-10 px-3 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center border-r border-gray-100">#</th>
-                  <th className="px-4 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-left border-r border-gray-100" style={{ minWidth: '220px' }}>品名</th>
+                  <th className="w-32 px-3 py-3 text-[10px] font-black text-orange-500 uppercase tracking-widest text-center border-r border-gray-100 bg-orange-50/40 whitespace-nowrap">到着予定日</th>
+                  <th className="w-20 px-3 py-3 text-[10px] font-black text-emerald-600 uppercase tracking-widest text-center border-r border-gray-100 bg-emerald-50/40">到着</th>
+                  <th className="w-20 px-3 py-3 text-[10px] font-black text-indigo-600 uppercase tracking-widest text-center border-r border-gray-100 bg-indigo-50/40 whitespace-nowrap">準備完了</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-left border-r border-gray-100" style={{ minWidth: '200px' }}>品名</th>
                   <th className="w-20 px-3 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-center border-r border-gray-100">数量</th>
                   <th className="w-28 px-3 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-right border-r border-gray-100">単価</th>
                   <th className="w-32 px-3 py-3 text-[10px] font-black text-indigo-600 uppercase tracking-widest text-right border-r border-gray-100 bg-indigo-50/40">金額</th>
                   <th className="w-28 px-3 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-right border-r border-gray-100">配送料</th>
-                  <th className="w-20 px-3 py-3 text-[10px] font-black text-emerald-600 uppercase tracking-widest text-center border-r border-gray-100 bg-emerald-50/40">到着</th>
-                  <th className="w-20 px-3 py-3 text-[10px] font-black text-indigo-600 uppercase tracking-widest text-center border-r border-gray-100 bg-indigo-50/40 whitespace-nowrap">準備完了</th>
-                  <th className="px-4 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-left border-r border-gray-100" style={{ minWidth: '280px' }}>備考</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-left border-r border-gray-100" style={{ minWidth: '220px' }}>備考</th>
                   <th className="px-4 py-3 text-[10px] font-black text-gray-600 uppercase tracking-widest text-left border-r border-gray-100" style={{ minWidth: '160px' }}>URL</th>
                   <th className="w-10 px-2 py-3" />
                 </tr>
@@ -389,6 +440,27 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                     } hover:bg-indigo-50/30`}
                   >
                     <td className="px-3 py-3 text-center text-xs text-gray-400 font-mono border-r border-gray-100">{idx + 1}</td>
+                    <td className={`px-2 py-2 text-center border-r border-gray-100 bg-orange-50/30`}>
+                      <input
+                        type="date"
+                        readOnly={!canEdit}
+                        value={item.arrivalDate ?? ''}
+                        onChange={e => updateItem(item.id, { arrivalDate: e.target.value })}
+                        className="w-full text-xs font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default text-center"
+                      />
+                    </td>
+                    <td className={`px-3 py-3 text-center border-r border-gray-100 transition-colors ${item.arrived ? 'bg-emerald-50/80' : ''}`}>
+                      <div className="flex flex-col items-center gap-1">
+                        <Checkbox checked={item.arrived} disabled={!canEdit} onChange={() => updateItem(item.id, { arrived: !item.arrived })} color="emerald" />
+                        {item.arrived && <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">済</span>}
+                      </div>
+                    </td>
+                    <td className={`px-3 py-3 text-center border-r border-gray-100 transition-colors ${item.prepared ? 'bg-indigo-50/80' : ''}`}>
+                      <div className="flex flex-col items-center gap-1">
+                        <Checkbox checked={item.prepared} disabled={!canEdit} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
+                        {item.prepared && <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">済</span>}
+                      </div>
+                    </td>
                     <td className="p-0 border-r border-gray-100">
                       <input
                         type="text"
@@ -433,18 +505,6 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                           placeholder="0"
                           className="w-full bg-transparent outline-none focus:bg-indigo-50/30 text-sm font-mono text-gray-700 text-right read-only:cursor-default"
                         />
-                      </div>
-                    </td>
-                    <td className={`px-3 py-3 text-center border-r border-gray-100 transition-colors ${item.arrived ? 'bg-emerald-50/80' : ''}`}>
-                      <div className="flex flex-col items-center gap-1">
-                        <Checkbox checked={item.arrived} disabled={!canEdit} onChange={() => updateItem(item.id, { arrived: !item.arrived })} color="emerald" />
-                        {item.arrived && <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">済</span>}
-                      </div>
-                    </td>
-                    <td className={`px-3 py-3 text-center border-r border-gray-100 transition-colors ${item.prepared ? 'bg-indigo-50/80' : ''}`}>
-                      <div className="flex flex-col items-center gap-1">
-                        <Checkbox checked={item.prepared} disabled={!canEdit} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
-                        {item.prepared && <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest">済</span>}
                       </div>
                     </td>
                     <td className="p-0 border-r border-gray-100">
