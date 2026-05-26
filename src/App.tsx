@@ -10,7 +10,7 @@ interface StaffMember {
   name: string;
   email?: string;
 }
-import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun, Bell } from 'lucide-react';
+import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
@@ -26,7 +26,6 @@ import {
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
 import Dashboard from './components/Dashboard';
-import { registerFcmToken, registerFcmTokenWithDiagnostics, subscribeForegroundFcm, type FcmDiagStep } from './lib/fcm';
 import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted, notifyAssigneesAdded } from './lib/notifications';
 import { checkUserAllowed } from './lib/allowedUsers';
 
@@ -120,14 +119,6 @@ function daysUntil(start: string): number {
   return Math.round((new Date(start + 'T00:00:00').getTime() - today.getTime()) / 86400000);
 }
 
-async function pushNotify(currentUser: import('firebase/auth').User, title: string, body: string) {
-  const token = await currentUser.getIdToken();
-  return fetch('/api/notify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify({ title, body }),
-  });
-}
 
 function statusStyle(status?: string): { label: string; bg: string; text: string; dot: string } {
   switch (status) {
@@ -303,7 +294,8 @@ export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [accessDenied, setAccessDenied] = useState(false);
   const [needsNameSetup, setNeedsNameSetup] = useState(false);
-  const [fcmToast, setFcmToast] = useState<{ title: string; body: string } | null>(null);
+  const [isNotifying, setIsNotifying] = useState(false);
+  const [notifyResult, setNotifyResult] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
     return (saved === 'calendar' || saved === 'prep' || saved === 'archive') ? saved : 'calendar';
@@ -397,7 +389,6 @@ export default function App() {
         setNeedsNameSetup(true);
       } else {
         setNeedsNameSetup(false);
-        registerFcmToken(u.uid);
         recordUserLogin(u).catch(error => {
           console.error('User profile upsert error:', error);
         });
@@ -411,17 +402,6 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
-
-  // フォアグラウンドFCM通知
-  useEffect(() => {
-    if (!user) return;
-    let unsub: (() => void) | undefined;
-    subscribeForegroundFcm((title, body) => {
-      setFcmToast({ title, body });
-      setTimeout(() => setFcmToast(null), 6000);
-    }).then(fn => { unsub = fn; });
-    return () => { unsub?.(); };
-  }, [user?.uid]);
 
   // スタッフリスト購読
   useEffect(() => {
@@ -677,7 +657,6 @@ export default function App() {
       hasUnsavedChangesRef.current = false;
       setHasUnsavedChanges(false);
       setLastEditedId(selected.id);
-      if (user) pushNotify(user, '✏️ イベント更新', `${selected.venue} が更新されました`).catch(console.error);
       setIsSaving(false);
       if (user) {
         const oldAssignees = dbEvents[selected.id]?.assignees ?? [];
@@ -725,7 +704,6 @@ export default function App() {
     try {
       await setDoc(doc(db, "events", id), newEvent);
       if (user) notifyEventCreated(newEvent, user).catch(console.error);
-      if (user) pushNotify(user, '📅 新しいイベント', `${newEvent.venue} が作成されました`).catch(console.error);
     } catch (error) {
       console.error('Firestore create error:', error);
       setSaveError(formatSaveError(error));
@@ -737,6 +715,30 @@ export default function App() {
       });
       setSelected(null);
     }
+  };
+
+  const handleNotifyEmail = async () => {
+    if (!selected || !user) return;
+    setIsNotifying(true);
+    setNotifyResult(null);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/notify-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          eventVenue: selected.venue,
+          eventStart: selected.start,
+          eventEnd: selected.end,
+          senderName: user.displayName || user.email || '編集者',
+        }),
+      });
+      const data = await res.json() as { sent?: number; error?: string };
+      setNotifyResult(res.ok ? `✅ ${data.sent}名にメールを送信しました` : `❌ ${data.error ?? '送信失敗'}`);
+    } catch (e) {
+      setNotifyResult(`❌ ${String(e)}`);
+    }
+    setIsNotifying(false);
   };
 
   const handleDeleteEvent = async () => {
@@ -771,7 +773,6 @@ export default function App() {
       const prepPath = `events/${eventId}/preparationItems`;
       const prepSnapshot = await getDocs(collection(db, prepPath));
       await Promise.all(prepSnapshot.docs.map(d => deleteDoc(d.ref)));
-      if (user) pushNotify(user, '🗑️ イベント削除', `「${deletedVenue}」が削除されました`).catch(console.error);
       if (user) notifyEventDeleted(deletedVenue, eventId, user).catch(console.error);
     } catch (error) {
       console.error('Delete error:', error);
@@ -887,6 +888,7 @@ export default function App() {
     handleEventHoverEnd();
     if (ev.id.startsWith("__cal_preview_")) return;
     setSelected(ev);
+    setNotifyResult(null);
   };
 
   const handleOpenDayDetail = useCallback((ctx: { year: number; month: number; day: number; events: Event[] }) => {
@@ -947,7 +949,6 @@ VITE_FIREBASE_DATABASE_ID`}
       user={user}
       onComplete={() => {
         setNeedsNameSetup(false);
-        registerFcmToken(user.uid);
         recordUserLogin(user).catch(error => {
           console.error('User profile upsert error:', error);
         });
@@ -957,17 +958,6 @@ VITE_FIREBASE_DATABASE_ID`}
 
   return (
     <div className="flex flex-col min-h-screen transition-colors duration-300">
-      {/* FCMフォアグラウンド通知トースト */}
-      {fcmToast && (
-        <div className="fixed top-16 right-4 z-[9999] w-72 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl shadow-xl p-4 flex items-start gap-3 animate-in slide-in-from-top-2">
-          <span className="text-xl shrink-0">🔔</span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{fcmToast.title}</p>
-            {fcmToast.body && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{fcmToast.body}</p>}
-          </div>
-          <button onClick={() => setFcmToast(null)} className="text-slate-300 hover:text-slate-500 text-xs shrink-0">✕</button>
-        </div>
-      )}
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-slate-100 sticky top-0 z-30 gap-4">
         {/* 左: ハンバーガー + ロゴ */}
@@ -1045,8 +1035,6 @@ VITE_FIREBASE_DATABASE_ID`}
                 {user.displayName?.[0] || 'U'}
               </div>
             )}
-            {/* 通知登録ボタン（全デバイス共通） */}
-            <NotificationHeaderButton userId={user.uid} currentUser={user} />
             <button
               onClick={() => setIsDark(v => !v)}
               className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-indigo-500 transition-colors"
@@ -1060,9 +1048,6 @@ VITE_FIREBASE_DATABASE_ID`}
           </div>
         </div>
       </header>
-
-      {/* 通知許可バナー — 未許可ユーザーにのみ表示 */}
-      <NotificationPermissionBanner userId={user.uid} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
@@ -1294,10 +1279,6 @@ VITE_FIREBASE_DATABASE_ID`}
               </div>
             </div>
 
-            {/* PUSH NOTIFICATION TEST — 編集者のみ表示 */}
-            {canEditEvent && (
-              <PushNotifyTest pushNotify={(title, body) => user ? pushNotify(user, title, body) : Promise.resolve()} userId={user.uid} />
-            )}
           </div>
         </aside>}
 
@@ -1997,6 +1978,21 @@ VITE_FIREBASE_DATABASE_ID`}
                       準備物リストを開く
                     </button>
                   </div>
+                  {isEventEditor(user?.email) && (
+                    <>
+                      <button
+                        onClick={handleNotifyEmail}
+                        disabled={isNotifying}
+                        className="w-full mt-2 py-3 rounded-2xl bg-indigo-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+                      >
+                        <Send size={15} />
+                        {isNotifying ? '送信中...' : 'メンバーに通知する'}
+                      </button>
+                      {notifyResult && (
+                        <p className="text-xs text-center text-slate-500 mt-1">{notifyResult}</p>
+                      )}
+                    </>
+                  )}
                   {canEditEvent && (
                     <button
                       onClick={handleDeleteEvent}
@@ -2775,324 +2771,3 @@ function EmptyState() {
   );
 }
 
-function PushNotifyTest({ pushNotify, userId }: { pushNotify: (title: string, body: string) => Promise<Response | void>; userId: string }) {
-  const [status, setStatus] = useState<'idle' | 'sending' | 'ok' | 'error'>('idle');
-  const [result, setResult] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
-  const [tokenCount, setTokenCount] = useState<{ total: number; withToken: number } | null>(null);
-  const [diagSteps, setDiagSteps] = useState<FcmDiagStep[] | null>(null);
-  const [diagRunning, setDiagRunning] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    getDocs(collection(db, 'users')).then(snap => {
-      const total = snap.size;
-      const withToken = snap.docs.filter(d => Boolean(d.data().fcmToken)).length;
-      setTokenCount({ total, withToken });
-    }).catch(() => {});
-  }, [open]);
-
-  const handleDiag = async () => {
-    setDiagRunning(true);
-    setDiagSteps(null);
-    const steps = await registerFcmTokenWithDiagnostics(userId);
-    setDiagSteps(steps);
-    setDiagRunning(false);
-    // トークン数も更新
-    getDocs(collection(db, 'users')).then(snap => {
-      setTokenCount({ total: snap.size, withToken: snap.docs.filter(d => Boolean(d.data().fcmToken)).length });
-    }).catch(() => {});
-  };
-
-  const handleSend = async () => {
-    setStatus('sending');
-    setResult(null);
-    try {
-      const res = await pushNotify('🔔 テスト通知', 'プッシュ通知が正常に動作しています');
-      if (res && res instanceof Response) {
-        const data = await res.json().catch(() => ({}));
-        if (res.ok) {
-          setResult(`✅ 送信完了 — ${data.sent ?? '?'} 台に配信、${data.failed ?? 0} 台失敗`);
-          setStatus('ok');
-        } else {
-          setResult(`❌ サーバーエラー: ${data.error ?? res.statusText}`);
-          setStatus('error');
-        }
-      } else {
-        setResult('⚠️ レスポンスなし（設定を確認してください）');
-        setStatus('error');
-      }
-    } catch (e) {
-      setResult(`❌ ネットワークエラー: ${e instanceof Error ? e.message : String(e)}`);
-      setStatus('error');
-    }
-  };
-
-  return (
-    <div className="border-t border-slate-100 pt-4 mt-2">
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-1 py-1 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-500 transition-colors"
-      >
-        <span>🔔 通知テスト</span>
-        <span>{open ? '▲' : '▼'}</span>
-      </button>
-      {open && (
-        <div className="mt-3 space-y-2 px-1">
-          {/* トークン登録状況 */}
-          {tokenCount !== null && (
-            <div className="bg-slate-50 rounded-xl p-3 space-y-1">
-              <p className="text-[11px] font-bold text-slate-600">
-                📱 トークン登録済み: <span className={tokenCount.withToken < tokenCount.total ? 'text-amber-500' : 'text-emerald-600'}>{tokenCount.withToken} / {tokenCount.total} 人</span>
-              </p>
-              {tokenCount.withToken < tokenCount.total && (
-                <p className="text-[10px] text-amber-600 leading-relaxed">
-                  ⚠️ {tokenCount.total - tokenCount.withToken} 人が通知未登録です。<br />
-                  該当ユーザーはアプリを開き直すと通知許可ダイアログが表示されます。
-                </p>
-              )}
-            </div>
-          )}
-          {/* 診断ボタン */}
-          <button
-            type="button"
-            onClick={handleDiag}
-            disabled={diagRunning}
-            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-colors disabled:opacity-60"
-          >
-            {diagRunning ? '診断中...' : '🔍 このデバイスの通知診断'}
-          </button>
-          {diagSteps && (
-            <div className="bg-slate-50 rounded-xl p-2 space-y-1">
-              {diagSteps.map((s, i) => (
-                <div key={i} className="flex items-start gap-1.5">
-                  <span className="shrink-0 text-[11px]">{s.ok ? '✅' : '❌'}</span>
-                  <div className="min-w-0">
-                    <span className="text-[11px] font-bold text-slate-700">{s.step}</span>
-                    {!s.ok && 'detail' in s && (
-                      <p className="text-[10px] text-red-500 break-all leading-snug">{s.detail}</p>
-                    )}
-                    {s.ok && 'detail' in s && s.detail && (
-                      <p className="text-[10px] text-slate-400 break-all leading-snug">{s.detail}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={status === 'sending'}
-            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-60"
-          >
-            {status === 'sending' ? '送信中...' : '全員にテスト通知を送る'}
-          </button>
-          {result && (
-            <p className="text-[11px] text-slate-500 leading-relaxed break-all">{result}</p>
-          )}
-          <p className="text-[10px] text-slate-400 leading-relaxed">
-            FCMトークン登録済みの全デバイスに通知を送ります。
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NotificationPermissionBanner({ userId }: { userId: string }) {
-  const [perm, setPerm] = useState<NotificationPermission | null>(null);
-  const [requesting, setRequesting] = useState(false);
-  const [dismissed, setDismissed] = useState(() => localStorage.getItem('notif-banner-dismissed') === '1');
-  const [regError, setRegError] = useState<string | null>(null);
-
-  // iOS 判定
-  const isIos = /iP(hone|ad|od)/.test(navigator.userAgent);
-  // PWAとして起動しているか（ホーム画面追加済み）
-  const isPwa = window.matchMedia('(display-mode: standalone)').matches
-    || (navigator as { standalone?: boolean }).standalone === true;
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
-    setPerm(Notification.permission);
-  }, []);
-
-  const dismiss = () => { setDismissed(true); localStorage.setItem('notif-banner-dismissed', '1'); };
-
-  // iOS Safari（非PWA）の場合：ホーム画面追加を促す
-  if (!dismissed && isIos && !isPwa) {
-    return (
-      <div className="flex items-start justify-between gap-3 px-4 py-3 bg-amber-50 border-b border-amber-100">
-        <div className="flex items-start gap-2 min-w-0">
-          <span className="text-base shrink-0 mt-0.5">📲</span>
-          <div>
-            <p className="text-xs font-bold text-amber-800">iPhoneで通知を受け取るには</p>
-            <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">
-              Safari下部の <strong>共有ボタン（□↑）→「ホーム画面に追加」</strong> でアプリをインストール後、再度開いて通知を許可してください。
-            </p>
-          </div>
-        </div>
-        <button type="button" onClick={dismiss} className="shrink-0 text-amber-400 hover:text-amber-600 text-xs pt-0.5">✕</button>
-      </div>
-    );
-  }
-
-  if (dismissed || perm === 'granted' || perm === 'denied' || perm === null) return null;
-
-  const handleAllow = async () => {
-    setRequesting(true);
-    setRegError(null);
-    try {
-      const result = await Notification.requestPermission();
-      setPerm(result);
-      if (result === 'granted') {
-        await registerFcmToken(userId);
-      }
-    } catch (e) {
-      setRegError('登録に失敗しました。ページを再読み込みしてお試しください。');
-      console.error('FCM banner registration error:', e);
-    } finally {
-      setRequesting(false);
-    }
-  };
-
-  return (
-    <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-indigo-50 border-b border-indigo-100">
-      <div className="flex flex-col gap-0.5 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-base shrink-0">🔔</span>
-          <span className="text-xs font-medium text-indigo-700">
-            イベントの更新をプッシュ通知で受け取りますか？
-          </span>
-        </div>
-        {regError && <p className="text-[11px] text-red-500 pl-6">{regError}</p>}
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          type="button"
-          onClick={handleAllow}
-          disabled={requesting}
-          className="px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-60"
-        >
-          {requesting ? '...' : '許可する'}
-        </button>
-        <button type="button" onClick={dismiss} className="px-2 py-1 text-indigo-400 hover:text-indigo-600 text-xs transition-colors">✕</button>
-      </div>
-    </div>
-  );
-}
-
-function NotificationHeaderButton({ userId, currentUser }: { userId: string; currentUser: import('firebase/auth').User }) {
-  const [perm, setPerm] = useState<NotificationPermission | 'unsupported'>('unsupported');
-  const [open, setOpen] = useState(false);
-  const [diagSteps, setDiagSteps] = useState<FcmDiagStep[]>([]);
-  const [diagRunning, setDiagRunning] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
-  const [testRunning, setTestRunning] = useState(false);
-
-  useEffect(() => {
-    if ('Notification' in window) setPerm(Notification.permission);
-    else setPerm('unsupported');
-  }, []);
-
-  const runDiag = async () => {
-    setDiagRunning(true);
-    setDiagSteps([]);
-    setTestResult(null);
-    const steps = await registerFcmTokenWithDiagnostics(userId);
-    setDiagSteps(steps);
-    setDiagRunning(false);
-    const last = steps[steps.length - 1];
-    if (last?.ok) setPerm('granted');
-    else if ('Notification' in window) setPerm(Notification.permission);
-  };
-
-  const sendTest = async () => {
-    setTestRunning(true);
-    setTestResult(null);
-    try {
-      const res = await pushNotify(currentUser, '🔔 テスト通知', 'プッシュ通知が正常に動作しています');
-      if (res.ok) {
-        const data = await res.json();
-        setTestResult(`✅ 送信成功 (${data.sent}件送信, ${data.failed}件失敗)`);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setTestResult(`❌ 送信失敗 ${res.status}: ${data.error ?? data.detail ?? JSON.stringify(data)}`);
-      }
-    } catch (e) {
-      setTestResult(`❌ 送信エラー: ${String(e)}`);
-    }
-    setTestRunning(false);
-  };
-
-  const iconColor =
-    perm === 'granted' ? 'text-green-500' :
-    perm === 'denied'  ? 'text-red-400'   :
-    perm === 'unsupported' ? 'text-slate-300' :
-    'text-amber-400';
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => { setOpen(v => !v); if (!open && diagSteps.length === 0) runDiag(); }}
-        title="プッシュ通知の診断"
-        className={`p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors relative ${iconColor}`}
-      >
-        <Bell size={15} />
-        {perm === 'default' && (
-          <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-amber-400 rounded-full" />
-        )}
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-10 w-80 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl shadow-xl p-4 z-50 text-xs text-slate-700 dark:text-slate-200">
-          <div className="flex items-center justify-between mb-3">
-            <span className="font-bold text-sm">🔔 通知診断</span>
-            <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600 text-base leading-none">✕</button>
-          </div>
-
-          {/* 診断ステップ */}
-          {diagRunning && <p className="text-slate-400 animate-pulse mb-2">診断中...</p>}
-          {diagSteps.length > 0 && (
-            <div className="space-y-1 mb-3">
-              {diagSteps.map((s, i) => (
-                <div key={i} className="flex items-start gap-1.5">
-                  <span>{s.ok ? '✅' : '❌'}</span>
-                  <div className="min-w-0">
-                    <span className="font-medium">{s.step}</span>
-                    {'detail' in s && s.detail && (
-                      <p className="text-[10px] text-slate-400 break-words mt-0.5">{s.detail}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="flex gap-2 mt-1">
-            <button
-              onClick={runDiag}
-              disabled={diagRunning}
-              className="flex-1 py-1.5 bg-indigo-600 text-white rounded-lg font-bold disabled:opacity-50"
-            >
-              {diagRunning ? '診断中...' : '再診断'}
-            </button>
-            <button
-              onClick={sendTest}
-              disabled={testRunning}
-              className="flex-1 py-1.5 bg-emerald-600 text-white rounded-lg font-bold disabled:opacity-50"
-            >
-              {testRunning ? '送信中...' : 'テスト送信'}
-            </button>
-          </div>
-
-          {testResult && (
-            <p className="mt-2 text-[11px] break-words leading-relaxed bg-slate-50 dark:bg-zinc-800 rounded-lg p-2">{testResult}</p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}

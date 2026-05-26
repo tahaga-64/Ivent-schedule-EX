@@ -142,20 +142,6 @@ export async function notifyAssigneesAdded(
 
   const targetEmails = addedStaff.filter(s => s.email).map(s => s.email as string);
 
-  // プッシュ通知（staff.email が設定されているメンバーのみ）
-  if (targetEmails.length > 0) {
-    fetch('/api/notify-assignees', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        assigneeEmails: targetEmails,
-        eventId: event.id,
-        eventVenue: event.venue,
-        actorName: actorName,
-      }),
-    }).catch(err => console.warn('[push notification] failed:', err));
-  }
-
   // メール通知: staff.email が設定されていれば直接使用（ユーザー照合不要）
   const emailTargets = targetEmails;
 
