@@ -2967,11 +2967,23 @@ function NotificationHeaderButton({ userId }: { userId: string }) {
 
   useEffect(() => {
     if ('Notification' in window) setPerm(Notification.permission);
+    else setPerm('unsupported');
   }, []);
 
-  if (perm === 'unsupported' || perm === 'granted') return null;
-
   const handle = async () => {
+    if (perm === 'unsupported') {
+      setMsg('このブラウザは通知に対応していません。iOSの場合はホーム画面に追加してから開いてください。');
+      return;
+    }
+    if (perm === 'granted') {
+      setMsg(null);
+      setRunning(true);
+      const steps = await registerFcmTokenWithDiagnostics(userId);
+      setRunning(false);
+      const last = steps[steps.length - 1];
+      setMsg(last?.ok ? '✅ 通知登録済みです' : ('detail' in last ? last.detail : '失敗しました'));
+      return;
+    }
     setRunning(true);
     setMsg(null);
     const steps = await registerFcmTokenWithDiagnostics(userId);
@@ -2985,22 +2997,28 @@ function NotificationHeaderButton({ userId }: { userId: string }) {
     }
   };
 
+  const iconColor =
+    perm === 'granted' ? 'text-green-500' :
+    perm === 'denied' ? 'text-red-400' :
+    perm === 'unsupported' ? 'text-slate-300' :
+    'text-amber-400';
+
   return (
     <div className="relative">
       <button
         type="button"
         onClick={handle}
-        disabled={running || perm === 'denied'}
-        title="プッシュ通知を登録"
-        className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-50 hover:text-amber-600 transition-colors disabled:opacity-40 relative"
+        disabled={running}
+        title="プッシュ通知の状態を確認"
+        className={`p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40 relative ${iconColor}`}
       >
-        <Bell size={15} />
+        {running ? <span className="w-[15px] h-[15px] border-2 border-current border-t-transparent rounded-full animate-spin block" /> : <Bell size={15} />}
         {perm === 'default' && (
           <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-amber-400 rounded-full" />
         )}
       </button>
       {msg && (
-        <div className="absolute right-0 top-10 w-64 bg-white border border-slate-200 rounded-xl shadow-lg p-3 z-50 text-xs text-slate-700 leading-relaxed">
+        <div className="absolute right-0 top-10 w-72 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-lg p-3 z-50 text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
           {msg}
           <button onClick={() => setMsg(null)} className="block mt-1 text-slate-400 text-[10px]">閉じる</button>
         </div>
