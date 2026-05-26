@@ -1036,6 +1036,9 @@ VITE_FIREBASE_DATABASE_ID`}
         </div>
       </header>
 
+      {/* 通知許可バナー — 未許可ユーザーにのみ表示 */}
+      <NotificationPermissionBanner userId={user.uid} />
+
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         {sideOpen && <aside className="w-72 flex flex-col flex-shrink-0 bg-white border-r border-slate-100 overflow-y-auto hidden lg:flex">
@@ -2751,6 +2754,17 @@ function PushNotifyTest({ pushNotify }: { pushNotify: (title: string, body: stri
   const [status, setStatus] = useState<'idle' | 'sending' | 'ok' | 'error'>('idle');
   const [result, setResult] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [tokenCount, setTokenCount] = useState<{ total: number; withToken: number } | null>(null);
+
+  // パネルを開いたときにトークン数を取得
+  useEffect(() => {
+    if (!open) return;
+    getDocs(collection(db, 'users')).then(snap => {
+      const total = snap.size;
+      const withToken = snap.docs.filter(d => Boolean(d.data().fcmToken)).length;
+      setTokenCount({ total, withToken });
+    }).catch(() => {});
+  }, [open]);
 
   const handleSend = async () => {
     setStatus('sending');
@@ -2788,6 +2802,20 @@ function PushNotifyTest({ pushNotify }: { pushNotify: (title: string, body: stri
       </button>
       {open && (
         <div className="mt-3 space-y-2 px-1">
+          {/* トークン登録状況 */}
+          {tokenCount !== null && (
+            <div className="bg-slate-50 rounded-xl p-3 space-y-1">
+              <p className="text-[11px] font-bold text-slate-600">
+                📱 トークン登録済み: <span className={tokenCount.withToken < tokenCount.total ? 'text-amber-500' : 'text-emerald-600'}>{tokenCount.withToken} / {tokenCount.total} 人</span>
+              </p>
+              {tokenCount.withToken < tokenCount.total && (
+                <p className="text-[10px] text-amber-600 leading-relaxed">
+                  ⚠️ {tokenCount.total - tokenCount.withToken} 人が通知未登録です。<br />
+                  該当ユーザーはアプリを開き直すと通知許可ダイアログが表示されます。
+                </p>
+              )}
+            </div>
+          )}
           <button
             type="button"
             onClick={handleSend}
@@ -2800,10 +2828,64 @@ function PushNotifyTest({ pushNotify }: { pushNotify: (title: string, body: stri
             <p className="text-[11px] text-slate-500 leading-relaxed break-all">{result}</p>
           )}
           <p className="text-[10px] text-slate-400 leading-relaxed">
-            過去にログインした全ユーザーのデバイスに通知を送ります。
+            FCMトークン登録済みの全デバイスに通知を送ります。
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function NotificationPermissionBanner({ userId }: { userId: string }) {
+  const [perm, setPerm] = useState<NotificationPermission | null>(null);
+  const [requesting, setRequesting] = useState(false);
+  const [dismissed, setDismissed] = useState(() => localStorage.getItem('notif-banner-dismissed') === '1');
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    setPerm(Notification.permission);
+  }, []);
+
+  if (dismissed || perm === 'granted' || perm === 'denied' || perm === null) return null;
+
+  const handleAllow = async () => {
+    setRequesting(true);
+    try {
+      const result = await Notification.requestPermission();
+      setPerm(result);
+      if (result === 'granted') {
+        await registerFcmToken(userId);
+      }
+    } finally {
+      setRequesting(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-indigo-50 border-b border-indigo-100">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-base shrink-0">🔔</span>
+        <span className="text-xs font-medium text-indigo-700 truncate">
+          イベントの更新をプッシュ通知で受け取りますか？
+        </span>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={handleAllow}
+          disabled={requesting}
+          className="px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-60"
+        >
+          {requesting ? '...' : '許可する'}
+        </button>
+        <button
+          type="button"
+          onClick={() => { setDismissed(true); localStorage.setItem('notif-banner-dismissed', '1'); }}
+          className="px-2 py-1 text-indigo-400 hover:text-indigo-600 text-xs transition-colors"
+        >
+          ✕
+        </button>
+      </div>
     </div>
   );
 }
