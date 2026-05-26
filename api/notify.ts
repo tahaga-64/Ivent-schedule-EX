@@ -56,9 +56,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const db = getFirestore();
   const snap = await db.collection('users').get();
 
-  const tokens = snap.docs
-    .map(d => d.data().fcmToken as string | undefined)
-    .filter((t): t is string => Boolean(t));
+  // fcmTokens マップ（デバイスごと）と旧来の fcmToken フィールド両方を収集
+  const tokenSet = new Set<string>();
+  for (const d of snap.docs) {
+    const data = d.data();
+    // 新形式: fcmTokens: { deviceId: token }
+    const tokenMap = data.fcmTokens as Record<string, string> | undefined;
+    if (tokenMap && typeof tokenMap === 'object') {
+      Object.values(tokenMap).forEach(t => { if (t) tokenSet.add(t); });
+    }
+    // 旧形式: fcmToken（移行期の互換）
+    if (data.fcmToken && typeof data.fcmToken === 'string') {
+      tokenSet.add(data.fcmToken);
+    }
+  }
+  const tokens = [...tokenSet];
 
   if (tokens.length === 0) return res.json({ sent: 0, message: 'No FCM tokens registered' });
 
