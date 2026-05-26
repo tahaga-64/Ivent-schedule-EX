@@ -154,184 +154,187 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
     <div
       id="prep-print-area"
       data-print-title={`${event.venue}　準備物リスト　${event.start}〜${event.end}`}
-      className="flex flex-col h-full bg-[var(--bg-app)]"
+      className="flex flex-col h-full bg-gray-50"
     >
       {!canEdit && (
-        <div className="px-5 py-2.5 bg-[var(--surface-tertiary)] border-b border-[var(--separator)] text-[var(--text-secondary)] text-footnote text-center">
-          閲覧のみ
+        <div className="px-6 py-2.5 bg-slate-100 border-b border-slate-200 text-slate-600 text-[11px] font-bold text-center">
+          閲覧のみ（準備物の編集にはログインが必要です）
         </div>
       )}
       {saveError && (
         <div
           role="alert"
           onClick={() => setSaveError(null)}
-          className="px-5 py-3 bg-[var(--color-danger-bg)] border-b border-[var(--color-danger)]/20 text-[var(--color-danger)] text-footnote flex items-center gap-2 cursor-pointer"
+          className="px-6 py-3 bg-red-50 border-b border-red-100 text-red-700 text-xs font-bold flex items-center gap-2 cursor-pointer"
         >
+          <span>⚠️</span>
           <span className="flex-1">{saveError}</span>
-          <span className="text-caption2 opacity-60">タップで閉じる</span>
+          <span className="text-[10px] opacity-60">タップで閉じる</span>
         </div>
       )}
-      
-      {/* Navigation bar - clean, minimal */}
-      <div className="flex items-center justify-between px-4 h-12 glass-nav shrink-0 sticky top-0 z-10">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1 text-[#007AFF] text-body active:opacity-50 transition-opacity touch-target"
-        >
-          <ArrowLeft size={20} strokeWidth={2} />
-          <span>戻る</span>
-        </button>
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-100 shrink-0">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h2 className="text-lg font-black text-gray-900 leading-tight">{event.venue}</h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[11px] text-gray-400 font-mono">{event.start} → {event.end}</span>
+              <span className="text-gray-300">·</span>
+              <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">PREPARATION LIST</span>
+            </div>
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handlePrint}
-            className="touch-target text-[#007AFF] active:opacity-50 transition-opacity print:hidden"
+            className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl font-bold text-xs transition-colors print:hidden"
             title="印刷"
           >
-            <Printer size={20} strokeWidth={1.8} />
+            <Printer size={13} />
+            <span className="hidden sm:inline">印刷</span>
           </button>
           {hasChanges && canEdit && (
             <button
               onClick={handleSaveAll}
               disabled={isSaving}
-              className="flex items-center gap-1.5 px-4 h-8 bg-[#007AFF] text-white rounded-full text-subheadline font-medium active:opacity-80 transition-opacity disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-xl font-bold text-xs hover:bg-amber-600 transition-colors disabled:opacity-60"
             >
-              <Save size={14} />
-              {isSaving ? '保存中' : '保存'}
+              <Save size={13} />
+              {isSaving ? '保存中...' : '保存'}
             </button>
           )}
         </div>
       </div>
 
-      {/* Event header - editorial typography */}
-      <div className="px-5 pt-6 pb-4 border-b border-[var(--separator)]">
-        <h1 className="text-title2 text-[var(--text-primary)]">{event.venue}</h1>
-        <p className="text-subheadline text-[var(--text-secondary)] mt-1">{event.start} → {event.end}</p>
-      </div>
-
-      {/* Mobile card list - clean, intentional */}
-      <div className="block lg:hidden flex-1 overflow-y-auto p-5 space-y-3">
+      {/* Mobile card list */}
+      <div className="block lg:hidden flex-1 overflow-y-auto p-3 space-y-2">
         {!canEdit && items.filter(i => !isEmptyItem(i)).length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-[var(--text-tertiary)]">
-            <div className="w-16 h-16 rounded-full bg-[var(--surface-tertiary)] flex items-center justify-center mb-4">
-              <ClipboardList size={28} strokeWidth={1.5} />
-            </div>
-            <p className="text-headline text-[var(--text-secondary)] text-center">準備物がありません</p>
+          <div className="flex flex-col items-center justify-center py-16 text-slate-300">
+            <ClipboardList size={36} className="mb-3" />
+            <p className="text-sm font-bold text-slate-400">準備物が登録されていません</p>
           </div>
         )}
         {items.filter(item => canEdit || !isEmptyItem(item)).map((item, idx) => (
           <div
             key={item.id}
-            className={`bg-[var(--surface)] rounded-2xl overflow-hidden border border-[var(--border)] ${item.prepared ? 'opacity-50' : ''}`}
+            className={`bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden ${item.prepared ? 'opacity-70' : ''}`}
           >
-            {/* Row 1: Item name */}
-            <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-              <span className="text-caption1 text-[var(--text-tertiary)] font-medium w-5 shrink-0 tabular-nums">{idx + 1}</span>
+            {/* Row 1: # + 品名 + delete */}
+            <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+              <span className="text-[10px] text-gray-400 font-mono w-5 shrink-0">{idx + 1}</span>
               <input
                 type="text"
                 readOnly={!canEdit}
                 value={item.name}
                 onChange={e => updateItem(item.id, { name: e.target.value })}
-                placeholder="アイテム名"
-                className={`flex-1 text-body font-medium text-[var(--text-primary)] bg-transparent outline-none placeholder:text-[var(--text-tertiary)] read-only:cursor-default ${item.prepared ? 'line-through text-[var(--text-secondary)]' : ''}`}
+                placeholder="アイテム名..."
+                className={`flex-1 text-sm font-bold text-gray-800 bg-transparent outline-none read-only:cursor-default ${item.prepared ? 'line-through text-gray-400' : ''}`}
               />
               <button
                 type="button"
                 onClick={() => removeItem(item.id)}
                 disabled={items.length <= 1 || !canEdit}
-                className={`touch-target shrink-0 transition-opacity ${
-                  items.length <= 1 ? 'opacity-0 pointer-events-none' : !canEdit ? 'opacity-20 cursor-not-allowed' : 'text-[var(--text-tertiary)] active:opacity-50'
+                className={`p-1 shrink-0 transition-colors ${
+                  items.length <= 1 ? 'opacity-0 pointer-events-none' : !canEdit ? 'opacity-30 cursor-not-allowed' : 'text-gray-300 hover:text-red-400'
                 }`}
               >
-                <Trash2 size={18} strokeWidth={1.5} />
+                <Trash2 size={14} />
               </button>
             </div>
-            
-            {/* Row 2: Numbers grid */}
-            <div className="grid grid-cols-3 border-t border-[var(--separator)]">
-              <div className="px-4 py-3 border-r border-[var(--separator)]">
-                <div className="text-caption2 text-[var(--text-tertiary)] mb-1">数量</div>
+            {/* Row 2: 数量 / 単価 / 金額 */}
+            <div className="grid grid-cols-3 border-t border-gray-100">
+              <div className="px-3 py-2 border-r border-gray-100">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">数量</div>
                 <input
                   type="number"
                   readOnly={!canEdit}
                   value={item.quantity || ''}
                   onChange={e => updateItem(item.id, { quantity: parseInt(e.target.value) || 0 })}
-                  className="w-full text-body text-[var(--text-primary)] bg-transparent outline-none tabular-nums read-only:cursor-default"
+                  className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
                 />
               </div>
-              <div className="px-4 py-3 border-r border-[var(--separator)]">
-                <div className="text-caption2 text-[var(--text-tertiary)] mb-1">単価</div>
-                <div className="flex items-center">
-                  <span className="text-footnote text-[var(--text-tertiary)] mr-0.5">¥</span>
+              <div className="px-3 py-2 border-r border-gray-100">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">単価</div>
+                <div className="flex items-center gap-0.5">
+                  <span className="text-[10px] text-gray-400">¥</span>
                   <input
                     type="number"
                     readOnly={!canEdit}
                     value={item.unitPrice || ''}
                     onChange={e => updateItem(item.id, { unitPrice: parseInt(e.target.value) || 0 })}
-                    className="w-full text-body text-[var(--text-primary)] bg-transparent outline-none tabular-nums read-only:cursor-default"
+                    className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
                   />
                 </div>
               </div>
-              <div className="px-4 py-3 bg-[#007AFF]/5">
-                <div className="text-caption2 text-[#007AFF] mb-1">金額</div>
-                <div className="text-body font-semibold text-[#007AFF] tabular-nums">¥{(item.amount || 0).toLocaleString()}</div>
+              <div className="px-3 py-2 bg-indigo-50/30">
+                <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1">金額</div>
+                <div className="text-sm font-black text-indigo-600 font-mono">¥{(item.amount || 0).toLocaleString()}</div>
               </div>
             </div>
-            
-            {/* Row 3: Shipping + checkboxes */}
-            <div className="grid grid-cols-3 border-t border-[var(--separator)]">
-              <div className="px-4 py-3 border-r border-[var(--separator)]">
-                <div className="text-caption2 text-[var(--text-tertiary)] mb-1">配送料</div>
-                <div className="flex items-center">
-                  <span className="text-footnote text-[var(--text-tertiary)] mr-0.5">¥</span>
+            {/* Row 3: 配送料 / 到着 / 準備 */}
+            <div className="grid grid-cols-3 border-t border-gray-100">
+              <div className="px-3 py-2 border-r border-gray-100">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">配送料</div>
+                <div className="flex items-center gap-0.5">
+                  <span className="text-[10px] text-gray-400">¥</span>
                   <input
                     type="number"
                     readOnly={!canEdit}
                     value={item.shippingFee || ''}
                     onChange={e => updateItem(item.id, { shippingFee: parseInt(e.target.value) || 0 })}
                     placeholder="0"
-                    className="w-full text-body text-[var(--text-primary)] bg-transparent outline-none tabular-nums read-only:cursor-default"
+                    className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
                   />
                 </div>
               </div>
-              <div className="px-4 py-3 flex flex-col items-center justify-center border-r border-[var(--separator)]">
-                <div className="text-caption2 text-[var(--text-tertiary)] mb-2">到着</div>
+              <div className="px-3 py-2 flex flex-col items-center border-r border-gray-100">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">到着</div>
                 <Checkbox checked={item.arrived} disabled={!canEdit} onChange={() => updateItem(item.id, { arrived: !item.arrived })} />
               </div>
-              <div className="px-4 py-3 flex flex-col items-center justify-center">
-                <div className="text-caption2 text-[var(--text-tertiary)] mb-2">準備完了</div>
+              <div className="px-3 py-2 flex flex-col items-center">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1.5">準備完了</div>
                 <Checkbox checked={item.prepared} disabled={!canEdit} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
               </div>
             </div>
-            
-            {/* Note field */}
+            {/* Row 4: 備考 (shown if has content or canEdit) */}
             {(item.note || canEdit) && (
-              <div className="border-t border-[var(--separator)] px-4 py-3">
-                <div className="text-caption2 text-[var(--text-tertiary)] mb-1">備考</div>
+              <div className="border-t border-gray-100 px-3 py-2">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">備考</div>
                 <PreparationNoteField value={item.note || ''} readOnly={!canEdit} onChange={note => updateItem(item.id, { note })} />
               </div>
             )}
-            
-            {/* URL field */}
+            {/* Row 5: URL (shown if has content or canEdit) */}
             {(item.url || canEdit) && (
-              <div className="border-t border-[var(--separator)] px-4 py-3">
-                <div className="text-caption2 text-[var(--text-tertiary)] mb-1">URL</div>
+              <div className="border-t border-gray-100 px-3 py-2">
+                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">URL</div>
                 {canEdit ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <input
                       type="text"
                       value={item.url || ''}
                       onChange={e => updateItem(item.id, { url: e.target.value })}
                       placeholder="https://..."
-                      className="flex-1 text-subheadline text-[#007AFF] bg-transparent outline-none min-w-0 placeholder:text-[var(--text-tertiary)]"
+                      className="flex-1 text-sm text-indigo-500 bg-transparent outline-none min-w-0"
                     />
                     {item.url && (
-                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-[#007AFF] active:opacity-50 touch-target">
-                        <ExternalLink size={18} strokeWidth={1.5} />
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-indigo-400 hover:text-indigo-600">
+                        <ExternalLink size={14} />
                       </a>
                     )}
                   </div>
                 ) : item.url ? (
-                  <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-subheadline text-[#007AFF] break-all">
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-indigo-500 underline underline-offset-2 break-all"
+                  >
                     {item.url}
                   </a>
                 ) : null}
@@ -339,14 +342,13 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
             )}
           </div>
         ))}
-        
         {canEdit && (
           <button
             type="button"
             onClick={addItem}
-            className="w-full py-4 bg-[var(--surface)] text-[#007AFF] text-subheadline font-medium rounded-2xl border border-[var(--border)] active:opacity-80 transition-opacity flex items-center justify-center gap-2"
+            className="w-full py-4 bg-white border-2 border-dashed border-gray-200 hover:border-indigo-300 text-gray-400 hover:text-indigo-500 text-xs font-black uppercase tracking-widest rounded-2xl transition-colors flex items-center justify-center gap-2"
           >
-            <Plus size={18} strokeWidth={2} /> 項目を追加
+            <Plus size={14} /> 新しい項目を追加
           </button>
         )}
       </div>
@@ -512,50 +514,55 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         )}
       </div>
 
-      {/* Footer - clean summary */}
-      <div className="px-5 py-5 border-t border-[var(--separator)] shrink-0">
+      {/* Footer */}
+      <div className="px-4 sm:px-6 py-4 bg-white border-t border-gray-100 shrink-0">
         {hasChanges && canEdit && (
           <button
             type="button"
             onClick={handleSaveAll}
             disabled={isSaving}
-            className="w-full mb-4 flex items-center justify-center gap-2 h-12 bg-[#007AFF] text-white rounded-2xl text-body font-medium active:opacity-80 transition-opacity disabled:opacity-50"
+            className="w-full mb-3 flex items-center justify-center gap-2 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black text-sm transition-colors disabled:opacity-60"
           >
-            <Save size={18} />
+            <Save size={16} />
             {isSaving ? '保存中...' : '変更を保存'}
           </button>
         )}
-        
-        {/* Stats grid - asymmetric, intentional */}
-        <div className="grid grid-cols-4 gap-3">
-          <div className="bg-[var(--surface-tertiary)] rounded-xl p-3">
-            <div className="text-caption2 text-[var(--text-tertiary)] mb-0.5">商品計</div>
-            <div className="text-headline text-[var(--text-primary)] tabular-nums">¥{totals.subtotal.toLocaleString()}</div>
-          </div>
-          <div className="bg-[var(--surface-tertiary)] rounded-xl p-3">
-            <div className="text-caption2 text-[var(--text-tertiary)] mb-0.5">配送料</div>
-            <div className="text-headline text-[var(--text-primary)] tabular-nums">¥{totals.shipping.toLocaleString()}</div>
-          </div>
-          <div className="bg-[#007AFF] rounded-xl p-3">
-            <div className="text-caption2 text-white/70 mb-0.5">合計</div>
-            <div className="text-headline text-white tabular-nums">¥{totals.total.toLocaleString()}</div>
-          </div>
-          <div className="bg-[var(--surface-tertiary)] rounded-xl p-3">
-            <div className="text-caption2 text-[var(--text-tertiary)] mb-1">進捗</div>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-[var(--separator)] rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${items.length > 0 ? (totals.done / items.length) * 100 : 0}%` }}
-                  className="bg-[#34C759] h-full rounded-full"
-                />
-              </div>
-              <span className="text-caption1 font-medium text-[#34C759] tabular-nums">
-                {items.length > 0 ? Math.round((totals.done / items.length) * 100) : 0}%
-              </span>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+          <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">SUBTOTAL · 商品計</div>
+          <div className="text-xl font-black text-gray-900 font-mono">¥{totals.subtotal.toLocaleString()}</div>
+        </div>
+        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+          <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">SHIPPING · 配送料</div>
+          <div className="text-xl font-black text-gray-900 font-mono">¥{totals.shipping.toLocaleString()}</div>
+        </div>
+        <div className="bg-indigo-600 rounded-2xl p-4">
+          <div className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-1">TOTAL · 総支払</div>
+          <div className="text-xl font-black text-white font-mono">¥{totals.total.toLocaleString()}</div>
+        </div>
+        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">PROGRESS · 進捗</div>
+            <div className="text-xs font-black text-indigo-600">
+              {items.length > 0 ? Math.round((totals.done / items.length) * 100) : 0}%
             </div>
           </div>
+          <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1.5">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${items.length > 0 ? (totals.done / items.length) * 100 : 0}%` }}
+              className="bg-indigo-600 h-1.5 rounded-full"
+            />
+          </div>
+          <div className="flex gap-2 text-[10px] font-bold text-gray-400">
+            <span>到着 {totals.arrived}</span>
+            <span className="text-gray-300">·</span>
+            <span>準備完了 {totals.prepared}</span>
+            <span className="text-gray-300">·</span>
+            <span>{items.length} 件</span>
+          </div>
         </div>
+      </div>
       </div>
     </div>
   );
@@ -590,19 +597,23 @@ function PreparationNoteField({ value, onChange, readOnly, desktop }: { value: s
 }
 
 function Checkbox({ checked, onChange, disabled, color = 'indigo' }: { checked: boolean; onChange: () => void; disabled?: boolean; color?: 'indigo' | 'emerald' }) {
-  const activeColor = color === 'emerald' ? '#34C759' : '#007AFF';
+  const activeClass = color === 'emerald'
+    ? 'bg-emerald-500 border-emerald-500'
+    : 'bg-indigo-600 border-indigo-600';
+  const hoverClass = color === 'emerald'
+    ? 'hover:border-emerald-400'
+    : 'hover:border-indigo-400';
   return (
     <button
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className={`w-6 h-6 rounded-md flex items-center justify-center transition-all active:scale-90 ${
-        checked ? '' : 'bg-[var(--surface-tertiary)] border-2 border-[var(--separator)]'
-      } disabled:opacity-40 disabled:pointer-events-none`}
-      style={checked ? { backgroundColor: activeColor } : undefined}
+      className={`w-6 h-6 rounded border-2 flex items-center justify-center mx-auto transition-all ${
+        checked ? activeClass : `border-gray-300 ${hoverClass}`
+      } disabled:opacity-40 disabled:pointer-events-none disabled:hover:border-gray-300`}
     >
       {checked && (
-        <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 12 12" fill="none">
+        <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
           <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
