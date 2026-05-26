@@ -77,7 +77,11 @@ export async function registerFcmTokenWithDiagnostics(userId: string): Promise<F
 
   const perm = Notification.permission;
   if (perm === 'denied') {
-    log.push({ step: '通知許可', ok: false, detail: 'ブロック済み。iOSは「設定→通知」から許可が必要' });
+    const isIos = /iP(hone|ad|od)/.test(navigator.userAgent);
+    const detail = isIos
+      ? 'ブロック済み。【解除方法】ホーム画面のアイコンを長押し→削除→Safariで再度「ホーム画面に追加」→アイコンから起動すると許可ダイアログが再表示されます'
+      : 'ブロック済み。ブラウザのアドレスバー横の🔒アイコン→通知→許可 に変更してください';
+    log.push({ step: '通知許可', ok: false, detail });
     return log;
   }
   if (perm !== 'granted') {
