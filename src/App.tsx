@@ -1265,6 +1265,11 @@ VITE_FIREBASE_DATABASE_ID`}
                 )}
               </div>
             </div>
+
+            {/* PUSH NOTIFICATION TEST — 編集者のみ表示 */}
+            {canEditEvent && (
+              <PushNotifyTest pushNotify={(title, body) => user ? pushNotify(user, title, body) : Promise.resolve()} />
+            )}
           </div>
         </aside>}
 
@@ -2738,6 +2743,67 @@ function EmptyState() {
         <Calendar size={32} />
       </div>
       <div className="text-sm font-bold text-slate-400 dark:text-zinc-600">イベントが見つかりません</div>
+    </div>
+  );
+}
+
+function PushNotifyTest({ pushNotify }: { pushNotify: (title: string, body: string) => Promise<Response | void> }) {
+  const [status, setStatus] = useState<'idle' | 'sending' | 'ok' | 'error'>('idle');
+  const [result, setResult] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+
+  const handleSend = async () => {
+    setStatus('sending');
+    setResult(null);
+    try {
+      const res = await pushNotify('🔔 テスト通知', 'プッシュ通知が正常に動作しています');
+      if (res && res instanceof Response) {
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          setResult(`✅ 送信完了 — ${data.sent ?? '?'} 台に配信、${data.failed ?? 0} 台失敗`);
+          setStatus('ok');
+        } else {
+          setResult(`❌ サーバーエラー: ${data.error ?? res.statusText}`);
+          setStatus('error');
+        }
+      } else {
+        setResult('⚠️ レスポンスなし（設定を確認してください）');
+        setStatus('error');
+      }
+    } catch (e) {
+      setResult(`❌ ネットワークエラー: ${e instanceof Error ? e.message : String(e)}`);
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="border-t border-slate-100 pt-4 mt-2">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-1 py-1 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-500 transition-colors"
+      >
+        <span>🔔 通知テスト</span>
+        <span>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-2 px-1">
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={status === 'sending'}
+            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-60"
+          >
+            {status === 'sending' ? '送信中...' : '全員にテスト通知を送る'}
+          </button>
+          {result && (
+            <p className="text-[11px] text-slate-500 leading-relaxed break-all">{result}</p>
+          )}
+          <p className="text-[10px] text-slate-400 leading-relaxed">
+            過去にログインした全ユーザーのデバイスに通知を送ります。
+          </p>
+        </div>
+      )}
     </div>
   );
 }
