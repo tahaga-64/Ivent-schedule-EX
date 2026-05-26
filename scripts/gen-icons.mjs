@@ -37,7 +37,7 @@ const svgSrc = (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}
 
   <!-- E -->
   <text
-    x="96" y="330"
+    x="96" y="310"
     font-family="'Arial Black', 'Helvetica Neue', sans-serif"
     font-weight="900"
     font-size="240"
@@ -46,20 +46,31 @@ const svgSrc = (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}
     filter="url(#glowE)"
   >E</text>
 
-  <!-- V -->
+  <!-- M -->
   <text
-    x="248" y="330"
+    x="248" y="310"
     font-family="'Arial Black', 'Helvetica Neue', sans-serif"
     font-weight="900"
     font-size="240"
     letter-spacing="-8"
     fill="url(#gV)"
     filter="url(#glowV)"
-  >V</text>
+  >M</text>
 
   <!-- Bottom accent line -->
-  <rect x="100" y="360" width="312" height="4" rx="2"
+  <rect x="100" y="340" width="312" height="4" rx="2"
     fill="url(#gE)" opacity="0.6"/>
+
+  <!-- Subtitle -->
+  <text
+    x="256" y="392"
+    font-family="'Arial', 'Helvetica Neue', sans-serif"
+    font-weight="500"
+    font-size="36"
+    text-anchor="middle"
+    letter-spacing="4"
+    fill="rgba(255,255,255,0.55)"
+  >Event Management</text>
 </svg>`;
 
 async function gen(size, outPath) {
