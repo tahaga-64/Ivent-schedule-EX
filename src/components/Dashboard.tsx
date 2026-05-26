@@ -26,7 +26,7 @@ export default function Dashboard({ events }: Props) {
 
   const stats = useMemo(() => {
     const active = events.filter(e => !e.id.startsWith('__'));
-    const thisMonthEvents = active.filter(e => e.start.startsWith(thisMonth));
+    const thisMonthEvents = active.filter(e => e.start?.startsWith(thisMonth));
     const completed = active.filter(e => e.status === 'completed').length;
     const completionRate = active.length > 0 ? Math.round((completed / active.length) * 100) : 0;
 
