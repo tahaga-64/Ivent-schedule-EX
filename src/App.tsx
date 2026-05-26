@@ -10,7 +10,7 @@ interface StaffMember {
   name: string;
   email?: string;
 }
-import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail } from 'lucide-react';
+import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
@@ -327,7 +327,7 @@ export default function App() {
   const [mobileWeekRowIndex, setMobileWeekRowIndex] = useState(0);
   const [mobileAgendaDay, setMobileAgendaDay] = useState(() => new Date().getDate());
   const [sideOpen, setSideOpen] = useState(true);
-  const isDark = localStorage.getItem('theme') !== 'light';
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const [searchQuery, setSearchQuery] = useState("");
   const [prepEvent, setPrepEvent] = useState<Event | null>(null);
   const [modalTab, setModalTab] = useState<ModalTab>('detail');
@@ -450,10 +450,11 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // ダークモードの適用（初期マウント時のみ）
+  // ダークモードの適用
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
-  }, []);
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  }, [isDark]);
 
   // 他ユーザーの変更をモーダルにリアルタイム反映（未保存の編集中は上書きしない）
   useEffect(() => {
@@ -1021,6 +1022,13 @@ VITE_FIREBASE_DATABASE_ID`}
                 {user.displayName?.[0] || 'U'}
               </div>
             )}
+            <button
+              onClick={() => setIsDark(v => !v)}
+              className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-indigo-500 transition-colors"
+              title={isDark ? 'ライトモード' : 'ダークモード'}
+            >
+              {isDark ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
             <button onClick={() => auth.signOut()} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-red-400 transition-colors" title="ログアウト">
               <LogOut size={15} />
             </button>
