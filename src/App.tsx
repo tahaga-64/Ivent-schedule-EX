@@ -10,7 +10,7 @@ interface StaffMember {
   name: string;
   email?: string;
 }
-import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun } from 'lucide-react';
+import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
@@ -1022,6 +1022,8 @@ VITE_FIREBASE_DATABASE_ID`}
                 {user.displayName?.[0] || 'U'}
               </div>
             )}
+            {/* 通知登録ボタン（全デバイス共通） */}
+            <NotificationHeaderButton userId={user.uid} />
             <button
               onClick={() => setIsDark(v => !v)}
               className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-indigo-500 transition-colors"
@@ -2954,6 +2956,55 @@ function NotificationPermissionBanner({ userId }: { userId: string }) {
         </button>
         <button type="button" onClick={dismiss} className="px-2 py-1 text-indigo-400 hover:text-indigo-600 text-xs transition-colors">✕</button>
       </div>
+    </div>
+  );
+}
+
+function NotificationHeaderButton({ userId }: { userId: string }) {
+  const [perm, setPerm] = useState<NotificationPermission | 'unsupported'>('unsupported');
+  const [running, setRunning] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if ('Notification' in window) setPerm(Notification.permission);
+  }, []);
+
+  if (perm === 'unsupported' || perm === 'granted') return null;
+
+  const handle = async () => {
+    setRunning(true);
+    setMsg(null);
+    const steps = await registerFcmTokenWithDiagnostics(userId);
+    setRunning(false);
+    const last = steps[steps.length - 1];
+    if (last?.ok) {
+      setPerm('granted');
+      setMsg('✅ 通知を登録しました');
+    } else {
+      setMsg('detail' in last ? last.detail : '失敗しました');
+    }
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={handle}
+        disabled={running || perm === 'denied'}
+        title="プッシュ通知を登録"
+        className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-50 hover:text-amber-600 transition-colors disabled:opacity-40 relative"
+      >
+        <Bell size={15} />
+        {perm === 'default' && (
+          <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-amber-400 rounded-full" />
+        )}
+      </button>
+      {msg && (
+        <div className="absolute right-0 top-10 w-64 bg-white border border-slate-200 rounded-xl shadow-lg p-3 z-50 text-xs text-slate-700 leading-relaxed">
+          {msg}
+          <button onClick={() => setMsg(null)} className="block mt-1 text-slate-400 text-[10px]">閉じる</button>
+        </div>
+      )}
     </div>
   );
 }
