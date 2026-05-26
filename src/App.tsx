@@ -336,6 +336,7 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const hasUnsavedChangesRef = useRef(false);
+  const [localDailyRoles, setLocalDailyRoles] = useState<Record<string, Record<string, string>>>({});
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastEditedId, setLastEditedId] = useState<string | null>(() => localStorage.getItem('lastEditedId'));
@@ -460,6 +461,11 @@ export default function App() {
     const latest = dbEvents[selected.id];
     if (latest) setSelected(latest);
   }, [dbEvents, selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 日別役割のローカル状態をイベント切替時に初期化（Firestoreの同期と完全に分離）
+  useEffect(() => {
+    setLocalDailyRoles(selected?.dailyRoles ?? {});
+  }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 選択イベントの準備物統計をリアルタイム購読
   useEffect(() => {
@@ -602,17 +608,14 @@ export default function App() {
   }, [allEvents, filtered]);
 
   const handleUpdateEvent = (id: string, updates: Partial<Event>) => {
-    // 選択中のイベントをベースに更新
     if (!selected || selected.id !== id) return;
-    
-    const newEvent = { ...selected, ...updates };
-
-    // モーダルの表示（state）を即座に更新して入力をサクサクにする
-    setSelected(newEvent);
-    // 変更ありフラグを立てる
+    // 関数型更新で常に最新 state をベースにする（stale closure 防止）
+    setSelected(prev => {
+      if (!prev || prev.id !== id) return prev;
+      return { ...prev, ...updates };
+    });
     hasUnsavedChangesRef.current = true;
     setHasUnsavedChanges(true);
-    // バリデーションエラーをクリア
     if (validationErrors.length > 0) {
       setValidationErrors([]);
     }
@@ -649,9 +652,11 @@ export default function App() {
       // latestPhotos が undefined のとき photos: undefined を Firestore に渡すと
       // Firebase v12 が "Unsupported field value: undefined" で弾くため、undefined の場合はキーごと除外する
       const { photos: _p, ...eventBase } = selected;
-      const eventToSave = latestPhotos !== undefined
-        ? { ...eventBase, photos: latestPhotos }
-        : { ...eventBase };
+      const eventToSave = {
+        ...eventBase,
+        dailyRoles: localDailyRoles,
+        ...(latestPhotos !== undefined ? { photos: latestPhotos } : {}),
+      };
       await setDoc(doc(db, "events", selected.id), eventToSave);
       // 楽観的にローカルキャッシュも更新（onSnapshot反映までのラグ対策）
       setDbEvents(prev => ({ ...prev, [selected.id]: eventToSave }));
@@ -1860,24 +1865,15 @@ VITE_FIREBASE_DATABASE_ID`}
                                     <span className="text-xs font-medium text-gray-700 w-20 shrink-0 truncate">{memberName}</span>
                                     <input
                                       type="text"
-                                      value={selected.dailyRoles?.[date]?.[memberName] ?? ''}
+                                      value={localDailyRoles?.[date]?.[memberName] ?? ''}
                                       disabled={!canEditEvent}
                                       placeholder="役割を入力"
                                       onChange={e => {
                                         const val = e.target.value;
-                                        setSelected(prev => {
-                                          if (!prev) return prev;
-                                          return {
-                                            ...prev,
-                                            dailyRoles: {
-                                              ...(prev.dailyRoles ?? {}),
-                                              [date]: {
-                                                ...(prev.dailyRoles?.[date] ?? {}),
-                                                [memberName]: val,
-                                              },
-                                            },
-                                          };
-                                        });
+                                        setLocalDailyRoles(prev => ({
+                                          ...prev,
+                                          [date]: { ...(prev[date] ?? {}), [memberName]: val },
+                                        }));
                                         hasUnsavedChangesRef.current = true;
                                         setHasUnsavedChanges(true);
                                       }}
