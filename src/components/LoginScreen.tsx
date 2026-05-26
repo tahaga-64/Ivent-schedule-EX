@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { motion } from 'motion/react';
-import { loginWithGoogle, loginWithApple } from '../lib/firebase';
+import { motion, AnimatePresence } from 'motion/react';
+import { loginWithGoogle, loginWithApple, loginWithEmail } from '../lib/firebase';
 import EXLogo from './EXLogo';
 import ScrollBackground from './ScrollBackground';
 
@@ -20,10 +20,22 @@ const item = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } },
 };
 
-export default function LoginScreen() {
-  const [loading, setLoading] = useState<'google' | 'apple' | null>(null);
+const EMAIL_ERRORS: Record<string, string> = {
+  'auth/invalid-credential': 'メールアドレスまたはパスワードが間違っています',
+  'auth/user-not-found': 'このメールアドレスは登録されていません',
+  'auth/wrong-password': 'パスワードが間違っています',
+  'auth/too-many-requests': 'ログイン試行回数が多すぎます。しばらく待ってから再試行してください',
+  'auth/user-disabled': 'このアカウントは無効化されています',
+};
 
-  const handleLogin = async (provider: 'google' | 'apple') => {
+export default function LoginScreen() {
+  const [loading, setLoading] = useState<'google' | 'apple' | 'email' | null>(null);
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  const handleSocialLogin = async (provider: 'google' | 'apple') => {
     setLoading(provider);
     try {
       if (provider === 'apple') {
@@ -31,6 +43,20 @@ export default function LoginScreen() {
       } else {
         await loginWithGoogle();
       }
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailError(null);
+    setLoading('email');
+    try {
+      await loginWithEmail(email.trim(), password);
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code ?? '';
+      setEmailError(EMAIL_ERRORS[code] ?? 'ログインに失敗しました。もう一度お試しください');
     } finally {
       setLoading(null);
     }
@@ -82,7 +108,7 @@ export default function LoginScreen() {
         <motion.div variants={item} className="flex flex-col gap-3">
           {/* Google login button */}
           <button
-            onClick={() => handleLogin('google')}
+            onClick={() => handleSocialLogin('google')}
             disabled={loading !== null}
             className="w-full py-4 bg-white text-indigo-700 rounded-2xl font-bold text-sm flex items-center justify-center gap-3 hover:bg-white/90 active:scale-[0.98] transition-all disabled:opacity-60 shadow-lg"
           >
@@ -97,7 +123,7 @@ export default function LoginScreen() {
 
           {/* Apple login button */}
           <button
-            onClick={() => handleLogin('apple')}
+            onClick={() => handleSocialLogin('apple')}
             disabled={loading !== null}
             className="w-full py-4 bg-black text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-3 hover:bg-black/80 active:scale-[0.98] transition-all disabled:opacity-60 shadow-lg"
           >
@@ -106,11 +132,75 @@ export default function LoginScreen() {
             </svg>
             {loading === 'apple' ? 'ログイン中...' : 'Appleでログイン'}
           </button>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-1">
+            <div className="flex-1 h-px bg-white/20" />
+            <span className="text-[11px] text-white/40 font-medium">または</span>
+            <div className="flex-1 h-px bg-white/20" />
+          </div>
+
+          {/* Email login toggle */}
+          <button
+            type="button"
+            onClick={() => { setShowEmailForm(v => !v); setEmailError(null); }}
+            disabled={loading !== null}
+            className="w-full py-3.5 bg-white/10 text-white/80 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/20 active:scale-[0.98] transition-all disabled:opacity-60 border border-white/20"
+          >
+            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2}>
+              <rect x="2" y="4" width="20" height="16" rx="2" />
+              <path d="m22 7-10 7L2 7" />
+            </svg>
+            メールアドレスでログイン
+          </button>
+
+          {/* Email/password form */}
+          <AnimatePresence>
+            {showEmailForm && (
+              <motion.form
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.25 }}
+                onSubmit={handleEmailLogin}
+                className="flex flex-col gap-2 overflow-hidden"
+              >
+                <input
+                  type="email"
+                  placeholder="メールアドレス"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  className="w-full px-4 py-3 rounded-xl bg-white/15 border border-white/25 text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/60 transition-colors"
+                />
+                <input
+                  type="password"
+                  placeholder="パスワード"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  className="w-full px-4 py-3 rounded-xl bg-white/15 border border-white/25 text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/60 transition-colors"
+                />
+                {emailError && (
+                  <p className="text-[11px] text-red-300 text-left px-1">{emailError}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={loading !== null}
+                  className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold text-sm hover:bg-indigo-400 active:scale-[0.98] transition-all disabled:opacity-60 shadow-lg mt-1"
+                >
+                  {loading === 'email' ? 'ログイン中...' : 'ログイン'}
+                </button>
+              </motion.form>
+            )}
+          </AnimatePresence>
         </motion.div>
 
         {/* Footer note */}
         <motion.p variants={item} className="text-[11px] text-white/40 mt-6">
-          GoogleまたはAppleアカウントでログインできます
+          許可されたアカウントのみアクセス可能です
         </motion.p>
       </motion.div>
     </div>

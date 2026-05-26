@@ -1,5 +1,5 @@
 import { initializeApp, FirebaseApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, OAuthProvider, signInWithPopup, Auth } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithEmailAndPassword, Auth } from "firebase/auth";
 import { getFirestore, doc, getDocFromServer, Firestore } from "firebase/firestore";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
@@ -66,6 +66,7 @@ appleProvider.setCustomParameters({ locale: 'ja' });
 
 export const loginWithGoogle = () => signInWithPopup(auth, googleProvider);
 export const loginWithApple = () => signInWithPopup(auth, appleProvider);
+export const loginWithEmail = (email: string, password: string) => signInWithEmailAndPassword(auth, email, password);
 export const logout = () => auth.signOut();
 
 // Connection test (only when configured)
