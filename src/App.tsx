@@ -26,7 +26,7 @@ import {
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
 import Dashboard from './components/Dashboard';
-import { registerFcmToken, registerFcmTokenWithDiagnostics, type FcmDiagStep } from './lib/fcm';
+import { registerFcmToken, registerFcmTokenWithDiagnostics, subscribeForegroundFcm, type FcmDiagStep } from './lib/fcm';
 import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted, notifyAssigneesAdded } from './lib/notifications';
 import { checkUserAllowed } from './lib/allowedUsers';
 
@@ -303,6 +303,7 @@ export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [accessDenied, setAccessDenied] = useState(false);
   const [needsNameSetup, setNeedsNameSetup] = useState(false);
+  const [fcmToast, setFcmToast] = useState<{ title: string; body: string } | null>(null);
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
     return (saved === 'calendar' || saved === 'prep' || saved === 'archive') ? saved : 'calendar';
@@ -410,6 +411,17 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  // フォアグラウンドFCM通知
+  useEffect(() => {
+    if (!user) return;
+    let unsub: (() => void) | undefined;
+    subscribeForegroundFcm((title, body) => {
+      setFcmToast({ title, body });
+      setTimeout(() => setFcmToast(null), 6000);
+    }).then(fn => { unsub = fn; });
+    return () => { unsub?.(); };
+  }, [user?.uid]);
 
   // スタッフリスト購読
   useEffect(() => {
@@ -945,6 +957,17 @@ VITE_FIREBASE_DATABASE_ID`}
 
   return (
     <div className="flex flex-col min-h-screen transition-colors duration-300">
+      {/* FCMフォアグラウンド通知トースト */}
+      {fcmToast && (
+        <div className="fixed top-16 right-4 z-[9999] w-72 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-2xl shadow-xl p-4 flex items-start gap-3 animate-in slide-in-from-top-2">
+          <span className="text-xl shrink-0">🔔</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{fcmToast.title}</p>
+            {fcmToast.body && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{fcmToast.body}</p>}
+          </div>
+          <button onClick={() => setFcmToast(null)} className="text-slate-300 hover:text-slate-500 text-xs shrink-0">✕</button>
+        </div>
+      )}
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-slate-100 sticky top-0 z-30 gap-4">
         {/* 左: ハンバーガー + ロゴ */}
