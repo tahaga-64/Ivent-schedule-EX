@@ -2,13 +2,6 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { loginWithGoogle, loginWithApple, loginWithEmail } from '../lib/firebase';
 import EXLogo from './EXLogo';
-import ScrollBackground from './ScrollBackground';
-
-const BG_IMAGES = [
-  'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1600&q=80', // イベント会場
-  '/mercury-logo.jpg',
-  '/mercury-office.jpg',
-];
 
 const container = {
   hidden: {},
@@ -64,30 +57,20 @@ export default function LoginScreen() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      <ScrollBackground images={BG_IMAGES} />
-      {/* Floating blobs */}
-      <motion.div
-        animate={{ x: [0, 40, -20, 0], y: [0, -50, 20, 0] }}
-        transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-indigo-400/30 blur-3xl pointer-events-none"
+      {/* Background: MERCURY office photo */}
+      <div
+        className="absolute inset-0 bg-cover bg-center scale-105"
+        style={{ backgroundImage: "url('/mercury-office.jpg')" }}
       />
-      <motion.div
-        animate={{ x: [0, -30, 50, 0], y: [0, 40, -30, 0] }}
-        transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute -top-12 -right-24 w-80 h-80 rounded-full bg-cyan-400/25 blur-3xl pointer-events-none"
-      />
-      <motion.div
-        animate={{ x: [0, 25, -40, 0], y: [0, -28, 50, 0] }}
-        transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute bottom-0 left-1/3 w-[30rem] h-72 rounded-full bg-violet-500/20 blur-3xl pointer-events-none"
-      />
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0 bg-black/55" />
 
       {/* Card */}
       <motion.div
         variants={container}
         initial="hidden"
         animate="visible"
-        className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl px-10 py-10 max-w-sm w-full text-center shadow-[0_8px_40px_rgba(0,0,0,0.35)] relative z-10"
+        className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl px-10 py-10 max-w-sm w-full text-center shadow-[0_8px_40px_rgba(0,0,0,0.45)] relative z-10"
       >
         {/* EX logo */}
         <motion.div variants={item} className="mb-7 flex justify-center">
@@ -106,7 +89,7 @@ export default function LoginScreen() {
 
         {/* Login buttons */}
         <motion.div variants={item} className="flex flex-col gap-3">
-          {/* Google login button */}
+          {/* Google login */}
           <button
             onClick={() => handleSocialLogin('google')}
             disabled={loading !== null}
@@ -121,7 +104,7 @@ export default function LoginScreen() {
             {loading === 'google' ? 'ログイン中...' : 'Googleでログイン'}
           </button>
 
-          {/* Apple login button */}
+          {/* Apple login */}
           <button
             onClick={() => handleSocialLogin('apple')}
             disabled={loading !== null}
