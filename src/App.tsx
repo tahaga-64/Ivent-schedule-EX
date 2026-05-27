@@ -10,13 +10,12 @@ interface StaffMember {
   name: string;
   email?: string;
 }
-import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun, Send } from 'lucide-react';
+import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
 import AccessDeniedScreen from './components/AccessDeniedScreen';
 import PreparationList from './components/PreparationList';
-import NotificationCenter from './components/notifications/NotificationCenter';
 import PhotoUpload from './components/photos/PhotoUpload';
 import PhotoGallery from './components/photos/PhotoGallery';
 import { usePhotos } from './hooks/usePhotos';
@@ -26,7 +25,6 @@ import {
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
 import Dashboard from './components/Dashboard';
-import { recordUserLogin, notifyEventCreated, notifyEventUpdated, notifyEventDeleted, notifyAssigneesAdded } from './lib/notifications';
 import { checkUserAllowed } from './lib/allowedUsers';
 
 type ViewMode = "calendar" | "prep" | "archive";
@@ -294,8 +292,6 @@ export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [accessDenied, setAccessDenied] = useState(false);
   const [needsNameSetup, setNeedsNameSetup] = useState(false);
-  const [isNotifying, setIsNotifying] = useState(false);
-  const [notifyResult, setNotifyResult] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
     return (saved === 'calendar' || saved === 'prep' || saved === 'archive') ? saved : 'calendar';
@@ -389,9 +385,6 @@ export default function App() {
         setNeedsNameSetup(true);
       } else {
         setNeedsNameSetup(false);
-        recordUserLogin(u).catch(error => {
-          console.error('User profile upsert error:', error);
-        });
         setDoc(doc(db, 'userProfiles', u.uid), {
           uid: u.uid,
           email: u.email,
@@ -661,17 +654,6 @@ export default function App() {
       if (user) {
         const oldAssignees = dbEvents[selected.id]?.assignees ?? [];
         const newAssignees = selected.assignees ?? [];
-        const added = newAssignees.filter(name => !oldAssignees.includes(name));
-        if (added.length > 0) {
-          const addedStaff = added.map(name => ({
-            name,
-            email: staffList.find(s => s.name === name)?.email,
-          }));
-          notifyAssigneesAdded(addedStaff, eventToSave, user).catch(console.error);
-        }
-        notifyEventUpdated(selected, user).catch(error => {
-          console.error('Notification fanout error:', error);
-        });
       }
       return true;
     } catch (error) {
@@ -703,7 +685,6 @@ export default function App() {
     setLastEditedId(id);
     try {
       await setDoc(doc(db, "events", id), newEvent);
-      if (user) notifyEventCreated(newEvent, user).catch(console.error);
     } catch (error) {
       console.error('Firestore create error:', error);
       setSaveError(formatSaveError(error));
@@ -715,30 +696,6 @@ export default function App() {
       });
       setSelected(null);
     }
-  };
-
-  const handleNotifyEmail = async () => {
-    if (!selected || !user) return;
-    setIsNotifying(true);
-    setNotifyResult(null);
-    try {
-      const token = await user.getIdToken();
-      const res = await fetch('/api/notify-event', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          eventVenue: selected.venue,
-          eventStart: selected.start,
-          eventEnd: selected.end,
-          senderName: user.displayName || user.email || '編集者',
-        }),
-      });
-      const data = await res.json() as { sent?: number; error?: string };
-      setNotifyResult(res.ok ? `✅ ${data.sent}名にメールを送信しました` : `❌ ${data.error ?? '送信失敗'}`);
-    } catch (e) {
-      setNotifyResult(`❌ ${String(e)}`);
-    }
-    setIsNotifying(false);
   };
 
   const handleDeleteEvent = async () => {
@@ -773,7 +730,6 @@ export default function App() {
       const prepPath = `events/${eventId}/preparationItems`;
       const prepSnapshot = await getDocs(collection(db, prepPath));
       await Promise.all(prepSnapshot.docs.map(d => deleteDoc(d.ref)));
-      if (user) notifyEventDeleted(deletedVenue, eventId, user).catch(console.error);
     } catch (error) {
       console.error('Delete error:', error);
       setDbEvents(prev => ({ ...prev, [eventId]: eventSnapshot }));
@@ -949,9 +905,6 @@ VITE_FIREBASE_DATABASE_ID`}
       user={user}
       onComplete={() => {
         setNeedsNameSetup(false);
-        recordUserLogin(user).catch(error => {
-          console.error('User profile upsert error:', error);
-        });
       }}
     />
   );
@@ -1024,8 +977,6 @@ VITE_FIREBASE_DATABASE_ID`}
             <span className="hidden sm:inline">新規イベント</span>
           </button>
           )}
-
-          <NotificationCenter />
 
           <div className="flex items-center gap-2">
             {user.photoURL ? (
@@ -1978,21 +1929,6 @@ VITE_FIREBASE_DATABASE_ID`}
                       準備物リストを開く
                     </button>
                   </div>
-                  {isEventEditor(user?.email) && (
-                    <>
-                      <button
-                        onClick={handleNotifyEmail}
-                        disabled={isNotifying}
-                        className="w-full mt-2 py-3 rounded-2xl bg-indigo-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 disabled:opacity-60 transition-colors"
-                      >
-                        <Send size={15} />
-                        {isNotifying ? '送信中...' : 'メンバーに通知する'}
-                      </button>
-                      {notifyResult && (
-                        <p className="text-xs text-center text-slate-500 mt-1">{notifyResult}</p>
-                      )}
-                    </>
-                  )}
                   {canEditEvent && (
                     <button
                       onClick={handleDeleteEvent}

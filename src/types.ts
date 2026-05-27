@@ -64,19 +64,3 @@ export interface UserProfile {
   lastLoginAt: { toDate(): Date } | Date | null;
   createdAt?: { toDate(): Date } | Date | null;
 }
-
-export interface Notification {
-  id: string;
-  type: 'event_created' | 'event_updated' | 'event_deleted' | 'prep_item_updated' | 'budget_alert';
-  title: string;
-  message: string;
-  eventId?: string;
-  recipientUid?: string;
-  actorUid?: string;
-  actorName?: string | null;
-  actorEmail?: string | null;
-  userId?: string;
-  read: boolean;
-  createdAt: { toDate(): Date; toMillis(): number } | Date | null;
-  data?: Record<string, unknown>;
-}
