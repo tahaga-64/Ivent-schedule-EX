@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { PreparationItem, Event } from '../types';
-import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer, FileSpreadsheet } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer, FileSpreadsheet, Briefcase, MessageSquare, Download, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
 
 interface Props {
@@ -97,6 +98,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [showProposal, setShowProposal] = useState(false);
   const hasChangesRef = useRef(hasChanges);
   hasChangesRef.current = hasChanges;
 
@@ -180,6 +182,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
 
 
   return (
+    <>
     <div
       id="prep-print-area"
       data-print-title={`${event.venue}　準備物リスト　${event.start}〜${event.end}`}
@@ -220,6 +223,14 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowProposal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-violet-600 hover:bg-violet-50 rounded-xl font-bold text-xs transition-colors print:hidden"
+            title="商談提案用"
+          >
+            <Briefcase size={13} />
+            <span className="hidden sm:inline">商談提案用</span>
+          </button>
           <button
             onClick={() => handleExportExcel(event, items)}
             className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl font-bold text-xs transition-colors print:hidden"
@@ -625,6 +636,17 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       </div>
       </div>
     </div>
+    <AnimatePresence>
+      {showProposal && (
+        <ProposalModal
+          event={event}
+          items={items.filter(i => !isEmptyItem(i))}
+          totals={totals}
+          onClose={() => setShowProposal(false)}
+        />
+      )}
+    </AnimatePresence>
+    </>
   );
 }
 
@@ -678,5 +700,175 @@ function Checkbox({ checked, onChange, disabled, color = 'indigo' }: { checked: 
         </svg>
       )}
     </button>
+  );
+}
+
+function ProposalModal({
+  event,
+  items,
+  totals,
+  onClose,
+}: {
+  event: Event;
+  items: PreparationItem[];
+  totals: { subtotal: number; shipping: number; total: number };
+  onClose: () => void;
+}) {
+  function handleProposalPrint() {
+    document.body.classList.add('printing-proposal');
+    window.print();
+    window.addEventListener('afterprint', () => {
+      document.body.classList.remove('printing-proposal');
+    }, { once: true });
+  }
+
+  function handleLineShare() {
+    const dateRange = event.end && event.end !== event.start
+      ? `${event.start} 〜 ${event.end}`
+      : event.start;
+    const itemLines = items
+      .map((item, i) =>
+        `  ${i + 1}. ${item.name}（${item.quantity}個）¥${item.amount.toLocaleString()}`
+      )
+      .join('\n');
+    const text = [
+      `【商談提案】${event.venue}`,
+      `期間: ${dateRange}`,
+      event.client ? `クライアント: ${event.client}` : null,
+      '',
+      '◆ 準備物リスト',
+      itemLines,
+      '',
+      `商品計: ¥${totals.subtotal.toLocaleString()}`,
+      `配送料: ¥${totals.shipping.toLocaleString()}`,
+      `合計:   ¥${totals.total.toLocaleString()}`,
+    ].filter(l => l !== null).join('\n');
+    window.open(
+      `https://line.me/R/msg/text/?${encodeURIComponent(text)}`,
+      '_blank',
+      'noopener,noreferrer'
+    );
+  }
+
+  return createPortal(
+    <div id="proposal-modal-root" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm proposal-no-print"
+        onClick={onClose}
+      />
+      {/* Panel */}
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 40 }}
+        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+        className="relative w-full sm:max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]"
+        id="proposal-print-area"
+      >
+        {/* Header chrome — 印刷時非表示 */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0 proposal-no-print">
+          <div>
+            <div className="text-[10px] font-black text-violet-500 uppercase tracking-widest mb-0.5">商談提案用</div>
+            <h3 className="text-base font-black text-slate-900">{event.venue}</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleLineShare}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[#06C755] hover:bg-[#05B34C] text-white rounded-xl font-black text-xs transition-colors"
+            >
+              <MessageSquare size={13} />
+              LINEで共有
+            </button>
+            <button
+              onClick={handleProposalPrint}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-700 text-white rounded-xl font-black text-xs transition-colors"
+            >
+              <Download size={13} />
+              PDFで保存
+            </button>
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400">
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* スクロール可能なコンテンツ（印刷時は overflow visible） */}
+        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6" id="proposal-content">
+          {/* カバー */}
+          <div className="text-center py-4 border-b border-slate-100">
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2">BUSINESS PROPOSAL</div>
+            <h1 className="text-2xl font-black text-slate-900 mb-1">{event.venue}</h1>
+            <div className="text-sm text-slate-500">
+              {event.start}{event.end && event.end !== event.start ? ` → ${event.end}` : ''}
+              {event.client && (
+                <> · <span className="font-bold text-slate-700">{event.client}</span></>
+              )}
+            </div>
+            {event.type && (
+              <div className="mt-2 inline-block px-3 py-1 bg-violet-50 text-violet-700 text-xs font-black rounded-full">
+                {event.type}
+              </div>
+            )}
+          </div>
+
+          {/* 品目テーブル */}
+          <div>
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">準備物一覧</div>
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b-2 border-slate-200">
+                  <th className="text-left py-2 text-xs font-black text-slate-400 pr-3">#</th>
+                  <th className="text-left py-2 text-xs font-black text-slate-400">品名</th>
+                  <th className="text-right py-2 text-xs font-black text-slate-400 px-3">数量</th>
+                  <th className="text-right py-2 text-xs font-black text-slate-400 px-3">単価</th>
+                  <th className="text-right py-2 text-xs font-black text-slate-400 px-3">金額</th>
+                  <th className="text-right py-2 text-xs font-black text-slate-400">配送料</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {items.map((item, idx) => (
+                  <tr key={item.id}>
+                    <td className="py-2.5 pr-3 text-slate-400 text-xs font-mono">{idx + 1}</td>
+                    <td className="py-2.5 font-medium text-slate-800">
+                      {item.name}
+                      {item.note && <div className="text-xs text-slate-400 mt-0.5">{item.note}</div>}
+                    </td>
+                    <td className="py-2.5 text-right font-mono text-slate-700 px-3">{item.quantity}</td>
+                    <td className="py-2.5 text-right font-mono text-slate-700 px-3">¥{item.unitPrice.toLocaleString()}</td>
+                    <td className="py-2.5 text-right font-mono font-bold text-slate-900 px-3">¥{item.amount.toLocaleString()}</td>
+                    <td className="py-2.5 text-right font-mono text-slate-500">
+                      {item.shippingFee > 0 ? `¥${item.shippingFee.toLocaleString()}` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* 合計 */}
+          <div className="border-t-2 border-slate-200 pt-4 flex flex-col items-end gap-1.5">
+            <div className="flex gap-8 text-sm">
+              <span className="text-slate-500">商品計</span>
+              <span className="font-mono font-bold text-slate-800 w-28 text-right">¥{totals.subtotal.toLocaleString()}</span>
+            </div>
+            <div className="flex gap-8 text-sm">
+              <span className="text-slate-500">配送料計</span>
+              <span className="font-mono font-bold text-slate-800 w-28 text-right">¥{totals.shipping.toLocaleString()}</span>
+            </div>
+            <div className="flex gap-8 text-lg border-t border-slate-200 pt-2 mt-1">
+              <span className="font-black text-slate-900">合計（税抜）</span>
+              <span className="font-mono font-black text-violet-700 w-28 text-right">¥{totals.total.toLocaleString()}</span>
+            </div>
+          </div>
+
+          {/* フッター */}
+          <div className="text-xs text-slate-400 text-center pt-4 border-t border-slate-100">
+            本資料は {new Date().toLocaleDateString('ja-JP')} 時点の情報です。
+          </div>
+        </div>
+      </motion.div>
+    </div>,
+    document.body
   );
 }

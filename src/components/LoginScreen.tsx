@@ -78,12 +78,7 @@ export default function LoginScreen() {
         </motion.div>
 
         {/* Title */}
-        <motion.h1 variants={item} className="text-2xl font-black text-white mb-1 tracking-tight">
-          Ivent Manager
-        </motion.h1>
-
-        {/* Subtitle */}
-        <motion.p variants={item} className="text-sm text-white/60 mb-8 font-medium">
+        <motion.p variants={item} className="text-2xl font-black text-white mb-8 tracking-tight">
           EX事業部 イベント管理システム
         </motion.p>
 

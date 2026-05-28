@@ -160,6 +160,48 @@
   }
 }
 
+/* ── 商談提案 印刷スタイル ────────────────────────── */
+@media print {
+  /* 提案モード: #root を非表示にし、提案パネルだけ表示 */
+  body.printing-proposal #root {
+    display: none !important;
+  }
+  body.printing-proposal .proposal-no-print {
+    display: none !important;
+  }
+  body.printing-proposal #proposal-print-area {
+    display: flex !important;
+    flex-direction: column !important;
+    position: fixed !important;
+    inset: 0 !important;
+    background: white !important;
+    z-index: 9999 !important;
+    border-radius: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  body.printing-proposal #proposal-content {
+    overflow: visible !important;
+    max-height: none !important;
+    flex: none !important;
+  }
+  body.printing-proposal table {
+    width: 100%;
+    font-size: 9pt;
+    border-collapse: collapse;
+    page-break-inside: auto;
+  }
+  body.printing-proposal th,
+  body.printing-proposal td {
+    padding: 4px 6px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+  /* 通常印刷モード時: 提案モーダルを非表示 */
+  body:not(.printing-proposal) #proposal-modal-root {
+    display: none !important;
+  }
+}
+
 /* Custom Checkbox Animation */
 @keyframes check {
   0% { transform: scale(0); }
