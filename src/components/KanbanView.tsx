@@ -2,12 +2,14 @@ import { useMemo } from 'react';
 import { motion } from 'motion/react';
 import type { Event, EventStatus } from '../types';
 
-const COLUMNS: { status: string; label: string; dot: string; headerCls: string }[] = [
-  { status: 'scheduled',  label: '予定',    dot: '#94a3b8', headerCls: 'bg-slate-100 text-slate-600' },
-  { status: 'in_progress',label: '準備中',  dot: '#f59e0b', headerCls: 'bg-amber-100 text-amber-700' },
-  { status: 'waiting',    label: '入荷待ち',dot: '#3b82f6', headerCls: 'bg-blue-100 text-blue-700' },
-  { status: 'ready',      label: '準備完了',dot: '#10b981', headerCls: 'bg-emerald-100 text-emerald-700' },
-  { status: 'completed',  label: '完了',    dot: '#f97316', headerCls: 'bg-orange-100 text-orange-700' },
+interface ColumnDef { status: string; label: string; dot: string; headerBg: string; headerText: string; cardBorder: string; badgeBg: string; badgeText: string }
+
+const COLUMNS: ColumnDef[] = [
+  { status: 'scheduled',   label: '予定',    dot: '#94a3b8', headerBg: '#f1f5f9', headerText: '#334155', cardBorder: '#cbd5e1', badgeBg: '#e2e8f0', badgeText: '#334155' },
+  { status: 'in_progress', label: '準備中',  dot: '#f59e0b', headerBg: '#fef3c7', headerText: '#78350f', cardBorder: '#fbbf24', badgeBg: '#fde68a', badgeText: '#78350f' },
+  { status: 'waiting',     label: '入荷待ち',dot: '#3b82f6', headerBg: '#dbeafe', headerText: '#1e3a8a', cardBorder: '#93c5fd', badgeBg: '#bfdbfe', badgeText: '#1e3a8a' },
+  { status: 'ready',       label: '準備完了',dot: '#10b981', headerBg: '#d1fae5', headerText: '#064e3b', cardBorder: '#6ee7b7', badgeBg: '#a7f3d0', badgeText: '#064e3b' },
+  { status: 'completed',   label: '完了',    dot: '#f97316', headerBg: '#ffedd5', headerText: '#7c2d12', cardBorder: '#fdba74', badgeBg: '#fed7aa', badgeText: '#7c2d12' },
 ];
 
 interface Props {
@@ -46,12 +48,20 @@ export default function KanbanView({ events, prepProgressMap, onSelectEvent, onU
         return (
           <div key={col.status} className="flex-shrink-0 w-60 flex flex-col gap-2">
             {/* Column header */}
-            <div className={`flex items-center justify-between px-3 py-2 rounded-xl ${col.headerCls}`}>
+            <div
+              className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+              style={{ background: col.headerBg, color: col.headerText }}
+            >
               <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: col.dot }} />
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: col.dot }} />
                 <span className="text-xs font-black">{col.label}</span>
               </div>
-              <span className="text-xs font-black opacity-50">{colEvents.length}</span>
+              <span
+                className="text-[10px] font-black px-1.5 py-0.5 rounded-full"
+                style={{ background: col.badgeBg, color: col.badgeText }}
+              >
+                {colEvents.length}
+              </span>
             </div>
 
             {/* Cards */}
@@ -64,7 +74,8 @@ export default function KanbanView({ events, prepProgressMap, onSelectEvent, onU
                   <motion.div
                     key={ev.id}
                     layout
-                    className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow"
+                    className="bg-[var(--surface)] rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow"
+                    style={{ border: `1px solid ${col.cardBorder}`, borderLeftWidth: 3 }}
                   >
                     <button onClick={() => onSelectEvent(ev)} className="w-full text-left">
                       <div className="text-xs font-black text-[var(--text-primary)] leading-snug mb-1">{ev.venue}</div>
@@ -87,7 +98,8 @@ export default function KanbanView({ events, prepProgressMap, onSelectEvent, onU
                         {prevCol ? (
                           <button
                             onClick={() => onUpdateStatus(ev.id, prevCol.status as EventStatus)}
-                            className="text-[10px] text-slate-400 hover:text-slate-600 px-1.5 py-0.5 rounded hover:bg-slate-100 transition-colors"
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-lg transition-all"
+                            style={{ color: prevCol.headerText, background: prevCol.badgeBg }}
                           >
                             ← {prevCol.label}
                           </button>
@@ -95,7 +107,8 @@ export default function KanbanView({ events, prepProgressMap, onSelectEvent, onU
                         {nextCol ? (
                           <button
                             onClick={() => onUpdateStatus(ev.id, nextCol.status as EventStatus)}
-                            className="text-[10px] text-slate-400 hover:text-indigo-600 px-1.5 py-0.5 rounded hover:bg-indigo-50 transition-colors"
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-lg transition-all"
+                            style={{ color: nextCol.headerText, background: nextCol.badgeBg }}
                           >
                             {nextCol.label} →
                           </button>

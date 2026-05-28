@@ -9,15 +9,17 @@ interface Props {
   onSelectEvent: (event: Event) => void;
 }
 
+const STATUS_STYLE: Record<string, { label: string; bg: string; color: string; border: string }> = {
+  in_progress: { label: '準備中',    bg: '#fde68a', color: '#78350f', border: '#fbbf24' },
+  waiting:     { label: '入荷待ち',  bg: '#bfdbfe', color: '#1e3a8a', border: '#93c5fd' },
+  ready:       { label: '準備完了',  bg: '#a7f3d0', color: '#064e3b', border: '#6ee7b7' },
+  completed:   { label: '終了',      bg: '#fed7aa', color: '#7c2d12', border: '#fdba74' },
+  cancelled:   { label: 'キャンセル',bg: '#fecaca', color: '#7f1d1d', border: '#fca5a5' },
+  scheduled:   { label: '予定',      bg: '#e2e8f0', color: '#334155', border: '#cbd5e1' },
+};
+
 function statusPill(status?: string) {
-  switch (status) {
-    case 'in_progress': return { label: '準備中',    cls: 'bg-amber-100 text-amber-700' };
-    case 'waiting':     return { label: '入荷待ち',  cls: 'bg-blue-100 text-blue-700' };
-    case 'ready':       return { label: '準備完了',  cls: 'bg-emerald-100 text-emerald-700' };
-    case 'completed':   return { label: '終了',      cls: 'bg-orange-100 text-orange-700' };
-    case 'cancelled':   return { label: 'キャンセル',cls: 'bg-red-100 text-red-500' };
-    default:            return { label: '予定',      cls: 'bg-slate-100 text-slate-500' };
-  }
+  return STATUS_STYLE[status ?? 'scheduled'] ?? STATUS_STYLE.scheduled;
 }
 
 function fmtRange(start: string, end: string): string {
@@ -56,7 +58,12 @@ function EventCard({ ev, prog, today, onSelect }: {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-sm font-black text-[var(--text-primary)] truncate">{ev.venue}</span>
-            <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black ${st.cls}`}>{st.label}</span>
+            <span
+              className="shrink-0 px-2.5 py-0.5 rounded-full text-[10px] font-black"
+              style={{ background: st.bg, color: st.color, border: `1px solid ${st.border}` }}
+            >
+              {st.label}
+            </span>
           </div>
           <div className="text-xs text-[var(--text-secondary)] mb-2">
             {fmtRange(ev.start, ev.end)}{ev.client ? ` · ${ev.client}` : ''}
