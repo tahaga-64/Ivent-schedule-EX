@@ -56,6 +56,14 @@ export interface EventPhoto {
   thumbnailStoragePath?: string;
 }
 
+export interface FishItem {
+  id: string;
+  name: string;
+  count: number;
+  note?: string;
+  order: number;
+}
+
 export interface UserProfile {
   uid: string;
   email: string | null;

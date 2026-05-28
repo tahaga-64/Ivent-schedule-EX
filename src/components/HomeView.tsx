@@ -70,7 +70,7 @@ function EventCard({ ev, prog, today, onSelect }: {
           </div>
           {pct >= 0 && (
             <div className="flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-slate-100 dark:bg-zinc-700 rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                 <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${pct}%` }} />
               </div>
               <span className="text-[10px] text-slate-400 font-mono shrink-0">{prog!.done}/{prog!.total}</span>
@@ -139,7 +139,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent }: Pro
   return (
     <div className="flex flex-col gap-6 p-4 pb-24 max-w-2xl mx-auto w-full">
       {/* Hero card */}
-      <div className="bg-gradient-to-br from-indigo-500 to-violet-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-200 dark:shadow-none">
+      <div className="bg-gradient-to-br from-indigo-500 to-violet-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-200">
         <div className="text-[10px] font-black uppercase tracking-widest opacity-70 mb-1">TODAY</div>
         <div className="text-2xl font-black leading-tight mb-3">
           {new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'long' })}

@@ -20,7 +20,7 @@ const firebaseConfig = {
   storageBucket:     readEnvValue("VITE_FIREBASE_STORAGE_BUCKET"),
   messagingSenderId: readEnvValue("VITE_FIREBASE_MESSAGING_SENDER_ID"),
   appId:             readEnvValue("VITE_FIREBASE_APP_ID"),
-  measurementId:     "G-XGRDW0R02L",
+  measurementId:     readEnvValue("VITE_FIREBASE_MEASUREMENT_ID"),
 };
 
 const firestoreDatabaseId = readEnvValue("VITE_FIREBASE_DATABASE_ID") || "(default)";
@@ -34,9 +34,10 @@ let _configError: string | null = missingKeys.length > 0
   ? `Firebase環境変数が未設定です: ${missingKeys.join(', ')}\nVercelのEnvironment Variablesに追加してください。`
   : null;
 
-let app: FirebaseApp;
-let db: Firestore;
-let auth: Auth;
+// 定義前使用エラーを避けるため確定割り当てアサーションを使用
+let app!: FirebaseApp;
+let db!: Firestore;
+let auth!: Auth;
 
 if (!_configError) {
   try {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../lib/firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { PreparationItem, Event } from '../types';
 import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer, FileSpreadsheet, Briefcase, MessageSquare, Download, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -125,9 +125,11 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
     setIsSaving(true);
     setSaveError(null);
     try {
-      await Promise.all(items.map(item =>
-        setDoc(doc(db, `events/${event.id}/preparationItems`, item.id), item)
-      ));
+      const batch = writeBatch(db);
+      items.forEach(item => {
+        batch.set(doc(db, `events/${event.id}/preparationItems`, item.id), item);
+      });
+      await batch.commit();
       const total = items.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0);
       updateDoc(doc(db, 'events', event.id), { prepBudgetTotal: total }).catch(() => {});
       setHasChanges(false);

@@ -85,7 +85,7 @@ export default function KanbanView({ events, prepProgressMap, onSelectEvent, onU
                       </div>
                       {pct >= 0 && (
                         <div className="flex items-center gap-1.5 mb-1">
-                          <div className="flex-1 h-1 bg-slate-100 dark:bg-zinc-700 rounded-full overflow-hidden">
+                          <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
                             <div className="h-full rounded-full bg-indigo-500" style={{ width: `${pct}%` }} />
                           </div>
                           <span className="text-[10px] text-slate-400 font-mono">{prog!.done}/{prog!.total}</span>
@@ -120,7 +120,7 @@ export default function KanbanView({ events, prepProgressMap, onSelectEvent, onU
               })}
 
               {colEvents.length === 0 && (
-                <div className="text-center py-8 text-[10px] text-slate-300 border-2 border-dashed border-slate-100 dark:border-zinc-800 rounded-xl">
+                <div className="text-center py-8 text-[10px] text-slate-300 border-2 border-dashed border-slate-100 rounded-xl">
                   なし
                 </div>
               )}
