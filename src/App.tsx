@@ -3,14 +3,14 @@ import { db, auth, loginWithGoogle, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, collectionGroup, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
 import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS } from './constants';
-import { Event, PreparationItem, type FieldAuthorAttribution } from './types';
+import { Event, PreparationItem, EventStatus, type FieldAuthorAttribution } from './types';
 
 interface StaffMember {
   id: string;
   name: string;
   email?: string;
 }
-import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun } from 'lucide-react';
+import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun, Home, KanbanSquare, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
@@ -25,10 +25,12 @@ import { MAX_PHOTOS } from './lib/photoStorage';
 import {
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
-import Dashboard from './components/Dashboard';
+import HomeView from './components/HomeView';
+import KanbanView from './components/KanbanView';
+import MasterItemsView from './components/MasterItemsView';
 import { checkUserAllowed } from './lib/allowedUsers';
 
-type ViewMode = "calendar" | "prep" | "archive";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "kanban" | "master";
 type ModalTab = "detail" | "photos";
 
 // 安全なlocalStorage読み込み
@@ -295,7 +297,8 @@ export default function App() {
   const [needsNameSetup, setNeedsNameSetup] = useState(false);
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
-    return (saved === 'calendar' || saved === 'prep' || saved === 'archive') ? saved : 'calendar';
+    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'kanban', 'master'];
+    return valid.includes(saved as ViewMode) ? saved as ViewMode : 'home';
   });
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
@@ -605,6 +608,16 @@ export default function App() {
     setHasUnsavedChanges(true);
     if (validationErrors.length > 0) {
       setValidationErrors([]);
+    }
+  };
+
+  // Kanbanビュー用: イベントステータスを直接Firestoreに保存
+  const handleUpdateEventStatus = async (eventId: string, status: EventStatus) => {
+    setDbEvents(prev => ({ ...prev, [eventId]: { ...prev[eventId], status } }));
+    try {
+      await updateDoc(doc(db, 'events', eventId), { status });
+    } catch (e) {
+      console.error('status update failed', e);
     }
   };
 
@@ -946,7 +959,7 @@ VITE_FIREBASE_DATABASE_ID`}
           </div>
           <div className="sm:hidden flex flex-col">
             <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{calYear}年{calMonth}月</div>
-            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'calendar' ? 'カレンダー' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : ''}</div>
+            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'home' ? 'ホーム' : view === 'calendar' ? 'カレンダー' : view === 'kanban' ? 'カンバン' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : view === 'master' ? '備品マスター' : ''}</div>
           </div>
         </div>
 
@@ -970,21 +983,24 @@ VITE_FIREBASE_DATABASE_ID`}
           <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
             {(
               [
-                { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
-                { id: "prep", icon: <ClipboardList size={14} />, label: "準備物" },
-                { id: "archive", icon: <Archive size={14} />, label: "アーカイブ" },
+                { id: "home",     icon: <Home size={14} />,         label: "ホーム" },
+                { id: "calendar", icon: <Calendar size={14} />,     label: "カレンダー" },
+                { id: "kanban",   icon: <KanbanSquare size={14} />, label: "カンバン" },
+                { id: "prep",     icon: <ClipboardList size={14} />, label: "準備物" },
+                { id: "archive",  icon: <Archive size={14} />,      label: "アーカイブ" },
+                { id: "master",   icon: <Package size={14} />,      label: "備品" },
               ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
             ).map(v => (
               <button
                 key={v.id}
-                onClick={() => setView(v.id)}
+                onClick={() => { if (v.id !== 'prep' && v.id !== 'archive') setPrepEvent(null); setView(v.id); }}
                 className={`
-                  flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all
+                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all
                   ${view === v.id ? 'bg-white text-slate-800 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700'}
                 `}
               >
                 {v.icon}
-                <span className="hidden md:inline">{v.label}</span>
+                <span className="hidden lg:inline">{v.label}</span>
               </button>
             ))}
           </div>
@@ -1323,8 +1339,6 @@ VITE_FIREBASE_DATABASE_ID`}
                       densityPreview={calendarDensityPreview}
                       prepProgressMap={prepProgressMap}
                     />
-                    {/* Dashboard + 在庫管理アプリ導線 */}
-                    <Dashboard events={allEvents} />
                     <InventoryAppBanner />
                   </div>
                   <div className="lg:hidden space-y-3">
@@ -1380,12 +1394,29 @@ VITE_FIREBASE_DATABASE_ID`}
                       />
                     )}
                   </div>
-                  {/* モバイル: Dashboard + 在庫管理アプリ導線 */}
                   <div className="lg:hidden">
-                    <Dashboard events={allEvents} />
                     <InventoryAppBanner />
                   </div>
                 </>
+              )}
+              {view === "home" && (
+                <HomeView
+                  events={allEvents}
+                  prepProgressMap={prepProgressMap}
+                  onSelectEvent={handleEventSelect}
+                />
+              )}
+              {view === "kanban" && (
+                <KanbanView
+                  events={allEvents}
+                  prepProgressMap={prepProgressMap}
+                  onSelectEvent={handleEventSelect}
+                  onUpdateStatus={handleUpdateEventStatus}
+                  canEdit={canEditEvent}
+                />
+              )}
+              {view === "master" && (
+                <MasterItemsView canEdit={canEditPreparationList} />
               )}
               {(view === "prep" || view === "archive") && prepEvent ? (
                 <PreparationList
@@ -2011,18 +2042,20 @@ VITE_FIREBASE_DATABASE_ID`}
       )}
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around pb-safe z-20 lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-950 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-around pb-safe z-20 lg:hidden">
         {(
           [
-            { id: "calendar", icon: <Calendar size={22} />,     label: "カレンダー" },
-            { id: "prep",     icon: <ClipboardList size={22} />, label: "準備物" },
-            { id: "archive",  icon: <Archive size={22} />,       label: "アーカイブ" },
+            { id: "home",     icon: <Home size={20} />,          label: "ホーム" },
+            { id: "calendar", icon: <Calendar size={20} />,      label: "カレンダー" },
+            { id: "kanban",   icon: <KanbanSquare size={20} />,  label: "カンバン" },
+            { id: "prep",     icon: <ClipboardList size={20} />, label: "準備物" },
+            { id: "master",   icon: <Package size={20} />,       label: "備品" },
           ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
         ).map(tab => (
           <button
             key={tab.id}
             onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); setView(tab.id); }}
-            className={`flex flex-col items-center gap-0.5 px-4 py-3 text-[10px] font-bold transition-colors ${
+            className={`flex flex-col items-center gap-0.5 px-3 py-3 text-[10px] font-bold transition-colors ${
               view === tab.id ? "text-indigo-600" : "text-slate-400"
             }`}
           >
