@@ -10,7 +10,7 @@ interface StaffMember {
   name: string;
   email?: string;
 }
-import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun, Home, KanbanSquare, Package } from 'lucide-react';
+import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun, Home, KanbanSquare, Package, Fish } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
@@ -28,9 +28,10 @@ import {
 import HomeView from './components/HomeView';
 import KanbanView from './components/KanbanView';
 import MasterItemsView from './components/MasterItemsView';
+import FishListView from './components/FishListView';
 import { checkUserAllowed } from './lib/allowedUsers';
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "kanban" | "master";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "kanban" | "master" | "fish";
 type ModalTab = "detail" | "photos";
 
 // 安全なlocalStorage読み込み
@@ -297,7 +298,7 @@ export default function App() {
   const [needsNameSetup, setNeedsNameSetup] = useState(false);
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
-    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'kanban', 'master'];
+    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'kanban', 'master', 'fish'];
     return valid.includes(saved as ViewMode) ? saved as ViewMode : 'home';
   });
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
@@ -959,7 +960,7 @@ VITE_FIREBASE_DATABASE_ID`}
           </div>
           <div className="sm:hidden flex flex-col">
             <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{calYear}年{calMonth}月</div>
-            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'home' ? 'ホーム' : view === 'calendar' ? 'カレンダー' : view === 'kanban' ? 'カンバン' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : view === 'master' ? '備品マスター' : ''}</div>
+            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'home' ? 'ホーム' : view === 'calendar' ? 'カレンダー' : view === 'kanban' ? 'カンバン' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : view === 'master' ? '備品マスター' : view === 'fish' ? '魚リスト' : ''}</div>
           </div>
         </div>
 
@@ -989,6 +990,7 @@ VITE_FIREBASE_DATABASE_ID`}
                 { id: "prep",     icon: <ClipboardList size={14} />, label: "準備物" },
                 { id: "archive",  icon: <Archive size={14} />,      label: "アーカイブ" },
                 { id: "master",   icon: <Package size={14} />,      label: "備品" },
+                { id: "fish",     icon: <Fish size={14} />,         label: "魚リスト" },
               ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
             ).map(v => (
               <button
@@ -1406,7 +1408,7 @@ VITE_FIREBASE_DATABASE_ID`}
                   onSelectEvent={handleEventSelect}
                   onNavigateToPrepList={() => setView('prep')}
                   onCreateEvent={() => handleCreateEvent()}
-                  onOpenSchedule={() => window.open('https://github.com/tahaga-64/EX-schedule', '_blank', 'noopener,noreferrer')}
+                  onOpenSchedule={() => window.open('https://ex-schedule.vercel.app/?year=2026&month=5', '_blank', 'noopener,noreferrer')}
                 />
               )}
               {view === "kanban" && (
@@ -1420,6 +1422,9 @@ VITE_FIREBASE_DATABASE_ID`}
               )}
               {view === "master" && (
                 <MasterItemsView canEdit={canEditPreparationList} />
+              )}
+              {view === "fish" && (
+                <FishListView events={allEvents} canEdit={canEditPreparationList} />
               )}
               {(view === "prep" || view === "archive") && prepEvent ? (
                 <PreparationList
@@ -2053,6 +2058,7 @@ VITE_FIREBASE_DATABASE_ID`}
             { id: "kanban",   icon: <KanbanSquare size={20} />,  label: "カンバン" },
             { id: "prep",     icon: <ClipboardList size={20} />, label: "準備物" },
             { id: "master",   icon: <Package size={20} />,       label: "備品" },
+            { id: "fish",     icon: <Fish size={20} />,          label: "魚リスト" },
           ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
         ).map(tab => (
           <button
