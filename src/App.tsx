@@ -10,7 +10,7 @@ interface StaffMember {
   name: string;
   email?: string;
 }
-import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Home, Package, Fish } from 'lucide-react';
+import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun, Home, KanbanSquare, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
@@ -26,11 +26,11 @@ import {
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
 import HomeView from './components/HomeView';
-import FishListView from './components/FishListView';
+import KanbanView from './components/KanbanView';
 import MasterItemsView from './components/MasterItemsView';
 import { checkUserAllowed } from './lib/allowedUsers';
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "fish" | "master";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "kanban" | "master";
 type ModalTab = "detail" | "photos";
 
 // 安全なlocalStorage読み込み
@@ -297,7 +297,7 @@ export default function App() {
   const [needsNameSetup, setNeedsNameSetup] = useState(false);
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
-    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'fish', 'master'];
+    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'kanban', 'master'];
     return valid.includes(saved as ViewMode) ? saved as ViewMode : 'home';
   });
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
@@ -320,6 +320,7 @@ export default function App() {
   const [mobileWeekRowIndex, setMobileWeekRowIndex] = useState(0);
   const [mobileAgendaDay, setMobileAgendaDay] = useState(() => new Date().getDate());
   const [sideOpen, setSideOpen] = useState(true);
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const [searchQuery, setSearchQuery] = useState("");
   const [prepEvent, setPrepEvent] = useState<Event | null>(null);
   const [modalTab, setModalTab] = useState<ModalTab>('detail');
@@ -437,6 +438,12 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  // ダークモードの適用
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  }, [isDark]);
 
   // 他ユーザーの変更をモーダルにリアルタイム反映（未保存の編集中は上書きしない）
   useEffect(() => {
@@ -576,7 +583,7 @@ export default function App() {
   const stats = useMemo(() => {
     const byRegion: Record<string, number> = {};
     const byType: Record<string, number> = {};
-    const byStatus: Record<string, number> = { "scheduled": 0, "in_progress": 0, "waiting": 0, "ready": 0, "completed": 0, "cancelled": 0 };
+    const byStatus: Record<string, number> = { "scheduled": 0, "completed": 0, "cancelled": 0 };
 
     allEvents.forEach(d => {
       if (d.region) byRegion[d.region] = (byRegion[d.region] || 0) + 1;
@@ -952,7 +959,7 @@ VITE_FIREBASE_DATABASE_ID`}
           </div>
           <div className="sm:hidden flex flex-col">
             <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{calYear}年{calMonth}月</div>
-            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'home' ? 'ホーム' : view === 'calendar' ? 'カレンダー' : view === 'fish' ? '魚リスト' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : view === 'master' ? '備品マスター' : ''}</div>
+            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'home' ? 'ホーム' : view === 'calendar' ? 'カレンダー' : view === 'kanban' ? 'カンバン' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : view === 'master' ? '備品マスター' : ''}</div>
           </div>
         </div>
 
@@ -976,9 +983,9 @@ VITE_FIREBASE_DATABASE_ID`}
           <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
             {(
               [
-                { id: "home",     icon: <Home size={14} />,          label: "ホーム" },
+                { id: "home",     icon: <Home size={14} />,         label: "ホーム" },
                 { id: "calendar", icon: <Calendar size={14} />,     label: "カレンダー" },
-                { id: "fish",     icon: <Fish size={14} />,         label: "魚リスト" },
+                { id: "kanban",   icon: <KanbanSquare size={14} />, label: "カンバン" },
                 { id: "prep",     icon: <ClipboardList size={14} />, label: "準備物" },
                 { id: "archive",  icon: <Archive size={14} />,      label: "アーカイブ" },
                 { id: "master",   icon: <Package size={14} />,      label: "備品" },
@@ -1016,6 +1023,13 @@ VITE_FIREBASE_DATABASE_ID`}
                 {user.displayName?.[0] || 'U'}
               </div>
             )}
+            <button
+              onClick={() => setIsDark(v => !v)}
+              className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-indigo-500 transition-colors"
+              title={isDark ? 'ライトモード' : 'ダークモード'}
+            >
+              {isDark ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
             <button onClick={() => auth.signOut()} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-red-400 transition-colors" title="ログアウト">
               <LogOut size={15} />
             </button>
@@ -1044,8 +1058,8 @@ VITE_FIREBASE_DATABASE_ID`}
               <div className="flex flex-col gap-0.5">
                 {[
                   { label: "すべてのイベント", icon: <Calendar size={14} />, count: stats.total, statusValue: "all" },
-                  { label: "準備中", icon: <ClipboardList size={14} />, count: stats.byStatus["in_progress"] ?? 0, statusValue: "in_progress" },
-                  { label: "入荷待ち", icon: <Building2 size={14} />, count: stats.byStatus["waiting"] ?? 0, statusValue: "waiting" },
+                  { label: "準備中", icon: <ClipboardList size={14} />, count: stats.byStatus["準備中"], statusValue: "in_progress" },
+                  { label: "入荷待ち", icon: <Building2 size={14} />, count: stats.byStatus["入荷待ち"], statusValue: "waiting" },
                 ].map((item) => (
                   <button
                     key={item.label}
@@ -1267,7 +1281,7 @@ VITE_FIREBASE_DATABASE_ID`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-center gap-3 bg-zinc-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
+                className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-center gap-3 bg-zinc-900 dark:bg-amber-500 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
               >
                 <div className="relative flex items-center justify-center">
                   <motion.div 
@@ -1390,12 +1404,18 @@ VITE_FIREBASE_DATABASE_ID`}
                   events={allEvents}
                   prepProgressMap={prepProgressMap}
                   onSelectEvent={handleEventSelect}
+                  onNavigateToPrepList={() => setView('prep')}
+                  onCreateEvent={() => handleCreateEvent()}
+                  onOpenSchedule={() => window.open('https://github.com/tahaga-64/EX-schedule', '_blank', 'noopener,noreferrer')}
                 />
               )}
-              {view === "fish" && (
-                <FishListView
+              {view === "kanban" && (
+                <KanbanView
                   events={allEvents}
-                  canEdit={canEditPreparationList}
+                  prepProgressMap={prepProgressMap}
+                  onSelectEvent={handleEventSelect}
+                  onUpdateStatus={handleUpdateEventStatus}
+                  canEdit={canEditEvent}
                 />
               )}
               {view === "master" && (
@@ -2025,12 +2045,12 @@ VITE_FIREBASE_DATABASE_ID`}
       )}
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around pb-safe z-20 lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-950 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-around pb-safe z-20 lg:hidden">
         {(
           [
             { id: "home",     icon: <Home size={20} />,          label: "ホーム" },
             { id: "calendar", icon: <Calendar size={20} />,      label: "カレンダー" },
-            { id: "fish",     icon: <Fish size={20} />,          label: "魚リスト" },
+            { id: "kanban",   icon: <KanbanSquare size={20} />,  label: "カンバン" },
             { id: "prep",     icon: <ClipboardList size={20} />, label: "準備物" },
             { id: "master",   icon: <Package size={20} />,       label: "備品" },
           ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
@@ -2735,11 +2755,11 @@ function HoverCard({ event, pos, prepStats }: {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-24 text-slate-300">
-      <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-6">
+    <div className="flex flex-col items-center justify-center py-24 text-slate-300 dark:text-zinc-700">
+      <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-zinc-900 flex items-center justify-center mb-6">
         <Calendar size={32} />
       </div>
-      <div className="text-sm font-bold text-slate-400">イベントが見つかりません</div>
+      <div className="text-sm font-bold text-slate-400 dark:text-zinc-600">イベントが見つかりません</div>
     </div>
   );
 }
