@@ -949,41 +949,41 @@ VITE_FIREBASE_DATABASE_ID`}
   return (
     <div className="flex flex-col min-h-screen transition-colors duration-300">
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 bg-white/75 backdrop-blur-xl border-b border-white/30 sticky top-0 z-30 gap-4">
+      <header className="h-14 flex items-center justify-between px-4 bg-transparent border-b border-white/15 sticky top-0 z-30 gap-2 sm:gap-4">
         {/* 左: ハンバーガー + ロゴ */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <button onClick={() => setSideOpen(v => !v)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors">
+          <button onClick={() => setSideOpen(v => !v)} className="p-1.5 rounded-lg text-white/80 hover:bg-white/15 transition-colors">
             <Menu size={18} />
           </button>
           <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-indigo-200 shadow-md">EX</div>
           <div className="hidden sm:block">
-            <div className="font-bold text-sm text-slate-800 leading-tight">Ivent Manager</div>
-            <div className="text-[10px] text-slate-400 font-bold tracking-tight">Preparation & Scheduling</div>
+            <div className="font-bold text-sm text-white leading-tight">Ivent Manager</div>
+            <div className="text-[10px] text-white/60 font-bold tracking-tight">Preparation & Scheduling</div>
           </div>
           <div className="sm:hidden flex flex-col">
-            <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{calYear}年{calMonth}月</div>
-            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'home' ? 'ホーム' : view === 'calendar' ? 'カレンダー' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : view === 'master' ? '備品マスター' : view === 'fish' ? '魚リスト' : ''}</div>
+            <div className="text-[10px] font-black text-white/60 tracking-widest uppercase">{calYear}年{calMonth}月</div>
+            <div className="font-black text-sm text-white leading-tight">{view === 'home' ? 'ホーム' : view === 'calendar' ? 'カレンダー' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : view === 'master' ? '備品マスター' : view === 'fish' ? '魚リスト' : ''}</div>
           </div>
         </div>
 
         {/* 中央: 検索バー */}
-        <div className="flex-1 max-w-md">
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-            <Search size={13} className="text-slate-400 shrink-0" />
+        <div className="flex-1 min-w-0 max-w-md">
+          <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-2">
+            <Search size={13} className="text-white/60 shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="会場・クライアントを検索..."
-              className="flex-1 bg-transparent text-xs text-slate-600 placeholder-slate-400 outline-none"
+              className="flex-1 bg-transparent text-xs text-white placeholder-white/40 outline-none min-w-0"
             />
-            <kbd className="hidden sm:block text-[10px] text-slate-400 font-medium bg-slate-200 px-1.5 py-0.5 rounded">⌘K</kbd>
+            <kbd className="hidden sm:block text-[10px] text-white/40 font-medium bg-white/10 px-1.5 py-0.5 rounded">⌘K</kbd>
           </div>
         </div>
 
         {/* 右: ビュー切替 + 新規 + アバター */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="hidden md:flex bg-white/10 p-1 rounded-xl">
             {(
               [
                 { id: "home",     icon: <Home size={14} />,          label: "ホーム" },
@@ -999,7 +999,7 @@ VITE_FIREBASE_DATABASE_ID`}
                 onClick={() => { if (v.id !== 'prep' && v.id !== 'archive') setPrepEvent(null); setView(v.id); }}
                 className={`
                   flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all
-                  ${view === v.id ? 'bg-white text-slate-800 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700'}
+                  ${view === v.id ? 'bg-white/25 text-white shadow-sm border border-white/20' : 'text-white/50 hover:text-white/80'}
                 `}
               >
                 {v.icon}
@@ -1018,22 +1018,22 @@ VITE_FIREBASE_DATABASE_ID`}
           </button>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {user.photoURL ? (
-              <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-white" />
+              <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-white/50" />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white">
+              <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white/50">
                 {user.displayName?.[0] || 'U'}
               </div>
             )}
             <button
               onClick={() => setIsDark(v => !v)}
-              className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-indigo-500 transition-colors"
+              className="p-1.5 rounded-lg text-white/70 hover:bg-white/15 hover:text-white transition-colors hidden sm:block"
               title={isDark ? 'ライトモード' : 'ダークモード'}
             >
               {isDark ? <Sun size={15} /> : <Moon size={15} />}
             </button>
-            <button onClick={() => auth.signOut()} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-red-400 transition-colors" title="ログアウト">
+            <button onClick={() => auth.signOut()} className="p-1.5 rounded-lg text-white/70 hover:bg-white/15 hover:text-red-300 transition-colors" title="ログアウト">
               <LogOut size={15} />
             </button>
           </div>
