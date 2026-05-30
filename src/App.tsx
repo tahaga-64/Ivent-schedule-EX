@@ -212,7 +212,6 @@ export default function App() {
 
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [staffExpanded, setStaffExpanded] = useState(false);
-  const STAFF_SHOW_COUNT = 5;
 
   // 未保存変更の警告（ブラウザを閉じる・リロード時）
   useEffect(() => {

@@ -196,9 +196,8 @@ export default function EventDetailModal({
               {canUploadPhoto && (selected.photos?.length ?? 0) < MAX_PHOTOS && (
                 <PhotoUpload
                   onUpload={async (file) => {
-                    const newPhoto = await onUploadPhoto(file);
                     // hasUnsavedChanges=true のとき onSnapshot が selected を更新しないため手動反映は呼び出し元で行う
-                    void newPhoto;
+                    await onUploadPhoto(file);
                   }}
                   uploading={photoUploading}
                   uploadProgress={photoUploading ? uploadProgress : 0}

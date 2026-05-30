@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Calendar, ClipboardList, Building2, Plus, X, Mail } from 'lucide-react';
 import { REGIONS } from '../constants';
 import { rs } from '../lib/eventHelpers';
@@ -51,6 +52,11 @@ export default function AppSidebar({
   onEditStaffEmail,
   onDeleteType,
 }: AppSidebarProps) {
+  const sortedStaff = useMemo(
+    () => [...staffList].sort((a, b) => a.name.localeCompare(b.name, 'ja')),
+    [staffList]
+  );
+
   return (
     <aside className="w-72 flex flex-col flex-shrink-0 bg-white border-r border-slate-100 overflow-y-auto hidden lg:flex">
       <div className="p-6 space-y-8">
@@ -230,8 +236,7 @@ export default function AppSidebar({
             {staffList.length === 0 && (
               <p className="px-3 py-2 text-xs text-slate-400">スタッフ未登録</p>
             )}
-            {[...staffList]
-              .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+            {sortedStaff
               .slice(0, staffExpanded ? undefined : STAFF_SHOW_COUNT)
               .map((staff) => (
               <div key={staff.id} className="group relative flex items-center">

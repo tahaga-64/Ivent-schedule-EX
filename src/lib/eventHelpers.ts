@@ -23,8 +23,6 @@ export function validateEvent(event: Partial<Event>): ValidationError[] {
   return errors;
 }
 
-export const DOW_JP = DAYS_JP;
-
 export const rs = (r: string) => REGION_STYLE[r] || { bg: "#f1f5f9", text: "#334155", dot: "#94a3b8", calBg: "rgba(241, 245, 249, 0.4)", calBorder: "#cbd5e1" };
 export const ts = (t: string) => TYPE_STYLE[t] || { bg: "#f8fafc", border: "#64748b", text: "#1e293b", icon: "📋" };
 export const fmtShort = (d: string) => { if (!d) return "—"; const [, m, day] = d.split("-"); return `${parseInt(m)}/${parseInt(day)}`; };
@@ -33,7 +31,7 @@ export function fmtDateJP(d: string): { month: number; day: number; dow: string;
   const date = new Date(d + 'T00:00:00');
   const month = date.getMonth() + 1;
   const day = date.getDate();
-  const dow = DOW_JP[date.getDay()];
+  const dow = DAYS_JP[date.getDay()];
   return { month, day, dow, label: `${month}月${day}日（${dow}）` };
 }
 
