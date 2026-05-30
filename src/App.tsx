@@ -10,7 +10,7 @@ interface StaffMember {
   name: string;
   email?: string;
 }
-import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun, Home, Package, Fish } from 'lucide-react';
+import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun, Home, Package, Fish, LayoutGrid } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
@@ -28,9 +28,10 @@ import {
 import HomeView from './components/HomeView';
 import MasterItemsView from './components/MasterItemsView';
 import FishListView from './components/FishListView';
+import LayoutView, { LayoutPublicView } from './components/LayoutView';
 import { checkUserAllowed } from './lib/allowedUsers';
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout";
 type ModalTab = "detail" | "photos";
 
 // 安全なlocalStorage読み込み
@@ -300,7 +301,7 @@ export default function App() {
   const [needsNameSetup, setNeedsNameSetup] = useState(false);
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
-    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish'];
+    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout'];
     return valid.includes(saved as ViewMode) ? saved as ViewMode : 'home';
   });
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
@@ -936,6 +937,10 @@ VITE_FIREBASE_DATABASE_ID`}
       </motion.div>
     </div>
   );
+  // Public layout route — no auth required
+  const publicLayoutId = new URLSearchParams(window.location.search).get('layout');
+  if (publicLayoutId) return <LayoutPublicView eventId={publicLayoutId} />;
+
   if (!user) return <LoginScreen />;
   if (needsNameSetup) return (
     <ProfileSetupScreen
@@ -962,7 +967,7 @@ VITE_FIREBASE_DATABASE_ID`}
           </div>
           <div className="sm:hidden flex flex-col">
             <div className="text-[10px] font-black text-white/60 tracking-widest uppercase">{calYear}年{calMonth}月</div>
-            <div className="font-black text-sm text-white leading-tight">{view === 'home' ? 'ホーム' : view === 'calendar' ? 'カレンダー' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : view === 'master' ? '備品マスター' : view === 'fish' ? '魚リスト' : ''}</div>
+            <div className="font-black text-sm text-white leading-tight">{view === 'home' ? 'ホーム' : view === 'calendar' ? 'カレンダー' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : view === 'master' ? '備品マスター' : view === 'fish' ? '魚リスト' : view === 'layout' ? 'レイアウト' : ''}</div>
           </div>
         </div>
 
@@ -986,12 +991,13 @@ VITE_FIREBASE_DATABASE_ID`}
           <div className="hidden md:flex bg-white/10 p-1 rounded-xl">
             {(
               [
-                { id: "home",     icon: <Home size={14} />,          label: "ホーム" },
-                { id: "calendar", icon: <Calendar size={14} />,     label: "カレンダー" },
-                { id: "prep",     icon: <ClipboardList size={14} />, label: "準備物" },
-                { id: "archive",  icon: <Archive size={14} />,      label: "アーカイブ" },
-                { id: "master",   icon: <Package size={14} />,      label: "備品" },
-                { id: "fish",     icon: <Fish size={14} />,         label: "魚リスト" },
+                { id: "home",     icon: <Home size={14} />,           label: "ホーム" },
+                { id: "calendar", icon: <Calendar size={14} />,      label: "カレンダー" },
+                { id: "prep",     icon: <ClipboardList size={14} />,  label: "準備物" },
+                { id: "archive",  icon: <Archive size={14} />,        label: "アーカイブ" },
+                { id: "master",   icon: <Package size={14} />,        label: "備品" },
+                { id: "fish",     icon: <Fish size={14} />,           label: "魚リスト" },
+                { id: "layout",   icon: <LayoutGrid size={14} />,     label: "レイアウト" },
               ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
             ).map(v => (
               <button
@@ -1421,6 +1427,9 @@ VITE_FIREBASE_DATABASE_ID`}
               )}
               {view === "fish" && (
                 <FishListView events={allEvents} canEdit={canEditPreparationList} />
+              )}
+              {view === "layout" && (
+                <LayoutView events={allEvents} canEdit={canEditPreparationList} />
               )}
               {(view === "prep" || view === "archive") && prepEvent ? (
                 <PreparationList
@@ -2053,11 +2062,12 @@ VITE_FIREBASE_DATABASE_ID`}
       <nav className="fixed bottom-0 left-0 right-0 border-t border-white/15 flex items-center justify-around pb-safe z-20 lg:hidden" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.80) 100%)" }}>
         {(
           [
-            { id: "home",     icon: <Home size={20} />,          label: "ホーム" },
-            { id: "calendar", icon: <Calendar size={20} />,      label: "カレンダー" },
-            { id: "prep",     icon: <ClipboardList size={20} />, label: "準備物" },
-            { id: "master",   icon: <Package size={20} />,       label: "備品" },
-            { id: "fish",     icon: <Fish size={20} />,          label: "魚リスト" },
+            { id: "home",     icon: <Home size={20} />,           label: "ホーム" },
+            { id: "calendar", icon: <Calendar size={20} />,       label: "カレンダー" },
+            { id: "prep",     icon: <ClipboardList size={20} />,  label: "準備物" },
+            { id: "master",   icon: <Package size={20} />,        label: "備品" },
+            { id: "fish",     icon: <Fish size={20} />,           label: "魚リスト" },
+            { id: "layout",   icon: <LayoutGrid size={20} />,     label: "レイアウト" },
           ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
         ).map(tab => (
           <button
