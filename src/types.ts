@@ -64,6 +64,12 @@ export interface FishItem {
   order: number;
 }
 
+export interface StaffMember {
+  id: string;
+  name: string;
+  email?: string;
+}
+
 export interface UserProfile {
   uid: string;
   email: string | null;
