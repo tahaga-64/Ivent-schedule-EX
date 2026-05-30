@@ -304,6 +304,14 @@ export default function App() {
     const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout'];
     return valid.includes(saved as ViewMode) ? saved as ViewMode : 'home';
   });
+  const [viewLoading, setViewLoading] = useState(false);
+  const viewLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSetView = useCallback((v: ViewMode) => {
+    setViewLoading(true);
+    if (viewLoadTimerRef.current) clearTimeout(viewLoadTimerRef.current);
+    viewLoadTimerRef.current = setTimeout(() => setViewLoading(false), 400);
+    setView(v);
+  }, []);
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
   const [monthFilter, setMonthFilter] = useState(() => localStorage.getItem('monthFilter') || "すべて");
@@ -953,6 +961,26 @@ VITE_FIREBASE_DATABASE_ID`}
 
   return (
     <div className="flex flex-col min-h-screen bg-black transition-colors duration-300">
+      {/* ページ切替ローディングバー */}
+      <AnimatePresence>
+        {viewLoading && (
+          <motion.div
+            key="loading-bar"
+            className="fixed top-0 left-0 right-0 h-0.5 z-50 overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.1 }}
+          >
+            <motion.div
+              className="h-full bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-400"
+              initial={{ x: '-100%' }}
+              animate={{ x: '0%' }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-4 bg-transparent border-b border-white/15 sticky top-0 z-30 gap-2 sm:gap-4">
         {/* 左: ハンバーガー + ロゴ */}
@@ -1002,7 +1030,7 @@ VITE_FIREBASE_DATABASE_ID`}
             ).map(v => (
               <button
                 key={v.id}
-                onClick={() => { if (v.id !== 'prep' && v.id !== 'archive') setPrepEvent(null); setView(v.id); }}
+                onClick={() => { if (v.id !== 'prep' && v.id !== 'archive') setPrepEvent(null); handleSetView(v.id); }}
                 className={`
                   flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all
                   ${view === v.id ? 'bg-white/25 text-white shadow-sm border border-white/20' : 'text-white/50 hover:text-white/80'}
@@ -1326,10 +1354,10 @@ VITE_FIREBASE_DATABASE_ID`}
           <AnimatePresence mode="sync">
             <motion.div
               key={view + regionFilter + typeFilter + monthFilter}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18, ease: 'easeInOut' }}
             >
               {/* Desktop: Calendar grid / Mobile: Timeline list */}
               {view === "calendar" && (
@@ -2072,7 +2100,7 @@ VITE_FIREBASE_DATABASE_ID`}
         ).map(tab => (
           <button
             key={tab.id}
-            onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); setView(tab.id); }}
+            onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); handleSetView(tab.id); }}
             className={`flex flex-col items-center gap-0.5 px-3 py-3 text-[10px] font-bold transition-colors ${
               view === tab.id ? "text-white" : "text-white/50"
             }`}

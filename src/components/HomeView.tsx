@@ -114,23 +114,23 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
   const { todayEvents, upcomingWeek, upcomingMonth } = useMemo(() => {
     const active = events.filter(e => e.status !== 'cancelled');
     const todayEvents = active.filter(e =>
-      e.start <= today && today <= (e.end || e.start)
-    ).sort((a, b) => a.start.localeCompare(b.start));
+      e.start && e.start <= today && today <= (e.end || e.start)
+    ).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 
     const upcomingWeek = active.filter(e =>
-      e.start > today && e.start <= in7
-    ).sort((a, b) => a.start.localeCompare(b.start));
+      e.start && e.start > today && e.start <= in7
+    ).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 
     const upcomingMonth = active.filter(e =>
-      e.start > in7 && e.start <= in30
-    ).sort((a, b) => a.start.localeCompare(b.start));
+      e.start && e.start > in7 && e.start <= in30
+    ).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 
     return { todayEvents, upcomingWeek, upcomingMonth };
   }, [events, today, in7, in30]);
 
   const stats = useMemo(() => {
-    const active = events.filter(e => e.status !== 'cancelled' && !effectivePast(e, today));
-    const thisMonth = events.filter(e => e.status !== 'cancelled' && e.start.startsWith(today.slice(0, 7)));
+    const active = events.filter(e => e.status !== 'cancelled' && e.start && !effectivePast(e, today));
+    const thisMonth = events.filter(e => e.status !== 'cancelled' && e.start?.startsWith(today.slice(0, 7)));
     let totalItems = 0, doneItems = 0;
     for (const ev of active.slice(0, 15)) {
       const p = prepProgressMap[ev.id];

@@ -434,7 +434,7 @@ export default function LayoutView({ events, canEdit }: AdminProps) {
   // Filter aquarium events (and all events for layout purposes)
   const eventList = [...events]
     .filter(e => e.status !== 'cancelled')
-    .sort((a, b) => a.start.localeCompare(b.start));
+    .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 
   const selectedEvent = eventList.find(e => e.id === selectedEventId);
 
