@@ -10,7 +10,7 @@ interface StaffMember {
   name: string;
   email?: string;
 }
-import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun, Home, KanbanSquare, Package, Fish } from 'lucide-react';
+import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Moon, Sun, Home, Package, Fish } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
@@ -26,12 +26,11 @@ import {
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
 import HomeView from './components/HomeView';
-import KanbanView from './components/KanbanView';
 import MasterItemsView from './components/MasterItemsView';
 import FishListView from './components/FishListView';
 import { checkUserAllowed } from './lib/allowedUsers';
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "kanban" | "master" | "fish";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish";
 type ModalTab = "detail" | "photos";
 
 // 安全なlocalStorage読み込み
@@ -255,6 +254,9 @@ function buildCalendarDensityPreviewEvents(
 // 在庫管理アプリのURLが決まったらここに入力する
 const INVENTORY_APP_URL = '';
 
+const CALENDAR_BG = "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=1920&q=80";
+const PREP_BG = "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1920&q=80";
+
 function InventoryAppBanner() {
   const ready = INVENTORY_APP_URL.length > 0;
   return (
@@ -298,7 +300,7 @@ export default function App() {
   const [needsNameSetup, setNeedsNameSetup] = useState(false);
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
-    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'kanban', 'master', 'fish'];
+    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish'];
     return valid.includes(saved as ViewMode) ? saved as ViewMode : 'home';
   });
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
@@ -960,7 +962,7 @@ VITE_FIREBASE_DATABASE_ID`}
           </div>
           <div className="sm:hidden flex flex-col">
             <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{calYear}年{calMonth}月</div>
-            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'home' ? 'ホーム' : view === 'calendar' ? 'カレンダー' : view === 'kanban' ? 'カンバン' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : view === 'master' ? '備品マスター' : view === 'fish' ? '魚リスト' : ''}</div>
+            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'home' ? 'ホーム' : view === 'calendar' ? 'カレンダー' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : view === 'master' ? '備品マスター' : view === 'fish' ? '魚リスト' : ''}</div>
           </div>
         </div>
 
@@ -984,9 +986,8 @@ VITE_FIREBASE_DATABASE_ID`}
           <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
             {(
               [
-                { id: "home",     icon: <Home size={14} />,         label: "ホーム" },
+                { id: "home",     icon: <Home size={14} />,          label: "ホーム" },
                 { id: "calendar", icon: <Calendar size={14} />,     label: "カレンダー" },
-                { id: "kanban",   icon: <KanbanSquare size={14} />, label: "カンバン" },
                 { id: "prep",     icon: <ClipboardList size={14} />, label: "準備物" },
                 { id: "archive",  icon: <Archive size={14} />,      label: "アーカイブ" },
                 { id: "master",   icon: <Package size={14} />,      label: "備品" },
@@ -1327,7 +1328,9 @@ VITE_FIREBASE_DATABASE_ID`}
               {/* Desktop: Calendar grid / Mobile: Timeline list */}
               {view === "calendar" && (
                 <>
-                  <div className="hidden lg:block">
+                  <div className="fixed inset-0 bg-cover bg-center print:hidden" style={{ backgroundImage: `url('${CALENDAR_BG}')` }} />
+                  <div className="fixed inset-0 print:hidden" style={{ background: "linear-gradient(to bottom, rgba(248,250,252,0.60) 0%, rgba(241,245,249,0.72) 100%)" }} />
+                  <div className="relative z-10 hidden lg:block">
                     <CalendarView
                       events={desktopCalendarEvents}
                       year={calYear} month={calMonth}
@@ -1411,15 +1414,6 @@ VITE_FIREBASE_DATABASE_ID`}
                   onOpenSchedule={() => window.open('https://ex-schedule.vercel.app/?year=2026&month=5', '_blank', 'noopener,noreferrer')}
                 />
               )}
-              {view === "kanban" && (
-                <KanbanView
-                  events={allEvents}
-                  prepProgressMap={prepProgressMap}
-                  onSelectEvent={handleEventSelect}
-                  onUpdateStatus={handleUpdateEventStatus}
-                  canEdit={canEditEvent}
-                />
-              )}
               {view === "master" && (
                 <MasterItemsView canEdit={canEditPreparationList} />
               )}
@@ -1448,16 +1442,19 @@ VITE_FIREBASE_DATABASE_ID`}
                   else monthGroups.push({ month: label, events: [ev] });
                 }
                 return (
-                  <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
+                  <>
+                  <div className="fixed inset-0 bg-cover bg-center" style={{ backgroundImage: `url('${PREP_BG}')` }} />
+                  <div className="fixed inset-0" style={{ background: "linear-gradient(to bottom, rgba(15,23,42,0.30) 0%, rgba(15,23,42,0.58) 50%, rgba(15,23,42,0.75) 100%)" }} />
+                  <div className="relative z-10 flex flex-col h-full overflow-y-auto pb-20">
                     <div className="px-4 py-4">
-                      <h2 className="text-base font-black text-slate-800 mb-4">準備物リスト</h2>
+                      <h2 className="text-base font-black text-white mb-4">準備物リスト</h2>
                       {activeEvents.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400 text-sm">進行中のイベントがありません</div>
+                        <div className="text-center py-12 text-white/50 text-sm">進行中のイベントがありません</div>
                       ) : (
                         <div className="flex flex-col gap-5">
                           {monthGroups.map(({ month, events: evs }) => (
                             <div key={month}>
-                              <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2">{month}</div>
+                              <div className="text-[11px] font-black text-white/60 uppercase tracking-widest px-1 mb-2">{month}</div>
                               <div className="flex flex-col gap-2">
                                 {evs.map(ev => {
                                   const s = fmtDateJP(ev.start);
@@ -1507,6 +1504,7 @@ VITE_FIREBASE_DATABASE_ID`}
                       )}
                     </div>
                   </div>
+                  </>
                 );
               })() : view === "archive" ? (() => {
                 const today = new Date().toISOString().slice(0, 10);
@@ -2055,7 +2053,6 @@ VITE_FIREBASE_DATABASE_ID`}
           [
             { id: "home",     icon: <Home size={20} />,          label: "ホーム" },
             { id: "calendar", icon: <Calendar size={20} />,      label: "カレンダー" },
-            { id: "kanban",   icon: <KanbanSquare size={20} />,  label: "カンバン" },
             { id: "prep",     icon: <ClipboardList size={20} />, label: "準備物" },
             { id: "master",   icon: <Package size={20} />,       label: "備品" },
             { id: "fish",     icon: <Fish size={20} />,          label: "魚リスト" },
