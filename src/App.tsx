@@ -947,7 +947,7 @@ VITE_FIREBASE_DATABASE_ID`}
   );
 
   return (
-    <div className="flex flex-col min-h-screen transition-colors duration-300">
+    <div className="flex flex-col min-h-screen bg-black transition-colors duration-300">
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-4 bg-transparent border-b border-white/15 sticky top-0 z-30 gap-2 sm:gap-4">
         {/* 左: ハンバーガー + ロゴ */}
@@ -1274,7 +1274,7 @@ VITE_FIREBASE_DATABASE_ID`}
         </aside>}
 
         {/* Main Content */}
-        <main className="flex-1 bg-white relative overflow-hidden flex flex-col">
+        <main className="flex-1 relative overflow-hidden flex flex-col">
           <div className="p-4 lg:p-8 pb-20 lg:pb-8 flex-1 overflow-y-auto">
           {/* Sync / Error Indicator */}
           <AnimatePresence>
@@ -1317,7 +1317,7 @@ VITE_FIREBASE_DATABASE_ID`}
             )}
           </AnimatePresence>
 
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="sync">
             <motion.div
               key={view + regionFilter + typeFilter + monthFilter}
               initial={{ opacity: 0, y: 10 }}
@@ -2050,7 +2050,7 @@ VITE_FIREBASE_DATABASE_ID`}
       )}
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-zinc-950 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-around pb-safe z-20 lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 bg-transparent border-t border-white/15 flex items-center justify-around pb-safe z-20 lg:hidden">
         {(
           [
             { id: "home",     icon: <Home size={20} />,          label: "ホーム" },
@@ -2064,7 +2064,7 @@ VITE_FIREBASE_DATABASE_ID`}
             key={tab.id}
             onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); setView(tab.id); }}
             className={`flex flex-col items-center gap-0.5 px-3 py-3 text-[10px] font-bold transition-colors ${
-              view === tab.id ? "text-indigo-600" : "text-slate-400"
+              view === tab.id ? "text-white" : "text-white/50"
             }`}
           >
             {tab.icon}
