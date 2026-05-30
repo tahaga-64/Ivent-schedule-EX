@@ -138,16 +138,16 @@ export default function FishListView({ events, canEdit }: Props) {
             {selectedEvent && (
               <>
                 <div className="flex items-center gap-3 mb-4 bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-3 border border-white/20">
-                  <div className="w-9 h-9 rounded-xl bg-cyan-400/30 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-xl bg-cyan-400/30 flex items-center justify-center shrink-0">
                     <Fish size={18} className="text-cyan-300" />
                   </div>
-                  <div>
-                    <div className="font-black text-white text-sm">{selectedEvent.venue}</div>
-                    <div className="text-xs text-white/60">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-black text-white text-sm truncate">{selectedEvent.venue}</div>
+                    <div className="text-xs text-white/60 truncate">
                       {selectedEvent.start ? fmtDateRange(selectedEvent.start, selectedEvent.end || selectedEvent.start) : '日程未定'}
                     </div>
                   </div>
-                  <span className="ml-auto text-xs font-black text-cyan-300 bg-cyan-900/40 px-3 py-1 rounded-full border border-cyan-400/30">
+                  <span className="ml-auto shrink-0 text-xs font-black text-cyan-300 bg-cyan-900/40 px-3 py-1 rounded-full border border-cyan-400/30">
                     {fishItems.length}種
                   </span>
                 </div>
