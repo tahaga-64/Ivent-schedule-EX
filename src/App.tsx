@@ -2050,7 +2050,7 @@ VITE_FIREBASE_DATABASE_ID`}
       )}
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-transparent border-t border-white/15 flex items-center justify-around pb-safe z-20 lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 border-t border-white/15 flex items-center justify-around pb-safe z-20 lg:hidden" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.80) 100%)" }}>
         {(
           [
             { id: "home",     icon: <Home size={20} />,          label: "ホーム" },
