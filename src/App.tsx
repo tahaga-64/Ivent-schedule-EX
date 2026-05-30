@@ -1330,7 +1330,8 @@ VITE_FIREBASE_DATABASE_ID`}
                 <>
                   <div className="fixed inset-0 bg-cover bg-center print:hidden" style={{ backgroundImage: `url('${CALENDAR_BG}')` }} />
                   <div className="fixed inset-0 print:hidden" style={{ background: "linear-gradient(to bottom, rgba(248,250,252,0.60) 0%, rgba(241,245,249,0.72) 100%)" }} />
-                  <div className="relative z-10 hidden lg:block">
+                  <div className="relative z-10">
+                  <div className="hidden lg:block">
                     <CalendarView
                       events={desktopCalendarEvents}
                       year={calYear} month={calMonth}
@@ -1401,6 +1402,7 @@ VITE_FIREBASE_DATABASE_ID`}
                   </div>
                   <div className="lg:hidden">
                     <InventoryAppBanner />
+                  </div>
                   </div>
                 </>
               )}
