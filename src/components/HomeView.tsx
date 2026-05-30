@@ -110,7 +110,11 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
         className="fixed inset-0 bg-cover bg-center"
         style={{ backgroundImage: "url('/mercury-office.jpg')" }}
       />
-      <div className="fixed inset-0 bg-black/60" />
+      {/* グラデーションオーバーレイ（上部は写真を活かし、下部にかけて濃く） */}
+      <div
+        className="fixed inset-0"
+        style={{ background: "linear-gradient(to bottom, rgba(15,23,42,0.30) 0%, rgba(15,23,42,0.55) 45%, rgba(15,23,42,0.78) 100%)" }}
+      />
 
       {/* Content */}
       <div className="relative z-10 flex flex-col gap-5 px-4 pt-6 pb-32 max-w-xl mx-auto w-full">

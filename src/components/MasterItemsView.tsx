@@ -88,7 +88,11 @@ export default function MasterItemsView({ canEdit }: Props) {
     <div className="relative flex flex-col min-h-full">
       {/* 倉庫背景 */}
       <div className="fixed inset-0 bg-cover bg-center" style={{ backgroundImage: `url('${WAREHOUSE_BG}')` }} />
-      <div className="fixed inset-0 bg-black/55" />
+      {/* グラデーションオーバーレイ（上部は写真を活かし、下部にかけて濃く） */}
+      <div
+        className="fixed inset-0"
+        style={{ background: "linear-gradient(to bottom, rgba(15,23,42,0.30) 0%, rgba(15,23,42,0.52) 45%, rgba(15,23,42,0.72) 100%)" }}
+      />
 
       {/* Sticky header */}
       <div className="relative z-10 flex items-center justify-between px-4 py-4 border-b border-white/10 bg-black/30 backdrop-blur-md sticky top-0">
