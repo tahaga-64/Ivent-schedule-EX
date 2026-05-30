@@ -949,7 +949,7 @@ VITE_FIREBASE_DATABASE_ID`}
   return (
     <div className="flex flex-col min-h-screen transition-colors duration-300">
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-slate-100 sticky top-0 z-30 gap-4">
+      <header className="h-14 flex items-center justify-between px-4 bg-white/75 backdrop-blur-xl border-b border-white/30 sticky top-0 z-30 gap-4">
         {/* 左: ハンバーガー + ロゴ */}
         <div className="flex items-center gap-2.5 shrink-0">
           <button onClick={() => setSideOpen(v => !v)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors">
