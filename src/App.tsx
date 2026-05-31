@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef, useLayoutEffect, type MouseEvent as ReactMouseEvent } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import { db, auth, loginWithGoogle, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, collectionGroup, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
@@ -6,7 +6,7 @@ import { DATA } from './constants';
 import { Event, PreparationItem, EventStatus, type StaffMember } from './types';
 import { fmtDateJP, fmtDateRange, daysUntil, ts, buildEventOptionalCaption, buildMonthGridCells, type ValidationError, validateEvent } from './lib/eventHelpers';
 import { Calendar, Menu, X, ChevronRight, ClipboardList, Plus, Search, LogOut, Archive, Moon, Sun, Home, Package, Fish, LayoutGrid } from 'lucide-react';
-import { motion, AnimatePresence, useMotionValue, useTransform, animate as motionAnimate } from 'motion/react';
+import { motion, AnimatePresence, useMotionValue, animate as motionAnimate } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
 import AccessDeniedScreen from './components/AccessDeniedScreen';
@@ -239,19 +239,28 @@ export default function App() {
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [staffExpanded, setStaffExpanded] = useState(false);
   const [pendingNewEventId, setPendingNewEventId] = useState<string | null>(null);
-  const [swipeDir, setSwipeDir] = useState(0); // -1: prev (from left), 1: next (from right), 0: tab click
-  const [dragDir, setDragDir] = useState<0 | 1 | -1>(0); // 0: idle, 1: dragging toward next, -1: toward prev
+  const [swipeDir, setSwipeDir] = useState(0); // kept for non-mobile fade transitions
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const swipeInsideScrollable = useRef(false);
   const dragActiveRef = useRef(false);
   const dragStartTime = useRef(0);
-  const suppressNextTransition = useRef(false);
 
-  // Motion values for real-time finger-following drag navigation
-  const dragX = useMotionValue(0);
-  const adjXNext = useTransform(dragX, (v) => v + window.innerWidth);
-  const adjXPrev = useTransform(dragX, (v) => v - window.innerWidth);
+  // ── Seamless mobile carousel track ─────────────────────────────────
+  // 全モバイルビューを横一列に常駐させ、単一の motion 値でトラックを平行移動する。
+  // ビューはナビゲーション中に一切アンマウントされないため、スワイプ／タブ切替の
+  // どちらでも再マウントによるチラつき・遅延が発生しない（GPU 合成の transform のみ）。
+  const trackX = useMotionValue(0);
+  const dragBaseX = useRef(0);
+  const skipNextTrackAnim = useRef(false);
+  const trackInitDone = useRef(false);
+  const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 0));
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false));
+  useEffect(() => {
+    const onResize = () => { setVw(window.innerWidth); setIsMobile(window.innerWidth < 1024); };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   // 未保存変更の警告（ブラウザを閉じる・リロード時）
   useEffect(() => {
@@ -756,32 +765,28 @@ export default function App() {
     setModalTab('detail');
   }, [pendingNewEventId]);
 
-  const handleSwipeNav = useCallback((deltaX: number) => {
-    if (selected) return;
-    const idx = MOBILE_VIEWS.indexOf(view);
-    if (idx === -1) return;
-    if (deltaX > 0 && idx > 0) {
-      const prev = MOBILE_VIEWS[idx - 1];
-      if (prev !== 'prep' && prev !== 'archive') setPrepEvent(null);
-      setSwipeDir(-1);
-      handleSetView(prev);
-    } else if (deltaX < 0 && idx < MOBILE_VIEWS.length - 1) {
-      const next = MOBILE_VIEWS[idx + 1];
-      if (next !== 'prep' && next !== 'archive') setPrepEvent(null);
-      setSwipeDir(1);
-      handleSetView(next);
+  // 現在ビューのトラック内インデックス（モバイルビュー以外は -1）
+  const navIdx = MOBILE_VIEWS.indexOf(view);
+
+  // view / 画面幅が変わったらトラックを該当ビュー位置へスプリングで移動。
+  // スワイプ確定時は onTouchEnd 側で速度を引き継いだアニメをかけるため一度スキップ。
+  useEffect(() => {
+    if (!isMobile || navIdx < 0 || dragActiveRef.current) return;
+    const target = -navIdx * vw;
+    if (!trackInitDone.current) {
+      trackX.set(target);
+      trackInitDone.current = true;
+      return;
     }
-  }, [selected, view, handleSetView]);
-
-  // Reset suppressNextTransition whenever view changes
-  useLayoutEffect(() => {
-    suppressNextTransition.current = false;
-  }, [view]);
-
-  // Computed adjacent view for drag navigation
-  const adjacentView = dragDir !== 0
-    ? (MOBILE_VIEWS[MOBILE_VIEWS.indexOf(view) + dragDir] ?? null)
-    : null;
+    if (skipNextTrackAnim.current) {
+      skipNextTrackAnim.current = false;
+      return;
+    }
+    const controls = motionAnimate(trackX, target, {
+      type: 'spring', stiffness: 330, damping: 36, mass: 0.85,
+    });
+    return () => controls.stop();
+  }, [navIdx, vw, isMobile, trackX]);
 
   const handleEventHover = (ev: Event, e: ReactMouseEvent<HTMLElement>) => {
     if (ev.id.startsWith("__cal_preview_")) return;
@@ -1291,63 +1296,63 @@ VITE_FIREBASE_DATABASE_ID`}
         <main
           className="flex-1 relative overflow-hidden flex flex-col"
           onTouchStart={e => {
-            if (selected || window.innerWidth >= 1024) return;
+            if (selected || !isMobile || navIdx < 0) return;
             touchStartX.current = e.touches[0].clientX;
             touchStartY.current = e.touches[0].clientY;
             dragStartTime.current = Date.now();
             dragActiveRef.current = false;
             swipeInsideScrollable.current = canScrollHorizontally(e.target);
+            dragBaseX.current = trackX.get();
           }}
           onTouchMove={e => {
-            if (swipeInsideScrollable.current || window.innerWidth >= 1024) return;
+            if (swipeInsideScrollable.current || !isMobile || navIdx < 0) return;
             const dx = e.touches[0].clientX - touchStartX.current;
             const dy = e.touches[0].clientY - touchStartY.current;
 
             if (!dragActiveRef.current) {
               if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.3) {
                 dragActiveRef.current = true;
-                const dir: 1 | -1 = dx < 0 ? 1 : -1;
-                const idx = MOBILE_VIEWS.indexOf(view);
-                if (MOBILE_VIEWS[idx + dir]) {
-                  setDragDir(dir);
-                }
+                dragBaseX.current = trackX.get(); // 進行中アニメの現在位置を起点に
+              } else {
+                return;
               }
-              return;
             }
 
-            const vw = e.currentTarget.clientWidth;
-            const clampedDx = Math.max(-vw * 0.75, Math.min(vw * 0.75, dx));
-            dragX.set(clampedDx);
+            const minX = -(MOBILE_VIEWS.length - 1) * vw;
+            const maxX = 0;
+            let nx = dragBaseX.current + dx;
+            // 端を超えたらゴムのように抵抗をかける
+            if (nx > maxX) nx = maxX + (nx - maxX) * 0.3;
+            else if (nx < minX) nx = minX + (nx - minX) * 0.3;
+            trackX.set(nx);
           }}
           onTouchEnd={e => {
             if (!dragActiveRef.current) return;
             dragActiveRef.current = false;
 
             const dx = e.changedTouches[0].clientX - touchStartX.current;
-            const vw = (e.currentTarget as HTMLElement).clientWidth;
-            const dt = Date.now() - dragStartTime.current;
-            const velocity = Math.abs(dx) / dt; // px/ms
-            const shouldNavigate = Math.abs(dragX.get()) > vw * 0.35 || velocity > 0.4;
+            const dt = Math.max(1, Date.now() - dragStartTime.current);
+            const velocity = dx / dt; // signed px/ms
+            const passedThreshold = Math.abs(dx) > vw * 0.22 || Math.abs(velocity) > 0.35;
 
-            const idx = MOBILE_VIEWS.indexOf(view);
-            const adjView = dragDir !== 0 ? MOBILE_VIEWS[idx + dragDir] ?? null : null;
+            let target = navIdx;
+            if (passedThreshold) {
+              if ((dx < 0 || velocity < -0.35) && navIdx < MOBILE_VIEWS.length - 1) target = navIdx + 1;
+              else if ((dx > 0 || velocity > 0.35) && navIdx > 0) target = navIdx - 1;
+            }
 
-            if (shouldNavigate && adjView) {
-              const targetX = dragDir === 1 ? -vw : vw;
-              motionAnimate(dragX, targetX, {
-                type: 'spring', stiffness: 300, damping: 35,
-                onComplete: () => {
-                  suppressNextTransition.current = true;
-                  setSwipeDir(0);
-                  if (adjView !== 'prep' && adjView !== 'archive') setPrepEvent(null);
-                  handleSetView(adjView);
-                  setDragDir(0);
-                  dragX.set(0);
-                }
-              });
-            } else {
-              motionAnimate(dragX, 0, { type: 'spring', stiffness: 400, damping: 40 });
-              setDragDir(0);
+            // 速度を引き継いだスプリングでトラックを確定位置へ。
+            motionAnimate(trackX, -target * vw, {
+              type: 'spring', stiffness: 330, damping: 36, mass: 0.85,
+              velocity: velocity * 1000, // px/s
+            });
+
+            if (target !== navIdx) {
+              const nextView = MOBILE_VIEWS[target];
+              if (nextView !== 'prep' && nextView !== 'archive') setPrepEvent(null);
+              setSwipeDir(0);
+              skipNextTrackAnim.current = true; // 上のアニメを尊重し effect 側の再アニメを抑止
+              handleSetView(nextView);
             }
           }}
         >
@@ -1394,51 +1399,37 @@ VITE_FIREBASE_DATABASE_ID`}
 
           {/* View area: overflow-hidden clips off-screen slides */}
           <div className="flex-1 relative overflow-hidden">
-            {/* Drag phase - only during active finger drag */}
-            {dragDir !== 0 && (
-              <>
-                {adjacentView && (
-                  <motion.div
-                    className="absolute inset-0 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8"
-                    style={{ x: dragDir === 1 ? adjXNext : adjXPrev, zIndex: 1 }}
+            {isMobile && navIdx >= 0 ? (
+              /* モバイル: 全ビュー常駐の横並びトラック（再マウントなしのシームレス遷移） */
+              <motion.div
+                className="flex h-full"
+                style={{ x: trackX, width: `${MOBILE_VIEWS.length * 100}vw`, willChange: 'transform' }}
+              >
+                {MOBILE_VIEWS.map(v => (
+                  <div
+                    key={v}
+                    className="h-full overflow-y-auto p-4 pb-24"
+                    style={{ width: '100vw' }}
                   >
-                    {renderView(adjacentView)}
-                  </motion.div>
-                )}
-                <motion.div
-                  className="absolute inset-0 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8"
-                  style={{ x: dragX, zIndex: 2 }}
-                >
-                  {renderView(view)}
-                </motion.div>
-              </>
-            )}
-
-            {/* Tab-click phase - AnimatePresence, hidden during drag */}
-            <div style={{ opacity: dragDir !== 0 ? 0 : 1, position: 'relative', height: '100%' }}>
-              <AnimatePresence mode="sync" custom={swipeDir}>
+                    {renderView(v)}
+                  </div>
+                ))}
+              </motion.div>
+            ) : (
+              /* デスクトップ / 非モバイルビュー: 軽量フェード */
+              <AnimatePresence mode="wait">
                 <motion.div
                   key={view + regionFilter + typeFilter + monthFilter}
                   className="absolute inset-0 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8"
-                  custom={swipeDir}
-                  initial={(dir: number) => {
-                    if (suppressNextTransition.current) return { x: 0, opacity: 1 };
-                    return { x: dir ? `${dir * 100}%` : 0, opacity: dir ? 1 : 0 };
-                  }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={(dir: number) => {
-                    if (suppressNextTransition.current) return { x: 0, opacity: 0 };
-                    return { x: dir ? `${-dir * 100}%` : 0, opacity: dir ? 1 : 0 };
-                  }}
-                  transition={swipeDir
-                    ? { type: 'spring', stiffness: 280, damping: 32, mass: 0.9 }
-                    : { duration: 0.18, ease: 'easeInOut' }}
-                  style={{ willChange: 'transform' }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18, ease: 'easeInOut' }}
                 >
                   {renderView(view)}
                 </motion.div>
               </AnimatePresence>
-            </div>
+            )}
           </div>
         </main>
       </div>
