@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef, type MouseEvent as ReactMouseEvent } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, useLayoutEffect, type MouseEvent as ReactMouseEvent } from 'react';
 import { db, auth, loginWithGoogle, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, collectionGroup, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
@@ -6,7 +6,7 @@ import { DATA } from './constants';
 import { Event, PreparationItem, EventStatus, type StaffMember } from './types';
 import { fmtDateJP, fmtDateRange, daysUntil, ts, buildEventOptionalCaption, buildMonthGridCells, type ValidationError, validateEvent } from './lib/eventHelpers';
 import { Calendar, Menu, X, ChevronRight, ClipboardList, Plus, Search, LogOut, Archive, Moon, Sun, Home, Package, Fish, LayoutGrid } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useMotionValue, useTransform, animate as motionAnimate } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
 import AccessDeniedScreen from './components/AccessDeniedScreen';
@@ -227,9 +227,18 @@ export default function App() {
   const [staffExpanded, setStaffExpanded] = useState(false);
   const [pendingNewEventId, setPendingNewEventId] = useState<string | null>(null);
   const [swipeDir, setSwipeDir] = useState(0); // -1: prev (from left), 1: next (from right), 0: tab click
+  const [dragDir, setDragDir] = useState<0 | 1 | -1>(0); // 0: idle, 1: dragging toward next, -1: toward prev
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const swipeInsideScrollable = useRef(false);
+  const dragActiveRef = useRef(false);
+  const dragStartTime = useRef(0);
+  const suppressNextTransition = useRef(false);
+
+  // Motion values for real-time finger-following drag navigation
+  const dragX = useMotionValue(0);
+  const adjXNext = useTransform(dragX, (v) => v + window.innerWidth);
+  const adjXPrev = useTransform(dragX, (v) => v - window.innerWidth);
 
   // 未保存変更の警告（ブラウザを閉じる・リロード時）
   useEffect(() => {
@@ -751,6 +760,16 @@ export default function App() {
     }
   }, [selected, view, handleSetView]);
 
+  // Reset suppressNextTransition whenever view changes
+  useLayoutEffect(() => {
+    suppressNextTransition.current = false;
+  }, [view]);
+
+  // Computed adjacent view for drag navigation
+  const adjacentView = dragDir !== 0
+    ? (MOBILE_VIEWS[MOBILE_VIEWS.indexOf(view) + dragDir] ?? null)
+    : null;
+
   const handleEventHover = (ev: Event, e: ReactMouseEvent<HTMLElement>) => {
     if (ev.id.startsWith("__cal_preview_")) return;
     if (window.innerWidth < 1024) return;
@@ -857,6 +876,256 @@ VITE_FIREBASE_DATABASE_ID`}
         setNeedsNameSetup(false);
       }}
     />
+  );
+
+  const renderView = (v: ViewMode) => (
+    <>
+      {/* Desktop: Calendar grid / Mobile: Timeline list */}
+      {v === "calendar" && (
+        <>
+          <div className="fixed inset-0 bg-cover bg-center print:hidden" style={{ backgroundImage: `url('${CALENDAR_BG}')` }} />
+          <div className="fixed inset-0 print:hidden" style={{ background: "linear-gradient(to bottom, rgba(248,250,252,0.60) 0%, rgba(241,245,249,0.72) 100%)" }} />
+          <div className="relative z-10">
+          <div className="hidden lg:block">
+            <CalendarView
+              events={desktopCalendarEvents}
+              year={calYear} month={calMonth}
+              setYear={setCalYear} setMonth={setCalMonth}
+              onSelect={handleEventSelect}
+              onHover={handleEventHover}
+              onHoverEnd={handleEventHoverEnd}
+              onCreateEvent={handleCreateEvent}
+              onOpenDayDetail={handleOpenDayDetail}
+              narrowViewport={narrowViewport}
+              densityPreview={calendarDensityPreview}
+              prepProgressMap={prepProgressMap}
+            />
+            <InventoryAppBanner />
+          </div>
+          <div className="lg:hidden space-y-3">
+            <div className="flex gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="カレンダー表示の切替">
+              {(
+                [
+                  ["list", "一覧"],
+                  ["day", "日"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={calendarMobileLayout === id}
+                  onClick={() => {
+                    setCalendarMobileLayout(id);
+                    if (id === "day") {
+                      const t = new Date();
+                      if (t.getFullYear() === calYear && t.getMonth() + 1 === calMonth) {
+                        setMobileAgendaDay(t.getDate());
+                      }
+                    }
+                  }}
+                  className={`min-h-9 flex-1 rounded-lg text-xs font-black transition-colors ${
+                    calendarMobileLayout === id ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {calendarMobileLayout === "list" && (
+              <>
+                <MobileWeekStrip events={filtered} />
+                <div className="mt-4">
+                  {filtered.length === 0 ? <EmptyState /> : <MobileTimelineView events={filtered} onSelect={handleEventSelect} />}
+                </div>
+              </>
+            )}
+            {calendarMobileLayout === "day" && (
+              <MobileDayAgendaView
+                year={calYear}
+                month={calMonth}
+                agendaDay={mobileAgendaDay}
+                setAgendaDay={setMobileAgendaDay}
+                events={desktopCalendarEvents}
+                onSelect={handleEventSelect}
+                onOpenDayDetail={handleOpenDayDetail}
+                onCreateEvent={handleCreateEvent}
+                canEdit={canEditEvent}
+              />
+            )}
+          </div>
+          <div className="lg:hidden">
+            <InventoryAppBanner />
+          </div>
+          </div>
+        </>
+      )}
+      {v === "home" && (
+        <HomeView
+          events={allEvents}
+          prepProgressMap={prepProgressMap}
+          onSelectEvent={handleEventSelect}
+          onNavigateToPrepList={() => setView('prep')}
+          onCreateEvent={() => handleCreateEvent()}
+          onOpenSchedule={() => window.open('https://ex-schedule.vercel.app/?year=2026&month=5', '_blank', 'noopener,noreferrer')}
+        />
+      )}
+      {v === "master" && (
+        <MasterItemsView canEdit={canEditPreparationList} />
+      )}
+      {v === "fish" && (
+        <FishListView events={allEvents} canEdit={canEditPreparationList} />
+      )}
+      {v === "layout" && (
+        <LayoutView events={allEvents} canEdit={canEditPreparationList} />
+      )}
+      {(v === "prep" || v === "archive") && prepEvent ? (
+        <PreparationList
+          event={prepEvent}
+          onBack={() => setPrepEvent(null)}
+          canEdit={canEditPreparationList}
+        />
+      ) : v === "prep" ? (() => {
+        const today = new Date().toISOString().slice(0, 10);
+        const activeEvents = [...allEvents]
+          .filter(ev => ev.end >= today)
+          .sort((a, b) => a.start.localeCompare(b.start));
+        // 月ごとにグループ化
+        const monthGroups: { month: string; events: Event[] }[] = [];
+        for (const ev of activeEvents) {
+          const [y, m] = ev.start.split('-');
+          const label = `${parseInt(y)}年${parseInt(m)}月`;
+          const last = monthGroups[monthGroups.length - 1];
+          if (last?.month === label) last.events.push(ev);
+          else monthGroups.push({ month: label, events: [ev] });
+        }
+        return (
+          <>
+          <div className="fixed inset-0 bg-cover bg-center" style={{ backgroundImage: `url('${PREP_BG}')` }} />
+          <div className="fixed inset-0" style={{ background: "linear-gradient(to bottom, rgba(15,23,42,0.30) 0%, rgba(15,23,42,0.58) 50%, rgba(15,23,42,0.75) 100%)" }} />
+          <div className="relative z-10 flex flex-col h-full overflow-y-auto pb-20">
+            <div className="px-4 py-4">
+              <h2 className="text-base font-black text-white mb-4">準備物リスト</h2>
+              {activeEvents.length === 0 ? (
+                <div className="text-center py-12 text-white/50 text-sm">進行中のイベントがありません</div>
+              ) : (
+                <div className="flex flex-col gap-5">
+                  {monthGroups.map(({ month, events: evs }) => (
+                    <div key={month}>
+                      <div className="text-[11px] font-black text-white/60 uppercase tracking-widest px-1 mb-2">{month}</div>
+                      <div className="flex flex-col gap-2">
+                        {evs.map(ev => {
+                          const s = fmtDateJP(ev.start);
+                          const until = daysUntil(ev.start);
+                          const isToday = until === 0;
+                          const isSoon = until > 0 && until <= 7;
+                          const isOngoing = until < 0 && ev.end >= today;
+                          const urgencyBadge = isToday
+                            ? { label: '今日', cls: 'bg-red-500 text-white' }
+                            : isOngoing
+                            ? { label: '開催中', cls: 'bg-emerald-500 text-white' }
+                            : isSoon
+                            ? { label: `${until}日後`, cls: 'bg-amber-400 text-white' }
+                            : null;
+                          return (
+                            <button
+                              key={ev.id}
+                              onClick={() => setPrepEvent(ev)}
+                              className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm flex items-stretch overflow-hidden hover:border-indigo-200 hover:shadow-md transition-all"
+                            >
+                              {/* 日付バッジ */}
+                              <div className={`flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 ${isToday ? 'bg-red-500' : isOngoing ? 'bg-emerald-500' : isSoon ? 'bg-amber-400' : 'bg-indigo-600'}`}>
+                                <span className="text-[10px] font-black text-white/70 leading-none">{s.month}月</span>
+                                <span className="text-xl font-black text-white leading-none mt-0.5">{s.day}</span>
+                                <span className="text-[10px] font-black text-white/80 leading-none mt-0.5">{s.dow}</span>
+                              </div>
+                              {/* コンテンツ */}
+                              <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="font-bold text-slate-800 text-sm truncate">{ev.venue}</span>
+                                  {urgencyBadge && (
+                                    <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full ${urgencyBadge.cls}`}>{urgencyBadge.label}</span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-slate-400 truncate">{fmtDateRange(ev.start, ev.end)}</div>
+                              </div>
+                              <div className="flex items-center pr-3">
+                                <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          </>
+        );
+      })() : v === "archive" ? (() => {
+        const today = new Date().toISOString().slice(0, 10);
+        const archivedEvents = [...allEvents]
+          .filter(ev => ev.end < today)
+          .sort((a, b) => b.end.localeCompare(a.end));
+        const monthGroups: { month: string; events: Event[] }[] = [];
+        for (const ev of archivedEvents) {
+          const [y, m] = ev.start.split('-');
+          const label = `${parseInt(y)}年${parseInt(m)}月`;
+          const last = monthGroups[monthGroups.length - 1];
+          if (last?.month === label) last.events.push(ev);
+          else monthGroups.push({ month: label, events: [ev] });
+        }
+        return (
+          <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
+            <div className="px-4 py-4">
+              <h2 className="text-base font-black text-slate-800 mb-1">アーカイブ</h2>
+              <p className="text-xs text-slate-400 mb-4">終了したイベントの準備物を確認できます</p>
+              {archivedEvents.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-sm">アーカイブされたイベントがありません</div>
+              ) : (
+                <div className="flex flex-col gap-5">
+                  {monthGroups.map(({ month, events: evs }) => (
+                    <div key={month}>
+                      <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2">{month}</div>
+                      <div className="flex flex-col gap-2">
+                        {evs.map(ev => {
+                          const s = fmtDateJP(ev.start);
+                          return (
+                            <button
+                              key={ev.id}
+                              onClick={() => setPrepEvent(ev)}
+                              className="w-full text-left bg-white/60 rounded-2xl border border-slate-100 shadow-sm flex items-stretch overflow-hidden hover:border-slate-300 hover:shadow-md transition-all opacity-80 hover:opacity-100"
+                            >
+                              {/* 日付バッジ（グレー） */}
+                              <div className="flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 bg-slate-200">
+                                <span className="text-[10px] font-black text-slate-500 leading-none">{s.month}月</span>
+                                <span className="text-xl font-black text-slate-500 leading-none mt-0.5">{s.day}</span>
+                                <span className="text-[10px] font-black text-slate-400 leading-none mt-0.5">{s.dow}</span>
+                              </div>
+                              {/* コンテンツ */}
+                              <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
+                                <div className="font-bold text-slate-600 text-sm truncate mb-0.5">{ev.venue}</div>
+                                <div className="text-xs text-slate-400 truncate">{fmtDateRange(ev.start, ev.end)}</div>
+                              </div>
+                              <div className="flex items-center pr-3">
+                                <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })() : null}
+    </>
   );
 
   return (
@@ -1003,17 +1272,63 @@ VITE_FIREBASE_DATABASE_ID`}
         <main
           className="flex-1 relative overflow-hidden flex flex-col"
           onTouchStart={e => {
+            if (selected || window.innerWidth >= 1024) return;
             touchStartX.current = e.touches[0].clientX;
             touchStartY.current = e.touches[0].clientY;
+            dragStartTime.current = Date.now();
+            dragActiveRef.current = false;
             swipeInsideScrollable.current = canScrollHorizontally(e.target);
           }}
+          onTouchMove={e => {
+            if (swipeInsideScrollable.current || window.innerWidth >= 1024) return;
+            const dx = e.touches[0].clientX - touchStartX.current;
+            const dy = e.touches[0].clientY - touchStartY.current;
+
+            if (!dragActiveRef.current) {
+              if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+                dragActiveRef.current = true;
+                const dir: 1 | -1 = dx < 0 ? 1 : -1;
+                const idx = MOBILE_VIEWS.indexOf(view);
+                if (MOBILE_VIEWS[idx + dir]) {
+                  setDragDir(dir);
+                }
+              }
+              return;
+            }
+
+            const vw = e.currentTarget.clientWidth;
+            const clampedDx = Math.max(-vw * 0.75, Math.min(vw * 0.75, dx));
+            dragX.set(clampedDx);
+          }}
           onTouchEnd={e => {
-            if (swipeInsideScrollable.current) return;
-            if (window.innerWidth >= 1024) return;
+            if (!dragActiveRef.current) return;
+            dragActiveRef.current = false;
+
             const dx = e.changedTouches[0].clientX - touchStartX.current;
-            const dy = e.changedTouches[0].clientY - touchStartY.current;
-            if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-              handleSwipeNav(dx);
+            const vw = (e.currentTarget as HTMLElement).clientWidth;
+            const dt = Date.now() - dragStartTime.current;
+            const velocity = Math.abs(dx) / dt; // px/ms
+            const shouldNavigate = Math.abs(dragX.get()) > vw * 0.35 || velocity > 0.4;
+
+            const idx = MOBILE_VIEWS.indexOf(view);
+            const adjView = dragDir !== 0 ? MOBILE_VIEWS[idx + dragDir] ?? null : null;
+
+            if (shouldNavigate && adjView) {
+              const targetX = dragDir === 1 ? -vw : vw;
+              motionAnimate(dragX, targetX, {
+                type: 'spring', stiffness: 300, damping: 35,
+                onComplete: () => {
+                  suppressNextTransition.current = true;
+                  setSwipeDir(0);
+                  if (adjView !== 'prep' && adjView !== 'archive') setPrepEvent(null);
+                  handleSetView(adjView);
+                  setDragDir(0);
+                  dragX.set(0);
+                }
+              });
+            } else {
+              motionAnimate(dragX, 0, { type: 'spring', stiffness: 400, damping: 40 });
+              setDragDir(0);
             }
           }}
         >
@@ -1060,267 +1375,51 @@ VITE_FIREBASE_DATABASE_ID`}
 
           {/* View area: overflow-hidden clips off-screen slides */}
           <div className="flex-1 relative overflow-hidden">
-          <AnimatePresence mode="sync" custom={swipeDir}>
-            <motion.div
-              key={view + regionFilter + typeFilter + monthFilter}
-              className="absolute inset-0 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8"
-              custom={swipeDir}
-              initial={(dir: number) => ({ x: dir ? `${dir * 100}%` : 0, opacity: dir ? 1 : 0 })}
-              animate={{ x: 0, opacity: 1 }}
-              exit={(dir: number) => ({ x: dir ? `${-dir * 100}%` : 0, opacity: dir ? 1 : 0 })}
-              transition={swipeDir
-                ? { type: 'spring', stiffness: 280, damping: 32, mass: 0.9 }
-                : { duration: 0.18, ease: 'easeInOut' }}
-              style={{ willChange: 'transform' }}
-            >
-              {/* Desktop: Calendar grid / Mobile: Timeline list */}
-              {view === "calendar" && (
-                <>
-                  <div className="fixed inset-0 bg-cover bg-center print:hidden" style={{ backgroundImage: `url('${CALENDAR_BG}')` }} />
-                  <div className="fixed inset-0 print:hidden" style={{ background: "linear-gradient(to bottom, rgba(248,250,252,0.60) 0%, rgba(241,245,249,0.72) 100%)" }} />
-                  <div className="relative z-10">
-                  <div className="hidden lg:block">
-                    <CalendarView
-                      events={desktopCalendarEvents}
-                      year={calYear} month={calMonth}
-                      setYear={setCalYear} setMonth={setCalMonth}
-                      onSelect={handleEventSelect}
-                      onHover={handleEventHover}
-                      onHoverEnd={handleEventHoverEnd}
-                      onCreateEvent={handleCreateEvent}
-                      onOpenDayDetail={handleOpenDayDetail}
-                      narrowViewport={narrowViewport}
-                      densityPreview={calendarDensityPreview}
-                      prepProgressMap={prepProgressMap}
-                    />
-                    <InventoryAppBanner />
-                  </div>
-                  <div className="lg:hidden space-y-3">
-                    <div className="flex gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="カレンダー表示の切替">
-                      {(
-                        [
-                          ["list", "一覧"],
-                          ["day", "日"],
-                        ] as const
-                      ).map(([id, label]) => (
-                        <button
-                          key={id}
-                          type="button"
-                          role="tab"
-                          aria-selected={calendarMobileLayout === id}
-                          onClick={() => {
-                            setCalendarMobileLayout(id);
-                            if (id === "day") {
-                              const t = new Date();
-                              if (t.getFullYear() === calYear && t.getMonth() + 1 === calMonth) {
-                                setMobileAgendaDay(t.getDate());
-                              }
-                            }
-                          }}
-                          className={`min-h-9 flex-1 rounded-lg text-xs font-black transition-colors ${
-                            calendarMobileLayout === id ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
+            {/* Drag phase - only during active finger drag */}
+            {dragDir !== 0 && (
+              <>
+                {adjacentView && (
+                  <motion.div
+                    className="absolute inset-0 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8"
+                    style={{ x: dragDir === 1 ? adjXNext : adjXPrev, zIndex: 1 }}
+                  >
+                    {renderView(adjacentView)}
+                  </motion.div>
+                )}
+                <motion.div
+                  className="absolute inset-0 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8"
+                  style={{ x: dragX, zIndex: 2 }}
+                >
+                  {renderView(view)}
+                </motion.div>
+              </>
+            )}
 
-                    {calendarMobileLayout === "list" && (
-                      <>
-                        <MobileWeekStrip events={filtered} />
-                        <div className="mt-4">
-                          {filtered.length === 0 ? <EmptyState /> : <MobileTimelineView events={filtered} onSelect={handleEventSelect} />}
-                        </div>
-                      </>
-                    )}
-                    {calendarMobileLayout === "day" && (
-                      <MobileDayAgendaView
-                        year={calYear}
-                        month={calMonth}
-                        agendaDay={mobileAgendaDay}
-                        setAgendaDay={setMobileAgendaDay}
-                        events={desktopCalendarEvents}
-                        onSelect={handleEventSelect}
-                        onOpenDayDetail={handleOpenDayDetail}
-                        onCreateEvent={handleCreateEvent}
-                        canEdit={canEditEvent}
-                      />
-                    )}
-                  </div>
-                  <div className="lg:hidden">
-                    <InventoryAppBanner />
-                  </div>
-                  </div>
-                </>
-              )}
-              {view === "home" && (
-                <HomeView
-                  events={allEvents}
-                  prepProgressMap={prepProgressMap}
-                  onSelectEvent={handleEventSelect}
-                  onNavigateToPrepList={() => setView('prep')}
-                  onCreateEvent={() => handleCreateEvent()}
-                  onOpenSchedule={() => window.open('https://ex-schedule.vercel.app/?year=2026&month=5', '_blank', 'noopener,noreferrer')}
-                />
-              )}
-              {view === "master" && (
-                <MasterItemsView canEdit={canEditPreparationList} />
-              )}
-              {view === "fish" && (
-                <FishListView events={allEvents} canEdit={canEditPreparationList} />
-              )}
-              {view === "layout" && (
-                <LayoutView events={allEvents} canEdit={canEditPreparationList} />
-              )}
-              {(view === "prep" || view === "archive") && prepEvent ? (
-                <PreparationList
-                  event={prepEvent}
-                  onBack={() => setPrepEvent(null)}
-                  canEdit={canEditPreparationList}
-                />
-              ) : view === "prep" ? (() => {
-                const today = new Date().toISOString().slice(0, 10);
-                const activeEvents = [...allEvents]
-                  .filter(ev => ev.end >= today)
-                  .sort((a, b) => a.start.localeCompare(b.start));
-                // 月ごとにグループ化
-                const monthGroups: { month: string; events: Event[] }[] = [];
-                for (const ev of activeEvents) {
-                  const [y, m] = ev.start.split('-');
-                  const key = `${y}-${m}`;
-                  const label = `${parseInt(y)}年${parseInt(m)}月`;
-                  const last = monthGroups[monthGroups.length - 1];
-                  if (last?.month === label) last.events.push(ev);
-                  else monthGroups.push({ month: label, events: [ev] });
-                }
-                return (
-                  <>
-                  <div className="fixed inset-0 bg-cover bg-center" style={{ backgroundImage: `url('${PREP_BG}')` }} />
-                  <div className="fixed inset-0" style={{ background: "linear-gradient(to bottom, rgba(15,23,42,0.30) 0%, rgba(15,23,42,0.58) 50%, rgba(15,23,42,0.75) 100%)" }} />
-                  <div className="relative z-10 flex flex-col h-full overflow-y-auto pb-20">
-                    <div className="px-4 py-4">
-                      <h2 className="text-base font-black text-white mb-4">準備物リスト</h2>
-                      {activeEvents.length === 0 ? (
-                        <div className="text-center py-12 text-white/50 text-sm">進行中のイベントがありません</div>
-                      ) : (
-                        <div className="flex flex-col gap-5">
-                          {monthGroups.map(({ month, events: evs }) => (
-                            <div key={month}>
-                              <div className="text-[11px] font-black text-white/60 uppercase tracking-widest px-1 mb-2">{month}</div>
-                              <div className="flex flex-col gap-2">
-                                {evs.map(ev => {
-                                  const s = fmtDateJP(ev.start);
-                                  const until = daysUntil(ev.start);
-                                  const isToday = until === 0;
-                                  const isSoon = until > 0 && until <= 7;
-                                  const isOngoing = until < 0 && ev.end >= today;
-                                  const urgencyBadge = isToday
-                                    ? { label: '今日', cls: 'bg-red-500 text-white' }
-                                    : isOngoing
-                                    ? { label: '開催中', cls: 'bg-emerald-500 text-white' }
-                                    : isSoon
-                                    ? { label: `${until}日後`, cls: 'bg-amber-400 text-white' }
-                                    : null;
-                                  return (
-                                    <button
-                                      key={ev.id}
-                                      onClick={() => setPrepEvent(ev)}
-                                      className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm flex items-stretch overflow-hidden hover:border-indigo-200 hover:shadow-md transition-all"
-                                    >
-                                      {/* 日付バッジ */}
-                                      <div className={`flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 ${isToday ? 'bg-red-500' : isOngoing ? 'bg-emerald-500' : isSoon ? 'bg-amber-400' : 'bg-indigo-600'}`}>
-                                        <span className="text-[10px] font-black text-white/70 leading-none">{s.month}月</span>
-                                        <span className="text-xl font-black text-white leading-none mt-0.5">{s.day}</span>
-                                        <span className="text-[10px] font-black text-white/80 leading-none mt-0.5">{s.dow}</span>
-                                      </div>
-                                      {/* コンテンツ */}
-                                      <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
-                                        <div className="flex items-center gap-2 mb-0.5">
-                                          <span className="font-bold text-slate-800 text-sm truncate">{ev.venue}</span>
-                                          {urgencyBadge && (
-                                            <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full ${urgencyBadge.cls}`}>{urgencyBadge.label}</span>
-                                          )}
-                                        </div>
-                                        <div className="text-xs text-slate-400 truncate">{fmtDateRange(ev.start, ev.end)}</div>
-                                      </div>
-                                      <div className="flex items-center pr-3">
-                                        <ChevronRight size={16} className="text-slate-300 shrink-0" />
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  </>
-                );
-              })() : view === "archive" ? (() => {
-                const today = new Date().toISOString().slice(0, 10);
-                const archivedEvents = [...allEvents]
-                  .filter(ev => ev.end < today)
-                  .sort((a, b) => b.end.localeCompare(a.end));
-                const monthGroups: { month: string; events: Event[] }[] = [];
-                for (const ev of archivedEvents) {
-                  const [y, m] = ev.start.split('-');
-                  const label = `${parseInt(y)}年${parseInt(m)}月`;
-                  const last = monthGroups[monthGroups.length - 1];
-                  if (last?.month === label) last.events.push(ev);
-                  else monthGroups.push({ month: label, events: [ev] });
-                }
-                return (
-                  <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
-                    <div className="px-4 py-4">
-                      <h2 className="text-base font-black text-slate-800 mb-1">アーカイブ</h2>
-                      <p className="text-xs text-slate-400 mb-4">終了したイベントの準備物を確認できます</p>
-                      {archivedEvents.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400 text-sm">アーカイブされたイベントがありません</div>
-                      ) : (
-                        <div className="flex flex-col gap-5">
-                          {monthGroups.map(({ month, events: evs }) => (
-                            <div key={month}>
-                              <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2">{month}</div>
-                              <div className="flex flex-col gap-2">
-                                {evs.map(ev => {
-                                  const s = fmtDateJP(ev.start);
-                                  return (
-                                    <button
-                                      key={ev.id}
-                                      onClick={() => setPrepEvent(ev)}
-                                      className="w-full text-left bg-white/60 rounded-2xl border border-slate-100 shadow-sm flex items-stretch overflow-hidden hover:border-slate-300 hover:shadow-md transition-all opacity-80 hover:opacity-100"
-                                    >
-                                      {/* 日付バッジ（グレー） */}
-                                      <div className="flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 bg-slate-200">
-                                        <span className="text-[10px] font-black text-slate-500 leading-none">{s.month}月</span>
-                                        <span className="text-xl font-black text-slate-500 leading-none mt-0.5">{s.day}</span>
-                                        <span className="text-[10px] font-black text-slate-400 leading-none mt-0.5">{s.dow}</span>
-                                      </div>
-                                      {/* コンテンツ */}
-                                      <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
-                                        <div className="font-bold text-slate-600 text-sm truncate mb-0.5">{ev.venue}</div>
-                                        <div className="text-xs text-slate-400 truncate">{fmtDateRange(ev.start, ev.end)}</div>
-                                      </div>
-                                      <div className="flex items-center pr-3">
-                                        <ChevronRight size={16} className="text-slate-300 shrink-0" />
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })() : null}
-            </motion.div>
-          </AnimatePresence>
+            {/* Tab-click phase - AnimatePresence, hidden during drag */}
+            <div style={{ opacity: dragDir !== 0 ? 0 : 1, position: 'relative', height: '100%' }}>
+              <AnimatePresence mode="sync" custom={swipeDir}>
+                <motion.div
+                  key={view + regionFilter + typeFilter + monthFilter}
+                  className="absolute inset-0 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8"
+                  custom={swipeDir}
+                  initial={(dir: number) => {
+                    if (suppressNextTransition.current) return { x: 0, opacity: 1 };
+                    return { x: dir ? `${dir * 100}%` : 0, opacity: dir ? 1 : 0 };
+                  }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={(dir: number) => {
+                    if (suppressNextTransition.current) return { x: 0, opacity: 0 };
+                    return { x: dir ? `${-dir * 100}%` : 0, opacity: dir ? 1 : 0 };
+                  }}
+                  transition={swipeDir
+                    ? { type: 'spring', stiffness: 280, damping: 32, mass: 0.9 }
+                    : { duration: 0.18, ease: 'easeInOut' }}
+                  style={{ willChange: 'transform' }}
+                >
+                  {renderView(view)}
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
         </main>
       </div>
