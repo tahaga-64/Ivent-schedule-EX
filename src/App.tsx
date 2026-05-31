@@ -1017,11 +1017,10 @@ VITE_FIREBASE_DATABASE_ID`}
             }
           }}
         >
-          <div className="p-4 lg:p-8 pb-20 lg:pb-8 flex-1 overflow-y-auto">
-          {/* Sync / Error Indicator */}
+          {/* Sync / Error Indicator — fixed positioned, stays outside animated region */}
           <AnimatePresence>
             {isSaving && (
-              <motion.div 
+              <motion.div
                 key="sync"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1029,8 +1028,8 @@ VITE_FIREBASE_DATABASE_ID`}
                 className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-center gap-3 bg-zinc-900 dark:bg-amber-500 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
               >
                 <div className="relative flex items-center justify-center">
-                  <motion.div 
-                    animate={{ scale: [1, 1.5, 1], opacity: [1, 0, 1] }} 
+                  <motion.div
+                    animate={{ scale: [1, 1.5, 1], opacity: [1, 0, 1] }}
                     transition={{ duration: 2, repeat: Infinity }}
                     className="absolute w-2 h-2 bg-white rounded-full blur-[2px]"
                   />
@@ -1059,15 +1058,20 @@ VITE_FIREBASE_DATABASE_ID`}
             )}
           </AnimatePresence>
 
+          {/* View area: overflow-hidden clips off-screen slides */}
+          <div className="flex-1 relative overflow-hidden">
           <AnimatePresence mode="sync" custom={swipeDir}>
             <motion.div
               key={view + regionFilter + typeFilter + monthFilter}
+              className="absolute inset-0 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8"
               custom={swipeDir}
-              initial={(dir: number) => ({ x: dir ? dir * 60 : 0, opacity: 0 })}
+              initial={(dir: number) => ({ x: dir ? `${dir * 100}%` : 0, opacity: dir ? 1 : 0 })}
               animate={{ x: 0, opacity: 1 }}
-              exit={(dir: number) => ({ x: dir ? -dir * 60 : 0, opacity: 0 })}
-              transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
-              style={{ willChange: 'transform, opacity' }}
+              exit={(dir: number) => ({ x: dir ? `${-dir * 100}%` : 0, opacity: dir ? 1 : 0 })}
+              transition={swipeDir
+                ? { type: 'spring', stiffness: 280, damping: 32, mass: 0.9 }
+                : { duration: 0.18, ease: 'easeInOut' }}
+              style={{ willChange: 'transform' }}
             >
               {/* Desktop: Calendar grid / Mobile: Timeline list */}
               {view === "calendar" && (
