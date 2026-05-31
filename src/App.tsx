@@ -1136,21 +1136,16 @@ VITE_FIREBASE_DATABASE_ID`}
   );
 
   const activeBg = VIEW_BG[view] ?? VIEW_BG.home;
+  const rootBgStyle: React.CSSProperties = activeBg.image
+    ? {
+        backgroundImage: `${activeBg.overlay}, url('${activeBg.image}')`,
+        backgroundSize: 'auto, cover',
+        backgroundPosition: '0 0, center',
+        backgroundAttachment: 'fixed',
+      }
+    : { background: activeBg.overlay };
   return (
-    <div className="flex flex-col min-h-screen bg-black transition-colors duration-300">
-      {/* 真に固定された背景レイヤー — transform 祖先の外にあるため position:fixed が正常動作 */}
-      {activeBg.image && (
-        <div
-          key={`bg-img-${view}`}
-          className="fixed inset-0 -z-10 bg-cover bg-center print:hidden transition-opacity duration-500"
-          style={{ backgroundImage: `url('${activeBg.image}')` }}
-        />
-      )}
-      <div
-        key={`bg-ov-${view}`}
-        className="fixed inset-0 -z-10 print:hidden transition-opacity duration-500"
-        style={{ background: activeBg.overlay }}
-      />
+    <div className="flex flex-col min-h-screen transition-colors duration-500" style={rootBgStyle}>
 
       {/* ページ切替ローディングバー */}
       <AnimatePresence>
