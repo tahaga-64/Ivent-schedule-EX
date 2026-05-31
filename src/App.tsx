@@ -118,14 +118,16 @@ const CALENDAR_BG = "https://images.unsplash.com/photo-1506784983877-45594efa4cb
 const PREP_BG    = "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1920&q=80";
 
 // ビューごとの背景 — transform 内部では position:fixed が効かないため App ルートで一元管理
+const SHARED_BG = '/mercury-office.jpg';
+const SHARED_OVERLAY = 'linear-gradient(to bottom,rgba(15,23,42,.30) 0%,rgba(15,23,42,.55) 45%,rgba(15,23,42,.82) 100%)';
 const VIEW_BG: Record<string, { image?: string; overlay: string }> = {
-  home:     { image: '/mercury-office.jpg', overlay: 'linear-gradient(to bottom,rgba(15,23,42,.30) 0%,rgba(15,23,42,.55) 45%,rgba(15,23,42,.82) 100%)' },
-  calendar: { image: CALENDAR_BG,           overlay: 'linear-gradient(to bottom,rgba(248,250,252,.60) 0%,rgba(241,245,249,.72) 100%)' },
-  prep:     { image: PREP_BG,               overlay: 'linear-gradient(to bottom,rgba(15,23,42,.30) 0%,rgba(15,23,42,.58) 50%,rgba(15,23,42,.75) 100%)' },
-  archive:  {                               overlay: 'linear-gradient(to bottom,#f8fafc,#e2e8f0)' },
-  master:   { image: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=1920&q=80', overlay: 'linear-gradient(to bottom,rgba(15,23,42,.30) 0%,rgba(15,23,42,.52) 45%,rgba(15,23,42,.72) 100%)' },
-  fish:     { image: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=1920&q=80', overlay: 'linear-gradient(to bottom,rgba(8,47,73,.30) 0%,rgba(8,47,73,.50) 45%,rgba(8,47,73,.75) 100%)' },
-  layout:   { image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=80', overlay: 'linear-gradient(to bottom,rgba(15,23,42,.35) 0%,rgba(15,23,42,.65) 100%)' },
+  home:     { image: SHARED_BG, overlay: SHARED_OVERLAY },
+  calendar: { image: SHARED_BG, overlay: SHARED_OVERLAY },
+  prep:     { image: SHARED_BG, overlay: SHARED_OVERLAY },
+  archive:  { image: SHARED_BG, overlay: SHARED_OVERLAY },
+  master:   { image: SHARED_BG, overlay: SHARED_OVERLAY },
+  fish:     { image: SHARED_BG, overlay: SHARED_OVERLAY },
+  layout:   { image: SHARED_BG, overlay: SHARED_OVERLAY },
 };
 
 function InventoryAppBanner() {
