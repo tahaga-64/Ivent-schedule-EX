@@ -27,6 +27,19 @@ import EventDetailModal from './components/EventDetailModal';
 import AppSidebar from './components/AppSidebar';
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout";
+
+const MOBILE_VIEWS: ViewMode[] = ['home', 'calendar', 'prep', 'master', 'fish', 'layout'];
+
+function canScrollHorizontally(el: EventTarget | null): boolean {
+  let node = el as HTMLElement | null;
+  while (node && node.tagName !== 'MAIN') {
+    const style = window.getComputedStyle(node);
+    const ox = style.overflowX;
+    if ((ox === 'auto' || ox === 'scroll') && node.scrollWidth > node.clientWidth) return true;
+    node = node.parentElement;
+  }
+  return false;
+}
 type ModalTab = "detail" | "photos";
 
 // 安全なlocalStorage読み込み
@@ -213,6 +226,10 @@ export default function App() {
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [staffExpanded, setStaffExpanded] = useState(false);
   const [pendingNewEventId, setPendingNewEventId] = useState<string | null>(null);
+  const [swipeDir, setSwipeDir] = useState(0); // -1: prev (from left), 1: next (from right), 0: tab click
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const swipeInsideScrollable = useRef(false);
 
   // 未保存変更の警告（ブラウザを閉じる・リロード時）
   useEffect(() => {
@@ -717,6 +734,23 @@ export default function App() {
     setModalTab('detail');
   }, [pendingNewEventId]);
 
+  const handleSwipeNav = useCallback((deltaX: number) => {
+    if (selected) return;
+    const idx = MOBILE_VIEWS.indexOf(view);
+    if (idx === -1) return;
+    if (deltaX > 0 && idx > 0) {
+      const prev = MOBILE_VIEWS[idx - 1];
+      if (prev !== 'prep' && prev !== 'archive') setPrepEvent(null);
+      setSwipeDir(-1);
+      handleSetView(prev);
+    } else if (deltaX < 0 && idx < MOBILE_VIEWS.length - 1) {
+      const next = MOBILE_VIEWS[idx + 1];
+      if (next !== 'prep' && next !== 'archive') setPrepEvent(null);
+      setSwipeDir(1);
+      handleSetView(next);
+    }
+  }, [selected, view, handleSetView]);
+
   const handleEventHover = (ev: Event, e: ReactMouseEvent<HTMLElement>) => {
     if (ev.id.startsWith("__cal_preview_")) return;
     if (window.innerWidth < 1024) return;
@@ -966,7 +1000,23 @@ VITE_FIREBASE_DATABASE_ID`}
         )}
 
         {/* Main Content */}
-        <main className="flex-1 relative overflow-hidden flex flex-col">
+        <main
+          className="flex-1 relative overflow-hidden flex flex-col"
+          onTouchStart={e => {
+            touchStartX.current = e.touches[0].clientX;
+            touchStartY.current = e.touches[0].clientY;
+            swipeInsideScrollable.current = canScrollHorizontally(e.target);
+          }}
+          onTouchEnd={e => {
+            if (swipeInsideScrollable.current) return;
+            if (window.innerWidth >= 1024) return;
+            const dx = e.changedTouches[0].clientX - touchStartX.current;
+            const dy = e.changedTouches[0].clientY - touchStartY.current;
+            if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+              handleSwipeNav(dx);
+            }
+          }}
+        >
           <div className="p-4 lg:p-8 pb-20 lg:pb-8 flex-1 overflow-y-auto">
           {/* Sync / Error Indicator */}
           <AnimatePresence>
@@ -1009,13 +1059,15 @@ VITE_FIREBASE_DATABASE_ID`}
             )}
           </AnimatePresence>
 
-          <AnimatePresence mode="sync">
+          <AnimatePresence mode="sync" custom={swipeDir}>
             <motion.div
               key={view + regionFilter + typeFilter + monthFilter}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18, ease: 'easeInOut' }}
+              custom={swipeDir}
+              initial={(dir: number) => ({ x: dir ? dir * 60 : 0, opacity: 0 })}
+              animate={{ x: 0, opacity: 1 }}
+              exit={(dir: number) => ({ x: dir ? -dir * 60 : 0, opacity: 0 })}
+              transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
+              style={{ willChange: 'transform, opacity' }}
             >
               {/* Desktop: Calendar grid / Mobile: Timeline list */}
               {view === "calendar" && (
@@ -1416,13 +1468,24 @@ VITE_FIREBASE_DATABASE_ID`}
         ).map(tab => (
           <button
             key={tab.id}
-            onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); handleSetView(tab.id); }}
-            className={`flex flex-col items-center gap-0.5 px-3 py-3 text-[10px] font-bold transition-colors ${
+            onClick={() => {
+              if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null);
+              setSwipeDir(0);
+              handleSetView(tab.id);
+            }}
+            className={`relative flex flex-col items-center gap-0.5 px-3 py-3 text-[10px] font-bold transition-colors ${
               view === tab.id ? "text-white" : "text-white/50"
             }`}
           >
             {tab.icon}
             {tab.label}
+            {view === tab.id && (
+              <motion.div
+                layoutId="nav-indicator"
+                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-white"
+                transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+              />
+            )}
           </button>
         ))}
       </nav>
