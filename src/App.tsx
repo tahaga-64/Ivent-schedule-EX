@@ -212,6 +212,7 @@ export default function App() {
 
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [staffExpanded, setStaffExpanded] = useState(false);
+  const [pendingNewEventId, setPendingNewEventId] = useState<string | null>(null);
 
   // 未保存変更の警告（ブラウザを閉じる・リロード時）
   useEffect(() => {
@@ -514,7 +515,12 @@ export default function App() {
         dailyRoles: localDailyRoles,
         ...(latestPhotos !== undefined ? { photos: latestPhotos } : {}),
       };
-      await setDoc(doc(db, "events", selected.id), eventToSave);
+      if (pendingNewEventId !== null && selected.id === pendingNewEventId) {
+        await setDoc(doc(db, 'events', selected.id), eventToSave);
+        setPendingNewEventId(null);
+      } else {
+        await setDoc(doc(db, "events", selected.id), eventToSave);
+      }
       // 楽観的にローカルキャッシュも更新（onSnapshot反映までのラグ対策）
       setDbEvents(prev => ({ ...prev, [selected.id]: eventToSave }));
       setSelected(eventToSave);
@@ -553,20 +559,8 @@ export default function App() {
     // 楽観的にUIへ反映（保存完了前にも一覧 / モーダルに表示）
     setDbEvents(prev => ({ ...prev, [id]: newEvent }));
     setSelected(newEvent);
+    setPendingNewEventId(id);
     setLastEditedId(id);
-    try {
-      await setDoc(doc(db, "events", id), newEvent);
-    } catch (error) {
-      console.error('Firestore create error:', error);
-      setSaveError(formatSaveError(error));
-      // 失敗したらローカルキャッシュからロールバック
-      setDbEvents(prev => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-      setSelected(null);
-    }
   };
 
   const handleDeleteEvent = async () => {
@@ -683,17 +677,45 @@ export default function App() {
 
   // モーダルを閉じる（未保存の変更がある場合は確認）
   const handleCloseModal = useCallback(() => {
+    const isNew = pendingNewEventId !== null && selected?.id === pendingNewEventId;
+
+    if (isNew && !hasUnsavedChanges) {
+      setDbEvents(prev => { const n = { ...prev }; delete n[pendingNewEventId!]; return n; });
+      setPendingNewEventId(null);
+      setSelected(null);
+      hasUnsavedChangesRef.current = false;
+      setHasUnsavedChanges(false);
+      setValidationErrors([]);
+      setModalTab('detail');
+      return;
+    }
+
     if (hasUnsavedChanges) {
-      if (!window.confirm('未保存の変更があります。破棄しますか？')) {
-        return;
+      if (!window.confirm('未保存の変更があります。破棄しますか？')) return;
+      if (isNew) {
+        setDbEvents(prev => { const n = { ...prev }; delete n[pendingNewEventId!]; return n; });
+        setPendingNewEventId(null);
       }
+    }
+
+    setSelected(null);
+    hasUnsavedChangesRef.current = false;
+    setHasUnsavedChanges(false);
+    setValidationErrors([]);
+    setModalTab('detail');
+  }, [hasUnsavedChanges, pendingNewEventId, selected]);
+
+  const handleCancelNewEvent = useCallback(() => {
+    if (pendingNewEventId) {
+      setDbEvents(prev => { const n = { ...prev }; delete n[pendingNewEventId]; return n; });
+      setPendingNewEventId(null);
     }
     setSelected(null);
     hasUnsavedChangesRef.current = false;
     setHasUnsavedChanges(false);
     setValidationErrors([]);
     setModalTab('detail');
-  }, [hasUnsavedChanges]);
+  }, [pendingNewEventId]);
 
   const handleEventHover = (ev: Event, e: ReactMouseEvent<HTMLElement>) => {
     if (ev.id.startsWith("__cal_preview_")) return;
@@ -1357,6 +1379,8 @@ VITE_FIREBASE_DATABASE_ID`}
               await updatePhotoCaption(photo, caption);
               setSelected(prev => prev ? { ...prev, photos: (prev.photos ?? []).map(p => p.id === photo.id ? { ...p, caption } : p) } : prev);
             }}
+            isNewEvent={pendingNewEventId !== null && selected?.id === pendingNewEventId}
+            onCancelNew={handleCancelNewEvent}
           />
         )}
       </AnimatePresence>

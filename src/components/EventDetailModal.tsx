@@ -66,6 +66,8 @@ export interface EventDetailModalProps {
   onUploadPhoto: (file: File) => Promise<EventPhoto | null | undefined>;
   onDeletePhoto: (photo: EventPhoto) => Promise<void>;
   onUpdatePhotoCaption: (photo: EventPhoto, caption: string) => Promise<void>;
+  isNewEvent?: boolean;
+  onCancelNew?: () => void;
 }
 
 // ── コンポーネント ─────────────────────────────────────────────────────────
@@ -96,6 +98,8 @@ export default function EventDetailModal({
   onUploadPhoto,
   onDeletePhoto,
   onUpdatePhotoCaption,
+  isNewEvent,
+  onCancelNew,
 }: EventDetailModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center lg:p-4">
@@ -427,6 +431,15 @@ export default function EventDetailModal({
               準備物リストを開く
             </button>
           </div>
+          {isNewEvent && (
+            <button
+              type="button"
+              onClick={onCancelNew}
+              className="w-full mt-2 py-4 rounded-2xl bg-slate-100 text-slate-600 text-sm font-bold hover:bg-slate-200 transition-colors"
+            >
+              キャンセル（保存しない）
+            </button>
+          )}
           {canEditEvent && (
             <button
               onClick={onDelete}

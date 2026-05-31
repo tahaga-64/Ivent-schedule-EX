@@ -42,6 +42,9 @@ const CATALOG: Record<string, {
   yoyo:        { label: 'ヨーヨー・SB',   emoji: '🎯', color: '#be123c', wPct: 14, hPct: 10 },
   seating:     { label: '着座SP',         emoji: '💺', color: '#0f766e', wPct: 16, hPct: 10 },
   pillar:      { label: '柱',             emoji: '⬛', color: '#475569', wPct: 4,  hPct: 6  },
+  entrance:   { label: '入口',      emoji: '🚪', color: '#16a34a', wPct: 8,  hPct: 5  },
+  prize_desk: { label: '景品お渡し', emoji: '🎁', color: '#db2777', wPct: 14, hPct: 8  },
+  partition:  { label: '仕切り',     emoji: '🟫', color: '#64748b', wPct: 22, hPct: 2  },
 };
 
 function genId() { return Math.random().toString(36).slice(2, 9); }
@@ -231,10 +234,10 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
         </div>
       </div>
 
-      <div className="flex flex-1 min-h-0 flex-col sm:flex-row overflow-hidden">
+      <div className="layout-outer flex flex-1 min-h-0 flex-col sm:flex-row overflow-hidden">
         {/* Palette */}
         {canEdit && (
-          <div className="shrink-0 border-b sm:border-b-0 sm:border-r border-white/10 bg-slate-800/60 p-3 flex flex-row sm:flex-col gap-2 overflow-x-auto sm:overflow-y-auto sm:w-[88px]">
+          <div className="layout-palette shrink-0 border-b sm:border-b-0 sm:border-r border-white/10 bg-slate-800/60 p-3 flex flex-row sm:flex-col gap-2 overflow-x-auto sm:overflow-y-auto sm:w-[88px]">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-widest shrink-0 self-center sm:self-auto hidden sm:block mb-1">追加</div>
             {Object.entries(CATALOG).map(([type, def]) => (
               <button

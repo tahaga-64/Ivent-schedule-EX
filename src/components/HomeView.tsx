@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { motion } from 'motion/react';
-import { ChevronRight, ClipboardList, Plus, CalendarDays, TrendingUp } from 'lucide-react';
+import { ChevronRight, ClipboardList, Plus, CalendarDays } from 'lucide-react';
 import type { Event } from '../types';
+import { rs, ts } from '../lib/eventHelpers';
 
 interface Props {
   events: Event[];
@@ -17,14 +18,14 @@ function effectivePast(ev: Event, today: string): boolean {
   return (ev.end || ev.start) < today;
 }
 
-function statusPill(status: string | undefined, isPast: boolean) {
+function statusPill(status: string | undefined, isPast: boolean): { label: string; cls: string } | null {
   if (isPast || status === 'completed') return { label: '完了', cls: 'bg-slate-900 text-white' };
   switch (status) {
     case 'in_progress': return { label: '準備中',    cls: 'bg-amber-500 text-white' };
     case 'waiting':     return { label: '入荷待ち',  cls: 'bg-blue-500 text-white' };
-    case 'ready':       return { label: '準備完了',  cls: 'bg-emerald-500 text-white' };
+    case 'ready':       return { label: '準備完了',  cls: 'bg-blue-500 text-white' };
     case 'cancelled':   return { label: 'キャンセル',cls: 'bg-red-400/80 text-white' };
-    default:            return { label: '予定',      cls: 'bg-white/20 text-white backdrop-blur-sm' };
+    default:            return null;
   }
 }
 
@@ -58,41 +59,51 @@ function EventCard({ ev, prog, today, onSelect }: {
   const st = statusPill(ev.status, past);
   const pct = prog && prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : -1;
   const days = daysUntil(ev.start, today);
+  const regionColor = rs(ev.region || '').dot;
+  const emoji = ev.emoji || ts(ev.type || '').icon;
 
   return (
     <motion.button
       onClick={() => onSelect(ev)}
-      whileHover={{ y: -2 }}
-      className="w-full text-left bg-white/95 backdrop-blur-sm rounded-2xl p-4 shadow-sm hover:shadow-md transition-all group"
+      whileHover={{ y: -2, boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
+      className="w-full text-left bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all group overflow-hidden border border-slate-100/60"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-            <span className="text-sm font-black text-slate-800 truncate">{ev.venue}</span>
-            <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black ${st.cls}`}>{st.label}</span>
-            {!past && days === 0 && (
-              <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white">今日</span>
-            )}
-            {!past && days > 0 && days <= 3 && (
-              <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-700">{days}日後</span>
-            )}
-          </div>
-          <div className="text-xs text-slate-500 mb-2">
-            {fmtRange(ev.start, ev.end)}{ev.client ? ` · ${ev.client}` : ''}{ev.region ? ` · ${ev.region}` : ''}
-          </div>
-          {pct >= 0 && (
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : pct >= 70 ? 'bg-indigo-500' : 'bg-amber-400'}`}
-                  style={{ width: `${pct}%` }}
-                />
+      <div className="flex items-stretch">
+        <div className="w-1 shrink-0" style={{ background: regionColor }} />
+        <div className="flex-1 min-w-0 p-4">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl leading-none mt-0.5 shrink-0">{emoji}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                <span className="text-base font-black text-slate-800 truncate">{ev.venue}</span>
+                {st && (
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black ${st.cls}`}>{st.label}</span>
+                )}
+                {!past && days === 0 && (
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-500 text-white">今日</span>
+                )}
+                {!past && days > 0 && days <= 3 && (
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-700">{days}日後</span>
+                )}
               </div>
-              <span className="text-[10px] text-slate-400 font-mono shrink-0">{prog!.done}/{prog!.total}</span>
+              <div className="text-xs text-slate-400 font-mono">
+                {fmtRange(ev.start, ev.end)}{ev.client ? ` · ${ev.client}` : ''}{ev.region ? ` · ${ev.region}` : ''}
+              </div>
+              {pct >= 0 && (
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : pct >= 70 ? 'bg-indigo-500' : 'bg-amber-400'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono shrink-0">{prog!.done}/{prog!.total}</span>
+                </div>
+              )}
             </div>
-          )}
+            <ChevronRight size={15} className="text-slate-300 group-hover:text-indigo-400 shrink-0 mt-1 transition-colors" />
+          </div>
         </div>
-        <ChevronRight size={15} className="text-slate-300 group-hover:text-indigo-400 shrink-0 mt-0.5 transition-colors" />
       </div>
     </motion.button>
   );
@@ -109,9 +120,8 @@ function SectionEmpty({ label }: { label: string }) {
 export default function HomeView({ events, prepProgressMap, onSelectEvent, onNavigateToPrepList, onCreateEvent, onOpenSchedule }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const in7  = addDays(today, 7);
-  const in30 = addDays(today, 30);
 
-  const { todayEvents, upcomingWeek, upcomingMonth } = useMemo(() => {
+  const { todayEvents, upcomingWeek } = useMemo(() => {
     const active = events.filter(e => e.status !== 'cancelled');
     const todayEvents = active.filter(e =>
       e.start && e.start <= today && today <= (e.end || e.start)
@@ -121,12 +131,8 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
       e.start && e.start > today && e.start <= in7
     ).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 
-    const upcomingMonth = active.filter(e =>
-      e.start && e.start > in7 && e.start <= in30
-    ).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
-
-    return { todayEvents, upcomingWeek, upcomingMonth };
-  }, [events, today, in7, in30]);
+    return { todayEvents, upcomingWeek };
+  }, [events, today, in7]);
 
   const stats = useMemo(() => {
     const active = events.filter(e => e.status !== 'cancelled' && e.start && !effectivePast(e, today));
@@ -140,9 +146,6 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
     return { upcoming: active.length, thisMonthCount: thisMonth.length, prepPct };
   }, [events, prepProgressMap, today]);
 
-  const dateLabel = new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'long' });
-  const yearLabel = new Date().getFullYear() + '年';
-
   return (
     <div className="relative min-h-screen">
       <div className="fixed inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/mercury-office.jpg')" }} />
@@ -151,9 +154,16 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
       <div className="relative z-10 flex flex-col gap-5 px-4 pt-6 pb-32 max-w-xl mx-auto w-full">
 
         {/* Date header */}
-        <div className="text-white">
-          <div className="text-[10px] font-black uppercase tracking-widest text-white/50 mb-0.5">{yearLabel}</div>
-          <div className="text-3xl font-black leading-tight">{dateLabel}</div>
+        <div className="flex items-end gap-4 text-white">
+          <div className="text-8xl font-black leading-none tracking-tighter">
+            {new Date().getDate()}
+          </div>
+          <div className="pb-2 flex flex-col gap-0.5">
+            <div className="text-xl font-black opacity-90 leading-tight">
+              {new Date().toLocaleDateString('ja-JP', { month: 'long', weekday: 'long' })}
+            </div>
+            <div className="text-sm font-bold opacity-40">{new Date().getFullYear()}</div>
+          </div>
         </div>
 
         {/* Stats cards */}
@@ -187,10 +197,11 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
 
         {/* 本日のイベント */}
         <div>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-0.5 h-4 bg-white/40 rounded-full shrink-0" />
             <div className="text-[11px] font-black text-white/70 uppercase tracking-widest">本日のイベント</div>
             {todayEvents.length > 0 && (
-              <span className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-[10px] font-black text-white">{todayEvents.length}</span>
+              <span className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[10px] font-black text-white">{todayEvents.length}</span>
             )}
           </div>
           {todayEvents.length === 0
@@ -203,11 +214,14 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
           }
         </div>
 
-        {/* 今後7日以内 */}
+        {/* 来週のイベント */}
         <div>
-          <div className="text-[11px] font-black text-white/70 uppercase tracking-widest mb-2">今後7日以内</div>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-0.5 h-4 bg-white/40 rounded-full shrink-0" />
+            <div className="text-[11px] font-black text-white/70 uppercase tracking-widest">来週のイベント</div>
+          </div>
           {upcomingWeek.length === 0
-            ? <SectionEmpty label="7日以内のイベントはありません" />
+            ? <SectionEmpty label="来週のイベントはありません" />
             : <div className="flex flex-col gap-2">
                 {upcomingWeek.map(ev => (
                   <EventCard key={ev.id} ev={ev} prog={prepProgressMap[ev.id]} today={today} onSelect={onSelectEvent} />
@@ -215,18 +229,6 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
               </div>
           }
         </div>
-
-        {/* 今後〜30日 */}
-        {upcomingMonth.length > 0 && (
-          <div>
-            <div className="text-[11px] font-black text-white/70 uppercase tracking-widest mb-2">今後30日以内</div>
-            <div className="flex flex-col gap-2">
-              {upcomingMonth.map(ev => (
-                <EventCard key={ev.id} ev={ev} prog={prepProgressMap[ev.id]} today={today} onSelect={onSelectEvent} />
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* クイックアクション */}
         <div className="mt-2 flex flex-col gap-2">
