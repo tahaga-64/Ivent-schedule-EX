@@ -95,14 +95,6 @@ export default function FishListView({ events, canEdit }: Props) {
 
   return (
     <div className="relative min-h-screen">
-      {/* エンゼルフィッシュ背景 */}
-      <div className="fixed inset-0 bg-cover bg-center" style={{ backgroundImage: `url('${FISH_BG}')` }} />
-      {/* グラデーションオーバーレイ（水中の深みを演出しつつ視認性を確保） */}
-      <div
-        className="fixed inset-0"
-        style={{ background: "linear-gradient(to bottom, rgba(8,47,73,0.30) 0%, rgba(8,47,73,0.50) 45%, rgba(8,47,73,0.75) 100%)" }}
-      />
-
       <div className="relative z-10 max-w-2xl mx-auto px-4 py-6 pb-28">
 
         {aquariumEvents.length === 0 ? (

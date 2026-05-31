@@ -115,7 +115,18 @@ function buildCalendarDensityPreviewEvents(
 const INVENTORY_APP_URL = '';
 
 const CALENDAR_BG = "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=1920&q=80";
-const PREP_BG = "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1920&q=80";
+const PREP_BG    = "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1920&q=80";
+
+// ビューごとの背景 — transform 内部では position:fixed が効かないため App ルートで一元管理
+const VIEW_BG: Record<string, { image?: string; overlay: string }> = {
+  home:     { image: '/mercury-office.jpg', overlay: 'linear-gradient(to bottom,rgba(15,23,42,.30) 0%,rgba(15,23,42,.55) 45%,rgba(15,23,42,.82) 100%)' },
+  calendar: { image: CALENDAR_BG,           overlay: 'linear-gradient(to bottom,rgba(248,250,252,.60) 0%,rgba(241,245,249,.72) 100%)' },
+  prep:     { image: PREP_BG,               overlay: 'linear-gradient(to bottom,rgba(15,23,42,.30) 0%,rgba(15,23,42,.58) 50%,rgba(15,23,42,.75) 100%)' },
+  archive:  {                               overlay: 'linear-gradient(to bottom,#f8fafc,#e2e8f0)' },
+  master:   { image: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=1920&q=80', overlay: 'linear-gradient(to bottom,rgba(15,23,42,.30) 0%,rgba(15,23,42,.52) 45%,rgba(15,23,42,.72) 100%)' },
+  fish:     { image: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=1920&q=80', overlay: 'linear-gradient(to bottom,rgba(8,47,73,.30) 0%,rgba(8,47,73,.50) 45%,rgba(8,47,73,.75) 100%)' },
+  layout:   { image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=80', overlay: 'linear-gradient(to bottom,rgba(15,23,42,.35) 0%,rgba(15,23,42,.65) 100%)' },
+};
 
 function InventoryAppBanner() {
   const ready = INVENTORY_APP_URL.length > 0;
@@ -883,8 +894,6 @@ VITE_FIREBASE_DATABASE_ID`}
       {/* Desktop: Calendar grid / Mobile: Timeline list */}
       {v === "calendar" && (
         <>
-          <div className="fixed inset-0 bg-cover bg-center print:hidden" style={{ backgroundImage: `url('${CALENDAR_BG}')` }} />
-          <div className="fixed inset-0 print:hidden" style={{ background: "linear-gradient(to bottom, rgba(248,250,252,0.60) 0%, rgba(241,245,249,0.72) 100%)" }} />
           <div className="relative z-10">
           <div className="hidden lg:block">
             <CalendarView
@@ -1002,8 +1011,6 @@ VITE_FIREBASE_DATABASE_ID`}
         }
         return (
           <>
-          <div className="fixed inset-0 bg-cover bg-center" style={{ backgroundImage: `url('${PREP_BG}')` }} />
-          <div className="fixed inset-0" style={{ background: "linear-gradient(to bottom, rgba(15,23,42,0.30) 0%, rgba(15,23,42,0.58) 50%, rgba(15,23,42,0.75) 100%)" }} />
           <div className="relative z-10 flex flex-col h-full overflow-y-auto pb-20">
             <div className="px-4 py-4">
               <h2 className="text-base font-black text-white mb-4">準備物リスト</h2>
@@ -1128,8 +1135,23 @@ VITE_FIREBASE_DATABASE_ID`}
     </>
   );
 
+  const activeBg = VIEW_BG[view] ?? VIEW_BG.home;
   return (
     <div className="flex flex-col min-h-screen bg-black transition-colors duration-300">
+      {/* 真に固定された背景レイヤー — transform 祖先の外にあるため position:fixed が正常動作 */}
+      {activeBg.image && (
+        <div
+          key={`bg-img-${view}`}
+          className="fixed inset-0 -z-10 bg-cover bg-center print:hidden transition-opacity duration-500"
+          style={{ backgroundImage: `url('${activeBg.image}')` }}
+        />
+      )}
+      <div
+        key={`bg-ov-${view}`}
+        className="fixed inset-0 -z-10 print:hidden transition-opacity duration-500"
+        style={{ background: activeBg.overlay }}
+      />
+
       {/* ページ切替ローディングバー */}
       <AnimatePresence>
         {viewLoading && (

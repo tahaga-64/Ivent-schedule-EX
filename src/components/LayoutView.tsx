@@ -446,9 +446,7 @@ export default function LayoutView({ events, canEdit }: AdminProps) {
   if (selectedEvent) {
     return (
       <div className="relative flex flex-col" style={{ height: '100%' }}>
-        <div className="fixed inset-0 bg-cover bg-center" style={{ backgroundImage: `url('${LAYOUT_BG}')` }} />
-        <div className="fixed inset-0" style={{ background: 'rgba(15,23,42,0.85)' }} />
-        <div className="relative z-10 flex flex-col" style={{ height: '100%' }}>
+          <div className="relative z-10 flex flex-col" style={{ height: '100%' }}>
           {/* Back button */}
           <div className="flex items-center gap-2 px-4 py-3 shrink-0 border-b border-white/10">
             <button
@@ -473,8 +471,6 @@ export default function LayoutView({ events, canEdit }: AdminProps) {
 
   return (
     <div className="relative flex flex-col min-h-full">
-      <div className="fixed inset-0 bg-cover bg-center" style={{ backgroundImage: `url('${LAYOUT_BG}')` }} />
-      <div className="fixed inset-0" style={{ background: 'linear-gradient(to bottom, rgba(15,23,42,0.35) 0%, rgba(15,23,42,0.65) 100%)' }} />
 
       <div className="relative z-10 px-4 py-6 pb-32 max-w-2xl mx-auto w-full">
         <div className="mb-6">
