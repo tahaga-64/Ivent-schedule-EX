@@ -26,9 +26,15 @@ export default function AccessDeniedScreen({ email, onRetry }: Props) {
             {email}
           </p>
         )}
-        <p className="text-xs text-slate-400 mb-6">
+        <p className="text-xs text-slate-400 mb-2">
           アクセス許可が必要な場合は管理者にお問い合わせください。
         </p>
+        <a
+          href="mailto:taoki0183@gmail.com?subject=イベント管理アプリ アクセス許可の申請"
+          className="inline-block text-xs font-bold text-indigo-600 hover:text-indigo-700 mb-6 underline underline-offset-2"
+        >
+          管理者に連絡する（taoki0183@gmail.com）
+        </a>
         <button
           onClick={handleSignOut}
           className="w-full py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-slate-700 transition-colors"

@@ -116,6 +116,12 @@ service cloud.firestore {
       allow write: if isAdminUser();
     }
 
+    // アプリ設定（静的DATA→Firestore 移行フラグ等）。編集者のみ書き込み可
+    match /appConfig/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isEventEditor();
+    }
+
     match /userProfiles/{userId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated() && request.auth.uid == userId;

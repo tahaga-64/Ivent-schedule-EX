@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
@@ -101,8 +101,13 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
   const [hasChanges, setHasChanges] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showProposal, setShowProposal] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const hasChangesRef = useRef(hasChanges);
   hasChangesRef.current = hasChanges;
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  // 編集ごとにインクリメント。保存中に編集が入ったかを判定して取りこぼしを防ぐ
+  const editVersionRef = useRef(0);
 
   useEffect(() => {
     const path = `events/${event.id}/preparationItems`;
@@ -122,26 +127,37 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
     return () => unsubscribe();
   }, [event.id]); // hasChanges は ref 経由で参照するため deps 不要
 
-  const handleSaveAll = async () => {
+  // 変更を Firestore に保存（自動保存の共通処理）
+  const persistItems = useCallback(async (toSave: PreparationItem[]) => {
     if (!canEdit) return;
+    const version = editVersionRef.current;
     setIsSaving(true);
     setSaveError(null);
     try {
       const batch = writeBatch(db);
-      items.forEach(item => {
+      toSave.forEach(item => {
         batch.set(doc(db, `events/${event.id}/preparationItems`, item.id), item);
       });
       await batch.commit();
-      const total = items.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0);
+      const total = toSave.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0);
       updateDoc(doc(db, 'events', event.id), { prepBudgetTotal: total }).catch(() => {});
-      setHasChanges(false);
-      setIsSaving(false);
+      // 保存中にさらに編集が入っていなければ「保存済み」に確定する
+      if (editVersionRef.current === version) setHasChanges(false);
+      setLastSavedAt(Date.now());
     } catch (error) {
       console.error('PreparationList save error:', error);
       setSaveError(formatSaveError(error));
+    } finally {
       setIsSaving(false);
     }
-  };
+  }, [canEdit, event.id]);
+
+  // チェック・入力をデバウンスで自動保存（「保存」を押さず離脱しても消えない）
+  useEffect(() => {
+    if (!canEdit || !hasChanges) return;
+    const t = setTimeout(() => { void persistItems(itemsRef.current); }, 800);
+    return () => clearTimeout(t);
+  }, [items, hasChanges, canEdit, persistItems]);
 
   const updateItem = (id: string, updates: Partial<PreparationItem>) => {
     if (!canEdit) return;
@@ -149,12 +165,14 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
     if (!item) return;
     const newItem = { ...item, ...updates };
     newItem.amount = (newItem.quantity || 0) * (newItem.unitPrice || 0);
+    editVersionRef.current += 1;
     setItems(prev => prev.map(i => i.id === id ? newItem : i));
     setHasChanges(true);
   };
 
   const addItem = () => {
     if (!canEdit) return;
+    editVersionRef.current += 1;
     setItems(prev => [...prev, createEmptyItem(prev.length)]);
     setHasChanges(true);
   };
@@ -253,15 +271,8 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
             <Printer size={13} />
             <span className="hidden sm:inline">印刷</span>
           </button>
-          {hasChanges && canEdit && (
-            <button
-              onClick={handleSaveAll}
-              disabled={isSaving}
-              className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-xl font-bold text-xs hover:bg-amber-600 transition-colors disabled:opacity-60"
-            >
-              <Save size={13} />
-              {isSaving ? '保存中...' : '保存'}
-            </button>
+          {canEdit && (
+            <SaveStatus isSaving={isSaving} hasChanges={hasChanges} error={!!saveError} savedOnce={lastSavedAt !== null} />
           )}
         </div>
       </div>
@@ -593,17 +604,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
 
       {/* Footer */}
       <div className="px-4 sm:px-6 py-4 bg-white border-t border-gray-100 shrink-0">
-        {hasChanges && canEdit && (
-          <button
-            type="button"
-            onClick={handleSaveAll}
-            disabled={isSaving}
-            className="w-full mb-3 flex items-center justify-center gap-2 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black text-sm transition-colors disabled:opacity-60"
-          >
-            <Save size={16} />
-            {isSaving ? '保存中...' : '変更を保存'}
-          </button>
-        )}
+        {/* 自動保存のため手動保存ボタンは廃止。保存状態はヘッダーに表示 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
           <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">SUBTOTAL · 商品計</div>
@@ -682,6 +683,26 @@ function PreparationNoteField({ value, onChange, readOnly, desktop }: { value: s
       style={{ resize: 'none', overflowX: 'hidden', minHeight: desktop ? '52px' : '38px' }}
     />
   );
+}
+
+function SaveStatus({ isSaving, hasChanges, error, savedOnce }: { isSaving: boolean; hasChanges: boolean; error: boolean; savedOnce: boolean }) {
+  if (error) {
+    return <span className="text-[11px] font-bold text-red-500 whitespace-nowrap">⚠️ 保存エラー</span>;
+  }
+  if (isSaving) {
+    return (
+      <span className="flex items-center gap-1 text-[11px] font-bold text-amber-600 whitespace-nowrap">
+        <Save size={12} className="animate-pulse" /> 保存中…
+      </span>
+    );
+  }
+  if (hasChanges) {
+    return <span className="text-[11px] font-bold text-slate-400 whitespace-nowrap">未保存…</span>;
+  }
+  if (savedOnce) {
+    return <span className="text-[11px] font-bold text-emerald-600 whitespace-nowrap">✓ 自動保存済み</span>;
+  }
+  return null;
 }
 
 function Checkbox({ checked, onChange, disabled, color = 'indigo' }: { checked: boolean; onChange: () => void; disabled?: boolean; color?: 'indigo' | 'emerald' }) {

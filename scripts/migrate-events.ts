@@ -73,12 +73,18 @@ async function main() {
     migrated++;
   }
 
+  // 移行完了フラグを設定（アプリが自動的にFirestore優先へ切り替わる）
+  await db.collection('appConfig').doc('eventsMigration').set({
+    done: true,
+    migratedAt: new Date().toISOString(),
+    migratedBy: 'migrate-events-script',
+  });
+
   console.log(`\n📊 結果: ${migrated}件移行 / ${skipped}件スキップ`);
+  console.log('✅ 移行フラグ(appConfig/eventsMigration)を設定しました。アプリはFirestore優先で動作します。');
   console.log('\n次のステップ:');
   console.log('1. Firestoreコンソールで events コレクションを確認');
-  console.log('2. アプリで全イベントが表示されることを確認');
-  console.log('3. 確認後、src/App.tsx の静的マージロジック（allEvents useMemo）と');
-  console.log('   src/constants.ts の DATA 配列を削除する');
+  console.log('2. アプリで全イベントが表示・削除できることを確認');
 }
 
 main().catch(err => {

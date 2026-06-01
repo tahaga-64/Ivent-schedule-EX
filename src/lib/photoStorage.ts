@@ -1,4 +1,5 @@
 import { EventPhoto } from '../types';
+import { auth } from './firebase';
 
 export const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 export const MAX_PHOTOS = 5;
@@ -52,9 +53,18 @@ export async function uploadEventPhoto(eventId: string, file: File): Promise<Eve
 export async function deleteStoredPhoto(photo: EventPhoto): Promise<void> {
   if (!photo.storagePath) return;
   try {
+    // サーバーAPIは Firebase ID トークン検証を要求する（未ログインでは削除不可）
+    const token = await auth?.currentUser?.getIdToken();
+    if (!token) {
+      console.warn('Cloudinary deletion skipped: not authenticated');
+      return;
+    }
     await fetch('/api/deletePhoto', {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ publicId: photo.storagePath }),
     });
   } catch (e) {

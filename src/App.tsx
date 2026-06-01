@@ -170,6 +170,9 @@ export default function App() {
   const [modalTab, setModalTab] = useState<ModalTab>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
+  const [eventsMigrated, setEventsMigrated] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const hasUnsavedChangesRef = useRef(false);
@@ -305,6 +308,41 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // 静的DATA→Firestore 移行フラグを購読（appConfig/eventsMigration）
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      doc(db, 'appConfig', 'eventsMigration'),
+      (snap) => setEventsMigrated(snap.exists() && snap.data()?.done === true),
+      () => {}, // ルール未デプロイ等は無視（移行前の挙動を維持）
+    );
+    return () => unsubscribe();
+  }, []);
+
+  // 初期データ(静的DATA)をFirestoreに取り込む（編集者のみ・既存は上書きしない）
+  const handleSeedEvents = async () => {
+    setSeeding(true);
+    setSeedError(null);
+    try {
+      const batch = writeBatch(db);
+      DATA.forEach(d => {
+        if (!dbEvents[d.id]) {
+          batch.set(doc(db, 'events', d.id), { ...d, status: 'scheduled' });
+        }
+      });
+      batch.set(doc(db, 'appConfig', 'eventsMigration'), {
+        done: true,
+        migratedAt: new Date().toISOString(),
+        migratedBy: user?.email ?? null,
+      });
+      await batch.commit();
+    } catch (e) {
+      console.error('seed events failed:', e);
+      setSeedError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSeeding(false);
+    }
+  };
+
 
   // 他ユーザーの変更をモーダルにリアルタイム反映（未保存の編集中は上書きしない）
   useEffect(() => {
@@ -393,13 +431,16 @@ export default function App() {
     setMobileWeekRowIndex((w) => Math.min(Math.max(0, w), rows - 1));
   }, [calYear, calMonth]);
 
-  // 静的データとDBデータをマージ（Firestore上に新規作成されたイベントも含める）
+  // 移行後はFirestoreのみを正とする（削除も反映）。移行前は従来どおり静的DATAとマージ
   const allEvents = useMemo(() => {
+    if (eventsMigrated) {
+      return Object.values(dbEvents);
+    }
     const staticIds = new Set(DATA.map(d => d.id));
     const merged = DATA.map(item => dbEvents[item.id] || item);
     const firestoreOnly = Object.values(dbEvents).filter((e: Event) => !staticIds.has(e.id));
     return [...merged, ...firestoreOnly];
-  }, [dbEvents]);
+  }, [dbEvents, eventsMigrated]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -1210,6 +1251,23 @@ VITE_FIREBASE_DATABASE_ID`}
           </div>
         </div>
       </header>
+
+      {/* 初期データ移行バナー（編集者のみ・未移行時） */}
+      {canEditEvent && !eventsMigrated && (
+        <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center justify-between gap-3 flex-wrap">
+          <div className="text-[12px] text-amber-800 font-bold">
+            ⚠️ 初期イベント（{DATA.length}件）がFirestore未移行です。取り込むと全端末で同期・削除が可能になります。
+            {seedError && <span className="block text-red-600 font-mono text-[11px] mt-0.5">取込失敗: {seedError}</span>}
+          </div>
+          <button
+            onClick={handleSeedEvents}
+            disabled={seeding}
+            className="shrink-0 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black text-xs transition-colors disabled:opacity-60"
+          >
+            {seeding ? '取込中…' : '初期データを取り込む'}
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
