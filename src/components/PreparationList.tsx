@@ -5,7 +5,6 @@ import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, writeBatch }
 import { PreparationItem, Event } from '../types';
 import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer, FileSpreadsheet, Briefcase, MessageSquare, Download, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import * as XLSX from 'xlsx';
 
 interface Props {
   event: Event;
@@ -65,7 +64,8 @@ function handlePrint() {
   window.print();
 }
 
-function handleExportExcel(event: Event, items: PreparationItem[]) {
+async function handleExportExcel(event: Event, items: PreparationItem[]) {
+  const XLSX = await import('xlsx');
   const rows = items.filter(i => !isEmptyItem(i)).map((item, idx) => ({
     '#': idx + 1,
     '到着予定日': item.arrivalDate ?? '',
@@ -224,26 +224,26 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setShowProposal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-violet-600 hover:bg-violet-50 rounded-xl font-bold text-xs transition-colors print:hidden"
-            title="商談提案用"
+            className="flex items-center gap-1.5 px-3 py-2 bg-violet-50 text-violet-700 hover:bg-violet-100 rounded-xl font-bold text-xs transition-colors print:hidden border border-violet-200"
+            title="商談提案用PDFを作成"
           >
             <Briefcase size={13} />
-            <span className="hidden sm:inline">商談提案用</span>
+            <span>商談提案</span>
           </button>
           <button
             onClick={() => handleExportExcel(event, items)}
-            className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl font-bold text-xs transition-colors print:hidden"
-            title="Excelエクスポート"
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl font-bold text-xs transition-colors print:hidden border border-emerald-200"
+            title="Excelファイルとしてダウンロード"
           >
             <FileSpreadsheet size={13} />
-            <span className="hidden sm:inline">Excel</span>
+            <span>Excel出力</span>
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl font-bold text-xs transition-colors print:hidden"
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-xs transition-colors print:hidden border border-slate-200"
             title="印刷"
           >
             <Printer size={13} />

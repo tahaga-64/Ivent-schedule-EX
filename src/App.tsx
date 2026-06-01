@@ -1,15 +1,15 @@
-import { useState, useMemo, useEffect, useCallback, useRef, type MouseEvent as ReactMouseEvent } from 'react';
+﻿import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense, type MouseEvent as ReactMouseEvent } from 'react';
 import { db, auth, loginWithGoogle, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, collectionGroup, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
-import { DATA, REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS } from './constants';
+import { DATA, REGIONS } from './constants';
 import { Event, PreparationItem, EventStatus, type FieldAuthorAttribution } from './types';
-
-interface StaffMember {
-  id: string;
-  name: string;
-  email?: string;
-}
+import {
+  rs, ts, fmtShort, fmtDateJP, fmtDateRange, daysUntil, statusStyle,
+  getDaysInRange, formatDayLabel, buildEventOptionalCaption, eventCoversDate, buildMonthGridCells,
+} from './lib/eventHelpers';
+import { CalendarView, HoverCard, EmptyState } from './components/CalendarView';
+import { MobileTimelineView, MobileWeekStrip, MobileDayAgendaView } from './components/MobileCalendarViews';
 import { Calendar, Menu, X, ChevronLeft, ChevronRight, Building2, ClipboardList, Save, Plus, Search, LogOut, Trash2, Archive, Mail, Home, Package, Fish } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
@@ -26,9 +26,20 @@ import {
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
 import HomeView from './components/HomeView';
-import FishListView from './components/FishListView';
-import MasterItemsView from './components/MasterItemsView';
 import { checkUserAllowed } from './lib/allowedUsers';
+
+const FishListView = lazy(() => import('./components/FishListView'));
+const MasterItemsView = lazy(() => import('./components/MasterItemsView'));
+
+function ViewFallback() {
+  return <div className="flex-1 flex items-center justify-center py-24 text-slate-400 text-sm">読み込み中...</div>;
+}
+
+interface StaffMember {
+  id: string;
+  name: string;
+  email?: string;
+}
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "fish" | "master";
 type ModalTab = "detail" | "photos";
@@ -94,107 +105,7 @@ function formatAttributionLine(meta: FieldAuthorAttribution | undefined): string
   return `最終記入: ${dateStr}`;
 }
 
-/* ═══════════════════════════════════════
-   ヘルパー
-═══════════════════════════════════════ */
-const rs = (r: string) => REGION_STYLE[r] || { bg: "#f1f5f9", text: "#334155", dot: "#94a3b8", calBg: "rgba(241, 245, 249, 0.4)", calBorder: "#cbd5e1" };
-const ts = (t: string) => TYPE_STYLE[t] || { bg: "#f8fafc", border: "#64748b", text: "#1e293b", icon: "📋" };
-const fmtShort = (d: string) => { if (!d) return "—"; const [, m, day] = d.split("-"); return `${parseInt(m)}/${parseInt(day)}`; };
-const DOW_JP = ['日', '月', '火', '水', '木', '金', '土'];
-function fmtDateJP(d: string): { month: number; day: number; dow: string; label: string } {
-  const date = new Date(d + 'T00:00:00');
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const dow = DOW_JP[date.getDay()];
-  return { month, day, dow, label: `${month}月${day}日（${dow}）` };
-}
-function fmtDateRange(start: string, end: string): string {
-  const s = fmtDateJP(start);
-  if (!end || end === start) return s.label;
-  const e = fmtDateJP(end);
-  const diffDays = Math.round((new Date(end + 'T00:00:00').getTime() - new Date(start + 'T00:00:00').getTime()) / 86400000) + 1;
-  return `${s.label} → ${e.month}月${e.day}日（${e.dow}）${diffDays > 1 ? ` · ${diffDays}日間` : ''}`;
-}
-function daysUntil(start: string): number {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  return Math.round((new Date(start + 'T00:00:00').getTime() - today.getTime()) / 86400000);
-}
-
-
-function statusStyle(status?: string): { label: string; bg: string; text: string; dot: string } {
-  switch (status) {
-    case 'in_progress': return { label: '準備中',    bg: 'bg-amber-50',   text: 'text-amber-600',  dot: '#f59e0b' };
-    case 'waiting':     return { label: '入荷待ち',  bg: 'bg-blue-50',    text: 'text-blue-600',   dot: '#3b82f6' };
-    case 'ready':       return { label: '準備完了',  bg: 'bg-emerald-50', text: 'text-emerald-600',dot: '#10b981' };
-    case 'completed':   return { label: '終了',      bg: 'bg-orange-500', text: 'text-white',      dot: '#f97316' };
-    case 'cancelled':   return { label: 'キャンセル',bg: 'bg-red-50',     text: 'text-red-500',    dot: '#ef4444' };
-    default:            return { label: '予定',      bg: 'bg-slate-50',   text: 'text-slate-400',  dot: '#cbd5e1' };
-  }
-}
-const getMonth = (d: string) => { if (!d) return null; return parseInt(d.split("-")[1]); };
-
-const getDaysInRange = (start: string, end: string): string[] => {
-  const days: string[] = [];
-  const current = new Date(start + 'T00:00:00');
-  const endDate = new Date(end + 'T00:00:00');
-  while (current <= endDate) {
-    const y = current.getFullYear();
-    const m = String(current.getMonth() + 1).padStart(2, '0');
-    const d = String(current.getDate()).padStart(2, '0');
-    days.push(`${y}-${m}-${d}`);
-    current.setDate(current.getDate() + 1);
-  }
-  return days;
-};
-
-const formatDayLabel = (dateStr: string): string => {
-  const d = new Date(dateStr + 'T00:00:00');
-  const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
-  return `${d.getMonth() + 1}月${d.getDate()}日（${dow}）`;
-};
-
-/** 日セルには出さない: 種別・日付/期間など（日別一覧・ホバー・読み上げ用の任意行） */
-function buildEventOptionalCaption(ev: Event, opts?: { includeDates?: boolean }): string {
-  const includeDates = opts?.includeDates !== false;
-  const parts: string[] = [];
-  if (ev.type?.trim()) parts.push(ev.type.trim());
-  if (includeDates && ev.start) {
-    if (ev.end && ev.end !== ev.start) parts.push(`${fmtShort(ev.start)}–${fmtShort(ev.end)}`);
-    else parts.push(fmtShort(ev.start));
-  }
-  return parts.join(" · ");
-}
-
-function eventCoversDate(ev: Event, y: number, m: number, day: number) {
-  if (!ev.start) return false;
-  const s = new Date(ev.start); s.setHours(0, 0, 0, 0);
-  const t = new Date(y, m - 1, day);
-  
-  if (ev.end) {
-    const e = new Date(ev.end); e.setHours(23, 59, 59, 999);
-    return t >= s && t <= e;
-  }
-  return t.getTime() === s.getTime();
-}
-
-/** 月グリッド用セル列（週ビューで同じ形状を再利用） */
-function buildMonthGridCells(year: number, month: number): { day: number; current: boolean }[] {
-  const firstDay = new Date(year, month - 1, 1).getDay();
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const cells: { day: number; current: boolean }[] = [];
-  const prevMonthLastDay = new Date(year, month - 1, 0).getDate();
-  for (let i = firstDay - 1; i >= 0; i--) {
-    cells.push({ day: prevMonthLastDay - i, current: false });
-  }
-  for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ day: d, current: true });
-  }
-  const remaining = (7 - (cells.length % 7)) % 7;
-  for (let i = 1; i <= remaining; i++) {
-    cells.push({ day: i, current: false });
-  }
-  return cells;
-}
+const getMonth = (d: string) => { if (!d) return null; return parseInt(d.split('-')[1]); };
 
 /** 開発用: 同一週の連続4日にイベント0/2/4/6件の見え比べ用データ（?calPreview=density） */
 function buildCalendarDensityPreviewEvents(
@@ -250,46 +161,6 @@ function buildCalendarDensityPreviewEvents(
   return out;
 }
 
-
-// 在庫管理アプリのURLが決まったらここに入力する
-const INVENTORY_APP_URL = '';
-
-function InventoryAppBanner() {
-  const ready = INVENTORY_APP_URL.length > 0;
-  return (
-    <div className="mt-10 mb-6">
-      <div className="relative overflow-hidden rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/50 px-6 py-5 flex items-center gap-4">
-        <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl shrink-0">📦</div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-sm font-black text-slate-700">イベント在庫管理</span>
-            {!ready && (
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 uppercase tracking-wide">新機能実装予定</span>
-            )}
-          </div>
-          <p className="text-xs text-slate-400">備品・消耗品の在庫をリアルタイムで管理できる機能を開発中です</p>
-        </div>
-        {ready ? (
-          <a
-            href={INVENTORY_APP_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black transition-colors"
-          >
-            開く
-          </a>
-        ) : (
-          <button
-            disabled
-            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-100 text-indigo-300 text-xs font-black cursor-not-allowed"
-          >
-            開く
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -353,6 +224,7 @@ export default function App() {
 
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [staffExpanded, setStaffExpanded] = useState(false);
+  const [dailyRolesExpanded, setDailyRolesExpanded] = useState(false);
   const STAFF_SHOW_COUNT = 5;
 
   // 未保存変更の警告（ブラウザを閉じる・リロード時）
@@ -448,6 +320,7 @@ export default function App() {
   // 日別役割のローカル状態をイベント切替時に初期化（Firestoreの同期と完全に分離）
   useEffect(() => {
     setLocalDailyRoles(selected?.dailyRoles ?? {});
+    setDailyRolesExpanded(false);
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 選択イベントの準備物統計をリアルタイム購読
@@ -851,7 +724,6 @@ export default function App() {
     handleEventHoverEnd();
     if (ev.id.startsWith("__cal_preview_")) return;
     setSelected(ev);
-    setNotifyResult(null);
   };
 
   const handleOpenDayDetail = useCallback((ctx: { year: number; month: number; day: number; events: Event[] }) => {
@@ -1325,7 +1197,6 @@ VITE_FIREBASE_DATABASE_ID`}
                       densityPreview={calendarDensityPreview}
                       prepProgressMap={prepProgressMap}
                     />
-                    <InventoryAppBanner />
                   </div>
                   <div className="lg:hidden space-y-3">
                     <div className="flex gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="カレンダー表示の切替">
@@ -1380,9 +1251,6 @@ VITE_FIREBASE_DATABASE_ID`}
                       />
                     )}
                   </div>
-                  <div className="lg:hidden">
-                    <InventoryAppBanner />
-                  </div>
                 </>
               )}
               {view === "home" && (
@@ -1393,13 +1261,17 @@ VITE_FIREBASE_DATABASE_ID`}
                 />
               )}
               {view === "fish" && (
-                <FishListView
-                  events={allEvents}
-                  canEdit={canEditPreparationList}
-                />
+                <Suspense fallback={<ViewFallback />}>
+                  <FishListView
+                    events={allEvents}
+                    canEdit={canEditPreparationList}
+                  />
+                </Suspense>
               )}
               {view === "master" && (
-                <MasterItemsView canEdit={canEditPreparationList} />
+                <Suspense fallback={<ViewFallback />}>
+                  <MasterItemsView canEdit={canEditPreparationList} />
+                </Suspense>
               )}
               {(view === "prep" || view === "archive") && prepEvent ? (
                 <PreparationList
@@ -1425,7 +1297,10 @@ VITE_FIREBASE_DATABASE_ID`}
                 return (
                   <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
                     <div className="px-4 py-4">
-                      <h2 className="text-base font-black text-slate-800 mb-4">準備物リスト</h2>
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-base font-black text-slate-800">準備物リスト</h2>
+                        <span className="text-xs text-slate-400 font-bold">タップして開く →</span>
+                      </div>
                       {activeEvents.length === 0 ? (
                         <div className="text-center py-12 text-slate-400 text-sm">進行中のイベントがありません</div>
                       ) : (
@@ -1447,11 +1322,13 @@ VITE_FIREBASE_DATABASE_ID`}
                                     : isSoon
                                     ? { label: `${until}日後`, cls: 'bg-amber-400 text-white' }
                                     : null;
+                                  const prog = prepProgressMap[ev.id];
+                                  const progPct = prog && prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : null;
                                   return (
                                     <button
                                       key={ev.id}
                                       onClick={() => setPrepEvent(ev)}
-                                      className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm flex items-stretch overflow-hidden hover:border-indigo-200 hover:shadow-md transition-all"
+                                      className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm flex items-stretch overflow-hidden hover:border-indigo-200 hover:shadow-md transition-all group"
                                     >
                                       {/* 日付バッジ */}
                                       <div className={`flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 ${isToday ? 'bg-red-500' : isOngoing ? 'bg-emerald-500' : isSoon ? 'bg-amber-400' : 'bg-indigo-600'}`}>
@@ -1467,10 +1344,19 @@ VITE_FIREBASE_DATABASE_ID`}
                                             <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full ${urgencyBadge.cls}`}>{urgencyBadge.label}</span>
                                           )}
                                         </div>
-                                        <div className="text-xs text-slate-400 truncate">{fmtDateRange(ev.start, ev.end)}</div>
+                                        <div className="text-xs text-slate-400 truncate mb-1.5">{fmtDateRange(ev.start, ev.end)}</div>
+                                        {prog && prog.total > 0 && (
+                                          <div className="flex items-center gap-2">
+                                            <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                              <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${progPct}%` }} />
+                                            </div>
+                                            <span className="text-[10px] font-black text-slate-400 shrink-0">{prog.done}/{prog.total}</span>
+                                          </div>
+                                        )}
                                       </div>
-                                      <div className="flex items-center pr-3">
-                                        <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                                      <div className="flex items-center pr-3 gap-1">
+                                        <span className="text-[10px] font-bold text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">開く</span>
+                                        <ChevronRight size={16} className="text-slate-300 shrink-0 group-hover:text-indigo-400 transition-colors" />
                                       </div>
                                     </button>
                                   );
@@ -1622,29 +1508,30 @@ VITE_FIREBASE_DATABASE_ID`}
         )}
         {selected && (
           <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center lg:p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={handleCloseModal}
-              className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" 
+              className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm"
             />
             <motion.div
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 40 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[520px] lg:max-w-[520px] max-h-[92vh] lg:max-h-[90vh]"
+              className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[780px] lg:max-w-[780px] max-h-[92vh] lg:max-h-[90vh]"
             >
                 {selected.status === 'completed' && (
-                  <div className="flex items-center gap-2 px-4 py-3 bg-orange-500 border-b border-orange-600">
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 border-b border-orange-600 shrink-0">
                     <span className="text-white">⚑</span>
                     <span className="text-xs font-bold text-white">このイベントは終了しました</span>
                   </div>
                 )}
-                <div className="p-6 lg:p-8 pb-[calc(1.5rem+env(safe-area-inset-bottom))] overflow-y-auto overflow-x-hidden">
-                  {/* Header: タグ + 閉じるボタン */}
-                  <div className="flex justify-between items-center mb-5">
+
+                {/* 固定ヘッダー: タグ・閉じる・タブ */}
+                <div className="px-5 lg:px-6 pt-4 pb-3 border-b border-gray-100 shrink-0">
+                  <div className="flex justify-between items-start gap-3 mb-3">
                     <div className="flex flex-col gap-2 flex-1 min-w-0">
                       <div className="flex flex-wrap gap-1.5">
                         {REGIONS.map(r => (
@@ -1658,10 +1545,7 @@ VITE_FIREBASE_DATABASE_ID`}
                                 ? 'text-white border-transparent'
                                 : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
                             } ${!canEditEvent ? 'cursor-default' : 'cursor-pointer'}`}
-                            style={selected.region === r
-                              ? { background: rs(r).dot, borderColor: rs(r).dot }
-                              : {}
-                            }
+                            style={selected.region === r ? { background: rs(r).dot, borderColor: rs(r).dot } : {}}
                           >
                             {r}
                           </button>
@@ -1687,16 +1571,12 @@ VITE_FIREBASE_DATABASE_ID`}
                     </div>
                     <button
                       onClick={handleCloseModal}
-                      className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors shrink-0"
                     >
                       <X size={18} />
                     </button>
                   </div>
-
-                  <div className="h-px bg-gray-100 mb-4"></div>
-
-                  {/* タブ切替 */}
-                  <div className="flex bg-slate-100 rounded-xl p-1 mb-5">
+                  <div className="flex bg-slate-100 rounded-xl p-1">
                     {(
                       [
                         { id: 'detail', label: '詳細' },
@@ -1712,16 +1592,17 @@ VITE_FIREBASE_DATABASE_ID`}
                       </button>
                     ))}
                   </div>
+                </div>
 
+                {/* スクロール可能なコンテンツ */}
+                <div className="flex-1 min-h-0 overflow-y-auto">
                   {/* 写真タブ */}
                   {modalTab === 'photos' && (
-                    <div className="space-y-4">
+                    <div className="p-5 lg:p-6 space-y-4">
                       {canUploadPhoto && (selected.photos?.length ?? 0) < MAX_PHOTOS && (
                         <PhotoUpload
                           onUpload={async (file) => {
                             const newPhoto = await uploadPhoto(file);
-                            // hasUnsavedChanges=true のとき onSnapshot が selected を更新しないため手動反映
-                            // false のときは onSnapshot が自動更新するので手動更新すると二重になる
                             if (newPhoto && hasUnsavedChanges) {
                               setSelected(prev => prev ? { ...prev, photos: [...(prev.photos ?? []), newPhoto] } : prev);
                             }
@@ -1757,251 +1638,262 @@ VITE_FIREBASE_DATABASE_ID`}
                     </div>
                   )}
 
-                  {/* フィールド */}
-                  {modalTab === 'detail' && <><div className="space-y-5">
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">VENUE・会場</label>
-                      <input
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
-                        value={selected.venue}
-                        placeholder="会場を入力..."
-                        disabled={!canEditEvent}
-                        onChange={e => handleUpdateEvent(selected.id, { venue: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">START</label>
-                        <input
-                          type="date"
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
-                          value={selected.start}
-                          disabled={!canEditEvent}
-                          onChange={e => handleUpdateEvent(selected.id, { start: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">END</label>
-                        <input
-                          type="date"
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
-                          value={selected.end}
-                          disabled={!canEditEvent}
-                          onChange={e => handleUpdateEvent(selected.id, { end: e.target.value })}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">CLIENT・クライアント</label>
-                      <input
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
-                        value={selected.client}
-                        placeholder="クライアント名を入力..."
-                        disabled={!canEditEvent}
-                        onChange={e => handleUpdateEvent(selected.id, { client: e.target.value })}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">メモ</label>
-                      <textarea
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[88px] resize-none read-only:bg-gray-50 read-only:text-gray-500"
-                        value={selected.detailMemo ?? ''}
-                        placeholder="例：搬入は西口ローリング床／15:00までに主電源・Wi-Fi確認"
-                        readOnly={!canEditEvent}
-                        onChange={e => {
-                          const detailMemo = e.target.value;
-                          handleUpdateEvent(selected.id, {
-                            detailMemo,
-                            detailMemoAttribution: buildFieldAttribution(user) ?? selected.detailMemoAttribution,
-                          });
-                        }}
-                      />
-                      {formatAttributionLine(selected.detailMemoAttribution) ? (
-                        <p className="mt-1.5 text-[11px] text-gray-500">{formatAttributionLine(selected.detailMemoAttribution)}</p>
-                      ) : null}
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">担当者</label>
-                      {staffList.length === 0 ? (
-                        <p className="text-xs text-gray-400 py-2">サイドバーのスタッフ欄からメンバーを追加してください。</p>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {staffList.map(staff => {
-                            const isAssigned = (selected.assignees ?? []).includes(staff.name);
-                            return (
-                              <button
-                                key={staff.id}
-                                type="button"
-                                disabled={!canEditEvent}
-                                onClick={() => {
-                                  const current = selected.assignees ?? [];
-                                  const next = isAssigned
-                                    ? current.filter(n => n !== staff.name)
-                                    : [...current, staff.name];
-                                  handleUpdateEvent(selected.id, { assignees: next });
-                                }}
-                                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
-                                  isAssigned
-                                    ? 'bg-indigo-600 text-white border-indigo-600'
-                                    : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed'
-                                }`}
-                              >
-                                {staff.name}
-                              </button>
-                            );
-                          })}
+                  {/* 詳細タブ: PCは2カラム */}
+                  {modalTab === 'detail' && (
+                    <div className="lg:flex lg:divide-x lg:divide-gray-100">
+                      {/* 左カラム: 基本情報 */}
+                      <div className="p-5 lg:p-6 lg:flex-1 space-y-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">VENUE・会場</label>
+                          <input
+                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                            value={selected.venue}
+                            placeholder="会場を入力..."
+                            disabled={!canEditEvent}
+                            onChange={e => handleUpdateEvent(selected.id, { venue: e.target.value })}
+                          />
                         </div>
-                      )}
-                    </div>
 
-                    {/* 日別役割 */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">日別役割</label>
-                      {(selected.assignees ?? []).length === 0 ? (
-                        <p className="text-xs text-gray-400 py-2">担当者を選択すると日別に役割を設定できます。</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {getDaysInRange(selected.start, selected.end).map(date => (
-                            <div key={date} className="border border-gray-100 rounded-xl p-3 bg-gray-50/50">
-                              <div className="text-[11px] font-bold text-gray-500 mb-2">{formatDayLabel(date)}</div>
-                              <div className="space-y-2">
-                                {(selected.assignees ?? []).map(memberName => (
-                                  <div key={memberName} className="flex items-center gap-2">
-                                    <span className="text-xs font-medium text-gray-700 w-20 shrink-0 truncate">{memberName}</span>
-                                    <input
-                                      type="text"
-                                      value={localDailyRoles?.[date]?.[memberName] ?? ''}
-                                      disabled={!canEditEvent}
-                                      placeholder="役割を入力"
-                                      onChange={e => {
-                                        const val = e.target.value;
-                                        setLocalDailyRoles(prev => ({
-                                          ...prev,
-                                          [date]: { ...(prev[date] ?? {}), [memberName]: val },
-                                        }));
-                                        hasUnsavedChangesRef.current = true;
-                                        setHasUnsavedChanges(true);
-                                      }}
-                                      className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
-                                    />
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">START</label>
+                            <input
+                              type="date"
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                              value={selected.start}
+                              disabled={!canEditEvent}
+                              onChange={e => handleUpdateEvent(selected.id, { start: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">END</label>
+                            <input
+                              type="date"
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                              value={selected.end}
+                              disabled={!canEditEvent}
+                              onChange={e => handleUpdateEvent(selected.id, { end: e.target.value })}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">CLIENT・クライアント</label>
+                          <input
+                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                            value={selected.client}
+                            placeholder="クライアント名を入力..."
+                            disabled={!canEditEvent}
+                            onChange={e => handleUpdateEvent(selected.id, { client: e.target.value })}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">メモ</label>
+                          <textarea
+                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px] resize-none read-only:bg-gray-50 read-only:text-gray-500"
+                            value={selected.detailMemo ?? ''}
+                            placeholder="例：搬入は西口ローリング床／15:00までに主電源・Wi-Fi確認"
+                            readOnly={!canEditEvent}
+                            onChange={e => {
+                              const detailMemo = e.target.value;
+                              handleUpdateEvent(selected.id, {
+                                detailMemo,
+                                detailMemoAttribution: buildFieldAttribution(user) ?? selected.detailMemoAttribution,
+                              });
+                            }}
+                          />
+                          {formatAttributionLine(selected.detailMemoAttribution) && (
+                            <p className="mt-1 text-[11px] text-gray-500">{formatAttributionLine(selected.detailMemoAttribution)}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 右カラム: 担当・役割・ステータス */}
+                      <div className="px-5 pb-5 pt-0 lg:pt-6 lg:w-[280px] lg:shrink-0 space-y-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">担当者</label>
+                          {staffList.length === 0 ? (
+                            <p className="text-xs text-gray-400 py-1">サイドバーのスタッフ欄からメンバーを追加してください。</p>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              {staffList.map(staff => {
+                                const isAssigned = (selected.assignees ?? []).includes(staff.name);
+                                return (
+                                  <button
+                                    key={staff.id}
+                                    type="button"
+                                    disabled={!canEditEvent}
+                                    onClick={() => {
+                                      const current = selected.assignees ?? [];
+                                      const next = isAssigned
+                                        ? current.filter(n => n !== staff.name)
+                                        : [...current, staff.name];
+                                      handleUpdateEvent(selected.id, { assignees: next });
+                                    }}
+                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                                      isAssigned
+                                        ? 'bg-indigo-600 text-white border-indigo-600'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed'
+                                    }`}
+                                  >
+                                    {staff.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {(selected.assignees ?? []).length > 0 && (
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => setDailyRolesExpanded(prev => !prev)}
+                              className="w-full flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 hover:text-indigo-500 transition-colors"
+                            >
+                              <span>日別役割</span>
+                              <span className="normal-case text-[10px] font-bold">{dailyRolesExpanded ? '▲ 閉じる' : '▼ 展開する'}</span>
+                            </button>
+                            {dailyRolesExpanded && (
+                              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                                {getDaysInRange(selected.start, selected.end).map(date => (
+                                  <div key={date} className="border border-gray-100 rounded-xl p-2.5 bg-gray-50/50">
+                                    <div className="text-[11px] font-bold text-gray-500 mb-1.5">{formatDayLabel(date)}</div>
+                                    <div className="space-y-1.5">
+                                      {(selected.assignees ?? []).map(memberName => (
+                                        <div key={memberName} className="flex items-center gap-2">
+                                          <span className="text-xs font-medium text-gray-700 w-16 shrink-0 truncate">{memberName}</span>
+                                          <input
+                                            type="text"
+                                            value={localDailyRoles?.[date]?.[memberName] ?? ''}
+                                            disabled={!canEditEvent}
+                                            placeholder="役割"
+                                            onChange={e => {
+                                              const val = e.target.value;
+                                              setLocalDailyRoles(prev => ({
+                                                ...prev,
+                                                [date]: { ...(prev[date] ?? {}), [memberName]: val },
+                                              }));
+                                              hasUnsavedChangesRef.current = true;
+                                              setHasUnsavedChanges(true);
+                                            }}
+                                            className="flex-1 text-xs border border-gray-200 rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
                                   </div>
                                 ))}
                               </div>
+                            )}
+                          </div>
+                        )}
+
+                        {canEditEvent && (
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">ステータス</label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {(['scheduled','in_progress','waiting','ready','completed','cancelled'] as const).map(s => {
+                                const sty = statusStyle(s);
+                                const isActive = (selected?.status ?? 'scheduled') === s;
+                                return (
+                                  <button
+                                    key={s}
+                                    type="button"
+                                    onClick={() => handleUpdateEvent(selected.id, { status: s })}
+                                    className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-all ${
+                                      isActive
+                                        ? `${sty.bg} ${sty.text} border-current`
+                                        : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
+                                    }`}
+                                  >
+                                    {isActive && <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5" style={{ background: sty.dot }} />}
+                                    {sty.label}
+                                  </button>
+                                );
+                              })}
                             </div>
-                          ))}
-                        </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 固定フッター: 統計 + ボタン (詳細タブのみ) */}
+                {modalTab === 'detail' && (
+                  <div className="px-5 lg:px-6 py-4 border-t border-gray-100 shrink-0">
+                    <div className="bg-gray-50 rounded-2xl py-3 px-4 grid grid-cols-3 divide-x divide-gray-200 mb-3">
+                      <div className="pr-4">
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">ITEMS</div>
+                        <div className="text-xl font-black text-gray-800">{eventStats.itemCount}</div>
+                      </div>
+                      <div className="px-4">
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">PREPARED</div>
+                        <div className="text-xl font-black text-indigo-600">{eventStats.preparedCount}/{eventStats.itemCount}</div>
+                      </div>
+                      <div className="pl-4">
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">BUDGET</div>
+                        <div className="text-xl font-black text-gray-800">¥{eventStats.budget.toLocaleString()}</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {hasUnsavedChanges && (
+                        <button
+                          onClick={handleSaveEvent}
+                          disabled={isSaving}
+                          className="flex-1 py-3 rounded-xl bg-amber-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-amber-600 disabled:opacity-60 transition-colors shadow-md shadow-amber-500/20"
+                        >
+                          <Save size={15} />
+                          {isSaving ? "保存中..." : "保存する"}
+                        </button>
                       )}
-                    </div>
-
-                    {/* ステータス */}
-                    {canEditEvent && (
-                      <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">ステータス</label>
-                        <div className="flex flex-wrap gap-2">
-                          {(['scheduled','in_progress','waiting','ready','completed','cancelled'] as const).map(s => {
-                            const sty = statusStyle(s);
-                            const isActive = (selected?.status ?? 'scheduled') === s;
-                            return (
-                              <button
-                                key={s}
-                                type="button"
-                                onClick={() => handleUpdateEvent(selected.id, { status: s })}
-                                className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all ${
-                                  isActive
-                                    ? `${sty.bg} ${sty.text} border-current`
-                                    : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
-                                }`}
-                              >
-                                {isActive && <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5" style={{ background: sty.dot }} />}
-                                {sty.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 統計パネル */}
-                  <div className="mt-6 bg-gray-50 rounded-2xl p-5 grid grid-cols-3 divide-x divide-gray-200">
-                    <div className="pr-5">
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">ITEMS</div>
-                      <div className="text-2xl font-black text-gray-800">{eventStats.itemCount}</div>
-                    </div>
-                    <div className="px-5">
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">PREPARED</div>
-                      <div className="text-2xl font-black text-indigo-600">
-                        {eventStats.preparedCount}/{eventStats.itemCount}
-                      </div>
-                    </div>
-                    <div className="pl-5">
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">BUDGET</div>
-                      <div className="text-2xl font-black text-gray-800">¥{eventStats.budget.toLocaleString()}</div>
-                    </div>
-                  </div>
-
-                  {/* ボタン */}
-                  <div className="mt-6 flex gap-3">
-                    {hasUnsavedChanges && (
                       <button
-                        onClick={handleSaveEvent}
-                        disabled={isSaving}
-                        className="flex-1 py-4 rounded-2xl bg-amber-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-amber-600 disabled:opacity-60 transition-colors shadow-lg shadow-amber-500/20"
+                        onClick={() => { if (selected) { setPrepEvent(selected); setView('prep'); setSelected(null); } }}
+                        className="flex-1 py-3 rounded-xl bg-indigo-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-600/20"
                       >
-                        <Save size={16} />
-                        {isSaving ? "保存中..." : "保存する"}
+                        <ClipboardList size={16} />
+                        準備物リストを開く
+                      </button>
+                    </div>
+                    {canEditEvent && (
+                      <button
+                        onClick={handleDeleteEvent}
+                        className="w-full mt-2 py-2.5 rounded-xl border border-red-200 text-sm font-bold text-red-400 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Trash2 size={14} />
+                        このイベントを削除
                       </button>
                     )}
-                    <button
-                      onClick={() => { if (selected) { setPrepEvent(selected); setView('prep'); setSelected(null); } }}
-                      className="flex-1 py-4 rounded-2xl bg-indigo-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20"
-                    >
-                      <ClipboardList size={18} />
-                      準備物リストを開く
-                    </button>
+                    <AnimatePresence>
+                      {validationErrors.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 6 }}
+                          className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl"
+                        >
+                          {validationErrors.map((err, i) => (
+                            <p key={i} className="text-xs text-red-600 font-bold">
+                              ⚠️ {err.message}
+                            </p>
+                          ))}
+                        </motion.div>
+                      )}
+                      {hasUnsavedChanges && validationErrors.length === 0 && (
+                        <motion.p
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 6 }}
+                          className="text-[10px] text-center text-amber-500 mt-3 font-bold tracking-widest"
+                        >
+                          ⚠️ 未保存の変更があります
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
                   </div>
-                  {canEditEvent && (
-                    <button
-                      onClick={handleDeleteEvent}
-                      className="w-full mt-2 py-3 rounded-2xl border border-red-200 text-sm font-bold text-red-400 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Trash2 size={16} />
-                      このイベントを削除
-                    </button>
-                  )}
-
-                  <AnimatePresence>
-                    {validationErrors.length > 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 6 }}
-                        className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl"
-                      >
-                        {validationErrors.map((err, i) => (
-                          <p key={i} className="text-xs text-red-600 font-bold">
-                            ⚠️ {err.message}
-                          </p>
-                        ))}
-                      </motion.div>
-                    )}
-                    {hasUnsavedChanges && validationErrors.length === 0 && (
-                      <motion.p
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 6 }}
-                        className="text-[10px] text-center text-amber-500 mt-4 font-bold tracking-widest"
-                      >
-                        ⚠️ 未保存の変更があります
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
-                  </>}
-                </div>
+                )}
             </motion.div>
           </div>
         )}
@@ -2050,697 +1942,3 @@ VITE_FIREBASE_DATABASE_ID`}
     </div>
   );
 }
-
-/* ═══════════════════════════════════════
-   サブコンポーネント
-═══════════════════════════════════════ */
-
-interface MobileTimelineViewProps {
-  events: Event[];
-  onSelect: (event: Event) => void;
-}
-
-function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps) {
-  const fmtGroup = (d: string) => {
-    if (!d || d === "未定") return "日付未定";
-    const [, m, day] = d.split("-");
-    const date = new Date(d + "T00:00:00");
-    const dow = ["日","月","火","水","木","金","土"][date.getDay()];
-    return `${parseInt(m)}/${parseInt(day)} ${dow}`;
-  };
-
-  const grouped = useMemo(() => {
-    const map: Record<string, Event[]> = {};
-    events.forEach((ev) => {
-      const key = ev.start || "未定";
-      if (!map[key]) map[key] = [];
-      map[key].push(ev);
-    });
-    return Object.entries(map).sort(([a], [b]) => a < b ? -1 : 1);
-  }, [events]);
-
-  return (
-    <div className="space-y-6 pb-2">
-      {grouped.map(([date, evs]) => (
-        <div key={date}>
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm font-black text-slate-700">{fmtGroup(date)}</span>
-            <div className="flex-1 h-px bg-slate-100" />
-            <span className="text-xs font-bold text-slate-400">{evs.length}</span>
-          </div>
-          <div className="space-y-2">
-            {evs.map((ev) => (
-              <button
-                key={ev.id}
-                onClick={() => onSelect(ev)}
-                title={ev.status === 'completed' ? '完了済み' : undefined}
-                className="w-full bg-white border border-slate-100 rounded-2xl flex items-center gap-3 text-left shadow-sm hover:shadow-md transition-shadow overflow-hidden"
-              >
-                <div className="w-1 self-stretch rounded-l-2xl shrink-0" style={{ background: rs(ev.region || "").dot }} />
-                <span className="text-xl py-4 shrink-0">{ev.emoji || ts(ev.type || "").icon}</span>
-                <div className="flex-1 py-4 min-w-0">
-                  <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">
-                    {[ev.region, ev.type || "その他"].filter(Boolean).join("・")}
-                  </div>
-                </div>
-                {ev.end && ev.end !== ev.start && (
-                  <span className="text-[11px] text-slate-400 font-bold pr-4 shrink-0">→{fmtShort(ev.end)}</span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-interface MobileWeekStripProps {
-  events: Event[];
-}
-
-function MobileWeekStrip({ events }: MobileWeekStripProps) {
-  const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay());
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(startOfWeek);
-    d.setDate(startOfWeek.getDate() + i);
-    return d;
-  });
-  const dayLabels = ["S", "M", "T", "W", "T", "F", "S"];
-
-  return (
-    <div className="flex justify-between px-1 mb-2">
-      {days.map((d, i) => {
-        const isToday = d.toDateString() === today.toDateString();
-        const hasEvent = events.some((ev) => ev.start && new Date(ev.start).toDateString() === d.toDateString());
-        return (
-          <div key={i} className="flex flex-col items-center gap-1">
-            <span className={`text-[10px] font-bold ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-slate-400"}`}>{dayLabels[i]}</span>
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black transition-all ${
-              isToday ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-600"
-            }`}>
-              {d.getDate()}
-            </div>
-            {hasEvent && !isToday && <div className="w-1 h-1 rounded-full bg-indigo-400" />}
-            {!hasEvent && <div className="w-1 h-1" />}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/**
- * 月カレンダー「1日セル」内に並べるイベント行の上限。
- * この件数を超える分はセルに描画せず、hiddenCount として「+N件」に集約し、
- * 日別一覧（モーダル）へ誘導する。表示密度を変えたいときはこの定数だけ調整すればよい。
- */
-const MAX_EVENTS_IN_DAY_CELL = 3;
-
-/**
- * 狭いビューポート（CSS: max-width 768px）の月グリッド日セルに並べる上限。
- * タッチ操作向けに +N へ早めに集約する。
- */
-const MAX_EVENTS_IN_DAY_CELL_NARROW = 2;
-
-/**
- * 日セル内「イベント列」ブロックの最大高さ（CSS 長さ）。
- * この領域は overflow:hidden（スクロール不可）。超過分は件数上限・+N 集約で表現し、
- * 高さと件数の両方でオーバーフローしないよう保つ。
- */
-const CAL_DAY_CELL_EVENTS_MAX_HEIGHT = "5.875rem";
-
-/** 狭いビューポート用（行高 36px 前後×最大2件 + +N 行） */
-const CAL_DAY_CELL_EVENTS_MAX_HEIGHT_NARROW = "8.125rem";
-
-/**
- * イベント1行相当の最小高さ（イベントチップと「+N件」行の揃え用）。
- * CAL_DAY_CELL_EVENTS_MAX_HEIGHT と MAX_EVENTS_IN_DAY_CELL を変えるときは併せて見直す。
- */
-const CAL_DAY_CELL_EVENT_ROW_MIN_HEIGHT = "1.375rem";
-
-/** タップ領域の下限（誤タップ低減）。狭いビューポートの月グリッドで使用 */
-const CAL_EVENT_ROW_MIN_HEIGHT_TOUCH = "36px";
-
-/** モバイル「週」: 月グリッド上の1週分（常に最大 MAX_EVENTS_IN_DAY_CELL_NARROW 件 + +N） */
-interface MobileMonthWeekGridProps {
-  year: number;
-  month: number;
-  weekRowIndex: number;
-  onWeekRowChange: (idx: number) => void;
-  events: Event[];
-  onSelect: (ev: Event) => void;
-  onOpenDayDetail: (ctx: { year: number; month: number; day: number; events: Event[] }) => void;
-  onCreateEvent: (data?: Partial<Event>) => void;
-}
-
-function MobileMonthWeekGrid({
-  year,
-  month,
-  weekRowIndex,
-  onWeekRowChange,
-  events,
-  onSelect,
-  onOpenDayDetail,
-  onCreateEvent,
-}: MobileMonthWeekGridProps) {
-  const cells = buildMonthGridCells(year, month);
-  const weekRowCount = cells.length / 7;
-  const weekSlice = cells.slice(weekRowIndex * 7, weekRowIndex * 7 + 7);
-  const today = new Date();
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-lg font-bold text-slate-600 disabled:opacity-40"
-          disabled={weekRowIndex <= 0}
-          onClick={() => onWeekRowChange(Math.max(0, weekRowIndex - 1))}
-          aria-label="前の週"
-        >
-          ‹
-        </button>
-        <span className="text-center text-xs font-black text-slate-700">
-          {year}年{month}月 · 第{weekRowIndex + 1}/{weekRowCount}週
-        </span>
-        <button
-          type="button"
-          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-lg font-bold text-slate-600 disabled:opacity-40"
-          disabled={weekRowIndex >= weekRowCount - 1}
-          onClick={() => onWeekRowChange(Math.min(weekRowCount - 1, weekRowIndex + 1))}
-          aria-label="次の週"
-        >
-          ›
-        </button>
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {weekSlice.map((cell, i) => {
-          const idx = weekRowIndex * 7 + i;
-          const isSun = idx % 7 === 0;
-          const isSat = idx % 7 === 6;
-          const isToday =
-            cell.current &&
-            today.getFullYear() === year &&
-            today.getMonth() === month - 1 &&
-            today.getDate() === cell.day;
-          const dayEvents = cell.current ? events.filter((ev) => eventCoversDate(ev, year, month, cell.day)) : [];
-          const maxN = MAX_EVENTS_IN_DAY_CELL_NARROW;
-          const visible = dayEvents.slice(0, maxN);
-          const hiddenCount = Math.max(0, dayEvents.length - maxN);
-          return (
-            <div
-              key={`${year}-${month}-${idx}`}
-              className={`flex min-h-[8.5rem] flex-col rounded-lg border border-slate-200/90 bg-white p-0.5 shadow-sm ${
-                isToday ? "ring-2 ring-indigo-400/40" : ""
-              }`}
-            >
-              <div
-                className={`mb-0.5 shrink-0 border-b border-slate-100 pb-0.5 text-center ${
-                  !cell.current ? "text-slate-300" : isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-slate-600"
-                }`}
-              >
-                <div className="text-[9px] font-bold text-slate-400">{DAYS_JP[idx % 7]}</div>
-                <div
-                  className={`text-[13px] font-bold tabular-nums ${
-                    cell.current && isToday ? "rounded-md bg-indigo-600 px-1 py-0.5 text-white" : ""
-                  }`}
-                >
-                  {cell.day}
-                </div>
-              </div>
-              <div
-                className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden"
-                style={{ maxHeight: CAL_DAY_CELL_EVENTS_MAX_HEIGHT_NARROW }}
-              >
-                {visible.map((ev) => {
-                  const typeSty = ts(ev.type || "");
-                  const captionNd = buildEventOptionalCaption(ev, { includeDates: false });
-                  return (
-                    <button
-                      key={ev.id}
-                      type="button"
-                      onClick={() => onSelect(ev)}
-                      title={ev.status === 'completed' ? '完了済み' : undefined}
-                      style={{
-                        borderLeftWidth: 3,
-                        borderLeftColor: typeSty.border,
-                        minHeight: CAL_EVENT_ROW_MIN_HEIGHT_TOUCH,
-                      }}
-                      aria-label={captionNd ? `${ev.venue}。${captionNd}` : ev.venue}
-                      className="flex w-full shrink-0 flex-col justify-center overflow-hidden rounded border border-slate-200 bg-white px-1 py-0.5 text-left ring-1 ring-inset ring-slate-900/[0.04]"
-                    >
-                      <span className="w-full truncate text-[11px] font-bold leading-tight text-slate-900">
-                        {ev.venue}
-                      </span>
-                      <span className="w-full truncate text-[9px] leading-tight text-slate-400">
-                        {ev.region}{ev.type ? `・${ev.type}` : ''}
-                      </span>
-                    </button>
-                  );
-                })}
-                {hiddenCount > 0 && (
-                  <button
-                    type="button"
-                    style={{ minHeight: CAL_EVENT_ROW_MIN_HEIGHT_TOUCH }}
-                    onClick={() => onOpenDayDetail({ year, month, day: cell.day, events: dayEvents })}
-                    className="w-full shrink-0 rounded border border-slate-300 bg-slate-200 py-1 text-center text-[10px] font-bold text-slate-800 shadow-sm"
-                  >
-                    +{hiddenCount}
-                  </button>
-                )}
-                {cell.current && dayEvents.length === 0 && (
-                  <button
-                    type="button"
-                    className="mt-auto flex min-h-9 flex-1 items-center justify-center rounded border border-dashed border-slate-200 text-slate-300"
-                    onClick={() =>
-                      onCreateEvent({
-                        start: `${year}-${String(month).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`,
-                      })
-                    }
-                  >
-                    <Plus size={14} />
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-interface MobileDayAgendaViewProps {
-  year: number;
-  month: number;
-  agendaDay: number;
-  setAgendaDay: (d: number) => void;
-  events: Event[];
-  onSelect: (ev: Event) => void;
-  onOpenDayDetail: (ctx: { year: number; month: number; day: number; events: Event[] }) => void;
-  onCreateEvent: (data?: Partial<Event>) => void;
-  canEdit: boolean;
-}
-
-function MobileDayAgendaView({
-  year,
-  month,
-  agendaDay,
-  setAgendaDay,
-  events,
-  onSelect,
-  onOpenDayDetail,
-  onCreateEvent,
-  canEdit,
-}: MobileDayAgendaViewProps) {
-  const dim = new Date(year, month, 0).getDate();
-  const day = Math.min(Math.max(1, agendaDay), dim);
-  const dayEvents = events.filter((ev) => eventCoversDate(ev, year, month, day));
-  const dow = DAYS_JP[new Date(year, month - 1, day).getDay()];
-  const maxN = MAX_EVENTS_IN_DAY_CELL_NARROW;
-  const visible = dayEvents.slice(0, maxN);
-  const hiddenCount = Math.max(0, dayEvents.length - maxN);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-bold text-slate-600 disabled:opacity-40"
-          disabled={day <= 1}
-          onClick={() => setAgendaDay(day - 1)}
-          aria-label="前の日"
-        >
-          ‹
-        </button>
-        <div className="text-center">
-          <div className="text-lg font-black text-slate-800 tabular-nums">
-            {year}/{month}/{day}
-          </div>
-          <div className="text-xs font-bold text-slate-500">{dow}曜日</div>
-        </div>
-        <button
-          type="button"
-          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-bold text-slate-600 disabled:opacity-40"
-          disabled={day >= dim}
-          onClick={() => setAgendaDay(day + 1)}
-          aria-label="次の日"
-        >
-          ›
-        </button>
-      </div>
-
-      {dayEvents.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-sm font-bold text-slate-400">
-          この日のイベントはありません
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {visible.map((ev) => {
-            const typeSty = ts(ev.type || "");
-            const meta = buildEventOptionalCaption(ev);
-            return (
-              <button
-                key={ev.id}
-                type="button"
-                onClick={() => onSelect(ev)}
-                title={ev.status === 'completed' ? '完了済み' : undefined}
-                style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border }}
-                className="flex min-h-11 w-full items-start gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm ring-1 ring-inset ring-slate-900/[0.04]"
-              >
-                <span
-                  className="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-slate-900/15"
-                  style={{ backgroundColor: typeSty.border }}
-                  aria-hidden
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-bold text-slate-900">{ev.venue}</span>
-                  {meta ? (
-                    <span className="mt-0.5 block truncate text-xs font-medium text-slate-600">{meta}</span>
-                  ) : null}
-                </span>
-              </button>
-            );
-          })}
-          {hiddenCount > 0 && (
-            <button
-              type="button"
-              onClick={() => onOpenDayDetail({ year, month, day, events: dayEvents })}
-              className="flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-slate-200 text-sm font-bold text-slate-800 shadow-sm"
-            >
-              ほか +{hiddenCount}件
-            </button>
-          )}
-        </div>
-      )}
-
-      <div className="space-y-1">
-        <button
-          type="button"
-          disabled={!canEdit}
-          className={`flex min-h-11 w-full items-center justify-center rounded-xl border border-dashed text-sm font-bold transition-colors ${
-            canEdit
-              ? 'border-indigo-200 bg-indigo-50/50 text-indigo-700'
-              : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
-          }`}
-          onClick={() =>
-            canEdit &&
-            onCreateEvent({
-              start: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
-            })
-          }
-        >
-          この日にイベントを追加
-        </button>
-        {!canEdit && (
-          <p className="text-center text-[11px] text-slate-400">
-            ※ 権限がありません
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-interface CalendarViewProps {
-  events: Event[];
-  year: number;
-  month: number;
-  setYear: (year: number) => void;
-  setMonth: (month: number) => void;
-  onSelect: (event: Event) => void;
-  onHover: (event: Event, e: ReactMouseEvent<HTMLElement>) => void;
-  onHoverEnd: () => void;
-  onCreateEvent: (data?: Partial<Event>) => void;
-  /** 「+N件」押下時: その日の全イベントを渡して詳細導線（モーダル等）を開く */
-  onOpenDayDetail: (ctx: { year: number; month: number; day: number; events: Event[] }) => void;
-  narrowViewport: boolean;
-  densityPreview?: boolean;
-  prepProgressMap?: Record<string, { total: number; done: number }>;
-}
-
-function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHover, onHoverEnd, onCreateEvent, onOpenDayDetail, narrowViewport, densityPreview, prepProgressMap = {} }: CalendarViewProps) {
-  const cells = buildMonthGridCells(year, month);
-
-  const maxEventsInCell = narrowViewport ? MAX_EVENTS_IN_DAY_CELL_NARROW : MAX_EVENTS_IN_DAY_CELL;
-  const eventRowMinHeight = narrowViewport ? CAL_EVENT_ROW_MIN_HEIGHT_TOUCH : CAL_DAY_CELL_EVENT_ROW_MIN_HEIGHT;
-  const eventsPanelMaxHeight = narrowViewport ? CAL_DAY_CELL_EVENTS_MAX_HEIGHT_NARROW : CAL_DAY_CELL_EVENTS_MAX_HEIGHT;
-
-  const prevMonth = () => { if (month === 1) { setYear(year - 1); setMonth(12); } else setMonth(month - 1); };
-  const nextMonth = () => { if (month === 12) { setYear(year + 1); setMonth(1); } else setMonth(month + 1); };
-  const setToday = () => { const d = new Date(); setYear(d.getFullYear()); setMonth(d.getMonth() + 1); };
-
-  const today = new Date();
-  const monthNames = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const weekRows = cells.length / 7;
-  const isSixWeekMonth = weekRows >= 6;
-
-  return (
-    <div className="flex flex-col h-full">
-      {densityPreview && (
-        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-bold leading-snug text-amber-900">
-          開発プレビュー: URL に <code className="rounded bg-white/80 px-1">?calPreview=density</code> を付けた状態です。月内の同一週に「0件 / 2件 / 4件 / 6件」のサンプル行が並びます（狭い画面では最大{MAX_EVENTS_IN_DAY_CELL_NARROW}件、それ以外は最大{MAX_EVENTS_IN_DAY_CELL}件まで表示し、残りは「+N件」から一覧を開けます。リロードで解除）。
-        </div>
-      )}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-            {monthNames[month]} <span className="text-slate-400 font-bold ml-1">{year}</span>
-          </h2>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1">
-            <button onClick={prevMonth} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ChevronLeft size={20} /></button>
-            <button onClick={setToday} className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm ml-1 mr-1">今日</button>
-            <button onClick={nextMonth} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ChevronRight size={20} /></button>
-          </div>
-        </div>
-      </div>
-
-      <div
-        className="flex-1 grid min-h-0 grid-cols-7 border-t border-l border-slate-100"
-        style={{
-          gridTemplateRows: `auto repeat(${weekRows}, minmax(0, 1fr))`,
-        }}
-      >
-        {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d, i) => (
-          <div key={d} className="border-r border-b border-slate-100 bg-slate-50/10 py-2 px-3">
-            <span className={`text-[9px] font-black uppercase tracking-widest ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-slate-400"}`}>{d}</span>
-          </div>
-        ))}
-        
-        {cells.map((cell, idx) => {
-          const isSun = idx % 7 === 0;
-          const isSatCal = idx % 7 === 6;
-          const isToday = cell.current && today.getFullYear() === year && today.getMonth() === month - 1 && today.getDate() === cell.day;
-          const dayEvents = cell.current ? events.filter((ev) => eventCoversDate(ev, year, month, cell.day)) : [];
-          const visibleEvents = dayEvents.slice(0, maxEventsInCell);
-          const hiddenCount = Math.max(0, dayEvents.length - maxEventsInCell);
-
-          return (
-            <div
-              key={idx}
-              className={`
-                group relative flex h-full min-h-0 flex-col overflow-hidden border-r border-b border-slate-100 px-1 pb-1.5 pt-1.5
-                ${cell.current ? "bg-white" : "bg-slate-50/20"}
-                ${isSixWeekMonth
-                  ? "min-h-[104px] sm:min-h-[112px] md:min-h-[118px] lg:min-h-[122px] xl:min-h-[128px] 2xl:min-h-[136px]"
-                  : "min-h-[128px] sm:min-h-[136px] md:min-h-[144px] lg:min-h-[152px] xl:min-h-[160px]"}
-              `}
-            >
-              {/* 今日・祝日・選択日などの装飾は背景レイヤに分離（テキスト／イベント領域の高さを圧迫しない）。祝日・選択日の色帯も同 div 内に載せる */}
-              <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
-                {cell.current && isToday && (
-                  <div className="absolute inset-0 bg-indigo-50/50 ring-1 ring-inset ring-indigo-100/80" />
-                )}
-              </div>
-
-              <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-                <div className="flex h-7 shrink-0 items-center border-b border-slate-100/90 px-0.5">
-                  <span
-                    className={`
-                      inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-md text-[13px] font-bold tabular-nums
-                      ${!cell.current ? "text-slate-300" : isToday ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200/60" : isSun ? "text-red-500" : isSatCal ? "text-blue-500" : "text-slate-700"}
-                    `}
-                  >
-                    {cell.day}
-                  </span>
-                  {cell.current && (
-                    <button
-                      type="button"
-                      onClick={() => onCreateEvent({ start: `${year}-${String(month).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}` })}
-                      className="ml-auto w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 opacity-0 group-hover:opacity-100 transition-all"
-                      aria-label="イベントを追加"
-                    >
-                      <Plus size={11} />
-                    </button>
-                  )}
-                </div>
-
-                <div className="mt-1 flex min-h-0 flex-1 flex-col">
-                  <div
-                    className="flex min-h-0 flex-col gap-1 overflow-hidden"
-                    style={{ maxHeight: eventsPanelMaxHeight }}
-                  >
-                    {visibleEvents.map((ev) => {
-                      const typeSty = ts(ev.type || "");
-                      const captionNoDates = buildEventOptionalCaption(ev, { includeDates: false });
-                      const captionFull = buildEventOptionalCaption(ev);
-                      return (
-                      <button
-                        key={ev.id}
-                        type="button"
-                        onClick={() => onSelect(ev)}
-                        onMouseEnter={(e) => onHover(ev, e)}
-                        onMouseLeave={onHoverEnd}
-                        style={{
-                          borderLeftWidth: 3,
-                          borderLeftColor: typeSty.border,
-                          minHeight: eventRowMinHeight,
-                        }}
-                        aria-label={
-                          narrowViewport
-                            ? (captionNoDates ? `${ev.venue}。${captionNoDates}` : ev.venue)
-                            : (captionFull ? `${ev.venue}。${captionFull}` : ev.venue)
-                        }
-                        title={ev.status === 'completed' ? '完了済み' : undefined}
-                        className="relative overflow-hidden flex w-full shrink-0 items-center gap-1.5 rounded-md border border-solid border-slate-200 bg-white px-1.5 py-0.5 text-left shadow-sm ring-1 ring-inset ring-slate-900/[0.04] transition hover:border-slate-300 hover:bg-slate-50/90"
-                      >
-                        <span
-                          className="h-1.5 w-1.5 shrink-0 rounded-full border border-slate-900/20"
-                          style={{ backgroundColor: typeSty.border }}
-                          aria-hidden
-                        />
-                        <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[12px] font-semibold leading-tight text-slate-900 max-xl:text-[11px]">
-                          {ev.venue}
-                        </span>
-                        {/* 準備物進捗バー */}
-                        {(() => {
-                          const prog = prepProgressMap[ev.id];
-                          if (!prog || prog.total === 0) return null;
-                          const pct = Math.round((prog.done / prog.total) * 100);
-                          return (
-                            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100">
-                              <div className="h-full bg-emerald-400 transition-all" style={{ width: `${pct}%` }} />
-                            </div>
-                          );
-                        })()}
-                      </button>
-                    );
-                    })}
-                    {hiddenCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onOpenDayDetail({
-                            year,
-                            month,
-                            day: cell.day,
-                            events: dayEvents,
-                          })
-                        }
-                        style={{ minHeight: eventRowMinHeight }}
-                        className="w-full shrink-0 text-left rounded-md border border-solid border-slate-300/80 bg-slate-200/90 px-1 py-0.5 flex items-center justify-center overflow-hidden transition hover:bg-slate-300/90 hover:border-slate-400/80 text-[12px] max-xl:text-[11px] leading-none font-bold text-slate-800 shadow-sm ring-1 ring-inset ring-slate-900/[0.05] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1"
-                        aria-label={`あと${hiddenCount}件のイベントを表示`}
-                      >
-                        +{hiddenCount}件
-                      </button>
-                    )}
-                  </div>
-
-                  {cell.current && dayEvents.length === 0 && (
-                    <button
-                      type="button"
-                      onClick={() => onCreateEvent({ start: `${year}-${String(month).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}` })}
-                      className={`mt-auto flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-200 py-1 opacity-0 transition-all hover:border-indigo-300 hover:text-indigo-400 group-hover:opacity-100 text-slate-300 ${
-                        narrowViewport ? "min-h-9" : "min-h-[2rem]"
-                      }`}
-                    >
-                      <Plus size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-
-
-function HoverCard({ event, pos, prepStats }: {
-  event: Event;
-  pos: { x: number; y: number };
-  prepStats?: { total: number; done: number };
-}) {
-  const left = pos.x + 260 > window.innerWidth ? pos.x - 270 : pos.x + 16;
-  const top = pos.y + 280 > window.innerHeight ? pos.y - 260 : pos.y + 8;
-  const pct = prepStats && prepStats.total > 0 ? Math.round((prepStats.done / prepStats.total) * 100) : null;
-
-  return (
-    <div
-      className="fixed z-[200] w-60 bg-white border border-slate-100 rounded-2xl shadow-2xl p-4 pointer-events-none hidden lg:block"
-      style={{ left, top }}
-    >
-      <div className="flex items-start gap-2 mb-3">
-        <span
-          className="mt-0.5 h-2 w-2 shrink-0 rounded-full border border-slate-900/15"
-          style={{ backgroundColor: ts(event.type || "").border }}
-          aria-hidden
-        />
-        <div className="min-w-0">
-          <div className="font-black text-sm text-slate-900 leading-tight truncate">{event.venue}</div>
-          <div className="text-[10px] font-bold text-slate-600 mt-0.5">{buildEventOptionalCaption(event) || (event.type || "その他")}</div>
-        </div>
-      </div>
-      <div className="space-y-1.5 text-xs text-slate-700">
-        <div className="flex gap-2">
-          <span className="w-2 h-2 rounded-full mt-1 shrink-0 ring-1 ring-slate-900/10" style={{ background: rs(event.region || '').dot }} />
-          <span>{event.region}</span>
-        </div>
-        <div className="font-mono text-slate-500">
-          {event.start}{event.end && event.end !== event.start ? ` → ${event.end}` : ''}
-        </div>
-        {event.client && <div className="text-slate-500">{event.client}</div>}
-        {event.note && <div className="text-slate-400 line-clamp-2">{event.note}</div>}
-      </div>
-      {prepStats && prepStats.total > 0 && (
-        <div className="mt-3 pt-3 border-t border-slate-100">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">準備物</span>
-            <span className="text-[10px] font-black text-indigo-600">{pct}%</span>
-          </div>
-          <div className="w-full bg-slate-100 rounded-full h-1.5">
-            <div
-              className="bg-indigo-600 h-1.5 rounded-full transition-all"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <div className="mt-1 text-[10px] text-slate-400 font-bold">
-            {prepStats.done} / {prepStats.total} 完了
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-24 text-slate-300">
-      <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mb-6">
-        <Calendar size={32} />
-      </div>
-      <div className="text-sm font-bold text-slate-400">イベントが見つかりません</div>
-    </div>
-  );
-}
-

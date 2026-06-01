@@ -47,28 +47,6 @@
     --ring: rgba(79, 70, 229, 0.1);
   }
 
-  .dark {
-    --bg-app: #09090B;
-    --surface: #121214;
-    --surface-raised: #1C1C1E;
-    --elevated: #27272A;
-    --primary: #8B5CF6;
-    --accent: #22D3EE;
-    --text-primary: #F8FAFC;
-    --text-secondary: #94A3B8;
-    --border: rgba(255, 255, 255, 0.08);
-    --glass: rgba(18, 18, 20, 0.75);
-    --ring: rgba(139, 92, 246, 0.15);
-    --color-success:      #34d399;
-    --color-success-bg:   rgba(16,185,129,0.12);
-    --color-warning:      #fbbf24;
-    --color-warning-bg:   rgba(245,158,11,0.12);
-    --color-danger:       #f87171;
-    --color-danger-bg:    rgba(239,68,68,0.12);
-    --color-info:         #60a5fa;
-    --color-info-bg:      rgba(59,130,246,0.12);
-  }
-
   html {
     overflow-x: clip;
   }

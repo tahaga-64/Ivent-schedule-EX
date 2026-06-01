@@ -66,6 +66,12 @@ service cloud.firestore {
       allow create, update, delete: if isEventEditor();
     }
 
+    // 備品マスター: ログイン済みユーザー全員が編集可（canEditPreparationList と一致）
+    match /masterItems/{itemId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create, update: if isAuthenticated()
