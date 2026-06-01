@@ -19,6 +19,9 @@ interface Props {
 
 const EMPTY_FORM = { name: '', unitPrice: '', defaultQuantity: '1', note: '', url: '' };
 
+// 倉庫の背景画像（Unsplash）
+const WAREHOUSE_BG = "https://images.unsplash.com/photo-1553413077-190dd305871c?w=1920&q=80";
+
 export default function MasterItemsView({ canEdit }: Props) {
   const [items, setItems] = useState<MasterItem[]>([]);
   const [editing, setEditing] = useState<MasterItem | null>(null);
@@ -63,12 +66,17 @@ export default function MasterItemsView({ canEdit }: Props) {
       url: form.url.trim(),
       updatedAt: serverTimestamp(),
     };
-    if (editing) {
-      await updateDoc(doc(db, 'masterItems', editing.id), data);
-    } else {
-      await addDoc(collection(db, 'masterItems'), data);
+    try {
+      if (editing) {
+        await updateDoc(doc(db, 'masterItems', editing.id), data);
+      } else {
+        await addDoc(collection(db, 'masterItems'), data);
+      }
+      setShowForm(false);
+    } catch (err) {
+      console.error('masterItems save error:', err);
+      alert('保存に失敗しました。権限またはネットワークを確認してください。');
     }
-    setShowForm(false);
   }
 
   async function handleDelete(item: MasterItem) {
@@ -77,12 +85,13 @@ export default function MasterItemsView({ canEdit }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="relative flex flex-col min-h-full">
+
       {/* Sticky header */}
-      <div className="flex items-center justify-between px-4 py-4 border-b border-[var(--border)] bg-[var(--surface)] sticky top-0 z-10">
+      <div className="relative z-10 flex items-center justify-between px-4 py-4 border-b border-white/10 bg-black/30 backdrop-blur-md sticky top-0">
         <div>
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">MASTER</div>
-          <h2 className="text-base font-black text-[var(--text-primary)]">備品マスター</h2>
+          <div className="text-[10px] font-black text-white/60 uppercase tracking-widest">MASTER</div>
+          <h2 className="text-base font-black text-white">備品マスター</h2>
         </div>
         {canEdit && (
           <button
@@ -96,10 +105,10 @@ export default function MasterItemsView({ canEdit }: Props) {
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto p-4 pb-24">
+      <div className="relative z-10 flex-1 overflow-y-auto p-4 pb-24">
         {items.length === 0 ? (
-          <div className="text-center py-16 text-slate-400">
-            <Package size={32} className="mx-auto mb-3 opacity-30" />
+          <div className="text-center py-16 text-white/60">
+            <Package size={32} className="mx-auto mb-3 opacity-50" />
             <div className="text-sm">マスターアイテムがありません</div>
             {canEdit && <div className="text-xs mt-1 opacity-70">「追加」から登録してください</div>}
           </div>
@@ -109,28 +118,28 @@ export default function MasterItemsView({ canEdit }: Props) {
               <motion.div
                 key={item.id}
                 layout
-                className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4 hover:border-indigo-200 transition-colors group"
+                className="bg-white/90 backdrop-blur-sm border border-white/20 rounded-2xl p-4 hover:bg-white transition-colors group shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="font-black text-sm text-[var(--text-primary)] leading-snug">{item.name}</div>
+                  <div className="font-black text-sm text-slate-800 leading-snug">{item.name}</div>
                   {canEdit && (
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       <button
                         onClick={() => openEdit(item)}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-400 hover:text-slate-700 transition-colors"
                       >
                         <Pencil size={13} />
                       </button>
                       <button
                         onClick={() => handleDelete(item)}
-                        className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950 text-slate-400 hover:text-red-500 transition-colors"
                       >
                         <Trash2 size={13} />
                       </button>
                     </div>
                   )}
                 </div>
-                <div className="text-xs text-[var(--text-secondary)] mb-1">
+                <div className="text-xs text-slate-500 mb-1">
                   ¥{item.unitPrice.toLocaleString()} · デフォルト {item.defaultQuantity}個
                 </div>
                 {item.note && <div className="text-xs text-slate-400 mb-1">{item.note}</div>}
@@ -223,7 +232,7 @@ export default function MasterItemsView({ canEdit }: Props) {
               <div className="flex gap-2 mt-5">
                 <button
                   onClick={() => setShowForm(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-[var(--border)] text-sm font-bold text-[var(--text-secondary)] hover:bg-slate-50 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border border-[var(--border)] text-sm font-bold text-[var(--text-secondary)] hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
                 >
                   キャンセル
                 </button>

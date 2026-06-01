@@ -189,3 +189,18 @@
 .check-animation {
   animation: check 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+/* ── レイアウトビュー 横画面モバイル ─────────────────── */
+@media (orientation: landscape) and (max-width: 1023px) {
+  .layout-outer {
+    flex-direction: row !important;
+  }
+  .layout-palette {
+    flex-direction: column !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-bottom: none !important;
+    width: 88px !important;
+  }
+}

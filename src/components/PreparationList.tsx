@@ -6,6 +6,8 @@ import { PreparationItem, Event } from '../types';
 import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer, FileSpreadsheet, Briefcase, MessageSquare, Download, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+const PREP_BG = "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1920&q=80";
+
 interface Props {
   event: Event;
   onBack: () => void;
@@ -185,10 +187,12 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
 
   return (
     <>
+    <div className="fixed inset-0 bg-cover bg-center print:hidden" style={{ backgroundImage: `url('${PREP_BG}')` }} />
+    <div className="fixed inset-0 print:hidden" style={{ background: "linear-gradient(to bottom, rgba(15,23,42,0.25) 0%, rgba(15,23,42,0.55) 100%)" }} />
     <div
       id="prep-print-area"
       data-print-title={`${event.venue}　準備物リスト　${event.start}〜${event.end}`}
-      className="flex flex-col h-full bg-gray-50"
+      className="relative z-10 flex flex-col h-full bg-white/95"
     >
       {!canEdit && (
         <div className="px-6 py-2.5 bg-slate-100 border-b border-slate-200 text-slate-600 text-[11px] font-bold text-center">
