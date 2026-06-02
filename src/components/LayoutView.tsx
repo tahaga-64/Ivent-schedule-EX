@@ -4,17 +4,16 @@
  * 【公開URL】 /?layout=EVENT_ID  → 認証不要でクライアントがアクセス可能
  * 【管理画面】 アプリ内「レイアウト」ビュー → イベント選択→キャンバス
  *
- * 【Firestore rules に追加が必要】
- *   match /layouts/{layoutId} {
- *     allow read, write: if true;
- *   }
+ * Firestore: layouts/{eventId} = { items, customItems, photos, eventName, updatedAt }
+ *   rules: layouts/{layoutId} は allow read, write: if isAuthenticated();
  */
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot, setDoc, deleteDoc, serverTimestamp, getDoc } from 'firebase/firestore';
-import { Trash2, RotateCw, Copy, Check, ChevronRight, LayoutGrid } from 'lucide-react';
+import { Trash2, RotateCw, Copy, Check, ChevronRight, LayoutGrid, Plus, Maximize2, Minimize2, Image as ImageIcon, X, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import type { Event } from '../types';
+import type { Event, EventPhoto } from '../types';
+import { uploadEventPhoto, deleteStoredPhoto, validateImageFile } from '../lib/photoStorage';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -28,7 +27,20 @@ export interface LayoutItemData {
   color: string;
   wPct: number;
   hPct: number;
+  emoji?: string; // 配置アイテムに保持（カスタム種別でも単体で正しく描画できるように）
 }
+
+/** ユーザーが追加するカスタム配置アイテム（パレットに追加される） */
+export interface CustomCatalogItem {
+  key: string;    // 'custom_xxxxx'
+  label: string;
+  emoji: string;
+  color: string;
+  wPct: number;
+  hPct: number;
+}
+
+const MAX_LAYOUT_PHOTOS = 12;
 
 // ─── Item catalog ─────────────────────────────────────────────────────────────
 
@@ -60,16 +72,23 @@ interface CanvasProps {
 
 export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: CanvasProps) {
   const [items, setItems] = useState<LayoutItemData[]>([]);
+  const [customItems, setCustomItems] = useState<CustomCatalogItem[]>([]);
+  const [photos, setPhotos] = useState<EventPhoto[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [layoutExists, setLayoutExists] = useState(false);
+  const [showPhotos, setShowPhotos] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef<{ id: string; offX: number; offY: number } | null>(null);
   const itemsRef = useRef<LayoutItemData[]>([]);
+  const customItemsRef = useRef<CustomCatalogItem[]>([]);
+  const photosRef = useRef<EventPhoto[]>([]);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const eventIdRef = useRef(eventId);
   const eventNameRef = useRef(eventName);
@@ -81,14 +100,21 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
       doc(db, 'layouts', eventId),
       snap => {
         if (snap.exists()) {
-          const d = snap.data() as { items?: LayoutItemData[] };
+          const d = snap.data() as { items?: LayoutItemData[]; customItems?: CustomCatalogItem[]; photos?: EventPhoto[] };
           const loaded = d.items ?? [];
           itemsRef.current = loaded;
           setItems(loaded);
+          const ci = d.customItems ?? [];
+          customItemsRef.current = ci;
+          setCustomItems(ci);
+          const ph = d.photos ?? [];
+          photosRef.current = ph;
+          setPhotos(ph);
           setLayoutExists(true);
         } else {
-          itemsRef.current = [];
-          setItems([]);
+          itemsRef.current = []; setItems([]);
+          customItemsRef.current = []; setCustomItems([]);
+          photosRef.current = []; setPhotos([]);
           setLayoutExists(false);
         }
       },
@@ -97,24 +123,35 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
     return unsub;
   }, [eventId]);
 
-  // Save (debounced)
+  // Firestore へ書き込み（items / customItems / photos をまとめて保存）
+  async function writeLayout() {
+    await setDoc(doc(db, 'layouts', eventIdRef.current), {
+      items: itemsRef.current,
+      customItems: customItemsRef.current,
+      photos: photosRef.current,
+      eventName: eventNameRef.current,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  // ドラッグ等の連続操作はデバウンス保存
   function scheduleSave() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       setSaving(true);
-      try {
-        await setDoc(doc(db, 'layouts', eventIdRef.current), {
-          items: itemsRef.current,
-          eventName: eventNameRef.current,
-          updatedAt: serverTimestamp(),
-        });
-        setSavedAt(new Date());
-      } catch (err) {
-        console.error('layout save error:', err);
-      } finally {
-        setSaving(false);
-      }
+      try { await writeLayout(); setSavedAt(new Date()); }
+      catch (err) { console.error('layout save error:', err); }
+      finally { setSaving(false); }
     }, 700);
+  }
+
+  // 写真・カスタムアイテム等の単発操作は即時保存
+  async function flushSave() {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    setSaving(true);
+    try { await writeLayout(); setSavedAt(new Date()); }
+    catch (err) { console.error('layout save error:', err); }
+    finally { setSaving(false); }
   }
 
   function updateItems(next: LayoutItemData[]) {
@@ -123,12 +160,16 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
     if (canEdit) scheduleSave();
   }
 
+  function defOf(type: string) {
+    return CATALOG[type] ?? customItemsRef.current.find(c => c.key === type) ?? null;
+  }
+
   function addItem(type: string) {
     if (!canEdit) return;
-    const def = CATALOG[type];
+    const def = defOf(type);
     if (!def) return;
     const sameType = itemsRef.current.filter(i => i.type === type).length;
-    const num = type === 'fish_tank' ? String(sameType + 1) : '';
+    const num = (type === 'fish_tank' || type.startsWith('custom_')) && sameType > 0 ? String(sameType + 1) : (type === 'fish_tank' ? '1' : '');
     updateItems([...itemsRef.current, {
       id: genId(),
       type,
@@ -139,7 +180,30 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
       color: def.color,
       wPct: def.wPct,
       hPct: def.hPct,
+      emoji: def.emoji,
     }]);
+  }
+
+  function addCustomItem() {
+    if (!canEdit) return;
+    const label = prompt('アイテム名を入力してください（例：受付、ステージ、休憩所）');
+    const trimmed = label?.trim();
+    if (!trimmed || trimmed.length > 24) return;
+    const emoji = (prompt('絵文字を入力（任意）', '📦')?.trim() || '📦').slice(0, 4);
+    const colorInput = prompt('色をHEXで入力（任意・例 #2563eb）', '#2563eb')?.trim() || '#2563eb';
+    const color = /^#[0-9a-fA-F]{6}$/.test(colorInput) ? colorInput : '#2563eb';
+    const next = [...customItemsRef.current, { key: 'custom_' + genId(), label: trimmed, emoji, color, wPct: 12, hPct: 9 }];
+    customItemsRef.current = next;
+    setCustomItems(next);
+    void flushSave();
+  }
+
+  function deleteCustomItem(key: string) {
+    if (!canEdit) return;
+    const next = customItemsRef.current.filter(c => c.key !== key);
+    customItemsRef.current = next;
+    setCustomItems(next);
+    void flushSave();
   }
 
   function deleteItem(id: string) {
@@ -151,6 +215,50 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
     updateItems(itemsRef.current.map(i =>
       i.id === id ? { ...i, rotation: (i.rotation + 90) % 360 } : i
     ));
+  }
+
+  function resizeItem(id: string, factor: number) {
+    updateItems(itemsRef.current.map(i => {
+      if (i.id !== id) return i;
+      const wPct = Math.max(2, Math.min(80, +(i.wPct * factor).toFixed(2)));
+      const hPct = Math.max(2, Math.min(80, +(i.hPct * factor).toFixed(2)));
+      return { ...i, wPct, hPct };
+    }));
+  }
+
+  // 写真（参考写真ギャラリー）
+  async function handleUploadPhoto(file: File) {
+    if (!canEdit) return;
+    const verr = validateImageFile(file);
+    if (verr) { setPhotoError(verr); return; }
+    if (photosRef.current.length >= MAX_LAYOUT_PHOTOS) {
+      setPhotoError(`写真は最大${MAX_LAYOUT_PHOTOS}枚までです`);
+      return;
+    }
+    setUploading(true);
+    setPhotoError(null);
+    try {
+      const photo = await uploadEventPhoto(eventIdRef.current, file);
+      const next = [...photosRef.current, photo];
+      photosRef.current = next;
+      setPhotos(next);
+      await flushSave();
+    } catch (e) {
+      console.error('layout photo upload error:', e);
+      setPhotoError('アップロードに失敗しました。通信状況を確認してください。');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleDeletePhoto(photo: EventPhoto) {
+    if (!canEdit) return;
+    const next = photosRef.current.filter(p => p.id !== photo.id);
+    photosRef.current = next;
+    setPhotos(next);
+    await flushSave();
+    // Cloudinary 側の削除（認証が必要なため公開ビューでは失敗しうるが致命的ではない）
+    deleteStoredPhoto(photo).catch(() => {});
   }
 
   // Drag
@@ -219,16 +327,18 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
     } catch (err) {
       console.error('layout delete error:', err);
     }
-    itemsRef.current = [];
-    setItems([]);
+    itemsRef.current = []; setItems([]);
+    customItemsRef.current = []; setCustomItems([]);
+    photosRef.current = []; setPhotos([]);
     setSelectedId(null);
     setLayoutExists(false);
   }
 
   const selectedItem = items.find(i => i.id === selectedId);
+  const presentTypes = Array.from(new Set(items.map(i => i.type)));
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 text-white">
+    <div className="relative flex flex-col h-full bg-slate-900 text-white">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 shrink-0">
         {isPublic && (
@@ -243,6 +353,16 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
             <span className="text-[10px] text-emerald-400 font-bold hidden sm:block">保存済み</span>
           )}
           {saving && <span className="text-[10px] text-amber-400 font-bold">保存中...</span>}
+          {(canEdit || photos.length > 0) && (
+            <button
+              onClick={() => setShowPhotos(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
+              title="参考写真"
+            >
+              <ImageIcon size={11} />
+              <span>写真{photos.length > 0 ? ` (${photos.length})` : ''}</span>
+            </button>
+          )}
           {!isPublic && (
             <button
               onClick={copyShareUrl}
@@ -290,6 +410,34 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
                 <span className="text-[9px] font-bold leading-tight text-center text-white/80">{def.label}</span>
               </button>
             ))}
+            {customItems.map(ci => (
+              <div key={ci.key} className="relative group shrink-0 min-w-[58px] sm:min-w-0 sm:w-full">
+                <button
+                  onClick={() => addItem(ci.key)}
+                  className="w-full flex flex-col items-center justify-center gap-1 p-2 rounded-xl border transition-all text-white hover:bg-white/10 active:scale-95"
+                  style={{ borderColor: ci.color + '50', background: ci.color + '18' }}
+                  title={ci.label + 'を追加'}
+                >
+                  <span className="text-base leading-none">{ci.emoji}</span>
+                  <span className="text-[9px] font-bold leading-tight text-center text-white/80 truncate w-full">{ci.label}</span>
+                </button>
+                <button
+                  onClick={() => deleteCustomItem(ci.key)}
+                  title={`${ci.label}（カスタム）を削除`}
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-700 text-white/70 hover:text-red-300 hover:bg-slate-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={addCustomItem}
+              title="カスタムアイテムを追加"
+              className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border border-dashed border-white/25 text-white/70 hover:bg-white/10 hover:text-white shrink-0 min-w-[58px] sm:min-w-0 sm:w-full active:scale-95 transition-all"
+            >
+              <Plus size={16} />
+              <span className="text-[9px] font-bold leading-tight text-center">カスタム</span>
+            </button>
           </div>
         )}
 
@@ -318,7 +466,7 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
 
             {items.map(item => {
               const isSel = item.id === selectedId;
-              const def = CATALOG[item.type];
+              const def = defOf(item.type);
               const isCircle = item.type === 'round_table';
               const isSmall = item.type === 'pillar';
               return (
@@ -350,7 +498,7 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
                 >
                   {!isSmall && (
                     <span style={{ fontSize: '1em', lineHeight: 1, pointerEvents: 'none' }}>
-                      {def?.emoji ?? '📦'}
+                      {item.emoji ?? def?.emoji ?? '📦'}
                     </span>
                   )}
                   <span style={{
@@ -389,7 +537,7 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: 0.18 }}
-                className="flex items-center gap-2 flex-wrap"
+                className="flex items-center justify-center gap-2 flex-wrap"
               >
                 <span
                   className="text-xs font-black px-3 py-1.5 rounded-xl"
@@ -397,6 +545,20 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
                 >
                   {selectedItem.label}
                 </span>
+                <button
+                  onClick={() => resizeItem(selectedItem.id, 1.15)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
+                >
+                  <Maximize2 size={12} />
+                  大きく
+                </button>
+                <button
+                  onClick={() => resizeItem(selectedItem.id, 1 / 1.15)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
+                >
+                  <Minimize2 size={12} />
+                  小さく
+                </button>
                 <button
                   onClick={() => rotateItem(selectedItem.id)}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
@@ -416,16 +578,18 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
           </AnimatePresence>
 
           {/* Legend (read-only or public) */}
-          {(!canEdit || isPublic) && items.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {Object.entries(CATALOG)
-                .filter(([type]) => items.some(i => i.type === type))
-                .map(([type, def]) => (
+          {(!canEdit || isPublic) && presentTypes.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2 justify-center">
+              {presentTypes.map(type => {
+                const def = defOf(type);
+                if (!def) return null;
+                return (
                   <div key={type} className="flex items-center gap-1.5 text-[10px] text-white/60">
                     <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: def.color }} />
                     {def.label}
                   </div>
-                ))}
+                );
+              })}
             </div>
           )}
 
@@ -438,6 +602,71 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
           )}
         </div>
       </div>
+
+      {/* 参考写真ギャラリー（オーバーレイ） */}
+      <AnimatePresence>
+        {showPhotos && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="absolute inset-0 z-40 bg-slate-900/95 backdrop-blur-sm flex flex-col"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+              <div className="text-sm font-black text-white">参考写真（{photos.length}/{MAX_LAYOUT_PHOTOS}）</div>
+              <button
+                onClick={() => { setShowPhotos(false); setPhotoError(null); }}
+                className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {canEdit && photos.length < MAX_LAYOUT_PHOTOS && (
+                <label className={`flex items-center justify-center gap-2 w-full py-4 rounded-2xl border-2 border-dashed border-white/20 text-white/70 text-sm font-bold cursor-pointer hover:border-indigo-400 hover:text-white hover:bg-white/5 transition-colors ${uploading ? 'opacity-60 pointer-events-none' : ''}`}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) void handleUploadPhoto(f); e.currentTarget.value = ''; }}
+                  />
+                  <Upload size={16} />
+                  {uploading ? 'アップロード中...' : '写真を追加（最大10MB）'}
+                </label>
+              )}
+              {photoError && (
+                <p className="text-xs text-red-300 font-bold text-center">{photoError}</p>
+              )}
+              {photos.length === 0 ? (
+                <div className="text-center py-16 text-white/40">
+                  <ImageIcon size={32} className="mx-auto mb-3 opacity-50" />
+                  <div className="text-sm">{canEdit ? '会場図や現地写真を追加できます' : '写真はまだありません'}</div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {photos.map(p => (
+                    <div key={p.id} className="relative group rounded-xl overflow-hidden border border-white/10 bg-slate-800">
+                      <a href={p.url} target="_blank" rel="noopener noreferrer">
+                        <img src={p.thumbnailUrl || p.url} alt={p.caption || ''} className="w-full h-32 object-cover" loading="lazy" />
+                      </a>
+                      {canEdit && (
+                        <button
+                          onClick={() => handleDeletePhoto(p)}
+                          className="absolute top-1.5 right-1.5 w-7 h-7 rounded-lg bg-black/55 hover:bg-red-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                          title="削除"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -487,8 +716,6 @@ export default function LayoutView({ events, canEdit }: AdminProps) {
     .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 
   const selectedEvent = eventList.find(e => e.id === selectedEventId);
-
-  const LAYOUT_BG = "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=80";
 
   if (selectedEvent) {
     return (
