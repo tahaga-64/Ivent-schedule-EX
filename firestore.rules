@@ -71,9 +71,10 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    // フロアレイアウト（ログイン済みユーザー全員が編集可）
+    // フロアレイアウト: 共有リンク(/?layout=ID)用に読み取りは公開。書き込みはログイン済みのみ。
     match /layouts/{layoutId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // 備品マスター（ログイン済みユーザー全員が編集可）

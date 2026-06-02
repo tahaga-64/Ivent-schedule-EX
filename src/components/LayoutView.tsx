@@ -5,7 +5,7 @@
  * 【管理画面】 アプリ内「レイアウト」ビュー → イベント選択→キャンバス
  *
  * Firestore: layouts/{eventId} = { items, customItems, photos, eventName, updatedAt }
- *   rules: layouts/{layoutId} は allow read, write: if isAuthenticated();
+ *   rules: layouts/{layoutId} は allow read: if true; allow write: if isAuthenticated();（共有リンク用に読み取り公開）
  */
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../lib/firebase';
