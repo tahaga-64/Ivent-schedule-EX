@@ -147,16 +147,11 @@ export default function App() {
   }, []);
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
-  const [monthFilter, setMonthFilter] = useState(() => localStorage.getItem('monthFilter') || "すべて");
+  // 月は常に「現在の月」で起動する（前回保存の古い月で固定されないように）
+  const [monthFilter, setMonthFilter] = useState("すべて");
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [calYear, setCalYear] = useState(() => {
-    const val = parseInt(localStorage.getItem('calYear') || String(new Date().getFullYear()));
-    return isNaN(val) ? new Date().getFullYear() : val;
-  });
-  const [calMonth, setCalMonth] = useState(() => {
-    const val = parseInt(localStorage.getItem('calMonth') || String(new Date().getMonth() + 1));
-    return isNaN(val) ? new Date().getMonth() + 1 : val;
-  });
+  const [calYear, setCalYear] = useState(() => new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(() => new Date().getMonth() + 1);
   const [selected, setSelected] = useState<Event | null>(null);
   /** カレンダー日セルの「+N件」から開く、その日の全イベント一覧 */
   const [dayDetail, setDayDetail] = useState<{ year: number; month: number; day: number; events: Event[] } | null>(null);
@@ -404,11 +399,9 @@ export default function App() {
     localStorage.setItem('viewMode', view);
     localStorage.setItem('regionFilter', regionFilter);
     localStorage.setItem('typeFilter', typeFilter);
-    localStorage.setItem('monthFilter', monthFilter);
-    localStorage.setItem('calMonth', calMonth.toString());
-    localStorage.setItem('calYear', calYear.toString());
+    // 月（monthFilter / calMonth / calYear）は永続化しない＝起動時は常に当月
     if (lastEditedId) localStorage.setItem('lastEditedId', lastEditedId);
-  }, [view, regionFilter, typeFilter, monthFilter, calMonth, calYear, lastEditedId]);
+  }, [view, regionFilter, typeFilter, lastEditedId]);
 
   // サイドバーの月フィルターとカレンダーの表示月を連動させる
   useEffect(() => {
@@ -975,7 +968,7 @@ VITE_FIREBASE_DATABASE_ID`}
           onSelectEvent={handleEventSelect}
           onNavigateToPrepList={() => setView('prep')}
           onCreateEvent={() => handleCreateEvent()}
-          onOpenSchedule={() => window.open('https://ex-schedule.vercel.app/?year=2026&month=5', '_blank', 'noopener,noreferrer')}
+          onOpenSchedule={() => window.open('https://ex-2026-04-802549538762.us-west1.run.app', '_blank', 'noopener,noreferrer')}
         />
       )}
       {v === "master" && (

@@ -58,7 +58,7 @@ export default function AppSidebar({
   );
 
   return (
-    <aside className="w-72 flex flex-col flex-shrink-0 bg-slate-900/55 backdrop-blur-2xl border-r border-white/10 overflow-y-auto hidden lg:flex">
+    <aside className="w-72 flex flex-col flex-shrink-0 bg-slate-900/70 backdrop-blur-2xl border-r border-white/10 overflow-y-auto hidden lg:flex">
       <div className="p-6 space-y-8">
         {/* TODAY Section */}
         <div className="space-y-2 pb-4 border-b border-white/10">

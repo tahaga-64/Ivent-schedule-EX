@@ -707,15 +707,40 @@ function fmtDateRange(start: string, end: string) {
   return `${fmt(start)} → ${fmt(end)}`;
 }
 
+function EventCard({ ev, onSelect, past }: { ev: Event; onSelect: () => void; past?: boolean }) {
+  const sub = [ev.start ? fmtDateRange(ev.start, ev.end || ev.start) : null, ev.client || null].filter(Boolean).join(' · ');
+  return (
+    <motion.button
+      whileHover={{ y: -2 }}
+      onClick={onSelect}
+      className={`w-full text-left bg-white/90 backdrop-blur-sm rounded-2xl px-4 py-3.5 shadow-sm hover:shadow-md hover:bg-white transition-all group flex items-center gap-3 ${past ? 'opacity-60 hover:opacity-100' : ''}`}
+    >
+      <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+        <LayoutGrid size={16} className="text-indigo-500" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-black text-slate-800 truncate">{ev.venue}</div>
+        {sub && <div className="text-xs text-slate-400 mt-0.5 truncate">{sub}</div>}
+      </div>
+      <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 shrink-0 transition-colors" />
+    </motion.button>
+  );
+}
+
 export default function LayoutView({ events, canEdit }: AdminProps) {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
-  // Filter aquarium events (and all events for layout purposes)
-  const eventList = [...events]
-    .filter(e => e.status !== 'cancelled')
-    .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+  // すべてのイベントを対象（中止のみ除外）。終了したイベントは下部にアーカイブ表示。
+  const today = new Date().toISOString().slice(0, 10);
+  const active = [...events].filter(e => e.status !== 'cancelled');
+  const upcoming = active
+    .filter(e => !(e.end && e.end < today))
+    .sort((a, b) => (a.start || '9999').localeCompare(b.start || '9999'));
+  const past = active
+    .filter(e => !!e.end && e.end < today)
+    .sort((a, b) => (b.start || '').localeCompare(a.start || ''));
 
-  const selectedEvent = eventList.find(e => e.id === selectedEventId);
+  const selectedEvent = active.find(e => e.id === selectedEventId);
 
   if (selectedEvent) {
     return (
@@ -753,33 +778,27 @@ export default function LayoutView({ events, canEdit }: AdminProps) {
           <p className="text-xs text-white/50 mt-1">クライアントと共有できるフロアプランを作成します</p>
         </div>
 
-        {eventList.length === 0 ? (
+        {active.length === 0 ? (
           <div className="text-center py-16 text-white/40">
             <LayoutGrid size={32} className="mx-auto mb-3 opacity-40" />
             <div className="text-sm">イベントがありません</div>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {eventList.map(ev => (
-              <motion.button
-                key={ev.id}
-                whileHover={{ y: -2 }}
-                onClick={() => setSelectedEventId(ev.id)}
-                className="w-full text-left bg-white/90 backdrop-blur-sm rounded-2xl px-4 py-3.5 shadow-sm hover:shadow-md hover:bg-white transition-all group flex items-center gap-3"
-              >
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                  <LayoutGrid size={16} className="text-indigo-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-black text-slate-800 truncate">{ev.venue}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">
-                    {ev.start ? fmtDateRange(ev.start, ev.end || ev.start) : '日程未定'}
-                    {ev.client ? ` · ${ev.client}` : ''}
-                  </div>
-                </div>
-                <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 shrink-0 transition-colors" />
-              </motion.button>
+            {upcoming.map(ev => (
+              <EventCard key={ev.id} ev={ev} onSelect={() => setSelectedEventId(ev.id)} />
             ))}
+            {past.length > 0 && (
+              <>
+                <div className="flex items-center gap-2 mt-5 mb-1 px-1">
+                  <span className="text-[10px] font-black text-white/40 uppercase tracking-widest shrink-0">終了したイベント</span>
+                  <div className="flex-1 h-px bg-white/10" />
+                </div>
+                {past.map(ev => (
+                  <EventCard key={ev.id} ev={ev} onSelect={() => setSelectedEventId(ev.id)} past />
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>
