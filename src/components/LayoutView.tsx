@@ -294,7 +294,7 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
         )}
 
         {/* Canvas wrapper */}
-        <div className="flex-1 flex flex-col min-h-0 p-4 gap-3 bg-slate-900/70 overflow-auto">
+        <div className="flex-1 flex flex-col min-h-0 justify-center sm:justify-start p-4 gap-3 bg-slate-900/70 overflow-auto">
           {/* Canvas */}
           <div
             ref={canvasRef}
@@ -426,6 +426,14 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
                     {def.label}
                   </div>
                 ))}
+            </div>
+          )}
+
+          {/* モバイル(縦向き)用の操作ヒント */}
+          {canEdit && (
+            <div className="sm:hidden mt-1 text-center text-[11px] text-white/45 leading-relaxed">
+              アイテムをドラッグで移動・タップで選択<br />
+              📱 横向きにすると編集エリアが広がります
             </div>
           )}
         </div>

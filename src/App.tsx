@@ -847,6 +847,9 @@ VITE_FIREBASE_DATABASE_ID`}
       </div>
     </div>
   );
+  // 公開レイアウト共有リンク（認証・ローディングより前に判定し、共有相手にスプラッシュを出さない）
+  const publicLayoutId = new URLSearchParams(window.location.search).get('layout');
+  if (publicLayoutId) return <LayoutPublicView eventId={publicLayoutId} />;
   if (accessDenied) return (
     <AccessDeniedScreen
       email={auth.currentUser?.email ?? null}
@@ -878,10 +881,6 @@ VITE_FIREBASE_DATABASE_ID`}
       </motion.div>
     </div>
   );
-  // Public layout route — no auth required
-  const publicLayoutId = new URLSearchParams(window.location.search).get('layout');
-  if (publicLayoutId) return <LayoutPublicView eventId={publicLayoutId} />;
-
   if (!user) return <LoginScreen />;
   if (needsNameSetup) return (
     <ProfileSetupScreen
