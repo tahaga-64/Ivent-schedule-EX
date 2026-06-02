@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import type { Event, FishItem } from '../types';
 import { Fish, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -56,13 +56,15 @@ export default function FishListView({ events, canEdit }: Props) {
     setError(null);
     try {
       const id = crypto.randomUUID();
+      const trimmedNote = newNote.trim();
+      // Firestore は undefined を拒否するため、note が空なら項目自体を含めない
       const item: FishItem = {
         id,
         name: newName.trim(),
-        count: newCount,
-        note: newNote.trim() || undefined,
+        count: Number.isFinite(newCount) ? newCount : 0,
         order: fishItems.length,
       };
+      if (trimmedNote) item.note = trimmedNote;
       await setDoc(doc(db, 'events', selectedEventId, 'fishItems', id), item);
       setNewName('');
       setNewCount(1);
@@ -86,8 +88,10 @@ export default function FishListView({ events, canEdit }: Props) {
 
   async function handleCountChange(item: FishItem, count: number) {
     if (!selectedEventId) return;
+    const safeCount = Number.isFinite(count) ? count : 0;
     try {
-      await setDoc(doc(db, 'events', selectedEventId, 'fishItems', item.id), { ...item, count }, { merge: true });
+      // count のみ更新（item 全体の再送をやめ、不要な書き込みを排除）
+      await updateDoc(doc(db, 'events', selectedEventId, 'fishItems', item.id), { count: safeCount });
     } catch (err) {
       console.error('fishItems update error:', err);
     }

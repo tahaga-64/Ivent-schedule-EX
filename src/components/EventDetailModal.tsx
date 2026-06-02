@@ -115,7 +115,7 @@ export default function EventDetailModal({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 40 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[520px] lg:max-w-[520px] max-h-[92vh] lg:max-h-[90vh]"
+        className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[940px] lg:max-w-[95vw] max-h-[92vh] lg:max-h-[90vh]"
       >
         {selected.status === 'completed' && (
           <div className="flex items-center gap-2 px-4 py-3 bg-orange-500 border-b border-orange-600">
@@ -123,7 +123,7 @@ export default function EventDetailModal({
             <span className="text-xs font-bold text-white">このイベントは終了しました</span>
           </div>
         )}
-        <div className="p-6 lg:p-8 pb-[calc(1.5rem+env(safe-area-inset-bottom))] overflow-y-auto overflow-x-hidden">
+        <div className="flex flex-1 min-h-0 flex-col p-6 lg:p-8 pb-[calc(1.5rem+env(safe-area-inset-bottom))] lg:pb-8 overflow-y-auto lg:overflow-y-hidden overflow-x-hidden">
           {/* Header: タグ + 閉じるボタン */}
           <div className="flex justify-between items-center mb-5">
             <div className="flex flex-col gap-2 flex-1 min-w-0">
@@ -226,8 +226,8 @@ export default function EventDetailModal({
             </div>
           )}
 
-          {/* フィールド */}
-          {modalTab === 'detail' && <><div className="space-y-5">
+          {/* フィールド（lgではこのブロックのみ内部スクロール、2カラム配置） */}
+          {modalTab === 'detail' && <><div className="space-y-5 lg:space-y-0 lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:-mr-2 lg:pr-2 lg:grid lg:grid-cols-2 lg:gap-x-8 lg:gap-y-5 lg:content-start">
             <div>
               <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">VENUE・会場</label>
               <input
@@ -393,8 +393,9 @@ export default function EventDetailModal({
             )}
           </div>
 
+          <div className="shrink-0 lg:pt-4 lg:mt-2 lg:border-t lg:border-gray-100">
           {/* 統計パネル */}
-          <div className="mt-6 bg-gray-50 rounded-2xl p-5 grid grid-cols-3 divide-x divide-gray-200">
+          <div className="mt-6 lg:mt-0 bg-gray-50 rounded-2xl p-5 grid grid-cols-3 divide-x divide-gray-200">
             <div className="pr-5">
               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">ITEMS</div>
               <div className="text-2xl font-black text-gray-800">{eventStats.itemCount}</div>
@@ -476,6 +477,7 @@ export default function EventDetailModal({
               </motion.p>
             )}
           </AnimatePresence>
+          </div>
           </>}
         </div>
       </motion.div>

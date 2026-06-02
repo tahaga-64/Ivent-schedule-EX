@@ -11,7 +11,7 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../lib/firebase';
-import { doc, onSnapshot, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, deleteDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { Trash2, RotateCw, Copy, Check, ChevronRight, LayoutGrid } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Event } from '../types';
@@ -64,6 +64,8 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [copied, setCopied] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [layoutExists, setLayoutExists] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef<{ id: string; offX: number; offY: number } | null>(null);
@@ -83,6 +85,11 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
           const loaded = d.items ?? [];
           itemsRef.current = loaded;
           setItems(loaded);
+          setLayoutExists(true);
+        } else {
+          itemsRef.current = [];
+          setItems([]);
+          setLayoutExists(false);
         }
       },
       err => console.error('layout snapshot error:', err)
@@ -204,6 +211,20 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
     });
   }
 
+  async function deleteLayout() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setConfirmDelete(false);
+    try {
+      await deleteDoc(doc(db, 'layouts', eventIdRef.current));
+    } catch (err) {
+      console.error('layout delete error:', err);
+    }
+    itemsRef.current = [];
+    setItems([]);
+    setSelectedId(null);
+    setLayoutExists(false);
+  }
+
   const selectedItem = items.find(i => i.id === selectedId);
 
   return (
@@ -230,6 +251,24 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
               {copied ? <Check size={11} /> : <Copy size={11} />}
               <span>{copied ? 'コピー済み' : 'URL共有'}</span>
             </button>
+          )}
+          {canEdit && !isPublic && layoutExists && (
+            confirmDelete ? (
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-red-300 font-bold">削除?</span>
+                <button onClick={deleteLayout} className="px-2.5 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-black transition-colors">はい</button>
+                <button onClick={() => setConfirmDelete(false)} className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-colors">いいえ</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                title="このレイアウトを削除"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/35 text-red-300 rounded-xl text-xs font-bold transition-colors border border-red-400/20"
+              >
+                <Trash2 size={11} />
+                <span className="hidden sm:inline">削除</span>
+              </button>
+            )
           )}
         </div>
       </div>

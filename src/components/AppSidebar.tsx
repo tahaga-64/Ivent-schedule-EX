@@ -58,22 +58,22 @@ export default function AppSidebar({
   );
 
   return (
-    <aside className="w-72 flex flex-col flex-shrink-0 bg-white border-r border-slate-100 overflow-y-auto hidden lg:flex">
+    <aside className="w-72 flex flex-col flex-shrink-0 bg-slate-900/55 backdrop-blur-2xl border-r border-white/10 overflow-y-auto hidden lg:flex">
       <div className="p-6 space-y-8">
         {/* TODAY Section */}
-        <div className="space-y-2 pb-4 border-b border-slate-100">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TODAY</div>
-          <div className="text-4xl font-black text-slate-800 tracking-tighter leading-none">
+        <div className="space-y-2 pb-4 border-b border-white/10">
+          <div className="text-[10px] font-black text-white/50 uppercase tracking-widest">TODAY</div>
+          <div className="text-4xl font-black text-white tracking-tighter leading-none">
             {new Date().getDate()}
           </div>
-          <div className="text-xs font-bold text-slate-500">
+          <div className="text-xs font-bold text-white/60">
             {new Date().toLocaleDateString('ja-JP', { month: 'long', weekday: 'long' })}
           </div>
         </div>
 
         {/* WORKSPACE Section */}
         <div className="space-y-3">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WORKSPACE</div>
+          <div className="text-[10px] font-black text-white/50 uppercase tracking-widest">WORKSPACE</div>
           <div className="flex flex-col gap-0.5">
             {[
               { label: "すべてのイベント", icon: <Calendar size={14} />, count: stats.total, statusValue: "all" },
@@ -88,13 +88,13 @@ export default function AppSidebar({
                   setMonthFilter("すべて");
                   setStatusFilter(item.statusValue);
                 }}
-                className="group flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white hover:shadow-sm hover:border-slate-100 border border-transparent transition-all"
+                className="group flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/10 border border-transparent transition-all"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-indigo-600 opacity-60 group-hover:opacity-100">{item.icon}</span>
-                  <span className="text-xs font-bold text-slate-600 group-hover:text-indigo-600 font-sans">{item.label}</span>
+                  <span className="text-indigo-300 opacity-70 group-hover:opacity-100">{item.icon}</span>
+                  <span className="text-xs font-bold text-white/80 group-hover:text-white font-sans">{item.label}</span>
                 </div>
-                <span className="text-xs font-bold text-slate-400">{item.count}</span>
+                <span className="text-xs font-bold text-white/50">{item.count}</span>
               </button>
             ))}
           </div>
@@ -103,8 +103,8 @@ export default function AppSidebar({
         {/* REGION Section */}
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-black text-slate-700">本部</span>
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">REGION</span>
+            <span className="text-xs font-black text-white">本部</span>
+            <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">REGION</span>
           </div>
           <div className="flex flex-col gap-0.5">
             {(["すべて", ...REGIONS] as const).map((label) => (
@@ -114,15 +114,15 @@ export default function AppSidebar({
                 className={`
                   group flex items-center justify-between px-3 py-2 rounded-lg transition-all
                   ${regionFilter === label
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-slate-600 hover:bg-slate-100/70"}
+                    ? "bg-indigo-500/30 text-white border border-indigo-400/30"
+                    : "text-white/80 hover:bg-white/10 border border-transparent"}
                 `}
               >
                 <div className="flex items-center gap-3">
                   <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: rs(label).dot }}></span>
                   <span className="text-xs font-bold font-sans">{label}</span>
                 </div>
-                <span className="text-xs font-bold text-slate-400 font-sans">{label === "すべて" ? "" : (stats.byRegion[label] || 0)}</span>
+                <span className="text-xs font-bold text-white/50 font-sans">{label === "すべて" ? "" : (stats.byRegion[label] || 0)}</span>
               </button>
             ))}
           </div>
@@ -131,9 +131,9 @@ export default function AppSidebar({
         {/* TYPE Section */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-black text-slate-700">種別</span>
+            <span className="text-xs font-black text-white">種別</span>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TYPE</span>
+              <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">TYPE</span>
               <button
                 onClick={() => {
                   const newType = prompt("新しい案件種別を入力してください:");
@@ -143,7 +143,7 @@ export default function AppSidebar({
                   const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
                   setSidebarTypes(prev => [...prev, { label: trimmed, icon }]);
                 }}
-                className="p-1 hover:bg-indigo-50 rounded text-indigo-400 hover:text-indigo-600 transition-colors"
+                className="p-1 hover:bg-white/10 rounded text-indigo-300 hover:text-white transition-colors"
               >
                 <Plus size={12} />
               </button>
@@ -155,8 +155,8 @@ export default function AppSidebar({
               className={`
                 group flex items-center gap-3 px-3 py-2 rounded-lg transition-all
                 ${typeFilter === "すべて"
-                  ? "bg-indigo-50 text-indigo-700"
-                  : "text-slate-600 hover:bg-slate-100/70"}
+                  ? "bg-indigo-500/30 text-white border border-indigo-400/30"
+                  : "text-white/80 hover:bg-white/10 border border-transparent"}
               `}
             >
               <span className="text-sm">📁</span>
@@ -166,8 +166,8 @@ export default function AppSidebar({
               <div key={type.label} className="group relative flex items-center">
                 <button
                   onClick={() => setTypeFilter(type.label)}
-                  className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
-                    typeFilter === type.label ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100/70"
+                  className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg transition-all border ${
+                    typeFilter === type.label ? "bg-indigo-500/30 text-white border-indigo-400/30" : "text-white/80 hover:bg-white/10 border-transparent"
                   }`}
                 >
                   <span className="text-sm">{type.icon}</span>
@@ -180,7 +180,7 @@ export default function AppSidebar({
                       e.stopPropagation();
                       onDeleteType(type.label);
                     }}
-                    className="absolute right-1 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                    className="absolute right-1 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-white/50 hover:text-red-400 hover:bg-white/10 transition-all"
                     aria-label={`${type.label}を削除`}
                   >
                     <X size={12} />
@@ -193,7 +193,7 @@ export default function AppSidebar({
 
         {/* ステータスフィルター */}
         <div className="space-y-1 pt-2">
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1 mb-3">ステータス</div>
+          <div className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] px-1 mb-3">ステータス</div>
           {[
             { label: 'すべて',    value: 'all',         dot: null },
             { label: '準備中',   value: 'in_progress',  dot: '#f59e0b' },
@@ -207,7 +207,7 @@ export default function AppSidebar({
               className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                 statusFilter === value
                   ? 'bg-amber-500 text-white shadow-md'
-                  : 'text-slate-600 hover:text-amber-500'
+                  : 'text-white/80 hover:text-amber-300 hover:bg-white/10'
               }`}
             >
               {dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusFilter === value ? 'white' : dot }} />}
@@ -219,13 +219,13 @@ export default function AppSidebar({
         {/* STAFF Section */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-black text-slate-700">スタッフ</span>
+            <span className="text-xs font-black text-white">スタッフ</span>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">STAFF</span>
+              <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">STAFF</span>
               {canEditEvent && (
                 <button
                   onClick={onAddStaff}
-                  className="p-1 hover:bg-indigo-50 rounded text-indigo-400 hover:text-indigo-600 transition-colors"
+                  className="p-1 hover:bg-white/10 rounded text-indigo-300 hover:text-white transition-colors"
                 >
                   <Plus size={12} />
                 </button>
@@ -234,18 +234,18 @@ export default function AppSidebar({
           </div>
           <div className="flex flex-col gap-0.5">
             {staffList.length === 0 && (
-              <p className="px-3 py-2 text-xs text-slate-400">スタッフ未登録</p>
+              <p className="px-3 py-2 text-xs text-white/50">スタッフ未登録</p>
             )}
             {sortedStaff
               .slice(0, staffExpanded ? undefined : STAFF_SHOW_COUNT)
               .map((staff) => (
               <div key={staff.id} className="group relative flex items-center">
-                <div className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 min-w-0">
+                <div className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg text-white/80 min-w-0">
                   <span className="text-sm shrink-0">👤</span>
                   <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-bold font-sans">{staff.name}</span>
+                    <span className="text-xs font-bold font-sans text-white/90">{staff.name}</span>
                     {staff.email && (
-                      <span className="text-[10px] text-slate-400 truncate">{staff.email}</span>
+                      <span className="text-[10px] text-white/50 truncate">{staff.email}</span>
                     )}
                   </div>
                 </div>
@@ -254,7 +254,7 @@ export default function AppSidebar({
                     <button
                       type="button"
                       onClick={() => onEditStaffEmail(staff)}
-                      className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all"
+                      className="w-5 h-5 flex items-center justify-center rounded text-white/50 hover:text-indigo-300 hover:bg-white/10 transition-all"
                       aria-label={`${staff.name}のGmailアドレスを設定`}
                     >
                       <Mail size={11} />
@@ -262,7 +262,7 @@ export default function AppSidebar({
                     <button
                       type="button"
                       onClick={() => onDeleteStaff(staff)}
-                      className="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                      className="w-5 h-5 flex items-center justify-center rounded text-white/50 hover:text-red-400 hover:bg-white/10 transition-all"
                       aria-label={`${staff.name}を削除`}
                     >
                       <X size={12} />
@@ -275,7 +275,7 @@ export default function AppSidebar({
               <button
                 type="button"
                 onClick={() => setStaffExpanded(prev => !prev)}
-                className="mx-3 mt-1 py-1.5 text-[10px] font-bold text-indigo-400 hover:text-indigo-600 transition-colors text-left"
+                className="mx-3 mt-1 py-1.5 text-[10px] font-bold text-indigo-300 hover:text-white transition-colors text-left"
               >
                 {staffExpanded
                   ? '▲ 閉じる'
