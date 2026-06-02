@@ -5,7 +5,7 @@ import { collection, collectionGroup, onSnapshot, doc, setDoc, updateDoc, delete
 import { DATA } from './constants';
 import { Event, PreparationItem, EventStatus, type StaffMember } from './types';
 import { fmtDateJP, fmtDateRange, daysUntil, ts, buildEventOptionalCaption, buildMonthGridCells, type ValidationError, validateEvent } from './lib/eventHelpers';
-import { Calendar, Menu, X, ChevronRight, ClipboardList, Plus, Search, LogOut, Archive, Home, Package, Fish, LayoutGrid } from 'lucide-react';
+import { Calendar, Menu, X, ChevronRight, ClipboardList, Plus, Search, LogOut, Archive, Home, Package, Fish, LayoutGrid, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, animate as motionAnimate } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
@@ -24,6 +24,7 @@ import LayoutView, { LayoutPublicView } from './components/LayoutView';
 import { checkUserAllowed } from './lib/allowedUsers';
 import { CalendarView, HoverCard, EmptyState, MobileTimelineView, MobileWeekStrip, MobileDayAgendaView } from './components/CalendarComponents';
 import EventDetailModal from './components/EventDetailModal';
+import HelpModal from './components/HelpModal';
 import AppSidebar from './components/AppSidebar';
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout";
@@ -160,6 +161,7 @@ export default function App() {
   const [mobileWeekRowIndex, setMobileWeekRowIndex] = useState(0);
   const [mobileAgendaDay, setMobileAgendaDay] = useState(() => new Date().getDate());
   const [sideOpen, setSideOpen] = useState(true);
+  const [showHelp, setShowHelp] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [prepEvent, setPrepEvent] = useState<Event | null>(null);
   const [modalTab, setModalTab] = useState<ModalTab>('detail');
@@ -1230,6 +1232,13 @@ VITE_FIREBASE_DATABASE_ID`}
           )}
 
           <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setShowHelp(true)}
+              className="p-1.5 rounded-lg text-white/70 hover:bg-white/15 hover:text-white transition-colors"
+              title="使い方"
+            >
+              <HelpCircle size={16} />
+            </button>
             {user.photoURL ? (
               <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-white/50" />
             ) : (
@@ -1243,6 +1252,8 @@ VITE_FIREBASE_DATABASE_ID`}
           </div>
         </div>
       </header>
+
+      <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
 
       {/* 初期データ移行バナー（編集者のみ・未移行時） */}
       {canEditEvent && !eventsMigrated && (
