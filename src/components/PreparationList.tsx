@@ -205,8 +205,8 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
 
   return (
     <>
-    <div className="fixed inset-0 bg-cover bg-center print:hidden" style={{ backgroundImage: `url('${PREP_BG}')` }} />
-    <div className="fixed inset-0 print:hidden" style={{ background: "linear-gradient(to bottom, rgba(15,23,42,0.25) 0%, rgba(15,23,42,0.55) 100%)" }} />
+    <div className="fixed lg:absolute inset-0 bg-cover bg-center print:hidden" style={{ backgroundImage: `url('${PREP_BG}')` }} />
+    <div className="fixed lg:absolute inset-0 print:hidden" style={{ background: "linear-gradient(to bottom, rgba(15,23,42,0.25) 0%, rgba(15,23,42,0.55) 100%)" }} />
     <div
       id="prep-print-area"
       data-print-title={`${event.venue}　準備物リスト　${event.start}〜${event.end}`}

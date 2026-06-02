@@ -276,7 +276,7 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
       <div className="layout-outer flex flex-1 min-h-0 flex-col sm:flex-row overflow-hidden">
         {/* Palette */}
         {canEdit && (
-          <div className="layout-palette shrink-0 border-b sm:border-b-0 sm:border-r border-white/10 bg-slate-800/60 p-3 flex flex-row sm:flex-col gap-2 overflow-x-auto sm:overflow-y-auto sm:w-[88px]">
+          <div className="layout-palette shrink-0 border-b sm:border-b-0 sm:border-r border-white/10 bg-slate-800/60 p-3 flex flex-row sm:flex-col gap-2 overflow-x-auto sm:overflow-y-auto sm:w-[108px]">
             <div className="text-[9px] font-black text-white/30 uppercase tracking-widest shrink-0 self-center sm:self-auto hidden sm:block mb-1">追加</div>
             {Object.entries(CATALOG).map(([type, def]) => (
               <button
@@ -298,7 +298,7 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
           {/* Canvas */}
           <div
             ref={canvasRef}
-            className="relative rounded-2xl overflow-hidden w-full"
+            className="relative rounded-2xl overflow-hidden w-full max-w-[960px] mx-auto shadow-2xl"
             style={{
               aspectRatio: '4/3',
               backgroundImage: 'radial-gradient(circle, #334155 1px, transparent 1px)',
