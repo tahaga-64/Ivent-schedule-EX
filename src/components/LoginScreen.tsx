@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { loginWithGoogle, loginWithApple, loginWithEmail } from '../lib/firebase';
 import EXLogo from './EXLogo';
+import HelpModal from './HelpModal';
+import { HelpCircle } from 'lucide-react';
 
 const container = {
   hidden: {},
@@ -27,6 +29,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   const handleSocialLogin = async (provider: 'google' | 'apple') => {
     setLoading(provider);
@@ -180,7 +183,18 @@ export default function LoginScreen() {
         <motion.p variants={item} className="text-[11px] text-white/40 mt-6">
           許可されたアカウントのみアクセス可能です
         </motion.p>
+        <motion.button
+          variants={item}
+          type="button"
+          onClick={() => setShowHelp(true)}
+          className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-bold text-white/70 hover:text-white underline underline-offset-2 transition-colors"
+        >
+          <HelpCircle size={13} />
+          使い方ガイドを見る
+        </motion.button>
       </motion.div>
+
+      <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
     </div>
   );
 }
