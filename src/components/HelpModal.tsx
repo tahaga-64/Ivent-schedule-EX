@@ -45,14 +45,14 @@ export default function HelpModal({ open, onClose }: { open: boolean; onClose: (
             <div className="overflow-y-auto px-5 py-5 space-y-7 text-sm text-slate-700 leading-relaxed">
               <Section title="1. ログイン">
                 <p>ブラウザ（スマホは Safari か Chrome）でアプリのURLを開き、<b>Google / Apple / メール</b>のいずれかでログインします。</p>
-                <Callout>「アクセス権限がありません」と出たら未登録です。画面の「管理者に連絡する」から、ログインに使ったメールを添えて連絡してください。</Callout>
+                <Callout>「アクセス権限がありません」と出たら未登録です。開発者に聞くか、画面の「管理者に連絡する」から、ログインに使ったメールを添えて連絡してください。青木が直接答えます</Callout>
               </Section>
 
               <Section title="2. ホーム画面に追加">
                 <p className="font-bold text-slate-800">iPhone（Safari）</p>
                 <ol className="list-decimal pl-5 space-y-0.5">
                   <li>共有ボタン（□から↑）をタップ</li>
-                  <li>「ホーム画面に追加」→「追加」</li>
+                  <li>「ホーム画面に追加」→OK</li>
                 </ol>
                 <p className="font-bold text-slate-800 mt-2">Android（Chrome）</p>
                 <ol className="list-decimal pl-5 space-y-0.5">
@@ -73,7 +73,7 @@ export default function HelpModal({ open, onClose }: { open: boolean; onClose: (
 
               <Section title="4. 準備物リスト">
                 <ul className="list-disc pl-5 space-y-0.5">
-                  <li>「新しい項目を追加」で品名・数量・単価などを入力（金額は自動計算）</li>
+                  <li>「新しい項目を追加」で品名・数量・単価などを入力（金額は自動計算されます）</li>
                   <li>到着 / 準備完了 をチェックで進捗管理</li>
                   <li>印刷・Excel出力・商談提案PDF・LINE共有が可能</li>
                 </ul>
@@ -88,7 +88,7 @@ export default function HelpModal({ open, onClose }: { open: boolean; onClose: (
                 <ul className="list-disc pl-5 space-y-0.5">
                   <li>左のパレットから什器をタップで配置、ドラッグで移動、選択で回転・サイズ変更</li>
                   <li>「＋カスタム」で独自アイテム（名前・色）を追加</li>
-                  <li>「写真」で参考写真を添付、「URL共有」でクライアントに共有（閲覧のみ）</li>
+                  <li>「写真」で参考写真を添付、「URL共有」でクライアントに共有できます</li>
                   <li>スマホは横向きにすると編集エリアが広がります</li>
                 </ul>
               </Section>
@@ -102,7 +102,7 @@ export default function HelpModal({ open, onClose }: { open: boolean; onClose: (
                 <Callout>スマホでイベント本体を編集できないのは仕様（誤操作防止）。準備物・写真はスマホでも編集できます。</Callout>
               </Section>
 
-              <Section title="8. よくある質問">
+              <Section title="8. 想定される質問について">
                 <InfoTable rows={[
                   ['ログインで弾かれる', '未登録です。管理者にメール登録を依頼'],
                   ['準備物のチェックは保存される？', '自動保存。「✓ 自動保存済み」を確認'],
