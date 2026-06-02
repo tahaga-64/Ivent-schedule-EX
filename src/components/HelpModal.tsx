@@ -30,7 +30,7 @@ export default function HelpModal({ open, onClose }: { open: boolean; onClose: (
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
               <div>
                 <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">HELP</div>
-                <h2 className="text-base font-black text-slate-900">📱 使い方ガイド</h2>
+                <h2 className="text-base font-black text-slate-900">使い方ガイド</h2>
               </div>
               <button
                 onClick={onClose}
@@ -48,7 +48,7 @@ export default function HelpModal({ open, onClose }: { open: boolean; onClose: (
                 <Callout>「アクセス権限がありません」と出たら未登録です。画面の「管理者に連絡する」から、ログインに使ったメールを添えて連絡してください。</Callout>
               </Section>
 
-              <Section title="2. ホーム画面に追加（おすすめ）">
+              <Section title="2. ホーム画面に追加">
                 <p className="font-bold text-slate-800">iPhone（Safari）</p>
                 <ol className="list-decimal pl-5 space-y-0.5">
                   <li>共有ボタン（□から↑）をタップ</li>
@@ -62,34 +62,34 @@ export default function HelpModal({ open, onClose }: { open: boolean; onClose: (
 
               <Section title="3. 画面の使い方">
                 <InfoTable rows={[
-                  ['🏠 ホーム', '直近・開催中・期限が近いイベントを確認'],
-                  ['📅 カレンダー', '月/日でイベント一覧。会場・クライアントで検索可'],
-                  ['📋 準備物リスト', 'イベントごとの持ち物・備品をチェック管理'],
-                  ['🗄️ アーカイブ', '終了イベントの記録'],
-                  ['📦 備品マスター', 'よく使う備品のひな型'],
-                  ['🐟 魚リスト / 🗺️ レイアウト', '水族館イベントの魚・会場レイアウト'],
+                  ['ホーム', '直近・開催中・期限が近いイベントを確認'],
+                  ['カレンダー', '月/日でイベント一覧。会場・クライアントで検索可'],
+                  ['準備物リスト', 'イベントごとの持ち物・備品をチェック管理'],
+                  ['アーカイブ', '終了イベントの記録'],
+                  ['備品マスター', 'よく使う備品のひな型'],
+                  ['魚リスト / レイアウト', '水族館イベントの魚・会場レイアウト'],
                 ]} />
               </Section>
 
-              <Section title="4. 準備物リスト（全員編集可）">
+              <Section title="4. 準備物リスト">
                 <ul className="list-disc pl-5 space-y-0.5">
                   <li>「新しい項目を追加」で品名・数量・単価などを入力（金額は自動計算）</li>
                   <li>到着 / 準備完了 をチェックで進捗管理</li>
                   <li>印刷・Excel出力・商談提案PDF・LINE共有が可能</li>
                 </ul>
-                <Callout tone="emerald">✨ 自動保存です（「保存」ボタン不要）。上部の「✓ 自動保存済み」を確認すればOK。</Callout>
+                <Callout tone="emerald">自動保存です（「保存」ボタン不要）。上部の「✓ 自動保存済み」を確認すればOK。</Callout>
               </Section>
 
-              <Section title="5. 写真（全員編集可）">
+              <Section title="5. 写真">
                 <p>イベント詳細の「写真」タブから、1イベント最大5枚・1枚10MBまでアップロードできます。上がらないときはサイズ・画像形式を確認してください。</p>
               </Section>
 
-              <Section title="6. レイアウト（フロアプラン）">
+              <Section title="6. レイアウト">
                 <ul className="list-disc pl-5 space-y-0.5">
                   <li>左のパレットから什器をタップで配置、ドラッグで移動、選択で回転・サイズ変更</li>
                   <li>「＋カスタム」で独自アイテム（名前・色）を追加</li>
                   <li>「写真」で参考写真を添付、「URL共有」でクライアントに共有（閲覧のみ）</li>
-                  <li>📱 スマホは横向きにすると編集エリアが広がります</li>
+                  <li>スマホは横向きにすると編集エリアが広がります</li>
                 </ul>
               </Section>
 
@@ -117,7 +117,7 @@ export default function HelpModal({ open, onClose }: { open: boolean; onClose: (
                   href={`mailto:${SUPPORT_EMAIL}?subject=イベント管理アプリ お問い合わせ`}
                   className="inline-block mt-1 font-bold text-indigo-600 hover:text-indigo-700 underline underline-offset-2"
                 >
-                  📧 管理者（{SUPPORT_EMAIL}）に連絡
+                  管理者（{SUPPORT_EMAIL}）に連絡
                 </a>
               </Section>
             </div>
