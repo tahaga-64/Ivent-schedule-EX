@@ -60,7 +60,7 @@ export default function AppSidebar({
   return (
     <aside
       className="w-72 flex flex-col flex-shrink-0 backdrop-blur-lg border-r border-white/10 overflow-y-auto hidden lg:flex"
-      style={{ background: 'linear-gradient(to bottom, rgba(15,23,42,0.50) 0%, rgba(15,23,42,0.28) 100%)' }}
+      style={{ background: 'linear-gradient(to bottom, rgba(15,23,42,0.40) 0%, rgba(15,23,42,0.18) 100%)', textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}
     >
       <div className="p-6 space-y-8">
         {/* TODAY Section */}
