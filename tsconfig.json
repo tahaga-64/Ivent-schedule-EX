@@ -23,11 +23,5 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  },
-  "additionalOptions": {
-   "plugins": [
-      {
-        "name": "typescript-plugin-css-modules"      }
-   ]
   }
 }
