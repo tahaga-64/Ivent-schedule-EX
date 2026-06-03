@@ -117,17 +117,6 @@ const CALENDAR_BG = "https://images.unsplash.com/photo-1506784983877-45594efa4cb
 const PREP_BG    = "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1920&q=80";
 
 // ビューごとの背景 — transform 内部では position:fixed が効かないため App ルートで一元管理
-const SHARED_BG = '/mercury-office.jpg';
-const SHARED_OVERLAY = 'linear-gradient(to bottom,rgba(15,23,42,.30) 0%,rgba(15,23,42,.55) 45%,rgba(15,23,42,.82) 100%)';
-const VIEW_BG: Record<string, { image?: string; overlay: string }> = {
-  home:     { image: SHARED_BG, overlay: SHARED_OVERLAY },
-  calendar: { image: SHARED_BG, overlay: SHARED_OVERLAY },
-  prep:     { image: SHARED_BG, overlay: SHARED_OVERLAY },
-  archive:  { image: SHARED_BG, overlay: SHARED_OVERLAY },
-  master:   { image: SHARED_BG, overlay: SHARED_OVERLAY },
-  fish:     { image: SHARED_BG, overlay: SHARED_OVERLAY },
-  layout:   { image: SHARED_BG, overlay: SHARED_OVERLAY },
-};
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -1128,17 +1117,12 @@ VITE_FIREBASE_DATABASE_ID`}
     </>
   );
 
-  const activeBg = VIEW_BG[view] ?? VIEW_BG.home;
-  const rootBgStyle: React.CSSProperties = activeBg.image
-    ? {
-        backgroundImage: `${activeBg.overlay}, url('${activeBg.image}')`,
-        backgroundSize: 'auto, cover',
-        backgroundPosition: '0 0, center',
-        backgroundAttachment: 'fixed',
-      }
-    : { background: activeBg.overlay };
   return (
-    <div className="flex flex-col min-h-screen transition-colors duration-500" style={rootBgStyle}>
+    <div className="relative isolate flex flex-col min-h-screen">
+      <div className="absolute inset-0 -z-10 bg-cover bg-center print:hidden"
+        style={{ backgroundImage: "url('/mercury-office.jpg')" }} />
+      <div className="absolute inset-0 -z-10 print:hidden"
+        style={{ background: 'linear-gradient(to bottom,rgba(15,23,42,.30) 0%,rgba(15,23,42,.55) 45%,rgba(15,23,42,.82) 100%)' }} />
 
       {/* ページ切替ローディングバー */}
       <AnimatePresence>
