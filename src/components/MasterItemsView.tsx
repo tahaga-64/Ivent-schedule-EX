@@ -123,18 +123,18 @@ export default function MasterItemsView({ canEdit }: Props) {
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="font-black text-sm text-slate-800 leading-snug">{item.name}</div>
                   {canEdit && (
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
                       <button
                         onClick={() => openEdit(item)}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-400 hover:text-slate-700 transition-colors"
+                        className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-400 hover:text-slate-700 transition-colors"
                       >
-                        <Pencil size={13} />
+                        <Pencil size={14} />
                       </button>
                       <button
                         onClick={() => handleDelete(item)}
-                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950 text-slate-400 hover:text-red-500 transition-colors"
+                        className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950 text-slate-400 hover:text-red-500 transition-colors"
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   )}
@@ -171,7 +171,7 @@ export default function MasterItemsView({ canEdit }: Props) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 40 }}
               transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="relative w-full sm:max-w-md bg-[var(--surface)] rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 z-10"
+              className="relative w-full sm:max-w-md bg-[var(--surface)] rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 z-10 max-h-[90dvh] overflow-y-auto"
             >
               <h3 className="text-base font-black text-[var(--text-primary)] mb-4">
                 {editing ? 'アイテムを編集' : '新しいアイテムを追加'}
