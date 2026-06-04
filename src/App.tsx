@@ -1145,7 +1145,8 @@ VITE_FIREBASE_DATABASE_ID`}
         )}
       </AnimatePresence>
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 bg-transparent border-b border-white/15 sticky top-0 z-30 gap-2 sm:gap-4">
+      <header className="sticky top-0 z-30 bg-transparent border-b border-white/15" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <div className="h-14 flex items-center justify-between px-4 gap-2 sm:gap-4">
         {/* 左: ハンバーガー + ロゴ */}
         <div className="flex items-center gap-2.5 shrink-0">
           <button onClick={() => setSideOpen(v => !v)} className="p-1.5 rounded-lg text-white/80 hover:bg-white/15 transition-colors">
@@ -1235,6 +1236,7 @@ VITE_FIREBASE_DATABASE_ID`}
             </button>
           </div>
         </div>
+      </div>
       </header>
 
       <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
@@ -1397,8 +1399,8 @@ VITE_FIREBASE_DATABASE_ID`}
                 {MOBILE_VIEWS.map(v => (
                   <div
                     key={v}
-                    className="h-full overflow-y-auto p-4 pb-24"
-                    style={{ width: '100vw' }}
+                    className="h-full overflow-y-auto p-4"
+                    style={{ width: '100vw', paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
                   >
                     {renderView(v)}
                   </div>
@@ -1557,7 +1559,7 @@ VITE_FIREBASE_DATABASE_ID`}
       )}
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 border-t border-white/15 flex items-center justify-around pb-safe z-20 lg:hidden" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.80) 100%)" }}>
+      <nav className="fixed bottom-0 left-0 right-0 border-t border-white/15 flex items-center justify-around pb-[env(safe-area-inset-bottom)] z-20 lg:hidden" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.80) 100%)" }}>
         {(
           [
             { id: "home",     icon: <Home size={20} />,           label: "ホーム" },
