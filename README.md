@@ -1,4 +1,4 @@
-# EX Event Manager（Ivent Manager）
+# EX Event Manager
 
 > EX事業部向けのイベント管理 Web アプリ。スプレッドシート運用を脱却し、**リアルタイム共有・モバイル対応・PWA** を備えたサーバーレス SPA。
 > イベントの日程／準備物／担当者／写真／会場レイアウトを一元管理します。
