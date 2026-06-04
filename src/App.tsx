@@ -116,7 +116,43 @@ function buildCalendarDensityPreviewEvents(
 const CALENDAR_BG = "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=1920&q=80";
 const PREP_BG    = "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1920&q=80";
 
-// ビューごとの背景 — transform 内部では position:fixed が効かないため App ルートで一元管理
+
+function InventoryAppBanner() {
+  const ready = INVENTORY_APP_URL.length > 0;
+  return (
+    <div className="mt-10 mb-6">
+      <div className="relative overflow-hidden rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/50 px-6 py-5 flex items-center gap-4">
+        <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl shrink-0">📦</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-sm font-black text-slate-700">イベント在庫管理</span>
+            {!ready && (
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 uppercase tracking-wide">新機能実装予定</span>
+            )}
+          </div>
+          <p className="text-xs text-slate-400">備品・消耗品の在庫をリアルタイムで管理できる機能を開発中です</p>
+        </div>
+        {ready ? (
+          <a
+            href={INVENTORY_APP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black transition-colors"
+          >
+            開く
+          </a>
+        ) : (
+          <button
+            disabled
+            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-100 text-indigo-300 text-xs font-black cursor-not-allowed"
+          >
+            開く
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
