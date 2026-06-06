@@ -993,7 +993,7 @@ VITE_FIREBASE_DATABASE_ID`}
           events={allEvents}
           prepProgressMap={prepProgressMap}
           onSelectEvent={handleEventSelect}
-          onNavigateToPrepList={() => setView('prep')}
+          onSelectPrepEvent={(ev) => { setPrepEvent(ev); setView('prep'); }}
           onCreateEvent={() => handleCreateEvent()}
           onOpenSchedule={() => window.open('https://ex-2026-04-802549538762.us-west1.run.app', '_blank', 'noopener,noreferrer')}
         />
