@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { ChevronRight, ClipboardList, Plus, CalendarDays, BookOpen } from 'lucide-react';
+import { ChevronRight, ClipboardList, Plus, CalendarDays, BookOpen, ExternalLink, MessageCircle, Clock, GraduationCap } from 'lucide-react';
 import type { Event } from '../types';
 import { rs, ts } from '../lib/eventHelpers';
 import OperationsManualModal from './OperationsManualModal';
@@ -268,6 +268,49 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
             <BookOpen size={18} className="text-white/80 shrink-0" />
             編集スタッフ 運用手順書
           </button>
+        </div>
+
+        {/* マーキュリー サービス */}
+        <div className="mt-2 flex flex-col gap-2">
+          <div className="text-[11px] font-black text-white/70 uppercase tracking-widest mb-1">マーキュリー サービス</div>
+          {([
+            {
+              label: 'TranChat',
+              sub: '社内連絡ツール',
+              href: 'https://tranchat1.mercury-group.co.jp/chat2_fed/public/index.html',
+              icon: <MessageCircle size={18} className="text-sky-400 shrink-0" />,
+              accent: 'border-sky-400/30',
+            },
+            {
+              label: 'Chronus',
+              sub: '退勤システム',
+              href: 'https://chronus.mercury-group.co.jp/index.html',
+              icon: <Clock size={18} className="text-emerald-400 shrink-0" />,
+              accent: 'border-emerald-400/30',
+            },
+            {
+              label: 'マーキュリーアカデミア',
+              sub: '研修・学習',
+              href: 'https://www.haken-school.com/mercury-academia/top/',
+              icon: <GraduationCap size={18} className="text-violet-400 shrink-0" />,
+              accent: 'border-violet-400/30',
+            },
+          ] as const).map(svc => (
+            <a
+              key={svc.label}
+              href={svc.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center gap-3 bg-white/10 border backdrop-blur-sm text-white rounded-2xl px-5 py-3.5 hover:bg-white/20 active:scale-[0.98] transition-all ${svc.accent}`}
+            >
+              {svc.icon}
+              <div className="flex-1 min-w-0">
+                <div className="font-black text-sm leading-tight">{svc.label}</div>
+                <div className="text-[11px] text-white/50 font-medium">{svc.sub}</div>
+              </div>
+              <ExternalLink size={14} className="text-white/30 shrink-0" />
+            </a>
+          ))}
         </div>
       </div>
 
