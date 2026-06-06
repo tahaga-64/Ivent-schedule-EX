@@ -86,7 +86,7 @@ export function MobileWeekStrip({ events }: MobileWeekStripProps) {
     d.setDate(startOfWeek.getDate() + i);
     return d;
   });
-  const dayLabels = ["S", "M", "T", "W", "T", "F", "S"];
+  const dayLabels = DAYS_JP;
 
   return (
     <div className="flex justify-between px-1 mb-2">
@@ -453,9 +453,9 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
           gridTemplateRows: `auto repeat(${weekRows}, minmax(0, 1fr))`,
         }}
       >
-        {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d, i) => (
+        {DAYS_JP.map((d, i) => (
           <div key={d} className="border-r border-b border-slate-100 bg-slate-50/10 py-2 px-3">
-            <span className={`text-[9px] font-black uppercase tracking-widest ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-slate-400"}`}>{d}</span>
+            <span className={`text-[9px] font-black tracking-widest ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-slate-400"}`}>{d}</span>
           </div>
         ))}
 
