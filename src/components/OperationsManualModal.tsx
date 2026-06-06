@@ -14,7 +14,7 @@ interface Section {
   content: React.ReactNode;
 }
 
-function Accordion({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
+function Accordion({ title, children }: { title: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border border-slate-200 rounded-2xl overflow-hidden">
@@ -22,7 +22,6 @@ function Accordion({ title, icon, children }: { title: string; icon: string; chi
         onClick={() => setOpen(v => !v)}
         className="w-full flex items-center gap-3 px-5 py-4 bg-white hover:bg-slate-50 transition-colors text-left"
       >
-        <span className="text-lg">{icon}</span>
         <span className="flex-1 font-black text-sm text-slate-800">{title}</span>
         {open ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
       </button>
@@ -106,7 +105,7 @@ export default function OperationsManualModal({ open, onClose }: Props) {
             <div className="overflow-y-auto px-6 py-5 space-y-3">
 
               {/* 権限 */}
-              <Accordion icon="🔑" title="権限について（誰が何をできるか）">
+              <Accordion title="権限について（誰が何をできるか）">
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   {[
                     { label: 'イベント作成・編集・削除', who: '編集スタッフ（PC のみ）' },
@@ -126,7 +125,7 @@ export default function OperationsManualModal({ open, onClose }: Props) {
               </Accordion>
 
               {/* イベント作成 */}
-              <Accordion icon="📅" title="イベントを新規作成する">
+              <Accordion title="イベントを新規作成する">
                 <Step n={1} text="画面右上の「＋ 新規イベント」ボタンをクリック" />
                 <Step n={2} text="モーダルが開くので「会場名」「開始日」「種別」「地域」を入力（必須項目）" />
                 <Step n={3} text="担当スタッフ・クライアント名・備考などを入力（任意）" />
@@ -135,7 +134,7 @@ export default function OperationsManualModal({ open, onClose }: Props) {
               </Accordion>
 
               {/* イベント編集 */}
-              <Accordion icon="✏️" title="イベントを編集する">
+              <Accordion title="イベントを編集する">
                 <Step n={1} text="ホーム・カレンダー・カンバンのいずれかからイベントカードをクリック" />
                 <Step n={2} text="詳細モーダルが開く。「詳細」タブで各項目を編集" />
                 <Step n={3} text="編集後「保存」ボタンをクリック（保存前は * マークが表示される）" />
@@ -143,7 +142,7 @@ export default function OperationsManualModal({ open, onClose }: Props) {
               </Accordion>
 
               {/* ステータス変更 */}
-              <Accordion icon="🔄" title="ステータスを変更する">
+              <Accordion title="ステータスを変更する">
                 <div className="space-y-1.5">
                   {[
                     { s: '予定', c: 'bg-slate-100 text-slate-600', desc: 'イベントが登録された初期状態' },
@@ -163,7 +162,7 @@ export default function OperationsManualModal({ open, onClose }: Props) {
               </Accordion>
 
               {/* 準備物リスト */}
-              <Accordion icon="📋" title="準備物リストを使う">
+              <Accordion title="準備物リストを使う">
                 <Step n={1} text="ナビゲーションの「準備物」をクリック → イベントを選択" />
                 <Step n={2} text="「＋ 備品を追加」でアイテムを追加。備品マスターから選択するか手動入力" />
                 <Step n={3} text="持参済みのアイテムはチェックボックスをクリックして完了マーク" />
@@ -173,7 +172,7 @@ export default function OperationsManualModal({ open, onClose }: Props) {
               </Accordion>
 
               {/* 写真 */}
-              <Accordion icon="📸" title="写真をアップロードする">
+              <Accordion title="写真をアップロードする">
                 <Step n={1} text="イベント詳細モーダルを開き「写真」タブを選択" />
                 <Step n={2} text="「写真を追加」ボタンまたは画像をドラッグ＆ドロップでアップロード" />
                 <Step n={3} text="アップロード後、キャプションを入力可能" />
@@ -181,7 +180,7 @@ export default function OperationsManualModal({ open, onClose }: Props) {
               </Accordion>
 
               {/* 魚リスト */}
-              <Accordion icon="🐟" title="魚リストを管理する">
+              <Accordion title="魚リストを管理する">
                 <Step n={1} text="下部ナビの「魚リスト」をクリックしてイベントを選択" />
                 <Step n={2} text="「＋ 魚を追加」で種類・数・金額・メモを入力" />
                 <Step n={3} text="リスト下部に合計金額が自動表示される" />
@@ -189,7 +188,7 @@ export default function OperationsManualModal({ open, onClose }: Props) {
               </Accordion>
 
               {/* レイアウト */}
-              <Accordion icon="🗺️" title="フロアレイアウトを作成する">
+              <Accordion title="フロアレイアウトを作成する">
                 <Step n={1} text="ナビの「レイアウト」でイベントを選択" />
                 <Step n={2} text="左パレットからアイテム（テーブル・タッチパネル・入口など）を選んでキャンバスに配置" />
                 <Step n={3} text="配置後、アイテムをドラッグで移動・コーナーをドラッグでリサイズ" />
@@ -198,7 +197,7 @@ export default function OperationsManualModal({ open, onClose }: Props) {
               </Accordion>
 
               {/* 備品マスター */}
-              <Accordion icon="📦" title="備品マスターを管理する">
+              <Accordion title="備品マスターを管理する">
                 <Step n={1} text="ナビの「備品」をクリック" />
                 <Step n={2} text="「追加」ボタンから品名・単価・デフォルト数量・メモ・購入URLを登録" />
                 <Step n={3} text="登録済みアイテムは準備物リストで選択候補として使えるようになる" />
@@ -206,7 +205,7 @@ export default function OperationsManualModal({ open, onClose }: Props) {
               </Accordion>
 
               {/* トラブル */}
-              <Accordion icon="🛠️" title="よくあるトラブル">
+              <Accordion title="よくあるトラブル">
                 <div className="space-y-3">
                   <div>
                     <div className="font-bold text-slate-700 mb-1">保存ボタンを押しても反応しない</div>
