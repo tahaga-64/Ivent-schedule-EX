@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronRight, BookOpen, ExternalLink, X } from 'lucide-react';
 import type { Event } from '../types';
@@ -12,6 +13,7 @@ interface Props {
   onSelectPrepEvent: (event: Event) => void;
   onCreateEvent: () => void;
   onOpenSchedule: () => void;
+  canEditEvent: boolean;
 }
 
 function effectivePast(ev: Event, today: string): boolean {
@@ -118,10 +120,17 @@ function SectionEmpty({ label }: { label: string }) {
   );
 }
 
-export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule }: Props) {
+export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, canEditEvent }: Props) {
   const [showOpsManual, setShowOpsManual] = useState(false);
   const [showEventPicker, setShowEventPicker] = useState(false);
+  const [showPermissionToast, setShowPermissionToast] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
+
+  useEffect(() => {
+    if (!showPermissionToast) return;
+    const t = setTimeout(() => setShowPermissionToast(false), 2500);
+    return () => clearTimeout(t);
+  }, [showPermissionToast]);
   const in7  = addDays(today, 7);
 
   const { todayEvents, upcomingWeek } = useMemo(() => {
@@ -263,7 +272,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
           </button>
 
           <button
-            onClick={onCreateEvent}
+            onClick={() => { if (canEditEvent) { onCreateEvent(); } else { setShowPermissionToast(true); } }}
             className="flex items-center gap-3 bg-white text-slate-800 rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/90 active:scale-[0.98] transition-all shadow-lg"
           >
             新規イベントを追加する
@@ -313,7 +322,8 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
       <OperationsManualModal open={showOpsManual} onClose={() => setShowOpsManual(false)} />
 
-      {/* Event Picker Bottom Sheet */}
+      {/* Event Picker Bottom Sheet — portal to escape carousel transform */}
+      {createPortal(
       <AnimatePresence>
         {showEventPicker && (
           <>
@@ -406,6 +416,26 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
           </>
         )}
       </AnimatePresence>
+      , document.body)}
+
+      {/* Permission toast — portal to escape carousel transform */}
+      {createPortal(
+      <AnimatePresence>
+        {showPermissionToast && (
+          <motion.div
+            className="fixed bottom-24 inset-x-0 z-[200] flex justify-center pointer-events-none"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.18 }}
+          >
+            <div className="bg-slate-900 text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-xl">
+              権限がありません
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      , document.body)}
     </div>
   );
 }
