@@ -22,12 +22,12 @@ function effectivePast(ev: Event, today: string): boolean {
 }
 
 function statusPill(status: string | undefined, isPast: boolean): { label: string; cls: string } | null {
-  if (isPast || status === 'completed') return { label: '完了', cls: 'bg-slate-100 border border-slate-200 text-slate-500' };
+  if (isPast || status === 'completed') return { label: '完了', cls: 'bg-slate-500/20 border border-slate-400/30 text-slate-300' };
   switch (status) {
-    case 'in_progress': return { label: '準備中',    cls: 'bg-amber-50 border border-amber-200 text-amber-700' };
-    case 'waiting':     return { label: '入荷待ち',  cls: 'bg-sky-50 border border-sky-300 text-sky-700' };
-    case 'ready':       return { label: '準備完了',  cls: 'bg-indigo-50 border border-indigo-200 text-indigo-700' };
-    case 'cancelled':   return { label: 'キャンセル',cls: 'bg-red-50 border border-red-200 text-red-600' };
+    case 'in_progress': return { label: '準備中',    cls: 'bg-amber-500/20 border border-amber-400/30 text-amber-300' };
+    case 'waiting':     return { label: '入荷待ち',  cls: 'bg-sky-500/20 border border-sky-400/30 text-sky-300' };
+    case 'ready':       return { label: '準備完了',  cls: 'bg-indigo-500/20 border border-indigo-400/30 text-indigo-300' };
+    case 'cancelled':   return { label: 'キャンセル',cls: 'bg-red-500/20 border border-red-400/30 text-red-300' };
     default:            return null;
   }
 }
@@ -68,8 +68,8 @@ function EventCard({ ev, prog, today, onSelect }: {
   return (
     <motion.button
       onClick={() => onSelect(ev)}
-      whileHover={{ y: -2, boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
-      className="w-full text-left bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all group overflow-hidden border border-slate-100/60"
+      whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}
+      className="w-full text-left bg-white/10 backdrop-blur-sm rounded-2xl transition-all group overflow-hidden border border-white/15"
     >
       <div className="flex items-stretch">
         <div className="w-1 shrink-0" style={{ background: regionColor }} />
@@ -78,7 +78,7 @@ function EventCard({ ev, prog, today, onSelect }: {
             <span className="text-2xl leading-none mt-0.5 shrink-0">{emoji}</span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                <span className="text-base font-black text-slate-800 truncate">{ev.venue}</span>
+                <span className="text-base font-black text-white truncate">{ev.venue}</span>
                 {st && (
                   <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black ${st.cls}`}>{st.label}</span>
                 )}
@@ -86,25 +86,25 @@ function EventCard({ ev, prog, today, onSelect }: {
                   <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-500 text-white">今日</span>
                 )}
                 {!past && days > 0 && days <= 3 && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-700">{days}日後</span>
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/80 text-white">{days}日後</span>
                 )}
               </div>
-              <div className="text-xs text-slate-400 font-mono">
+              <div className="text-xs text-white/50 font-mono">
                 {fmtRange(ev.start, ev.end)}{ev.client ? ` · ${ev.client}` : ''}{ev.region ? ` · ${ev.region}` : ''}
               </div>
               {pct >= 0 && (
                 <div className="flex items-center gap-2 mt-2">
-                  <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : pct >= 70 ? 'bg-indigo-500' : 'bg-amber-400'}`}
+                      className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-indigo-400' : 'bg-amber-400'}`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <span className="text-[10px] text-slate-400 font-mono shrink-0">{prog!.done}/{prog!.total}</span>
+                  <span className="text-[10px] text-white/40 font-mono shrink-0">{prog!.done}/{prog!.total}</span>
                 </div>
               )}
             </div>
-            <ChevronRight size={15} className="text-slate-300 group-hover:text-indigo-400 shrink-0 mt-1 transition-colors" />
+            <ChevronRight size={15} className="text-white/30 group-hover:text-white/70 shrink-0 mt-1 transition-colors" />
           </div>
         </div>
       </div>
@@ -335,34 +335,34 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               onClick={() => setShowEventPicker(false)}
             />
             <motion.div
-              className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl max-h-[80dvh] flex flex-col overflow-hidden"
+              className="fixed inset-x-0 bottom-0 z-50 bg-slate-900/95 backdrop-blur-xl rounded-t-3xl max-h-[80dvh] flex flex-col overflow-hidden border-t border-white/10"
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
               <div className="flex justify-center pt-3 pb-1 shrink-0">
-                <div className="w-9 h-1 bg-slate-200 rounded-full" />
+                <div className="w-9 h-1 bg-white/20 rounded-full" />
               </div>
-              <div className="flex items-center justify-between px-5 pt-2 pb-3 shrink-0 border-b border-slate-100">
+              <div className="flex items-center justify-between px-5 pt-2 pb-3 shrink-0 border-b border-white/10">
                 <div>
-                  <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-0.5">準備物リスト</div>
-                  <h2 className="text-base font-black text-slate-900">どのイベントに追加しますか？</h2>
+                  <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">準備物リスト</div>
+                  <h2 className="text-base font-black text-white">どのイベントに追加しますか？</h2>
                 </div>
                 <button
                   onClick={() => setShowEventPicker(false)}
-                  className="p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-400"
+                  className="p-2 rounded-xl hover:bg-white/10 transition-colors text-white/50"
                 >
                   <X size={18} />
                 </button>
               </div>
               <div className="overflow-y-auto px-4 pt-3 pb-10 space-y-4">
                 {pickerEvents.length === 0 ? (
-                  <div className="py-12 text-center text-sm text-slate-400">進行中のイベントがありません</div>
+                  <div className="py-12 text-center text-sm text-white/40">進行中のイベントがありません</div>
                 ) : (
                   pickerGroups.map(({ month, events: evs }) => (
                     <div key={month}>
-                      <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2">{month}</div>
+                      <div className="text-[11px] font-black text-white/40 uppercase tracking-widest px-1 mb-2">{month}</div>
                       <div className="flex flex-col gap-2">
                         {evs.map(ev => {
                           const s = fmtDateJP(ev.start);
@@ -382,7 +382,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
                             <button
                               key={ev.id}
                               onClick={() => { setShowEventPicker(false); onSelectPrepEvent(ev); }}
-                              className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm flex items-stretch overflow-hidden hover:border-indigo-200 hover:shadow-md active:scale-[0.98] transition-all"
+                              className="w-full text-left bg-white/10 rounded-2xl border border-white/15 flex items-stretch overflow-hidden hover:bg-white/15 active:scale-[0.98] transition-all"
                             >
                               <div
                                 className="flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0"
@@ -394,15 +394,15 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
                               </div>
                               <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
                                 <div className="flex items-center gap-2 mb-0.5">
-                                  <span className="font-bold text-slate-800 text-sm truncate">{ev.venue}</span>
+                                  <span className="font-bold text-white text-sm truncate">{ev.venue}</span>
                                   {urgencyBadge && (
                                     <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full ${urgencyBadge.cls}`}>{urgencyBadge.label}</span>
                                   )}
                                 </div>
-                                <div className="text-xs text-slate-400 truncate">{fmtDateRange(ev.start, ev.end)}</div>
+                                <div className="text-xs text-white/50 truncate">{fmtDateRange(ev.start, ev.end)}</div>
                               </div>
                               <div className="flex items-center pr-3">
-                                <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                                <ChevronRight size={16} className="text-white/30 shrink-0" />
                               </div>
                             </button>
                           );

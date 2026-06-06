@@ -210,7 +210,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
     <div
       id="prep-print-area"
       data-print-title={`${event.venue}　準備物リスト　${event.start}〜${event.end}`}
-      className="relative z-10 flex flex-col h-full bg-white/95"
+      className="relative z-10 flex flex-col h-full bg-transparent"
     >
       {!canEdit && (
         <div className="px-6 py-2.5 bg-slate-100 border-b border-slate-200 text-slate-600 text-[11px] font-bold text-center">
@@ -229,27 +229,27 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         </div>
       )}
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-100 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 bg-white/10 backdrop-blur-sm border-b border-white/10 shrink-0">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500"
+            className="p-2 hover:bg-white/10 rounded-xl transition-colors text-white/70"
           >
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h2 className="text-lg font-black text-gray-900 leading-tight">{event.venue}</h2>
+            <h2 className="text-lg font-black text-white leading-tight">{event.venue}</h2>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[11px] text-gray-400 font-mono">{event.start} → {event.end}</span>
-              <span className="text-gray-300">·</span>
-              <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">PREPARATION LIST</span>
+              <span className="text-[11px] text-white/50 font-mono">{event.start} → {event.end}</span>
+              <span className="text-white/20">·</span>
+              <span className="text-[11px] font-black text-white/40 uppercase tracking-widest">PREPARATION LIST</span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setShowProposal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-violet-50 text-violet-700 hover:bg-violet-100 rounded-xl font-bold text-xs transition-colors print:hidden border border-violet-200"
+            className="flex items-center gap-1.5 px-3 py-2 bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 rounded-xl font-bold text-xs transition-colors print:hidden border border-violet-400/30"
             title="商談提案用PDFを作成"
           >
             <Briefcase size={13} />
@@ -257,7 +257,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
           </button>
           <button
             onClick={() => handleExportExcel(event, items)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl font-bold text-xs transition-colors print:hidden border border-emerald-200"
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded-xl font-bold text-xs transition-colors print:hidden border border-emerald-400/30"
             title="Excelファイルとしてダウンロード"
           >
             <FileSpreadsheet size={13} />
@@ -265,7 +265,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-xs transition-colors print:hidden border border-slate-200"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white/10 text-white/60 hover:bg-white/20 rounded-xl font-bold text-xs transition-colors print:hidden border border-white/20"
             title="印刷"
           >
             <Printer size={13} />
@@ -288,109 +288,109 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         {items.filter(item => canEdit || !isEmptyItem(item)).map((item, idx) => (
           <div
             key={item.id}
-            className={`bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden ${item.prepared ? 'opacity-70' : ''}`}
+            className={`bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl overflow-hidden ${item.prepared ? 'opacity-60' : ''}`}
           >
             {/* Row 1: # + 品名 + delete */}
             <div className="flex items-center gap-2 px-3 pt-3 pb-2">
-              <span className="text-[10px] text-gray-400 font-mono w-5 shrink-0">{idx + 1}</span>
+              <span className="text-[10px] text-white/40 font-mono w-5 shrink-0">{idx + 1}</span>
               <input
                 type="text"
                 readOnly={!canEdit}
                 value={item.name}
                 onChange={e => updateItem(item.id, { name: e.target.value })}
                 placeholder="アイテム名..."
-                className={`flex-1 text-sm font-bold text-gray-800 bg-transparent outline-none read-only:cursor-default ${item.prepared ? 'line-through text-gray-400' : ''}`}
+                className={`flex-1 text-sm font-bold bg-transparent outline-none read-only:cursor-default placeholder:text-white/30 ${item.prepared ? 'line-through text-white/40' : 'text-white'}`}
               />
               <button
                 type="button"
                 onClick={() => removeItem(item.id)}
                 disabled={items.length <= 1 || !canEdit}
                 className={`p-1 shrink-0 transition-colors ${
-                  items.length <= 1 ? 'opacity-0 pointer-events-none' : !canEdit ? 'opacity-30 cursor-not-allowed' : 'text-gray-300 hover:text-red-400'
+                  items.length <= 1 ? 'opacity-0 pointer-events-none' : !canEdit ? 'opacity-30 cursor-not-allowed' : 'text-white/30 hover:text-red-400'
                 }`}
               >
                 <Trash2 size={14} />
               </button>
             </div>
             {/* Row 2: 数量 / 単価 / 金額 */}
-            <div className="grid grid-cols-3 border-t border-gray-100">
-              <div className="px-3 py-2 border-r border-gray-100">
-                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">数量</div>
+            <div className="grid grid-cols-3 border-t border-white/10">
+              <div className="px-3 py-2 border-r border-white/10">
+                <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">数量</div>
                 <input
                   type="number"
                   readOnly={!canEdit}
                   value={item.quantity || ''}
                   onChange={e => updateItem(item.id, { quantity: parseInt(e.target.value) || 0 })}
-                  className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
+                  className="w-full text-sm font-mono text-white/80 bg-transparent outline-none read-only:cursor-default"
                 />
               </div>
-              <div className="px-3 py-2 border-r border-gray-100">
-                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">単価</div>
+              <div className="px-3 py-2 border-r border-white/10">
+                <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">単価</div>
                 <div className="flex items-center gap-0.5">
-                  <span className="text-[10px] text-gray-400">¥</span>
+                  <span className="text-[10px] text-white/40">¥</span>
                   <input
                     type="number"
                     readOnly={!canEdit}
                     value={item.unitPrice || ''}
                     onChange={e => updateItem(item.id, { unitPrice: parseInt(e.target.value) || 0 })}
-                    className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
+                    className="w-full text-sm font-mono text-white/80 bg-transparent outline-none read-only:cursor-default"
                   />
                 </div>
               </div>
-              <div className="px-3 py-2 bg-indigo-50/30">
-                <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1">金額</div>
-                <div className="text-sm font-black text-indigo-600 font-mono">¥{(item.amount || 0).toLocaleString()}</div>
+              <div className="px-3 py-2 bg-indigo-500/10">
+                <div className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-1">金額</div>
+                <div className="text-sm font-black text-indigo-300 font-mono">¥{(item.amount || 0).toLocaleString()}</div>
               </div>
             </div>
             {/* Row 3: 到着予定日 / 到着 / 準備 */}
-            <div className="grid grid-cols-3 border-t border-gray-100">
-              <div className="px-3 py-2 border-r border-gray-100">
-                <div className="text-[9px] font-black text-orange-400 uppercase tracking-widest mb-1">到着予定日</div>
+            <div className="grid grid-cols-3 border-t border-white/10">
+              <div className="px-3 py-2 border-r border-white/10">
+                <div className="text-[9px] font-black text-orange-300 uppercase tracking-widest mb-1">到着予定日</div>
                 <input
                   type="date"
                   readOnly={!canEdit}
                   value={item.arrivalDate ?? ''}
                   onChange={e => updateItem(item.id, { arrivalDate: e.target.value })}
-                  className="w-full text-xs font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
+                  className="w-full text-xs font-mono text-white/80 bg-transparent outline-none read-only:cursor-default"
                 />
               </div>
-              <div className="px-3 py-2 flex flex-col items-center border-r border-gray-100">
-                <div className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1.5">到着</div>
+              <div className="px-3 py-2 flex flex-col items-center border-r border-white/10">
+                <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1.5">到着</div>
                 <Checkbox checked={item.arrived} disabled={!canEdit} onChange={() => updateItem(item.id, { arrived: !item.arrived })} color="emerald" />
               </div>
               <div className="px-3 py-2 flex flex-col items-center">
-                <div className="text-[9px] font-black text-indigo-600 uppercase tracking-widest mb-1.5">準備完了</div>
+                <div className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-1.5">準備完了</div>
                 <Checkbox checked={item.prepared} disabled={!canEdit} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
               </div>
             </div>
             {/* Row 4: 配送料 */}
-            <div className="border-t border-gray-100">
+            <div className="border-t border-white/10">
               <div className="px-3 py-2">
-                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">配送料</div>
+                <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">配送料</div>
                 <div className="flex items-center gap-0.5">
-                  <span className="text-[10px] text-gray-400">¥</span>
+                  <span className="text-[10px] text-white/40">¥</span>
                   <input
                     type="number"
                     readOnly={!canEdit}
                     value={item.shippingFee || ''}
                     onChange={e => updateItem(item.id, { shippingFee: parseInt(e.target.value) || 0 })}
                     placeholder="0"
-                    className="w-full text-sm font-mono text-gray-700 bg-transparent outline-none read-only:cursor-default"
+                    className="w-full text-sm font-mono text-white/80 bg-transparent outline-none read-only:cursor-default placeholder:text-white/20"
                   />
                 </div>
               </div>
             </div>
             {/* Row 4: 備考 (shown if has content or canEdit) */}
             {(item.note || canEdit) && (
-              <div className="border-t border-gray-100 px-3 py-2">
-                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">備考</div>
+              <div className="border-t border-white/10 px-3 py-2">
+                <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">備考</div>
                 <PreparationNoteField value={item.note || ''} readOnly={!canEdit} onChange={note => updateItem(item.id, { note })} />
               </div>
             )}
             {/* Row 5: URL (shown if has content or canEdit) */}
             {(item.url || canEdit) && (
-              <div className="border-t border-gray-100 px-3 py-2">
-                <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">URL</div>
+              <div className="border-t border-white/10 px-3 py-2">
+                <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">URL</div>
                 {canEdit ? (
                   <div className="flex items-center gap-1.5">
                     <input
@@ -398,10 +398,10 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                       value={item.url || ''}
                       onChange={e => updateItem(item.id, { url: e.target.value })}
                       placeholder="https://..."
-                      className="flex-1 text-sm text-indigo-500 bg-transparent outline-none min-w-0"
+                      className="flex-1 text-sm text-indigo-300 bg-transparent outline-none min-w-0 placeholder:text-white/20"
                     />
                     {item.url && (
-                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-indigo-400 hover:text-indigo-600">
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-indigo-300 hover:text-indigo-200">
                         <ExternalLink size={14} />
                       </a>
                     )}
@@ -411,7 +411,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-indigo-500 underline underline-offset-2 break-all"
+                    className="text-sm text-indigo-300 underline underline-offset-2 break-all"
                   >
                     {item.url}
                   </a>
@@ -424,7 +424,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
           <button
             type="button"
             onClick={addItem}
-            className="w-full py-4 bg-white border-2 border-dashed border-gray-200 hover:border-indigo-300 text-gray-400 hover:text-indigo-500 text-xs font-black uppercase tracking-widest rounded-2xl transition-colors flex items-center justify-center gap-2"
+            className="w-full py-4 bg-white/5 border-2 border-dashed border-white/20 hover:border-indigo-400/50 text-white/30 hover:text-indigo-300 text-xs font-black uppercase tracking-widest rounded-2xl transition-colors flex items-center justify-center gap-2"
           >
             <Plus size={14} /> 新しい項目を追加
           </button>

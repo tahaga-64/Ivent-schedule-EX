@@ -1058,7 +1058,7 @@ VITE_FIREBASE_DATABASE_ID`}
                             <button
                               key={ev.id}
                               onClick={() => setPrepEvent(ev)}
-                              className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm flex items-stretch overflow-hidden hover:border-indigo-200 hover:shadow-md transition-all"
+                              className="w-full text-left bg-white/10 backdrop-blur-sm rounded-2xl border border-white/15 flex items-stretch overflow-hidden hover:bg-white/15 active:scale-[0.98] transition-all"
                             >
                               {/* 日付バッジ */}
                               <div className={`flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 ${isToday ? 'bg-red-500' : isOngoing ? 'bg-emerald-500' : isSoon ? 'bg-amber-400' : 'bg-indigo-600'}`}>
@@ -1069,15 +1069,15 @@ VITE_FIREBASE_DATABASE_ID`}
                               {/* コンテンツ */}
                               <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
                                 <div className="flex items-center gap-2 mb-0.5">
-                                  <span className="font-bold text-slate-800 text-sm truncate">{ev.venue}</span>
+                                  <span className="font-bold text-white text-sm truncate">{ev.venue}</span>
                                   {urgencyBadge && (
                                     <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full ${urgencyBadge.cls}`}>{urgencyBadge.label}</span>
                                   )}
                                 </div>
-                                <div className="text-xs text-slate-400 truncate">{fmtDateRange(ev.start, ev.end)}</div>
+                                <div className="text-xs text-white/50 truncate">{fmtDateRange(ev.start, ev.end)}</div>
                               </div>
                               <div className="flex items-center pr-3">
-                                <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                                <ChevronRight size={16} className="text-white/30 shrink-0" />
                               </div>
                             </button>
                           );
