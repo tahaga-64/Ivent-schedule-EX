@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { ChevronRight, ClipboardList, Plus, CalendarDays } from 'lucide-react';
+import { ChevronRight, ClipboardList, Plus, CalendarDays, BookOpen } from 'lucide-react';
 import type { Event } from '../types';
 import { rs, ts } from '../lib/eventHelpers';
+import OperationsManualModal from './OperationsManualModal';
 
 interface Props {
   events: Event[];
@@ -118,6 +119,7 @@ function SectionEmpty({ label }: { label: string }) {
 }
 
 export default function HomeView({ events, prepProgressMap, onSelectEvent, onNavigateToPrepList, onCreateEvent, onOpenSchedule }: Props) {
+  const [showOpsManual, setShowOpsManual] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
   const in7  = addDays(today, 7);
 
@@ -257,8 +259,19 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
             <CalendarDays size={18} className="text-violet-600 shrink-0" />
             スケジュール
           </button>
+
+          {/* 運用手順書: PC のみ表示 */}
+          <button
+            onClick={() => setShowOpsManual(true)}
+            className="hidden lg:flex items-center gap-3 bg-white/15 border border-white/25 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/25 active:scale-[0.98] transition-all backdrop-blur-sm"
+          >
+            <BookOpen size={18} className="text-white/80 shrink-0" />
+            編集スタッフ 運用手順書
+          </button>
         </div>
       </div>
+
+      <OperationsManualModal open={showOpsManual} onClose={() => setShowOpsManual(false)} />
     </div>
   );
 }
