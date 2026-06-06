@@ -145,12 +145,12 @@ export default function OperationsManualModal({ open, onClose }: Props) {
               <Accordion title="ステータスを変更する">
                 <div className="space-y-1.5">
                   {[
-                    { s: '予定', c: 'bg-slate-100 text-slate-600', desc: 'イベントが登録された初期状態' },
-                    { s: '準備中', c: 'bg-amber-100 text-amber-700', desc: '備品や手配を進めている状態' },
-                    { s: '入荷待ち', c: 'bg-blue-100 text-blue-700', desc: '発注済みで到着待ちの状態' },
-                    { s: '準備完了', c: 'bg-blue-500 text-white', desc: 'すべての準備が整った状態' },
-                    { s: '完了', c: 'bg-slate-800 text-white', desc: 'イベントが終了した状態（アーカイブへ）' },
-                    { s: 'キャンセル', c: 'bg-red-100 text-red-600', desc: '中止になったイベント' },
+                    { s: '予定',    c: 'bg-slate-100 border border-slate-200 text-slate-500',    desc: 'イベントが登録された初期状態' },
+                    { s: '準備中',  c: 'bg-amber-50 border border-amber-200 text-amber-700',    desc: '備品や手配を進めている状態' },
+                    { s: '入荷待ち',c: 'bg-sky-50 border border-sky-300 text-sky-700',           desc: '発注済みで到着待ちの状態' },
+                    { s: '準備完了',c: 'bg-indigo-50 border border-indigo-200 text-indigo-700', desc: 'すべての準備が整った状態' },
+                    { s: '完了',    c: 'bg-slate-100 border border-slate-300 text-slate-600',   desc: 'イベントが終了した状態（アーカイブへ）' },
+                    { s: 'キャンセル',c: 'bg-red-50 border border-red-200 text-red-600',        desc: '中止になったイベント' },
                   ].map(row => (
                     <div key={row.s} className="flex items-center gap-3">
                       <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-black ${row.c}`}>{row.s}</span>

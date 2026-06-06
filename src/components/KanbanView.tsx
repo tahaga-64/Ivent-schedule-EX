@@ -5,11 +5,11 @@ import type { Event, EventStatus } from '../types';
 interface ColumnDef { status: string; label: string; dot: string; headerBg: string; headerText: string; cardBorder: string; badgeBg: string; badgeText: string }
 
 const COLUMNS: ColumnDef[] = [
-  { status: 'scheduled',   label: '予定',    dot: '#94a3b8', headerBg: '#f1f5f9', headerText: '#334155', cardBorder: '#cbd5e1', badgeBg: '#e2e8f0', badgeText: '#334155' },
-  { status: 'in_progress', label: '準備中',  dot: '#f59e0b', headerBg: '#fef3c7', headerText: '#78350f', cardBorder: '#fbbf24', badgeBg: '#fde68a', badgeText: '#78350f' },
-  { status: 'waiting',     label: '入荷待ち',dot: '#3b82f6', headerBg: '#dbeafe', headerText: '#1e3a8a', cardBorder: '#93c5fd', badgeBg: '#bfdbfe', badgeText: '#1e3a8a' },
-  { status: 'ready',       label: '準備完了',dot: '#10b981', headerBg: '#d1fae5', headerText: '#064e3b', cardBorder: '#6ee7b7', badgeBg: '#a7f3d0', badgeText: '#064e3b' },
-  { status: 'completed',   label: '完了',    dot: '#f97316', headerBg: '#ffedd5', headerText: '#7c2d12', cardBorder: '#fdba74', badgeBg: '#fed7aa', badgeText: '#7c2d12' },
+  { status: 'scheduled',   label: '予定',    dot: '#94a3b8', headerBg: 'rgba(148,163,184,0.12)', headerText: '#cbd5e1', cardBorder: 'rgba(148,163,184,0.30)', badgeBg: 'rgba(148,163,184,0.18)', badgeText: '#94a3b8' },
+  { status: 'in_progress', label: '準備中',  dot: '#f59e0b', headerBg: 'rgba(245,158,11,0.12)',  headerText: '#fcd34d', cardBorder: 'rgba(245,158,11,0.35)',  badgeBg: 'rgba(245,158,11,0.18)',  badgeText: '#fbbf24' },
+  { status: 'waiting',     label: '入荷待ち',dot: '#3b82f6', headerBg: 'rgba(59,130,246,0.12)',  headerText: '#93c5fd', cardBorder: 'rgba(59,130,246,0.35)',  badgeBg: 'rgba(59,130,246,0.18)',  badgeText: '#60a5fa' },
+  { status: 'ready',       label: '準備完了',dot: '#10b981', headerBg: 'rgba(16,185,129,0.12)',  headerText: '#6ee7b7', cardBorder: 'rgba(16,185,129,0.35)',  badgeBg: 'rgba(16,185,129,0.18)',  badgeText: '#34d399' },
+  { status: 'completed',   label: '完了',    dot: '#f97316', headerBg: 'rgba(249,115,22,0.12)',  headerText: '#fdba74', cardBorder: 'rgba(249,115,22,0.35)',  badgeBg: 'rgba(249,115,22,0.18)',  badgeText: '#fb923c' },
 ];
 
 interface Props {

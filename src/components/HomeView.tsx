@@ -22,12 +22,12 @@ function effectivePast(ev: Event, today: string): boolean {
 }
 
 function statusPill(status: string | undefined, isPast: boolean): { label: string; cls: string } | null {
-  if (isPast || status === 'completed') return { label: '完了', cls: 'bg-slate-900 text-white' };
+  if (isPast || status === 'completed') return { label: '完了', cls: 'bg-slate-100 border border-slate-200 text-slate-500' };
   switch (status) {
-    case 'in_progress': return { label: '準備中',    cls: 'bg-amber-500 text-white' };
-    case 'waiting':     return { label: '入荷待ち',  cls: 'bg-blue-500 text-white' };
-    case 'ready':       return { label: '準備完了',  cls: 'bg-blue-500 text-white' };
-    case 'cancelled':   return { label: 'キャンセル',cls: 'bg-red-400/80 text-white' };
+    case 'in_progress': return { label: '準備中',    cls: 'bg-amber-50 border border-amber-200 text-amber-700' };
+    case 'waiting':     return { label: '入荷待ち',  cls: 'bg-sky-50 border border-sky-300 text-sky-700' };
+    case 'ready':       return { label: '準備完了',  cls: 'bg-indigo-50 border border-indigo-200 text-indigo-700' };
+    case 'cancelled':   return { label: 'キャンセル',cls: 'bg-red-50 border border-red-200 text-red-600' };
     default:            return null;
   }
 }
