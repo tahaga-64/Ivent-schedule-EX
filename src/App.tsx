@@ -1155,7 +1155,11 @@ VITE_FIREBASE_DATABASE_ID`}
 
   return (
     <div className="relative isolate flex flex-col min-h-dvh">
-      <div className="absolute inset-0 -z-10 bg-cover print:hidden"
+      {/* モバイル背景（lg未満） */}
+      <div className="absolute inset-0 -z-10 bg-cover print:hidden lg:hidden"
+        style={{ backgroundImage: "url('/mercury-mobile.jpg')", backgroundPosition: '50% 20%' }} />
+      {/* デスクトップ背景（lg以上） */}
+      <div className="absolute inset-0 -z-10 bg-cover print:hidden hidden lg:block"
         style={{ backgroundImage: "url('/mercury-office.jpg')", backgroundPosition: 'center 30%' }} />
       <div className="absolute inset-0 -z-10 print:hidden"
         style={{ background: 'linear-gradient(to bottom,rgba(15,23,42,.30) 0%,rgba(15,23,42,.55) 45%,rgba(15,23,42,.82) 100%)' }} />
