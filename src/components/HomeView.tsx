@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { ChevronRight, ClipboardList, Plus, CalendarDays, BookOpen, ExternalLink } from 'lucide-react';
+import { ChevronRight, BookOpen, ExternalLink } from 'lucide-react';
 import type { Event } from '../types';
 import { rs, ts } from '../lib/eventHelpers';
 import OperationsManualModal from './OperationsManualModal';
@@ -237,7 +237,6 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
             onClick={onNavigateToPrepList}
             className="flex items-center gap-3 bg-white text-slate-800 rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/90 active:scale-[0.98] transition-all shadow-lg"
           >
-            <ClipboardList size={18} className="text-indigo-600 shrink-0" />
             準備物リスト
             {stats.prepPct !== null && stats.prepPct < 100 && (
               <span className="ml-auto text-xs font-black text-slate-400">{stats.prepPct}%</span>
@@ -248,7 +247,6 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
             onClick={onCreateEvent}
             className="flex items-center gap-3 bg-white text-slate-800 rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/90 active:scale-[0.98] transition-all shadow-lg"
           >
-            <Plus size={18} className="text-emerald-600 shrink-0" strokeWidth={3} />
             新規イベントを追加する
           </button>
 
@@ -256,7 +254,6 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
             onClick={onOpenSchedule}
             className="flex items-center gap-3 bg-white text-slate-800 rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/90 active:scale-[0.98] transition-all shadow-lg"
           >
-            <CalendarDays size={18} className="text-violet-600 shrink-0" />
             スケジュール
           </button>
 
@@ -283,13 +280,13 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
               href={svc.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between bg-white/10 border border-white/15 backdrop-blur-sm text-white rounded-2xl px-5 py-3.5 hover:bg-white/20 active:scale-[0.98] transition-all"
+              className="flex items-center justify-between bg-white border border-slate-100 text-slate-800 rounded-2xl px-5 py-3.5 hover:bg-slate-50 active:scale-[0.98] transition-all shadow-sm"
             >
               <div className="min-w-0">
                 <div className="font-black text-sm leading-tight">{svc.label}</div>
-                <div className="text-[11px] text-white/50 font-medium">{svc.sub}</div>
+                <div className="text-[11px] text-slate-400 font-medium">{svc.sub}</div>
               </div>
-              <ExternalLink size={14} className="text-white/30 shrink-0 ml-3" />
+              <ExternalLink size={14} className="text-slate-300 shrink-0 ml-3" />
             </a>
           ))}
         </div>
