@@ -16,6 +16,47 @@ interface Props {
   canEditEvent: boolean;
 }
 
+function AnalogClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const parts = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false,
+  }).formatToParts(now);
+  const h = parseInt(parts.find(p => p.type === 'hour')?.value ?? '0') % 12;
+  const m = parseInt(parts.find(p => p.type === 'minute')?.value ?? '0');
+  const s = parseInt(parts.find(p => p.type === 'second')?.value ?? '0');
+  const hDeg = h * 30 + m * 0.5;
+  const mDeg = m * 6 + s * 0.1;
+  const sDeg = s * 6;
+  const hand = (deg: number, len: number, w: number, color: string) => {
+    const r = deg * Math.PI / 180;
+    return <line x1="32" y1="32" x2={32 + len * Math.sin(r)} y2={32 - len * Math.cos(r)}
+      stroke={color} strokeWidth={w} strokeLinecap="round" />;
+  };
+  return (
+    <svg width="72" height="72" viewBox="0 0 64 64" className="shrink-0">
+      <circle cx="32" cy="32" r="30" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.18)" strokeWidth="1.5" />
+      {[...Array(12)].map((_, i) => {
+        const angle = (i * 30 - 90) * Math.PI / 180;
+        const major = i % 3 === 0;
+        return <line key={i}
+          x1={32 + (major ? 22 : 25) * Math.cos(angle)} y1={32 + (major ? 22 : 25) * Math.sin(angle)}
+          x2={32 + 28 * Math.cos(angle)} y2={32 + 28 * Math.sin(angle)}
+          stroke={major ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.3)'} strokeWidth={major ? 2 : 1} />;
+      })}
+      {hand(hDeg, 15, 3, 'rgba(255,255,255,0.95)')}
+      {hand(mDeg, 21, 2, 'rgba(255,255,255,0.85)')}
+      {hand(sDeg, 24, 1.2, 'rgba(96,165,250,0.9)')}
+      <circle cx="32" cy="32" r="2.5" fill="white" />
+    </svg>
+  );
+}
+
 function effectivePast(ev: Event, today: string): boolean {
   if (ev.status === 'cancelled') return false;
   return (ev.end || ev.start) < today;
@@ -124,6 +165,8 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
   const [showOpsManual, setShowOpsManual] = useState(false);
   const [showEventPicker, setShowEventPicker] = useState(false);
   const [showPermissionToast, setShowPermissionToast] = useState(false);
+  const [staffCount, setStaffCount] = useState<number | null>(null);
+  const [staffLoading, setStaffLoading] = useState(true);
   const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
@@ -131,6 +174,26 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
     const t = setTimeout(() => setShowPermissionToast(false), 2500);
     return () => clearTimeout(t);
   }, [showPermissionToast]);
+
+  useEffect(() => {
+    const d = new Date();
+    const url = `https://ex-2026-04-802549538762.us-west1.run.app/?year=${d.getFullYear()}&month=${d.getMonth() + 1}`;
+    fetch(url)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then(r => r.json()).then((data: any) => {
+        // TODO: APIレスポンスのフィールドパスを確認して調整してください
+        if (Array.isArray(data?.days)) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const entry = data.days.find((x: any) => x.date === today);
+          setStaffCount(entry?.count ?? entry?.staff_count ?? entry?.staffCount ?? null);
+        } else if (data && typeof data === 'object') {
+          const entry = data[today] ?? data[String(d.getDate())];
+          setStaffCount(entry?.count ?? entry?.staff_count ?? null);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setStaffLoading(false));
+  }, [today]);
   const in7  = addDays(today, 7);
 
   const { todayEvents, upcomingWeek } = useMemo(() => {
@@ -165,32 +228,34 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
   }, [pickerEvents]);
 
   const stats = useMemo(() => {
-    const active = events.filter(e => e.status !== 'cancelled' && e.start && !effectivePast(e, today));
     const thisMonth = events.filter(e => e.status !== 'cancelled' && e.start?.startsWith(today.slice(0, 7)));
-    let totalItems = 0, doneItems = 0;
-    for (const ev of active.slice(0, 15)) {
-      const p = prepProgressMap[ev.id];
-      if (p?.total) { totalItems += p.total; doneItems += p.done; }
-    }
-    const prepPct = totalItems > 0 ? Math.round((doneItems / totalItems) * 100) : null;
-    return { upcoming: active.length, thisMonthCount: thisMonth.length, prepPct };
-  }, [events, prepProgressMap, today]);
+    const nextEvent = events
+      .filter(e => e.status !== 'cancelled' && e.start >= today)
+      .sort((a, b) => a.start.localeCompare(b.start))[0];
+    const daysToNext = nextEvent
+      ? Math.ceil((new Date(nextEvent.start + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000)
+      : null;
+    return { thisMonthCount: thisMonth.length, daysToNext };
+  }, [events, today]);
 
   return (
     <div className="relative min-h-screen">
       <div className="relative z-10 flex flex-col gap-5 px-4 pt-6 pb-32 max-w-xl mx-auto w-full">
 
         {/* Date header */}
-        <div className="flex items-end gap-4 text-white">
-          <div className="text-8xl font-black leading-none tracking-tighter">
-            {new Date().getDate()}
-          </div>
-          <div className="pb-2 flex flex-col gap-0.5">
-            <div className="text-xl font-black opacity-90 leading-tight">
-              {new Date().toLocaleDateString('ja-JP', { month: 'long', weekday: 'long' })}
+        <div className="flex items-center justify-between text-white">
+          <div className="flex items-end gap-4">
+            <div className="text-8xl font-black leading-none tracking-tighter">
+              {new Date().getDate()}
             </div>
-            <div className="text-sm font-bold opacity-40">{new Date().getFullYear()}</div>
+            <div className="pb-2 flex flex-col gap-0.5">
+              <div className="text-xl font-black opacity-90 leading-tight">
+                {new Date().toLocaleDateString('ja-JP', { month: 'long', weekday: 'long' })}
+              </div>
+              <div className="text-sm font-bold opacity-40">{new Date().getFullYear()}</div>
+            </div>
           </div>
+          <AnalogClock />
         </div>
 
         {/* Stats cards */}
@@ -201,24 +266,20 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             <div className="text-[10px] text-white/40 mt-0.5">件</div>
           </div>
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15">
-            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">予定</div>
-            <div className="text-2xl font-black text-white leading-none">{stats.upcoming}</div>
-            <div className="text-[10px] text-white/40 mt-0.5">件</div>
-          </div>
-          <div className={`backdrop-blur-sm rounded-2xl p-3.5 border ${
-            stats.prepPct === null
-              ? 'bg-white/10 border-white/15'
-              : stats.prepPct === 100
-                ? 'bg-emerald-500/20 border-emerald-400/30'
-                : stats.prepPct >= 70
-                  ? 'bg-indigo-500/20 border-indigo-400/30'
-                  : 'bg-amber-500/20 border-amber-400/30'
-          }`}>
-            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">準備率</div>
+            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">今日の稼働</div>
             <div className="text-2xl font-black text-white leading-none">
-              {stats.prepPct !== null ? `${stats.prepPct}` : '—'}
+              {staffLoading ? '…' : staffCount !== null ? staffCount : '—'}
             </div>
-            <div className="text-[10px] text-white/40 mt-0.5">{stats.prepPct !== null ? '%' : ''}</div>
+            <div className="text-[10px] text-white/40 mt-0.5">{!staffLoading && staffCount !== null ? '人' : ''}</div>
+          </div>
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15">
+            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">次イベント</div>
+            <div className="text-2xl font-black text-white leading-none">
+              {stats.daysToNext === null ? '—' : stats.daysToNext === 0 ? '今日' : stats.daysToNext}
+            </div>
+            <div className="text-[10px] text-white/40 mt-0.5">
+              {stats.daysToNext !== null && stats.daysToNext > 0 ? '日後' : ''}
+            </div>
           </div>
         </div>
 
@@ -266,9 +327,6 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             className="flex items-center gap-3 bg-white text-slate-800 rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/90 active:scale-[0.98] transition-all shadow-lg"
           >
             準備物リスト
-            {stats.prepPct !== null && stats.prepPct < 100 && (
-              <span className="ml-auto text-xs font-black text-slate-400">{stats.prepPct}%</span>
-            )}
           </button>
 
           <button
