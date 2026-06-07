@@ -1594,7 +1594,7 @@ VITE_FIREBASE_DATABASE_ID`}
       )}
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 border-t border-white/15 flex items-center justify-around pb-[env(safe-area-inset-bottom)] z-20 lg:hidden" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.80) 100%)" }}>
+      <nav className="fixed bottom-0 left-0 right-0 border-t border-white/15 flex items-center justify-around pb-[env(safe-area-inset-bottom)] z-20 lg:hidden" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.60) 0%, rgba(0,0,0,0.92) 100%)" }}>
         {(
           [
             { id: "home",     icon: <Home size={20} />,           label: "ホーム" },
