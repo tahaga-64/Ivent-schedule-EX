@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ChevronRight, BookOpen, ExternalLink, X } from 'lucide-react';
 import type { Event } from '../types';
 import { rs, ts, fmtDateJP, fmtDateRange, daysUntil } from '../lib/eventHelpers';
+import { fetchTodayStaffCount } from '../lib/exSchedule';
 import OperationsManualModal from './OperationsManualModal';
 
 interface Props {
@@ -176,22 +177,9 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
   }, [showPermissionToast]);
 
   useEffect(() => {
-    const d = new Date();
-    const url = `https://ex-2026-04-802549538762.us-west1.run.app/?year=${d.getFullYear()}&month=${d.getMonth() + 1}`;
-    fetch(url)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then(r => r.json()).then((data: any) => {
-        // TODO: APIレスポンスのフィールドパスを確認して調整してください
-        if (Array.isArray(data?.days)) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const entry = data.days.find((x: any) => x.date === today);
-          setStaffCount(entry?.count ?? entry?.staff_count ?? entry?.staffCount ?? null);
-        } else if (data && typeof data === 'object') {
-          const entry = data[today] ?? data[String(d.getDate())];
-          setStaffCount(entry?.count ?? entry?.staff_count ?? null);
-        }
-      })
-      .catch(() => {})
+    setStaffLoading(true);
+    fetchTodayStaffCount()
+      .then(n => setStaffCount(n))
       .finally(() => setStaffLoading(false));
   }, [today]);
   const in7  = addDays(today, 7);
