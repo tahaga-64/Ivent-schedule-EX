@@ -127,17 +127,17 @@ export default function OperationsManualModal({ open, onClose }: Props) {
               {/* イベント作成 */}
               <Accordion title="イベントを新規作成する">
                 <Step n={1} text="画面右上の「＋ 新規イベント」ボタンをクリック" />
-                <Step n={2} text="モーダルが開くので「会場名」「開始日」「種別」「地域」を入力（必須項目）" />
+                <Step n={2} text="「会場名」「開始日」「種別」「地域」を入力（必須項目）" />
                 <Step n={3} text="担当スタッフ・クライアント名・備考などを入力（任意）" />
-                <Step n={4} text="「保存」ボタンをクリックして Firestore に保存" />
-                <Tip text="「キャンセル」を押すと保存せずに閉じます。保存前にモーダルを閉じた場合も自動的に破棄されます。" />
+                <Step n={4} text="「保存」ボタンをクリックして保存" />
+                <Tip text="「キャンセル」を押すと保存せずに閉じます。保存前に閉じた場合も自動的に破棄されます。" />
               </Accordion>
 
               {/* イベント編集 */}
               <Accordion title="イベントを編集する">
-                <Step n={1} text="ホーム・カレンダー・カンバンのいずれかからイベントカードをクリック" />
+                <Step n={1} text="ホーム・カレンダーのいずれかからイベントカードをクリック" />
                 <Step n={2} text="詳細モーダルが開く。「詳細」タブで各項目を編集" />
-                <Step n={3} text="編集後「保存」ボタンをクリック（保存前は * マークが表示される）" />
+                <Step n={3} text="編集後「保存」ボタンをクリック" />
                 <Note text="画面を閉じる前に必ず保存してください。未保存の変更がある場合は確認ダイアログが表示されます。" />
               </Accordion>
 
@@ -158,7 +158,6 @@ export default function OperationsManualModal({ open, onClose }: Props) {
                     </div>
                   ))}
                 </div>
-                <Tip text="カンバンビューでは列間をドラッグ＆ドロップでステータス変更できます（PC のみ）。" />
               </Accordion>
 
               {/* 準備物リスト */}
@@ -167,8 +166,6 @@ export default function OperationsManualModal({ open, onClose }: Props) {
                 <Step n={2} text="「＋ 備品を追加」でアイテムを追加。備品マスターから選択するか手動入力" />
                 <Step n={3} text="持参済みのアイテムはチェックボックスをクリックして完了マーク" />
                 <Step n={4} text="「印刷」ボタンで準備リストを印刷（A4対応）" />
-                <Tip text="「商談提案用」ボタンを押すと、クライアントに見せるための提案フォーマットで印刷できます。" />
-                <Tip text="「LINE共有」ボタンで準備リストのテキストをLINEで送信できます。" />
               </Accordion>
 
               {/* 写真 */}
@@ -205,7 +202,7 @@ export default function OperationsManualModal({ open, onClose }: Props) {
               </Accordion>
 
               {/* トラブル */}
-              <Accordion title="よくあるトラブル">
+              <Accordion title="想定されるトラブル">
                 <div className="space-y-3">
                   <div>
                     <div className="font-bold text-slate-700 mb-1">保存ボタンを押しても反応しない</div>

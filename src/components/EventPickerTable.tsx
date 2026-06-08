@@ -12,7 +12,7 @@ export default function EventPickerTable({ events, onSelect, variant = 'active' 
   const isArchive = variant === 'archive';
 
   return (
-    <div className="hidden md:block rounded-2xl overflow-hidden w-full border border-white/15 bg-white/10 backdrop-blur-sm">
+    <div className="hidden md:block rounded-2xl overflow-hidden w-full border border-white/15 bg-white/10">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-white/10 bg-white/5">

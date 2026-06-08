@@ -1,8 +1,6 @@
 import { User } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Plus, Search, LogOut, HelpCircle } from 'lucide-react';
-import { motion } from 'motion/react';
-
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout";
 
 interface AppHeaderProps {
@@ -59,57 +57,17 @@ export default function AppHeader({
           <button onClick={onToggleSidebar} className="p-1.5 rounded-lg text-white/80 hover:bg-white/15 transition-colors">
             <Menu size={18} />
           </button>
-          <div style={{ perspective: 140 }} className="shrink-0">
-            <motion.div
-              className="relative w-9 h-9"
-              style={{ transformStyle: 'preserve-3d' }}
-              animate={{ rotateY: 360 }}
-              transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
-            >
-              {/* 前面 */}
-              <div
-                className="absolute inset-0 rounded-xl flex items-center justify-center"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(99,102,241,0.45) 0%, rgba(79,70,229,0.25) 100%)',
-                  border: '1px solid rgba(165,180,252,0.5)',
-                  boxShadow: 'inset 0 1px 3px rgba(255,255,255,0.4), inset 0 -2px 4px rgba(0,0,0,0.4), 0 0 20px rgba(96,165,250,0.4)',
-                  transform: 'translateZ(4px)',
-                }}
-              >
-                <span
-                  className="font-black text-sm bg-gradient-to-br from-cyan-300 via-indigo-200 to-violet-400 bg-clip-text text-transparent tracking-tighter leading-none"
-                  style={{ filter: 'drop-shadow(0 0 8px rgba(96,165,250,0.9))' }}
-                >
-                  EX
-                </span>
-              </div>
-              {/* 背面 */}
-              <div
-                className="absolute inset-0 rounded-xl flex items-center justify-center"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(79,70,229,0.4) 0%, rgba(49,46,129,0.3) 100%)',
-                  border: '1px solid rgba(129,140,248,0.4)',
-                  boxShadow: 'inset 0 1px 3px rgba(255,255,255,0.25), 0 0 20px rgba(96,165,250,0.3)',
-                  transform: 'translateZ(-4px) rotateY(180deg)',
-                }}
-              >
-                <span
-                  className="font-black text-sm bg-gradient-to-br from-violet-400 via-indigo-300 to-cyan-300 bg-clip-text text-transparent tracking-tighter leading-none"
-                  style={{ filter: 'drop-shadow(0 0 8px rgba(96,165,250,0.9))' }}
-                >
-                  EX
-                </span>
-              </div>
-              {/* 厚み（側面の縁） */}
-              <div
-                className="absolute rounded-full"
-                style={{
-                  top: '50%', left: '50%', width: 8, height: 30,
-                  transform: 'translate(-50%,-50%) rotateY(90deg)',
-                  background: 'linear-gradient(to bottom, rgba(129,140,248,0.6), rgba(49,46,129,0.7))',
-                }}
-              />
-            </motion.div>
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+            style={{
+              background: 'linear-gradient(135deg, rgba(99,102,241,0.45) 0%, rgba(79,70,229,0.25) 100%)',
+              border: '1px solid rgba(165,180,252,0.5)',
+              boxShadow: 'inset 0 1px 3px rgba(255,255,255,0.35), 0 0 12px rgba(96,165,250,0.25)',
+            }}
+          >
+            <span className="font-black text-sm bg-gradient-to-br from-cyan-300 via-indigo-200 to-violet-400 bg-clip-text text-transparent tracking-tighter leading-none">
+              EX
+            </span>
           </div>
           <div className="hidden sm:block">
             <div className="font-bold text-sm text-white leading-tight">Event Manager</div>

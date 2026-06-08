@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronRight, BookOpen, ExternalLink, X } from 'lucide-react';
@@ -18,25 +18,37 @@ interface Props {
 }
 
 function AnalogClock() {
-  const [now, setNow] = useState(() => new Date());
+  const hmRef = useRef<HTMLDivElement>(null);
+  const secRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
+    const formatter = new Intl.DateTimeFormat('ja-JP', {
+      timeZone: 'Asia/Tokyo',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    });
+    const tick = () => {
+      const fmt = formatter.format(new Date());
+      if (hmRef.current) hmRef.current.textContent = fmt.slice(0, 5);
+      if (secRef.current) secRef.current.textContent = fmt.slice(6, 8);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
 
-  const fmt = new Intl.DateTimeFormat('ja-JP', {
-    timeZone: 'Asia/Tokyo',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  }).format(now);
-  const [hm, sec] = [fmt.slice(0, 5), fmt.slice(6, 8)];
-
   return (
     <div className="flex flex-col items-end shrink-0 select-none">
-      <div className="text-5xl sm:text-6xl md:text-7xl xl:text-8xl font-black text-white leading-none tracking-tighter tabular-nums">
-        {hm}
+      <div
+        ref={hmRef}
+        className="text-5xl sm:text-6xl md:text-7xl xl:text-8xl font-black text-white leading-none tracking-tighter tabular-nums"
+      >
+        --:--
       </div>
-      <div className="text-xl sm:text-2xl md:text-3xl xl:text-4xl font-black text-white/50 leading-none tracking-tighter tabular-nums mt-1 md:mt-1.5">
-        {sec}
+      <div
+        ref={secRef}
+        className="text-xl sm:text-2xl md:text-3xl xl:text-4xl font-black text-white/50 leading-none tracking-tighter tabular-nums mt-1 md:mt-1.5"
+      >
+        --
       </div>
     </div>
   );
@@ -95,7 +107,7 @@ function EventCard({ ev, prog, today, onSelect }: {
     <motion.button
       onClick={() => onSelect(ev)}
       whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}
-      className="w-full text-left bg-white/10 backdrop-blur-sm rounded-2xl transition-all group overflow-hidden border border-white/15"
+      className="w-full text-left bg-white/10 rounded-2xl transition-all group overflow-hidden border border-white/15"
     >
       <div className="flex items-stretch">
         <div className="w-1 shrink-0" style={{ background: regionColor }} />
@@ -232,19 +244,19 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
         {/* Stats cards */}
         <div className="grid grid-cols-3 md:grid-cols-3 gap-2 md:gap-4">
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15">
+          <div className="bg-white/10 rounded-2xl p-3.5 border border-white/15">
             <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">今月</div>
             <div className="text-2xl font-black text-white leading-none">{stats.thisMonthCount}</div>
             <div className="text-[10px] text-white/40 mt-0.5">件</div>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15">
+          <div className="bg-white/10 rounded-2xl p-3.5 border border-white/15">
             <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">今日の稼働</div>
             <div className="text-2xl font-black text-white leading-none">
               {staffLoading ? '…' : staffCount !== null ? staffCount : '—'}
             </div>
             <div className="text-[10px] text-white/40 mt-0.5">{!staffLoading && staffCount !== null ? '人' : ''}</div>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15">
+          <div className="bg-white/10 rounded-2xl p-3.5 border border-white/15">
             <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">次イベント</div>
             <div className="text-2xl font-black text-white leading-none">
               {stats.daysToNext === null ? '—' : stats.daysToNext === 0 ? '今日' : stats.daysToNext}
@@ -321,7 +333,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
           {/* 運用手順書: PC のみ表示 */}
           <button
             onClick={() => setShowOpsManual(true)}
-            className="hidden md:flex items-center gap-3 bg-white/15 border border-white/25 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/25 active:scale-[0.98] transition-all backdrop-blur-sm"
+            className="hidden md:flex items-center gap-3 bg-white/15 border border-white/25 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/25 active:scale-[0.98] transition-all"
           >
             <BookOpen size={18} className="text-white/80 shrink-0" />
             編集スタッフ 運用手順書

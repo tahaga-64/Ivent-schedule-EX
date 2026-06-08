@@ -75,7 +75,7 @@ export default function HelpModal({ open, onClose }: { open: boolean; onClose: (
                 <ul className="list-disc pl-5 space-y-0.5">
                   <li>「新しい項目を追加」で品名・数量・単価などを入力（金額は自動計算されます）</li>
                   <li>到着 / 準備完了 をチェックで進捗管理</li>
-                  <li>印刷・Excel出力・商談提案PDF・LINE共有が可能</li>
+                  <li>印刷・Excel出力が可能</li>
                 </ul>
                 <Callout tone="emerald">自動保存です（「保存」ボタン不要）。上部の「✓ 自動保存済み」を確認すればOK。</Callout>
               </Section>

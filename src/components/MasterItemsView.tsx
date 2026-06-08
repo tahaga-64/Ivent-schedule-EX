@@ -16,14 +16,15 @@ export interface MasterItem {
 
 interface Props {
   canEdit: boolean;
+  isActive?: boolean;
 }
 
 const EMPTY_FORM = { name: '', unitPrice: '', defaultQuantity: '1', note: '', url: '' };
 
 // 倉庫の背景画像（Unsplash）
-const WAREHOUSE_BG = "https://images.unsplash.com/photo-1553413077-190dd305871c?w=1920&q=80";
+const WAREHOUSE_BG = 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=1280&q=65';
 
-export default function MasterItemsView({ canEdit }: Props) {
+export default function MasterItemsView({ canEdit, isActive = true }: Props) {
   const [items, setItems] = useState<MasterItem[]>([]);
   const [editing, setEditing] = useState<MasterItem | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -57,13 +58,14 @@ export default function MasterItemsView({ canEdit }: Props) {
   }, []);
 
   useEffect(() => {
+    if (!isActive) return;
     const unsub = onSnapshot(collection(db, 'masterItems'), snap => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() })) as MasterItem[];
       list.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
       setItems(list);
     });
     return () => unsub();
-  }, []);
+  }, [isActive]);
 
   function openAdd() {
     setEditing(null);
