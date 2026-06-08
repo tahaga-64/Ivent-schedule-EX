@@ -123,7 +123,7 @@ export default function AppHeader({
         </div>
 
         {/* 中央: 検索バー */}
-        <div className="flex-1 min-w-0 max-w-md">
+        <div className="flex-1 min-w-0 max-w-sm md:max-w-xl xl:max-w-2xl">
           <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-2">
             <Search size={13} className="text-white/60 shrink-0" />
             <input
@@ -150,7 +150,7 @@ export default function AppHeader({
                 `}
               >
                 {v.icon}
-                <span className="hidden lg:inline">{v.label}</span>
+                <span className="hidden md:inline">{v.label}</span>
               </button>
             ))}
           </div>

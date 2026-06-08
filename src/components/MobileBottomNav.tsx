@@ -21,7 +21,7 @@ const NAV_ITEMS: { id: ViewMode; icon: React.ReactNode; label: string }[] = [
 export default function MobileBottomNav({ view, onSetView, onClearPrepEvent }: MobileBottomNavProps) {
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 border-t border-white/15 flex items-center justify-around pb-[env(safe-area-inset-bottom)] z-20 lg:hidden"
+      className="fixed bottom-0 left-0 right-0 border-t border-white/15 flex items-center justify-around pb-[env(safe-area-inset-bottom)] z-20 md:hidden"
       style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.60) 0%, rgba(0,0,0,0.92) 100%)" }}
     >
       {NAV_ITEMS.map(tab => (

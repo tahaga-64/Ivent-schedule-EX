@@ -278,7 +278,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       </div>
 
       {/* Mobile card list */}
-      <div className="block lg:hidden flex-1 overflow-y-auto p-3 space-y-2">
+      <div className="block md:hidden flex-1 overflow-y-auto p-3 space-y-2">
         {!canEdit && items.filter(i => !isEmptyItem(i)).length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-slate-300">
             <ClipboardList size={36} className="mb-3" />
@@ -432,7 +432,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       </div>
 
       {/* Desktop table */}
-      <div className="hidden lg:block flex-1 overflow-auto p-6">
+      <div className="hidden md:block flex-1 overflow-auto p-4 md:p-6 w-full">
         {!canEdit && items.filter(i => !isEmptyItem(i)).length === 0 && (
           <div className="flex flex-col items-center justify-center py-24 text-slate-300">
             <ClipboardList size={40} className="mb-3" />

@@ -102,7 +102,7 @@ export default function EventDetailModal({
   onCancelNew,
 }: EventDetailModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center lg:p-4">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -115,7 +115,7 @@ export default function EventDetailModal({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 40 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[720px] lg:max-w-[92vw] max-h-[92vh] lg:max-h-[90vh]"
+        className="bg-white rounded-t-3xl md:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full md:max-w-3xl lg:max-w-4xl xl:max-w-5xl max-h-[92vh] md:max-h-[90vh]"
       >
         {selected.status === 'completed' && (
           <div className="flex items-center gap-2 px-4 py-3 bg-orange-500 border-b border-orange-600">
@@ -227,7 +227,7 @@ export default function EventDetailModal({
           )}
 
           {/* フィールド（lgで左右2カラム・通常スクロール） */}
-          {modalTab === 'detail' && <><div className="lg:grid lg:grid-cols-2 lg:gap-x-8 lg:items-start">
+          {modalTab === 'detail' && <><div className="md:grid md:grid-cols-2 md:gap-x-8 md:items-start">
             <div className="space-y-5">
             <div>
               <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">VENUE・会場</label>
@@ -295,7 +295,7 @@ export default function EventDetailModal({
             </div>
             </div>
 
-            <div className="space-y-5 mt-5 lg:mt-0">
+            <div className="space-y-5 mt-5 md:mt-0">
             <div>
               <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">担当者</label>
               {staffList.length === 0 ? (

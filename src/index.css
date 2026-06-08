@@ -50,10 +50,12 @@
   html {
     overflow-x: clip;
     background: #0f172a;
+    width: 100%;
+    height: 100%;
   }
 
-  body {
-    @apply bg-[var(--bg-app)] text-[var(--text-primary)] antialiased transition-colors duration-500 overflow-x-hidden;
+  body, #root {
+    @apply bg-[var(--bg-app)] text-[var(--text-primary)] antialiased transition-colors duration-500 overflow-x-hidden w-full min-h-full;
   }
 }
 

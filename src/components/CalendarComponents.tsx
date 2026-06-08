@@ -610,7 +610,7 @@ export function HoverCard({ event, pos, prepStats }: {
 
   return (
     <div
-      className="fixed z-[200] w-60 bg-slate-900/90 backdrop-blur-md border border-white/15 rounded-2xl shadow-2xl p-4 pointer-events-none hidden lg:block"
+      className="fixed z-[200] w-60 bg-slate-900/90 backdrop-blur-md border border-white/15 rounded-2xl shadow-2xl p-4 pointer-events-none hidden md:block"
       style={{ left, top }}
     >
       <div className="flex items-start gap-2 mb-3">

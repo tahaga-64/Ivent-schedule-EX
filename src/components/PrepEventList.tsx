@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { Event } from '../types';
 import { fmtDateJP, fmtDateRange, daysUntil } from '../lib/eventHelpers';
+import EventPickerTable from './EventPickerTable';
 
 interface PrepEventListProps {
   events: Event[];
@@ -24,13 +25,16 @@ export default function PrepEventList({ events, onSelectEvent }: PrepEventListPr
   }
 
   return (
-    <div className="relative z-10 flex flex-col h-full overflow-y-auto pb-20">
-      <div className="px-4 py-4">
-        <h2 className="text-base font-black text-white mb-4">準備物リスト</h2>
+    <div className="relative z-10 flex flex-col h-full w-full overflow-y-auto pb-20 md:pb-8">
+      <div className="px-4 md:px-6 py-4 w-full max-w-none">
+        <h2 className="text-base md:text-lg font-black text-white mb-1 md:mb-4">準備物リスト</h2>
+        <p className="hidden md:block text-xs text-white/40 mb-4">進行中のイベントを選択して準備物を管理します</p>
         {activeEvents.length === 0 ? (
           <div className="text-center py-12 text-white/50 text-sm">進行中のイベントがありません</div>
         ) : (
-          <div className="flex flex-col gap-5">
+          <>
+          <EventPickerTable events={activeEvents} onSelect={onSelectEvent} variant="active" />
+          <div className="md:hidden flex flex-col gap-5 mt-0">
             {monthGroups.map(({ month, events: evs }) => (
               <div key={month}>
                 <div className="text-[11px] font-black text-white/60 uppercase tracking-widest px-1 mb-2">{month}</div>
@@ -80,6 +84,7 @@ export default function PrepEventList({ events, onSelectEvent }: PrepEventListPr
               </div>
             ))}
           </div>
+          </>
         )}
       </div>
     </div>

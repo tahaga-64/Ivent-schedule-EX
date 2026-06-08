@@ -15,7 +15,7 @@ export default function SavingIndicator({ isSaving, saveError, onDismissError }:
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
-          className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-center gap-3 bg-zinc-900 dark:bg-amber-500 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
+          className="fixed bottom-24 md:bottom-10 right-4 md:right-10 z-[100] flex items-center gap-3 bg-zinc-900 dark:bg-amber-500 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
         >
           <div className="relative flex items-center justify-center">
             <motion.div
@@ -36,7 +36,7 @@ export default function SavingIndicator({ isSaving, saveError, onDismissError }:
           exit={{ opacity: 0, y: 20 }}
           role="alert"
           onClick={onDismissError}
-          className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-start gap-3 bg-red-600 text-white px-5 py-3 rounded-2xl shadow-2xl max-w-sm cursor-pointer"
+          className="fixed bottom-24 md:bottom-10 right-4 md:right-10 z-[100] flex items-start gap-3 bg-red-600 text-white px-5 py-3 rounded-2xl shadow-2xl max-w-sm cursor-pointer"
         >
           <span className="text-base leading-none mt-0.5">⚠️</span>
           <div className="flex-1">

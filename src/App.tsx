@@ -208,9 +208,9 @@ export default function App() {
   const skipNextTrackAnim = useRef(false);
   const trackInitDone = useRef(false);
   const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 0));
-  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false));
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 768 : false));
   useEffect(() => {
-    const onResize = () => { setVw(window.innerWidth); setIsMobile(window.innerWidth < 1024); };
+    const onResize = () => { setVw(window.innerWidth); setIsMobile(window.innerWidth < 768); };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -861,7 +861,7 @@ VITE_FIREBASE_DATABASE_ID`}
       {v === "calendar" && (
         <>
           <div className="relative z-10">
-          <div className="hidden lg:block">
+          <div className="hidden md:flex md:flex-col md:min-h-[calc(100dvh-9rem)] w-full">
             <CalendarView
               events={desktopCalendarEvents}
               year={calYear} month={calMonth}
@@ -876,7 +876,7 @@ VITE_FIREBASE_DATABASE_ID`}
               prepProgressMap={prepProgressMap}
             />
           </div>
-          <div className="lg:hidden space-y-3">
+          <div className="md:hidden space-y-3">
             <div className="flex gap-1 rounded-xl bg-white/10 border border-white/15 p-1" role="tablist" aria-label="カレンダー表示の切替">
               {(
                 [
@@ -1120,7 +1120,7 @@ VITE_FIREBASE_DATABASE_ID`}
               <AnimatePresence mode="wait">
                 <motion.div
                   key={view + regionFilter + typeFilter + monthFilter}
-                  className="absolute inset-0 overflow-y-auto p-4 lg:p-8 pb-20 lg:pb-8"
+                  className="absolute inset-0 overflow-y-auto p-4 md:p-6 lg:p-8 pb-20 md:pb-8 w-full max-w-none"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -1202,7 +1202,7 @@ VITE_FIREBASE_DATABASE_ID`}
         <button
           type="button"
           onClick={() => handleCreateEvent()}
-          className="fixed bottom-[4.5rem] right-4 z-30 lg:hidden w-14 h-14 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-full shadow-xl shadow-indigo-500/40 flex items-center justify-center transition-all"
+          className="fixed bottom-[4.5rem] right-4 z-30 md:hidden w-14 h-14 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-full shadow-xl shadow-indigo-500/40 flex items-center justify-center transition-all"
           aria-label="新規イベントを作成"
         >
           <Plus size={24} />

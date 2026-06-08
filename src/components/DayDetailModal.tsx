@@ -21,7 +21,7 @@ export default function DayDetailModal({
   onPickEvent,
 }: DayDetailModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center lg:p-4">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -34,10 +34,10 @@ export default function DayDetailModal({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 40 }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="relative z-10 flex max-h-[85vh] flex-col overflow-hidden rounded-t-3xl border border-white/15 bg-slate-900/95 backdrop-blur-xl shadow-2xl max-lg:max-h-[92dvh] max-lg:rounded-b-none max-lg:border-b-0 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:max-w-md lg:rounded-3xl w-full"
+        className="relative z-10 flex max-h-[85vh] flex-col overflow-hidden rounded-t-3xl border border-white/15 bg-slate-900/95 backdrop-blur-xl shadow-2xl max-md:max-h-[92dvh] max-md:rounded-b-none max-md:border-b-0 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] md:max-w-2xl lg:max-w-3xl xl:max-w-4xl md:rounded-3xl w-full"
       >
-        <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-white/20 lg:hidden" aria-hidden />
-        <div className="p-5 lg:p-6 border-b border-white/10 flex justify-between items-start gap-3 shrink-0">
+        <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-white/20 md:hidden" aria-hidden />
+        <div className="p-5 md:p-6 border-b border-white/10 flex justify-between items-start gap-3 shrink-0">
           <div>
             <h3 className="text-lg font-black text-white tracking-tight">
               {year}年{month}月{day}日
@@ -53,7 +53,7 @@ export default function DayDetailModal({
             <X size={18} />
           </button>
         </div>
-        <div className="overflow-y-auto p-4 lg:p-5 space-y-2 flex-1 min-h-0">
+        <div className="overflow-y-auto p-4 md:p-5 md:grid md:grid-cols-2 md:gap-3 md:auto-rows-min space-y-2 md:space-y-0 flex-1 min-h-0">
           {events.map((ev) => {
             const typeSty = ts(ev.type || "");
             const optionalLine = buildEventOptionalCaption(ev);

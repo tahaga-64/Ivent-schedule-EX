@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 import { Event } from '../types';
 import { fmtDateRange, rs, ts } from '../lib/eventHelpers';
+import EventPickerTable from './EventPickerTable';
 
 interface ArchiveViewProps {
   events: Event[];
@@ -28,8 +29,8 @@ export default function ArchiveView({ events, onSelectEvent }: ArchiveViewProps)
   }
 
   return (
-    <div className="relative min-h-screen">
-      <div className="flex flex-col gap-5 px-4 pt-6 pb-32 max-w-xl mx-auto w-full">
+    <div className="relative z-10 w-full">
+      <div className="flex flex-col gap-5 px-4 md:px-6 pt-6 pb-32 md:pb-8 w-full max-w-none">
 
         <div className="flex items-center gap-2">
           <div className="w-0.5 h-4 bg-white/40 rounded-full shrink-0" />
@@ -44,7 +45,10 @@ export default function ArchiveView({ events, onSelectEvent }: ArchiveViewProps)
             アーカイブされたイベントがありません
           </div>
         ) : (
-          monthGroups.map(({ month, events: evs }) => (
+          <>
+          <EventPickerTable events={archivedEvents} onSelect={onSelectEvent} variant="archive" />
+          <div className="md:hidden flex flex-col gap-5">
+          {monthGroups.map(({ month, events: evs }) => (
             <div key={month}>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-0.5 h-4 bg-white/40 rounded-full shrink-0" />
@@ -83,7 +87,9 @@ export default function ArchiveView({ events, onSelectEvent }: ArchiveViewProps)
                 })}
               </div>
             </div>
-          ))
+          ))}
+          </div>
+          </>
         )}
       </div>
     </div>
