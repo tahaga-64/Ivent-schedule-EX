@@ -24,37 +24,21 @@ function AnalogClock() {
     return () => clearInterval(id);
   }, []);
 
-  const parts = new Intl.DateTimeFormat('ja-JP', {
+  const fmt = new Intl.DateTimeFormat('ja-JP', {
     timeZone: 'Asia/Tokyo',
-    hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false,
-  }).formatToParts(now);
-  const h = parseInt(parts.find(p => p.type === 'hour')?.value ?? '0') % 12;
-  const m = parseInt(parts.find(p => p.type === 'minute')?.value ?? '0');
-  const s = parseInt(parts.find(p => p.type === 'second')?.value ?? '0');
-  const hDeg = h * 30 + m * 0.5;
-  const mDeg = m * 6 + s * 0.1;
-  const sDeg = s * 6;
-  const hand = (deg: number, len: number, w: number, color: string) => {
-    const r = deg * Math.PI / 180;
-    return <line x1="32" y1="32" x2={32 + len * Math.sin(r)} y2={32 - len * Math.cos(r)}
-      stroke={color} strokeWidth={w} strokeLinecap="round" />;
-  };
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).format(now);
+  const [hm, sec] = [fmt.slice(0, 5), fmt.slice(6, 8)];
+
   return (
-    <svg width="72" height="72" viewBox="0 0 64 64" className="shrink-0">
-      <circle cx="32" cy="32" r="30" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.18)" strokeWidth="1.5" />
-      {[...Array(12)].map((_, i) => {
-        const angle = (i * 30 - 90) * Math.PI / 180;
-        const major = i % 3 === 0;
-        return <line key={i}
-          x1={32 + (major ? 22 : 25) * Math.cos(angle)} y1={32 + (major ? 22 : 25) * Math.sin(angle)}
-          x2={32 + 28 * Math.cos(angle)} y2={32 + 28 * Math.sin(angle)}
-          stroke={major ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.3)'} strokeWidth={major ? 2 : 1} />;
-      })}
-      {hand(hDeg, 15, 3, 'rgba(255,255,255,0.95)')}
-      {hand(mDeg, 21, 2, 'rgba(255,255,255,0.85)')}
-      {hand(sDeg, 24, 1.2, 'rgba(96,165,250,0.9)')}
-      <circle cx="32" cy="32" r="2.5" fill="white" />
-    </svg>
+    <div className="flex flex-col items-end shrink-0 select-none">
+      <div className="text-4xl font-black text-white leading-none tracking-tighter tabular-nums">
+        {hm}
+      </div>
+      <div className="text-lg font-black text-white/50 leading-none tracking-tighter tabular-nums mt-0.5">
+        {sec}
+      </div>
+    </div>
   );
 }
 
