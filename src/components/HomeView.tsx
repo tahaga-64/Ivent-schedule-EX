@@ -227,7 +227,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               <div className="text-xs sm:text-sm font-bold opacity-40">{new Date().getFullYear()}</div>
             </div>
           </div>
-          <EXBadge size={80} />
+          <EXBadge size={104} />
           <AnalogClock />
         </div>
 
@@ -349,21 +349,21 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
           <button
             onClick={() => setShowEventPicker(true)}
-            className="flex items-center gap-3 bg-white text-slate-800 rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/90 active:scale-[0.98] transition-all shadow-lg"
+            className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/15 active:scale-[0.98] transition-all"
           >
             準備物リスト
           </button>
 
           <button
             onClick={() => { if (canEditEvent) { onCreateEvent(); } else { setShowPermissionToast(true); } }}
-            className="flex items-center gap-3 bg-white text-slate-800 rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/90 active:scale-[0.98] transition-all shadow-lg"
+            className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/15 active:scale-[0.98] transition-all"
           >
             新規イベントを追加する
           </button>
 
           <button
             onClick={onOpenSchedule}
-            className="flex items-center gap-3 bg-white text-slate-800 rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/90 active:scale-[0.98] transition-all shadow-lg"
+            className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/15 active:scale-[0.98] transition-all"
           >
             スケジュール
           </button>
@@ -383,13 +383,13 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               href={svc.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between bg-white border border-slate-100 text-slate-800 rounded-2xl px-5 py-3.5 hover:bg-slate-50 active:scale-[0.98] transition-all shadow-sm"
+              className="flex items-center justify-between bg-white/10 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-3.5 hover:bg-white/15 active:scale-[0.98] transition-all"
             >
               <div className="min-w-0">
                 <div className="font-black text-sm leading-tight">{svc.label}</div>
-                <div className="text-[11px] text-slate-400 font-medium">{svc.sub}</div>
+                <div className="text-[11px] text-white/50 font-medium">{svc.sub}</div>
               </div>
-              <ExternalLink size={14} className="text-slate-300 shrink-0 ml-3" />
+              <ExternalLink size={14} className="text-white/40 shrink-0 ml-3" />
             </a>
           ))}
         </div>
