@@ -1,6 +1,7 @@
 import { User } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Plus, Search, LogOut, HelpCircle } from 'lucide-react';
+import { motion } from 'motion/react';
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout";
 
@@ -60,10 +61,13 @@ export default function AppHeader({
           <button onClick={onToggleSidebar} className="p-1.5 rounded-lg text-white/80 hover:bg-white/15 transition-colors">
             <Menu size={18} />
           </button>
-          <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-indigo-200 shadow-md">EX</div>
+          <motion.div
+            className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-indigo-200 shadow-md"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+          >EX</motion.div>
           <div className="hidden sm:block">
-            <div className="font-bold text-sm text-white leading-tight">Ivent Manager</div>
-            <div className="text-[10px] text-white/60 font-bold tracking-tight">Preparation & Scheduling</div>
+            <div className="font-bold text-sm text-white leading-tight">Event Manager</div>
           </div>
           <div className="sm:hidden flex flex-col">
             <div className="text-[10px] font-black text-white/60 tracking-widest uppercase">{calYear}年{calMonth}月</div>
