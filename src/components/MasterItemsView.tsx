@@ -118,38 +118,38 @@ export default function MasterItemsView({ canEdit }: Props) {
               <motion.div
                 key={item.id}
                 layout
-                className="bg-white/90 backdrop-blur-sm border border-white/20 rounded-2xl p-4 hover:bg-white transition-colors group shadow-sm"
+                className="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-4 hover:bg-white/15 transition-colors group shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="font-black text-sm text-slate-800 leading-snug">{item.name}</div>
+                  <div className="font-black text-sm text-white leading-snug">{item.name}</div>
                   {canEdit && (
                     <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
                       <button
                         onClick={() => openEdit(item)}
-                        className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-400 hover:text-slate-700 transition-colors"
+                        className="p-2 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors"
                       >
                         <Pencil size={14} />
                       </button>
                       <button
                         onClick={() => handleDelete(item)}
-                        className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950 text-slate-400 hover:text-red-500 transition-colors"
+                        className="p-2 rounded-lg hover:bg-red-500/20 text-white/40 hover:text-red-300 transition-colors"
                       >
                         <Trash2 size={14} />
                       </button>
                     </div>
                   )}
                 </div>
-                <div className="text-xs text-slate-500 mb-1">
+                <div className="text-xs text-white/50 mb-1">
                   ¥{item.unitPrice.toLocaleString()} · デフォルト {item.defaultQuantity}個
                 </div>
-                {item.note && <div className="text-xs text-slate-400 mb-1">{item.note}</div>}
+                {item.note && <div className="text-xs text-white/40 mb-1">{item.note}</div>}
                 {item.url && (
                   <a
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={e => e.stopPropagation()}
-                    className="text-[10px] text-indigo-500 flex items-center gap-0.5 hover:underline mt-1"
+                    className="text-[10px] text-indigo-300 flex items-center gap-0.5 hover:underline mt-1"
                   >
                     <ExternalLink size={10} />
                     リンクを開く

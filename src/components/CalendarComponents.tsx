@@ -41,9 +41,9 @@ export function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps
       {grouped.map(([date, evs]) => (
         <div key={date}>
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm font-black text-slate-700">{fmtGroup(date)}</span>
-            <div className="flex-1 h-px bg-slate-100" />
-            <span className="text-xs font-bold text-slate-400">{evs.length}</span>
+            <span className="text-sm font-black text-white/80">{fmtGroup(date)}</span>
+            <div className="flex-1 h-px bg-white/10" />
+            <span className="text-xs font-bold text-white/40">{evs.length}</span>
           </div>
           <div className="space-y-2">
             {evs.map((ev) => (
@@ -51,18 +51,18 @@ export function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps
                 key={ev.id}
                 onClick={() => onSelect(ev)}
                 title={ev.status === 'completed' ? '完了済み' : undefined}
-                className="w-full bg-white border border-slate-100 rounded-2xl flex items-center gap-3 text-left shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                className="w-full bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl flex items-center gap-3 text-left shadow-sm hover:bg-white/15 transition-colors overflow-hidden"
               >
                 <div className="w-1 self-stretch rounded-l-2xl shrink-0" style={{ background: rs(ev.region || "").dot }} />
                 <span className="text-xl py-4 shrink-0">{ev.emoji || ts(ev.type || "").icon}</span>
                 <div className="flex-1 py-4 min-w-0">
-                  <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">
+                  <div className="font-bold text-white text-sm truncate">{ev.venue}</div>
+                  <div className="text-[11px] text-white/50 mt-0.5">
                     {[ev.region, ev.type || "その他"].filter(Boolean).join("・")}
                   </div>
                 </div>
                 {ev.end && ev.end !== ev.start && (
-                  <span className="text-[11px] text-slate-400 font-bold pr-4 shrink-0">→{fmtShort(ev.end)}</span>
+                  <span className="text-[11px] text-white/40 font-bold pr-4 shrink-0">→{fmtShort(ev.end)}</span>
                 )}
               </button>
             ))}
@@ -95,9 +95,9 @@ export function MobileWeekStrip({ events }: MobileWeekStripProps) {
         const hasEvent = events.some((ev) => ev.start && new Date(ev.start).toDateString() === d.toDateString());
         return (
           <div key={i} className="flex flex-col items-center gap-1">
-            <span className={`text-[10px] font-bold ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-slate-400"}`}>{dayLabels[i]}</span>
+            <span className={`text-[10px] font-bold ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-white/40"}`}>{dayLabels[i]}</span>
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black transition-all ${
-              isToday ? "bg-indigo-600 text-white shadow-md shadow-indigo-200" : "text-slate-600"
+              isToday ? "bg-indigo-600 text-white shadow-md shadow-indigo-900/40" : "text-white/70"
             }`}>
               {d.getDate()}
             </div>
@@ -142,19 +142,19 @@ export function MobileMonthWeekGrid({
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
-          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-lg font-bold text-slate-600 disabled:opacity-40"
+          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-lg font-bold text-white/70 disabled:opacity-40"
           disabled={weekRowIndex <= 0}
           onClick={() => onWeekRowChange(Math.max(0, weekRowIndex - 1))}
           aria-label="前の週"
         >
           ‹
         </button>
-        <span className="text-center text-xs font-black text-slate-700">
+        <span className="text-center text-xs font-black text-white/80">
           {year}年{month}月 · 第{weekRowIndex + 1}/{weekRowCount}週
         </span>
         <button
           type="button"
-          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-lg font-bold text-slate-600 disabled:opacity-40"
+          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-lg font-bold text-white/70 disabled:opacity-40"
           disabled={weekRowIndex >= weekRowCount - 1}
           onClick={() => onWeekRowChange(Math.min(weekRowCount - 1, weekRowIndex + 1))}
           aria-label="次の週"
@@ -179,16 +179,16 @@ export function MobileMonthWeekGrid({
           return (
             <div
               key={`${year}-${month}-${idx}`}
-              className={`flex min-h-[8.5rem] flex-col rounded-lg border border-slate-200/90 bg-white p-0.5 shadow-sm ${
+              className={`flex min-h-[8.5rem] flex-col rounded-lg border border-white/15 bg-white/[0.06] p-0.5 shadow-sm ${
                 isToday ? "ring-2 ring-indigo-400/40" : ""
               }`}
             >
               <div
-                className={`mb-0.5 shrink-0 border-b border-slate-100 pb-0.5 text-center ${
-                  !cell.current ? "text-slate-300" : isSun ? "text-red-500" : isSat ? "text-blue-500" : "text-slate-600"
+                className={`mb-0.5 shrink-0 border-b border-white/10 pb-0.5 text-center ${
+                  !cell.current ? "text-white/25" : isSun ? "text-red-400" : isSat ? "text-blue-400" : "text-white/70"
                 }`}
               >
-                <div className="text-[9px] font-bold text-slate-400">{DAYS_JP[idx % 7]}</div>
+                <div className="text-[9px] font-bold text-white/40">{DAYS_JP[idx % 7]}</div>
                 <div
                   className={`text-[13px] font-bold tabular-nums ${
                     cell.current && isToday ? "rounded-md bg-indigo-600 px-1 py-0.5 text-white" : ""
@@ -216,12 +216,12 @@ export function MobileMonthWeekGrid({
                         minHeight: CAL_EVENT_ROW_MIN_HEIGHT_TOUCH,
                       }}
                       aria-label={captionNd ? `${ev.venue}。${captionNd}` : ev.venue}
-                      className="flex w-full shrink-0 flex-col justify-center overflow-hidden rounded border border-slate-200 bg-white px-1 py-0.5 text-left ring-1 ring-inset ring-slate-900/[0.04]"
+                      className="flex w-full shrink-0 flex-col justify-center overflow-hidden rounded border border-white/15 bg-white/10 px-1 py-0.5 text-left ring-1 ring-inset ring-white/5"
                     >
-                      <span className="w-full truncate text-[11px] font-bold leading-tight text-slate-900">
+                      <span className="w-full truncate text-[11px] font-bold leading-tight text-white">
                         {ev.venue}
                       </span>
-                      <span className="w-full truncate text-[9px] leading-tight text-slate-400">
+                      <span className="w-full truncate text-[9px] leading-tight text-white/50">
                         {ev.region}{ev.type ? `・${ev.type}` : ''}
                       </span>
                     </button>
@@ -232,7 +232,7 @@ export function MobileMonthWeekGrid({
                     type="button"
                     style={{ minHeight: CAL_EVENT_ROW_MIN_HEIGHT_TOUCH }}
                     onClick={() => onOpenDayDetail({ year, month, day: cell.day, events: dayEvents })}
-                    className="w-full shrink-0 rounded border border-slate-300 bg-slate-200 py-1 text-center text-[10px] font-bold text-slate-800 shadow-sm"
+                    className="w-full shrink-0 rounded border border-white/15 bg-white/10 py-1 text-center text-[10px] font-bold text-white shadow-sm"
                   >
                     +{hiddenCount}
                   </button>
@@ -240,7 +240,7 @@ export function MobileMonthWeekGrid({
                 {cell.current && dayEvents.length === 0 && (
                   <button
                     type="button"
-                    className="mt-auto flex min-h-9 flex-1 items-center justify-center rounded border border-dashed border-slate-200 text-slate-300"
+                    className="mt-auto flex min-h-9 flex-1 items-center justify-center rounded border border-dashed border-white/15 text-white/25"
                     onClick={() =>
                       onCreateEvent({
                         start: `${year}-${String(month).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`,
@@ -295,7 +295,7 @@ export function MobileDayAgendaView({
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
-          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-bold text-slate-600 disabled:opacity-40"
+          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-lg font-bold text-white/70 disabled:opacity-40"
           disabled={day <= 1}
           onClick={() => setAgendaDay(day - 1)}
           aria-label="前の日"
@@ -303,14 +303,14 @@ export function MobileDayAgendaView({
           ‹
         </button>
         <div className="text-center">
-          <div className="text-lg font-black text-slate-800 tabular-nums">
+          <div className="text-lg font-black text-white tabular-nums">
             {year}/{month}/{day}
           </div>
-          <div className="text-xs font-bold text-slate-500">{dow}曜日</div>
+          <div className="text-xs font-bold text-white/50">{dow}曜日</div>
         </div>
         <button
           type="button"
-          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-bold text-slate-600 disabled:opacity-40"
+          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-lg font-bold text-white/70 disabled:opacity-40"
           disabled={day >= dim}
           onClick={() => setAgendaDay(day + 1)}
           aria-label="次の日"
@@ -320,7 +320,7 @@ export function MobileDayAgendaView({
       </div>
 
       {dayEvents.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-sm font-bold text-slate-400">
+        <div className="rounded-2xl border border-dashed border-white/15 py-10 text-center text-sm font-bold text-white/40">
           この日のイベントはありません
         </div>
       ) : (
@@ -335,17 +335,17 @@ export function MobileDayAgendaView({
                 onClick={() => onSelect(ev)}
                 title={ev.status === 'completed' ? '完了済み' : undefined}
                 style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border }}
-                className="flex min-h-11 w-full items-start gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm ring-1 ring-inset ring-slate-900/[0.04]"
+                className="flex min-h-11 w-full items-start gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-left shadow-sm ring-1 ring-inset ring-white/5"
               >
                 <span
-                  className="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-slate-900/15"
+                  className="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-white/20"
                   style={{ backgroundColor: typeSty.border }}
                   aria-hidden
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-bold text-slate-900">{ev.venue}</span>
+                  <span className="block truncate font-bold text-white">{ev.venue}</span>
                   {meta ? (
-                    <span className="mt-0.5 block truncate text-xs font-medium text-slate-600">{meta}</span>
+                    <span className="mt-0.5 block truncate text-xs font-medium text-white/60">{meta}</span>
                   ) : null}
                 </span>
               </button>
@@ -355,7 +355,7 @@ export function MobileDayAgendaView({
             <button
               type="button"
               onClick={() => onOpenDayDetail({ year, month, day, events: dayEvents })}
-              className="flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-slate-200 text-sm font-bold text-slate-800 shadow-sm"
+              className="flex min-h-11 w-full items-center justify-center rounded-xl border border-white/15 bg-white/10 text-sm font-bold text-white shadow-sm"
             >
               ほか +{hiddenCount}件
             </button>
@@ -369,8 +369,8 @@ export function MobileDayAgendaView({
           disabled={!canEdit}
           className={`flex min-h-11 w-full items-center justify-center rounded-xl border border-dashed text-sm font-bold transition-colors ${
             canEdit
-              ? 'border-indigo-200 bg-indigo-50/50 text-indigo-700'
-              : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+              ? 'border-indigo-400/40 bg-indigo-500/20 text-indigo-200'
+              : 'border-white/10 bg-white/5 text-white/30 cursor-not-allowed'
           }`}
           onClick={() =>
             canEdit &&
@@ -382,7 +382,7 @@ export function MobileDayAgendaView({
           この日にイベントを追加
         </button>
         {!canEdit && (
-          <p className="text-center text-[11px] text-slate-400">
+          <p className="text-center text-[11px] text-white/40">
             ※ 権限がありません
           </p>
         )}
@@ -433,29 +433,29 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
       )}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-            {monthNames[month]} <span className="text-slate-400 font-bold ml-1">{year}</span>
+          <h2 className="text-2xl font-black text-white tracking-tight">
+            {monthNames[month]} <span className="text-white/40 font-bold ml-1">{year}</span>
           </h2>
         </div>
 
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1">
-            <button onClick={prevMonth} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ChevronLeft size={20} /></button>
-            <button onClick={setToday} className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm ml-1 mr-1">今日</button>
-            <button onClick={nextMonth} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ChevronRight size={20} /></button>
+            <button onClick={prevMonth} className="p-2 text-white/50 hover:text-white transition-colors"><ChevronLeft size={20} /></button>
+            <button onClick={setToday} className="px-4 py-1.5 bg-white/10 border border-white/15 rounded-lg text-xs font-bold text-white/80 hover:bg-white/20 transition-colors shadow-sm ml-1 mr-1">今日</button>
+            <button onClick={nextMonth} className="p-2 text-white/50 hover:text-white transition-colors"><ChevronRight size={20} /></button>
           </div>
         </div>
       </div>
 
       <div
-        className="flex-1 grid min-h-0 grid-cols-7 border-t border-l border-slate-100"
+        className="flex-1 grid min-h-0 grid-cols-7 border-t border-l border-white/10"
         style={{
           gridTemplateRows: `auto repeat(${weekRows}, minmax(0, 1fr))`,
         }}
       >
         {DAYS_JP.map((d, i) => (
-          <div key={d} className="border-r border-b border-slate-100 bg-slate-50/10 py-2 px-3">
-            <span className={`text-[9px] font-black tracking-widest ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-slate-400"}`}>{d}</span>
+          <div key={d} className="border-r border-b border-white/10 bg-white/5 py-2 px-3">
+            <span className={`text-[9px] font-black tracking-widest ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-white/40"}`}>{d}</span>
           </div>
         ))}
 
@@ -471,8 +471,8 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
             <div
               key={idx}
               className={`
-                group relative flex h-full min-h-0 flex-col overflow-hidden border-r border-b border-slate-100 px-1 pb-1.5 pt-1.5
-                ${cell.current ? "bg-white" : "bg-slate-50/20"}
+                group relative flex h-full min-h-0 flex-col overflow-hidden border-r border-b border-white/10 px-1 pb-1.5 pt-1.5
+                ${cell.current ? "bg-white/[0.06]" : "bg-white/[0.02]"}
                 ${isSixWeekMonth
                   ? "min-h-[104px] sm:min-h-[112px] md:min-h-[118px] lg:min-h-[122px] xl:min-h-[128px] 2xl:min-h-[136px]"
                   : "min-h-[128px] sm:min-h-[136px] md:min-h-[144px] lg:min-h-[152px] xl:min-h-[160px]"}
@@ -481,16 +481,16 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
               {/* 今日・祝日・選択日などの装飾は背景レイヤに分離（テキスト／イベント領域の高さを圧迫しない）。祝日・選択日の色帯も同 div 内に載せる */}
               <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
                 {cell.current && isToday && (
-                  <div className="absolute inset-0 bg-indigo-50/50 ring-1 ring-inset ring-indigo-100/80" />
+                  <div className="absolute inset-0 bg-indigo-500/15 ring-1 ring-inset ring-indigo-400/30" />
                 )}
               </div>
 
               <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-                <div className="flex h-7 shrink-0 items-center border-b border-slate-100/90 px-0.5">
+                <div className="flex h-7 shrink-0 items-center border-b border-white/10 px-0.5">
                   <span
                     className={`
                       inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-md text-[13px] font-bold tabular-nums
-                      ${!cell.current ? "text-slate-300" : isToday ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200/60" : isSun ? "text-red-500" : isSatCal ? "text-blue-500" : "text-slate-700"}
+                      ${!cell.current ? "text-white/25" : isToday ? "bg-indigo-600 text-white shadow-sm shadow-indigo-900/40" : isSun ? "text-red-400" : isSatCal ? "text-blue-400" : "text-white/80"}
                     `}
                   >
                     {cell.day}
@@ -499,7 +499,7 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
                     <button
                       type="button"
                       onClick={() => onCreateEvent({ start: `${year}-${String(month).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}` })}
-                      className="ml-auto w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 opacity-0 group-hover:opacity-100 transition-all"
+                      className="ml-auto w-5 h-5 rounded flex items-center justify-center text-white/30 hover:text-indigo-300 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all"
                       aria-label="イベントを追加"
                     >
                       <Plus size={11} />
@@ -534,14 +534,14 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
                             : (captionFull ? `${ev.venue}。${captionFull}` : ev.venue)
                         }
                         title={ev.status === 'completed' ? '完了済み' : undefined}
-                        className="relative overflow-hidden flex w-full shrink-0 items-center gap-1.5 rounded-md border border-solid border-slate-200 bg-white px-1.5 py-0.5 text-left shadow-sm ring-1 ring-inset ring-slate-900/[0.04] transition hover:border-slate-300 hover:bg-slate-50/90"
+                        className="relative overflow-hidden flex w-full shrink-0 items-center gap-1.5 rounded-md border border-solid border-white/15 bg-white/10 px-1.5 py-0.5 text-left shadow-sm ring-1 ring-inset ring-white/5 transition hover:border-white/25 hover:bg-white/15"
                       >
                         <span
-                          className="h-1.5 w-1.5 shrink-0 rounded-full border border-slate-900/20"
+                          className="h-1.5 w-1.5 shrink-0 rounded-full border border-white/20"
                           style={{ backgroundColor: typeSty.border }}
                           aria-hidden
                         />
-                        <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[12px] font-semibold leading-tight text-slate-900 max-xl:text-[11px]">
+                        <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[12px] font-semibold leading-tight text-white max-xl:text-[11px]">
                           {ev.venue}
                         </span>
                         {/* 準備物進捗バー */}
@@ -550,7 +550,7 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
                           if (!prog || prog.total === 0) return null;
                           const pct = Math.round((prog.done / prog.total) * 100);
                           return (
-                            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100">
+                            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/10">
                               <div className="h-full bg-emerald-400 transition-all" style={{ width: `${pct}%` }} />
                             </div>
                           );
@@ -570,7 +570,7 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
                           })
                         }
                         style={{ minHeight: eventRowMinHeight }}
-                        className="w-full shrink-0 text-left rounded-md border border-solid border-slate-300/80 bg-slate-200/90 px-1 py-0.5 flex items-center justify-center overflow-hidden transition hover:bg-slate-300/90 hover:border-slate-400/80 text-[12px] max-xl:text-[11px] leading-none font-bold text-slate-800 shadow-sm ring-1 ring-inset ring-slate-900/[0.05] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1"
+                        className="w-full shrink-0 text-left rounded-md border border-solid border-white/15 bg-white/10 px-1 py-0.5 flex items-center justify-center overflow-hidden transition hover:bg-white/20 hover:border-white/25 text-[12px] max-xl:text-[11px] leading-none font-bold text-white shadow-sm ring-1 ring-inset ring-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1"
                         aria-label={`あと${hiddenCount}件のイベントを表示`}
                       >
                         +{hiddenCount}件
@@ -582,7 +582,7 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
                     <button
                       type="button"
                       onClick={() => onCreateEvent({ start: `${year}-${String(month).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}` })}
-                      className={`mt-auto flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-200 py-1 opacity-0 transition-all hover:border-indigo-300 hover:text-indigo-400 group-hover:opacity-100 text-slate-300 ${
+                      className={`mt-auto flex flex-1 items-center justify-center rounded-lg border border-dashed border-white/15 py-1 opacity-0 transition-all hover:border-indigo-300 hover:text-indigo-300 group-hover:opacity-100 text-white/25 ${
                         narrowViewport ? "min-h-9" : "min-h-[2rem]"
                       }`}
                     >
@@ -610,44 +610,44 @@ export function HoverCard({ event, pos, prepStats }: {
 
   return (
     <div
-      className="fixed z-[200] w-60 bg-white border border-slate-100 rounded-2xl shadow-2xl p-4 pointer-events-none hidden lg:block"
+      className="fixed z-[200] w-60 bg-slate-900/90 backdrop-blur-md border border-white/15 rounded-2xl shadow-2xl p-4 pointer-events-none hidden lg:block"
       style={{ left, top }}
     >
       <div className="flex items-start gap-2 mb-3">
         <span
-          className="mt-0.5 h-2 w-2 shrink-0 rounded-full border border-slate-900/15"
+          className="mt-0.5 h-2 w-2 shrink-0 rounded-full border border-white/20"
           style={{ backgroundColor: ts(event.type || "").border }}
           aria-hidden
         />
         <div className="min-w-0">
-          <div className="font-black text-sm text-slate-900 leading-tight truncate">{event.venue}</div>
-          <div className="text-[10px] font-bold text-slate-600 mt-0.5">{buildEventOptionalCaption(event) || (event.type || "その他")}</div>
+          <div className="font-black text-sm text-white leading-tight truncate">{event.venue}</div>
+          <div className="text-[10px] font-bold text-white/60 mt-0.5">{buildEventOptionalCaption(event) || (event.type || "その他")}</div>
         </div>
       </div>
-      <div className="space-y-1.5 text-xs text-slate-700">
+      <div className="space-y-1.5 text-xs text-white/70">
         <div className="flex gap-2">
-          <span className="w-2 h-2 rounded-full mt-1 shrink-0 ring-1 ring-slate-900/10" style={{ background: rs(event.region || '').dot }} />
+          <span className="w-2 h-2 rounded-full mt-1 shrink-0 ring-1 ring-white/15" style={{ background: rs(event.region || '').dot }} />
           <span>{event.region}</span>
         </div>
-        <div className="font-mono text-slate-500">
+        <div className="font-mono text-white/50">
           {event.start}{event.end && event.end !== event.start ? ` → ${event.end}` : ''}
         </div>
-        {event.client && <div className="text-slate-500">{event.client}</div>}
-        {event.note && <div className="text-slate-400 line-clamp-2">{event.note}</div>}
+        {event.client && <div className="text-white/50">{event.client}</div>}
+        {event.note && <div className="text-white/40 line-clamp-2">{event.note}</div>}
       </div>
       {prepStats && prepStats.total > 0 && (
-        <div className="mt-3 pt-3 border-t border-slate-100">
+        <div className="mt-3 pt-3 border-t border-white/10">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">準備物</span>
-            <span className="text-[10px] font-black text-indigo-600">{pct}%</span>
+            <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">準備物</span>
+            <span className="text-[10px] font-black text-indigo-300">{pct}%</span>
           </div>
-          <div className="w-full bg-slate-100 rounded-full h-1.5">
+          <div className="w-full bg-white/10 rounded-full h-1.5">
             <div
-              className="bg-indigo-600 h-1.5 rounded-full transition-all"
+              className="bg-indigo-400 h-1.5 rounded-full transition-all"
               style={{ width: `${pct}%` }}
             />
           </div>
-          <div className="mt-1 text-[10px] text-slate-400 font-bold">
+          <div className="mt-1 text-[10px] text-white/40 font-bold">
             {prepStats.done} / {prepStats.total} 完了
           </div>
         </div>
@@ -658,11 +658,11 @@ export function HoverCard({ event, pos, prepStats }: {
 
 export function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-24 text-slate-300 dark:text-zinc-700">
-      <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-zinc-900 flex items-center justify-center mb-6">
+    <div className="flex flex-col items-center justify-center py-24 text-white/30">
+      <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mb-6">
         <Calendar size={32} />
       </div>
-      <div className="text-sm font-bold text-slate-400 dark:text-zinc-600">イベントが見つかりません</div>
+      <div className="text-sm font-bold text-white/40">イベントが見つかりません</div>
     </div>
   );
 }

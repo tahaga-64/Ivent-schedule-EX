@@ -877,7 +877,7 @@ VITE_FIREBASE_DATABASE_ID`}
             />
           </div>
           <div className="lg:hidden space-y-3">
-            <div className="flex gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="カレンダー表示の切替">
+            <div className="flex gap-1 rounded-xl bg-white/10 border border-white/15 p-1" role="tablist" aria-label="カレンダー表示の切替">
               {(
                 [
                   ["list", "一覧"],
@@ -899,7 +899,7 @@ VITE_FIREBASE_DATABASE_ID`}
                     }
                   }}
                   className={`min-h-9 flex-1 rounded-lg text-xs font-black transition-colors ${
-                    calendarMobileLayout === id ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500"
+                    calendarMobileLayout === id ? "bg-white text-indigo-700 shadow-sm" : "text-white/50"
                   }`}
                 >
                   {label}

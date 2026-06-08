@@ -713,16 +713,16 @@ function EventCard({ ev, onSelect, past }: { ev: Event; onSelect: () => void; pa
     <motion.button
       whileHover={{ y: -2 }}
       onClick={onSelect}
-      className={`w-full text-left bg-white/90 backdrop-blur-sm rounded-2xl px-4 py-3.5 shadow-sm hover:shadow-md hover:bg-white transition-all group flex items-center gap-3 ${past ? 'opacity-60 hover:opacity-100' : ''}`}
+      className={`w-full text-left bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl px-4 py-3.5 shadow-sm hover:shadow-md hover:bg-white/15 transition-all group flex items-center gap-3 ${past ? 'opacity-60 hover:opacity-100' : ''}`}
     >
-      <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-        <LayoutGrid size={16} className="text-indigo-500" />
+      <div className="w-9 h-9 rounded-xl bg-indigo-500/20 flex items-center justify-center shrink-0">
+        <LayoutGrid size={16} className="text-indigo-300" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-black text-slate-800 truncate">{ev.venue}</div>
-        {sub && <div className="text-xs text-slate-400 mt-0.5 truncate">{sub}</div>}
+        <div className="text-sm font-black text-white truncate">{ev.venue}</div>
+        {sub && <div className="text-xs text-white/50 mt-0.5 truncate">{sub}</div>}
       </div>
-      <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 shrink-0 transition-colors" />
+      <ChevronRight size={14} className="text-white/30 group-hover:text-indigo-300 shrink-0 transition-colors" />
     </motion.button>
   );
 }
