@@ -290,7 +290,23 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h2 className="text-lg font-black text-white leading-tight">{event.venue}</h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-black text-white leading-tight">{event.venue}</h2>
+              {(() => {
+                const filled = items.filter(i => !isEmptyItem(i)).length;
+                if (filled === 0) return null;
+                const allDone = totals.done === filled;
+                return (
+                  <span className={`text-[11px] font-black px-2 py-0.5 rounded-full border ${
+                    allDone
+                      ? 'bg-emerald-500/25 text-emerald-300 border-emerald-400/40'
+                      : 'bg-indigo-500/20 text-indigo-300 border-indigo-400/30'
+                  }`}>
+                    {totals.done}/{filled}件完了
+                  </span>
+                );
+              })()}
+            </div>
             <span className="text-[11px] text-white/50 font-mono">{event.start} → {event.end}</span>
           </div>
         </div>
@@ -673,8 +689,12 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                 className="bg-indigo-400 h-1 rounded-full"
               />
             </div>
-            <div className="text-[9px] font-bold text-white/30">
-              着荷 {totals.arrived} · 完了 {totals.prepared} · {items.length}件
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[10px] font-black text-white/50">着荷 {totals.arrived}</span>
+              <span className="text-white/20">·</span>
+              <span className="text-[10px] font-black text-white/50">完了 {totals.prepared}</span>
+              <span className="text-white/20">·</span>
+              <span className="text-[11px] font-black text-white/80">{items.filter(i => !isEmptyItem(i)).length}件</span>
             </div>
           </div>
           {/* Excel / 印刷 buttons */}

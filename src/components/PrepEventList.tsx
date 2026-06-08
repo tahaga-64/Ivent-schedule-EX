@@ -75,7 +75,22 @@ export default function PrepEventList({ events, onSelectEvent }: PrepEventListPr
                               <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full ${urgencyBadge.cls}`}>{urgencyBadge.label}</span>
                             )}
                           </div>
-                          <div className="text-xs text-white/50 truncate">{fmtDateRange(ev.start, ev.end)}</div>
+                          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                            <span className="text-xs text-white/50 truncate">{fmtDateRange(ev.start, ev.end)}</span>
+                            {(ev.prepItemTotal ?? 0) > 0 ? (
+                              <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                                (ev.prepItemDone ?? 0) >= (ev.prepItemTotal ?? 0)
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
+                                  : 'bg-indigo-500/20 text-indigo-300 border-indigo-400/30'
+                              }`}>
+                                {ev.prepItemDone ?? 0}/{ev.prepItemTotal}件完了
+                              </span>
+                            ) : (
+                              <span className="shrink-0 text-[10px] font-black text-white/25 px-2 py-0.5 rounded-full border border-white/10">
+                                準備物なし
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center pr-3">
                           <ChevronRight size={16} className="text-white/30 shrink-0" />
