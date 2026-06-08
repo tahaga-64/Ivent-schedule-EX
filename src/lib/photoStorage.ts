@@ -1,100 +1,73 @@
 import { EventPhoto } from '../types';
-import { SUPABASE_PHOTO_BUCKET, supabase } from './supabase';
+import { auth } from './firebase';
 
 export const MAX_SIZE_BYTES = 10 * 1024 * 1024;
-export const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'];
-export const MAX_PHOTOS = 3;
+export const MAX_PHOTOS = 5;
+
+const CLOUD_NAME = 'dqwvmz3hk';
+const UPLOAD_PRESET = 'events photo';
+const UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif', '.avif', '.bmp', '.tiff'];
 
 export function validateImageFile(file: File): string | null {
-  if (!ACCEPTED_TYPES.includes(file.type)) return '対応画像形式: JPEG, PNG, WebP, GIF, HEIC';
+  const type = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  const isImage = type.startsWith('image/') ||
+    IMAGE_EXTENSIONS.some(ext => name.endsWith(ext));
+  if (!isImage) return '画像ファイルを選択してください';
   if (file.size > MAX_SIZE_BYTES) return 'ファイルサイズは10MB以下にしてください';
   return null;
 }
 
-async function resizeToWebpBlob(file: File, maxWidth: number, quality: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      const scale = Math.min(1, maxWidth / img.width);
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
-      canvas.toBlob(
-        blob => {
-          canvas.width = 0;
-          canvas.height = 0;
-          if (!blob) { reject(new Error('圧縮に失敗しました')); return; }
-          resolve(blob);
-        },
-        'image/webp',
-        quality
-      );
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error('画像の読み込みに失敗しました'));
-    };
-    img.src = objectUrl;
-  });
-}
-
-function getPublicUrl(path: string): string {
-  const { data } = supabase.storage.from(SUPABASE_PHOTO_BUCKET).getPublicUrl(path);
-  return data.publicUrl;
-}
-
-function buildPhotoPath(eventId: string, photoId: string, fileName: string): string {
-  const safeEventId = eventId.replace(/[^a-zA-Z0-9_-]/g, '_');
-  return `events/${safeEventId}/${photoId}/${fileName}`;
-}
-
-async function uploadBlob(path: string, blob: Blob): Promise<void> {
-  const { error } = await supabase.storage.from(SUPABASE_PHOTO_BUCKET).upload(path, blob, {
-    contentType: 'image/webp',
-    upsert: false,
-  });
-  if (error) throw error;
-}
-
 export async function uploadEventPhoto(eventId: string, file: File): Promise<EventPhoto> {
   const photoId = crypto.randomUUID();
-  const storagePath = buildPhotoPath(eventId, photoId, 'photo.webp');
-  const thumbnailStoragePath = buildPhotoPath(eventId, photoId, 'thumb.webp');
 
-  const [photoBlob, thumbnailBlob] = await Promise.all([
-    resizeToWebpBlob(file, 2000, 0.88),
-    resizeToWebpBlob(file, 400, 0.75),
-  ]);
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', UPLOAD_PRESET);
+  formData.append('folder', `events/${eventId}`);
+  formData.append('public_id', photoId);
 
-  try {
-    await Promise.all([
-      uploadBlob(storagePath, photoBlob),
-      uploadBlob(thumbnailStoragePath, thumbnailBlob),
-    ]);
-  } catch (uploadError) {
-    supabase.storage.from(SUPABASE_PHOTO_BUCKET).remove([storagePath, thumbnailStoragePath]).catch(() => {});
-    throw uploadError;
+  const response = await fetch(UPLOAD_URL, { method: 'POST', body: formData });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message ?? 'Cloudinaryへのアップロードに失敗しました');
   }
+
+  const data = await response.json();
+  const publicId: string = data.public_id;
+
+  const base = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload`;
 
   return {
     id: photoId,
-    url: getPublicUrl(storagePath),
-    thumbnailUrl: getPublicUrl(thumbnailStoragePath),
-    storagePath,
-    thumbnailStoragePath,
+    url: `${base}/w_2000,q_88,f_webp/${publicId}`,
+    thumbnailUrl: `${base}/w_400,q_75,f_webp/${publicId}`,
+    storagePath: publicId,
     uploadedAt: new Date().toISOString(),
   };
 }
 
 export async function deleteStoredPhoto(photo: EventPhoto): Promise<void> {
-  const paths = [photo.storagePath, photo.thumbnailStoragePath].filter((path): path is string => Boolean(path));
-  if (paths.length === 0) return;
-
-  const { error } = await supabase.storage.from(SUPABASE_PHOTO_BUCKET).remove(paths);
-  if (error) throw error;
+  if (!photo.storagePath) return;
+  try {
+    // サーバーAPIは Firebase ID トークン検証を要求する（未ログインでは削除不可）
+    const token = await auth?.currentUser?.getIdToken();
+    if (!token) {
+      console.warn('Cloudinary deletion skipped: not authenticated');
+      return;
+    }
+    await fetch('/api/deletePhoto', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ publicId: photo.storagePath }),
+    });
+  } catch (e) {
+    console.warn('Cloudinary deletion failed:', e);
+  }
 }

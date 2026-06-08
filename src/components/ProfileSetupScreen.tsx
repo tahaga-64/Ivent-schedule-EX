@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { updateProfile, User } from 'firebase/auth';
 import { motion } from 'motion/react';
-import { recordUserLogin } from '../lib/notifications';
-
 interface Props {
   user: User;
   onComplete: () => void;
@@ -32,7 +30,6 @@ export default function ProfileSetupScreen({ user, onComplete }: Props) {
     setError(null);
     try {
       await updateProfile(user, { displayName: trimmed });
-      await recordUserLogin({ ...user, displayName: trimmed } as User);
       onComplete();
     } catch {
       setError('設定に失敗しました。もう一度お試しください。');

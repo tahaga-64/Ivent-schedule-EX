@@ -23,11 +23,15 @@ export function canEditEvent(user: User | null | undefined, isMobile = false): b
   return EVENT_EDITOR_EMAILS.includes(email);
 }
 
+/** 写真アップロード・削除はログイン済みユーザー全員が可 */
+export function canUploadPhoto(user: User | null | undefined): boolean {
+  return isSignedIn(user);
+}
+
 /**
  * 準備物リストの UI 編集可否。
  * 仕様: ログイン済み（Firebase Auth のユーザーがいる）なら true。
- * isMobile は影響しない — モバイルでもログイン済みなら編集可。
  */
-export function canEditPreparationList(user: User | null | undefined, isMobile = false): boolean {
+export function canEditPreparationList(user: User | null | undefined): boolean {
   return isSignedIn(user);
 }

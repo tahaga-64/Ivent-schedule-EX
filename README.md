@@ -1,98 +1,211 @@
 # EX Event Manager
 
-EX事業部向けのイベント管理アプリ。
-従来スプレッドシートで管理していたイベント日程・準備物・担当者管理を、リアルタイム共有可能なWebアプリとして再設計。
+> EX事業部向けのイベント管理 Web アプリ。スプレッドシート運用を脱却し、**リアルタイム共有・モバイル対応・PWA** を備えたサーバーレス SPA。
+> イベントの日程／準備物／担当者／写真／会場レイアウトを一元管理します。
 
-⸻
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite)](https://vite.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
+[![Firebase](https://img.shields.io/badge/Firebase-12-FFCA28?logo=firebase)](https://firebase.google.com/)
+[![Vercel](https://img.shields.io/badge/Deploy-Vercel-000?logo=vercel)](https://vercel.com/)
 
-## 背景
+---
 
-EX事業部では、イベントの日程管理や準備物の確認をスプレッドシートで運用していましたが、
+## 背景と課題
 
-- 情報が見づらい
-- 更新漏れが発生しやすい
-- 状況共有が難しい
-- スマホで扱いづらい
+EX事業部ではイベントの日程・準備物の管理をスプレッドシートで運用していましたが、現場では **視認性の低さ・更新漏れ・リアルタイム共有の不足・モバイル非対応** が慢性的な問題でした。本アプリはこれらを解決し、現場スタッフが日常的に使い続けられる体験を目指して開発しています。
 
-などの課題がありました。
+---
 
-もともと従業員向けスケジュールアプリを制作した経験から、
-「イベント管理もアプリ化できないか」という要望を受け、本プロジェクトを開発しています。
+## 主な機能
 
-⸻
+### 🗓️ イベント管理
+- イベントの作成 / 編集 / 削除（権限管理付き・デスクトップのみ）
+- 6種類のステータス（予定 / 準備中 / 入荷待ち / 準備完了 / 終了 / キャンセル）＋ステータスフィルター
+- 担当者割り当て（スタッフリストから選択）・日別役割・共有メモ（全員記入可）
+- 会場・クライアント名での検索
+- 起動時は常に **当月** を自動表示
 
-## コンセプト
+### 📅 カレンダー / ホーム
+- デスクトップ：月グリッドカレンダー（ステータスカラー・準備物進捗ホバー）
+- モバイル：タイムライン / 日別アジェンダ（常駐カルーセルでシームレス遷移）
+- ホーム：直近・開催中・期限超過のイベントを一覧
 
-「現場で使いやすいイベント管理」
+### 📋 準備物リスト
+- 品名・数量・単価・配送料・URL・備考の登録、金額・進捗の自動算出
+- **自動保存**（チェック・入力は即 Firestore に保存。手動保存ボタン不要）
+- **Excel 出力 / 印刷 / 商談提案 PDF / LINE 共有**
 
-- 視認性
-- 操作性
-- リアルタイム共有
-- モバイル対応
-- ダークモードを含むUI体験
+### 📷 写真アルバム（イベント）
+- イベントごとに最大5枚（1枚10MBまで）／ Cloudinary ストレージ
+- 削除時はサーバー API 経由で Cloudinary からも完全削除（Firebase ID トークン認証）
 
-を重視した設計を目指しています。
+### 🐟 魚リスト（水族館イベント）
+- 観賞魚の種類・匹数・メモ管理（リアルタイム同期）
 
-⸻
+### 🗺️ フロアレイアウトプランナー
+- ドラッグ＆ドロップで什器（机・水槽・砂場・入口…）を配置・回転
+- **カスタムアイテム追加**（名前・絵文字・色を指定）
+- **アイテムのサイズ変更**（拡大／縮小）
+- **参考写真ギャラリー**（Cloudinary・最大12枚）
+- **公開共有リンク**（`/?layout=<イベントID>`）— 未ログインのクライアントも閲覧可能
 
-## 特徴（現状）
+### 📦 備品マスター / 🗄️ アーカイブ
+- よく使う備品のひな型管理／終了イベントの記録
 
-- イベント一覧管理
-- イベント作成 / 編集
-- リアルタイム同期
-- Firebase Authentication
-- Googleログイン
-- ダーク / ライトモード
-- レスポンシブUI
-- アニメーションUI
+### 📱 PWA
+- `manifest.webmanifest` + Apple メタタグでホーム画面追加・スタンドアロン起動に対応
 
-⸻
+### 🔐 認証・権限
+- Google / Apple / メールでログイン（Firebase Auth）
+- `allowedUsers` コレクションによる**招待制**アクセス
+- 編集権限の分離（下表）
 
-## 機能
+---
 
-- 通知機能
-- 担当者割り当て
-- 準備物チェックリスト
-- カレンダー表示
-- イベント進行ステータス
-- AI補助機能
-- 権限管理
+## 権限モデル
 
-⸻
+| 操作 | 権限 |
+|------|------|
+| ログイン | `allowedUsers` に登録されたメールのみ |
+| イベント本体の作成・編集・削除 | `permissions.ts` の `EVENT_EDITOR_EMAILS`、かつ**デスクトップのみ** |
+| 準備物・写真・魚リスト・レイアウトの編集 | ログイン済みユーザー全員 |
+| レイアウトの**閲覧** | 公開（共有リンク用・未ログイン可）。書き込みはログイン済みのみ |
+
+> `EVENT_EDITOR_EMAILS`（`src/lib/permissions.ts`）と `firestore.rules` は常に揃えること。
+
+---
 
 ## 技術スタック
 
-### フロントエンド
-- React 19.0.1
-- TypeScript 5.8.2
-- Vite 6.2.3（ビルドツール）
-- Tailwind CSS 4.1.14
-- Framer Motion 12.23.24（motion/react）
-- Lucide React 0.546.0（アイコン）
+| 領域 | 採用技術 |
+|------|----------|
+| フロントエンド | React 19 / TypeScript / Vite 6 |
+| スタイル | Tailwind CSS v4（`@import "tailwindcss"`・CSS変数テーマトークン） |
+| アニメーション | motion/react（Framer Motion v12） |
+| アイコン | lucide-react |
+| 帳票 | xlsx（Excel 出力）/ ブラウザ印刷（`@media print`） |
+| バックエンド | Firebase（Firestore + Auth）|
+| 画像 | Cloudinary（アップロード・最適化・CDN）|
+| サーバーレス | Vercel Functions（`/api/deletePhoto`）|
+| テスト | Vitest + Testing Library（23 ケース）|
+| ホスティング | Vercel（`main` ブランチ自動デプロイ）|
 
-### バックエンド / インフラ
-- Firebase Firestore（データベース）
-- Firebase Auth（認証 / Google OAuth）
+> ℹ️ プッシュ通知（FCM）は現状**未実装**です（`VITE_FIREBASE_VAPID_KEY` は不要）。
 
-### その他
-- @google/genai 1.29.0
-- Express 4.21.2
+---
 
-⸻
+## コマンド
 
-## Architecture
+```bash
+npm run dev      # 開発サーバー（http://localhost:3000）
+npm run build    # プロダクションビルド（Vite）
+npm run lint     # 型チェック（tsc --noEmit）
+npm test         # テスト（vitest run）
+```
 
-- Monolithic SPA architecture
-- Firestore onSnapshot によるリアルタイム同期
-- Firebase中心のサーバーレス構成
-- CSS Variables + Tailwind dark: によるテーマ切替
+---
 
-⸻
+## ローカル開発
 
-## Development Flow
+```bash
+git clone https://github.com/tahaga-64/Ivent-schedule-EX.git
+cd Ivent-schedule-EX
+npm install
+cp .env.example .env.local   # 下記「環境変数」を設定
+npm run dev
+```
 
-- Claude を用いた要件整理・壁打ち
-- Google AI Studio による初期プロトタイプ生成
-- Cursor を活用したUI改善・機能実装
+---
 
-AIを補助的に活用しながら、現場課題に合わせた改善を継続中。
+## 環境変数
+
+### フロントエンド（`.env.local` / Vercel）
+| 変数 | 説明 |
+|------|------|
+| `VITE_FIREBASE_API_KEY` 他 `VITE_FIREBASE_*` | Firebase Web 設定一式（API_KEY / AUTH_DOMAIN / PROJECT_ID / STORAGE_BUCKET / MESSAGING_SENDER_ID / APP_ID、必要に応じて DATABASE_ID） |
+
+### サーバーサイド（Vercel 環境変数）
+| 変数 | 説明 |
+|------|------|
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase Admin SDK（`/api/deletePhoto` の ID トークン検証用）|
+| `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Cloudinary 削除 API 用 |
+
+---
+
+## Firestore コレクション
+
+| コレクション | 用途 |
+|---|---|
+| `events` | イベント本体 |
+| `events/{id}/preparationItems` | 準備物リスト |
+| `events/{id}/fishItems` | 魚リスト（水族館）|
+| `layouts/{eventId}` | フロアレイアウト（items / customItems / photos）。**読み取り公開**|
+| `allowedUsers` | ログイン許可ユーザー |
+| `staff` | スタッフリスト |
+| `masterItems` | 備品マスター |
+| `userProfiles` / `userRoles` | プロフィール / ロール |
+| `appConfig/eventsMigration` | 静的DATA→Firestore 移行フラグ |
+
+---
+
+## データ移行（静的DATA → Firestore）
+
+初期イベントは `src/constants.ts` の静的 `DATA` を起点とし、Firestore へ移行できます。
+
+- アプリ上部の **「初期データを取り込む」** バナー（編集者・1回）で投入、または
+- `FIREBASE_SERVICE_ACCOUNT_JSON` を設定して `npx tsx scripts/migrate-events.ts`
+
+移行が完了すると `appConfig/eventsMigration.done` が立ち、アプリは Firestore を正として動作（削除も反映）します。
+
+---
+
+## デプロイ
+
+```
+git push origin HEAD:main  →  Vercel 自動ビルド (vite build + /api/*)  →  本番反映
+```
+
+> ⚠️ **Firestore セキュリティルール（`firestore.rules`）は Vercel では反映されません。**
+> Firebase Console（Firestore → ルール）に貼り付けて公開するか、`npx firebase-tools deploy --only firestore:rules` で別途デプロイしてください。`layouts` を公開読み取りにしているため、共有リンクを使う場合はこのデプロイが必須です。
+
+---
+
+## ディレクトリ構成（抜粋）
+
+```
+src/
+├── App.tsx                  # ルート・状態管理・ビュー切替・Firestore購読
+├── types.ts / constants.ts / index.css
+├── components/
+│   ├── HomeView / CalendarView / CalendarComponents / MobileCalendarViews
+│   ├── AppSidebar            # フィルター・スタッフ（デスクトップ）
+│   ├── EventDetailModal      # イベント詳細（デスクトップは2カラム）
+│   ├── PreparationList       # 準備物（自動保存・Excel/印刷/商談PDF/LINE）
+│   ├── FishListView          # 魚リスト
+│   ├── LayoutView            # フロアレイアウト（カスタム/サイズ/写真/共有）
+│   ├── MasterItemsView / LoginScreen / AccessDeniedScreen / ProfileSetupScreen
+│   └── photos/{PhotoUpload, PhotoGallery}
+├── lib/{firebase, permissions, allowedUsers, photoStorage, eventHelpers}
+├── hooks/{usePhotos, useRoles}
+└── data/eventTypes
+api/deletePhoto.ts           # Cloudinary 削除（Firebase ID トークン認証）
+scripts/{migrate-events.ts, gen-icons.mjs}
+firestore.rules              # セキュリティルール（要デプロイ）
+public/manifest.webmanifest  # PWA
+```
+
+---
+
+## ドキュメント
+
+- **スタッフ向け利用ガイド**: `.company/ops-cs/runbooks/staff-user-guide.md`
+- **運用手順書（管理者向け）**: `.company/ops-cs/runbooks/2026-05-25-operations-manual.md`
+- **リリースチェックリスト**: `.company/ops-cs/runbooks/2026-06-01-release-checklist.md`
+
+---
+
+## ライセンス
+
+Private — EX事業部内利用に限定。

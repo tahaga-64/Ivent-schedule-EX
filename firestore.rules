@@ -16,6 +16,17 @@ service cloud.firestore {
              ];
     }
 
+    function isSuperAdmin() {
+      return request.auth != null && request.auth.token.email == 'taoki0183@gmail.com';
+    }
+
+    function isAdminUser() {
+      return isSuperAdmin()
+          || (isAuthenticated()
+              && exists(/databases/$(database)/documents/userRoles/$(request.auth.token.email))
+              && get(/databases/$(database)/documents/userRoles/$(request.auth.token.email)).data.role == 'admin');
+    }
+
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -28,25 +39,14 @@ service cloud.firestore {
           && data.type is string;
     }
 
-    /** メイン編集者以外が events ドキュメントを触れるのは、これらのトップレベルキーの変更のみ（UI の全員記入欄と一致） */
-    function isCollaboratorOnlyEventFieldPatch() {
-      return request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly([
-            'detailMemo',
-            'detailMemoAttribution',
-            'assigneeNote',
-            'assigneeNoteAttribution',
-            'note',
-            'analysisReport',
-            'client',
-          ]);
-    }
-
     match /events/{eventId} {
       allow read:  if isAuthenticated();
-      allow create: if isEventEditor() && isValidEvent();
+      // isValidEvent() = フル作成, photos-only = 静的データのイベントへの写真追加（全員可）
+      allow create: if (isEventEditor() && isValidEvent())
+          || (isAuthenticated() && request.resource.data.keys().hasOnly(['photos']));
+      // 写真のみの変更は全員可、それ以外は編集者のみ
       allow update: if isEventEditor()
-          || (isAuthenticated() && isCollaboratorOnlyEventFieldPatch());
+          || (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photos']));
       allow delete: if isEventEditor();
 
       // 準備物: ログイン済みユーザー全員が編集可（canEditPreparationList と一致）
@@ -61,17 +61,37 @@ service cloud.firestore {
       }
     }
 
+    match /staff/{staffId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isEventEditor();
+    }
+
+    // 魚リスト（ログイン済みユーザー全員が編集可）
+    match /events/{eventId}/fishItems/{itemId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // フロアレイアウト: 共有リンク(/?layout=ID)用に読み取りは公開。書き込みはログイン済みのみ。
+    match /layouts/{layoutId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // 備品マスター（ログイン済みユーザー全員が編集可）
+    match /masterItems/{itemId} {
+      allow read, write: if isAuthenticated();
+    }
+
     match /users/{userId} {
-      allow get: if isAuthenticated()
-          && (request.auth.uid == userId || isEventEditor());
-      allow list: if isEventEditor();
+      allow read: if isAuthenticated();
       allow create, update: if isAuthenticated()
           && request.auth.uid == userId
           && request.resource.data.uid == userId;
 
       match /notifications/{notificationId} {
         allow read: if isAuthenticated() && request.auth.uid == userId;
-        allow create: if isEventEditor();
+        allow create: if isAuthenticated()
+            && request.resource.data.actorUid == request.auth.uid;
         allow update: if isAuthenticated()
             && request.auth.uid == userId
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
@@ -85,6 +105,27 @@ service cloud.firestore {
       allow create: if isEventEditor();
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    match /userRoles/{email} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminUser();
+    }
+
+    match /allowedUsers/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminUser();
+    }
+
+    // アプリ設定（静的DATA→Firestore 移行フラグ等）。編集者のみ書き込み可
+    match /appConfig/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isEventEditor();
+    }
+
+    match /userProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
     }
   }
 }
