@@ -129,7 +129,7 @@ function EventCard({ ev, prog, today, onSelect }: {
                 )}
               </div>
               <div className="text-xs text-white/50 font-mono">
-                {fmtRange(ev.start, ev.end)}{ev.type ? ` · ${ev.type}` : ''}
+                {ev.type || ''}
               </div>
               {pct >= 0 && (
                 <div className="flex items-center gap-2 mt-2">
@@ -339,7 +339,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         </div>
 
         {/* 来週のイベント */}
-        <div>
+        <div className="mt-5 md:mt-0">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-0.5 h-4 bg-white/40 rounded-full shrink-0" />
             <div className="text-[11px] font-black text-white/70 uppercase tracking-widest">来週のイベント</div>
