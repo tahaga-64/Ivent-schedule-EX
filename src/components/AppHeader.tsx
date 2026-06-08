@@ -61,11 +61,25 @@ export default function AppHeader({
           <button onClick={onToggleSidebar} className="p-1.5 rounded-lg text-white/80 hover:bg-white/15 transition-colors">
             <Menu size={18} />
           </button>
-          <motion.div
-            className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-indigo-200 shadow-md"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
-          >EX</motion.div>
+          <div style={{ perspective: 280 }}>
+            <motion.div
+              className="w-9 h-9 rounded-xl flex items-center justify-center"
+              style={{
+                background: 'rgba(79,70,229,0.2)',
+                border: '1px solid rgba(129,140,248,0.35)',
+                boxShadow: '0 0 18px rgba(96,165,250,0.3)',
+              }}
+              animate={{ rotateY: 360 }}
+              transition={{ duration: 5, repeat: Infinity, ease: 'linear' }}
+            >
+              <span
+                className="font-black text-sm bg-gradient-to-br from-cyan-300 via-indigo-300 to-violet-400 bg-clip-text text-transparent tracking-tighter leading-none"
+                style={{ filter: 'drop-shadow(0 0 8px rgba(96,165,250,0.9))' }}
+              >
+                EX
+              </span>
+            </motion.div>
+          </div>
           <div className="hidden sm:block">
             <div className="font-bold text-sm text-white leading-tight">Event Manager</div>
           </div>
