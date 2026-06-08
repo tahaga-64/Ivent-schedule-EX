@@ -444,11 +444,18 @@ export default function App() {
   } = usePhotos(selected?.id || '');
 
   const stats = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const activeEvents = allEvents.filter(ev =>
+      ev.status !== 'completed' &&
+      ev.status !== 'cancelled' &&
+      (ev.end || ev.start || '') >= todayStr
+    );
+
     const byRegion: Record<string, number> = {};
     const byType: Record<string, number> = {};
     const byStatus: Record<string, number> = { "scheduled": 0, "completed": 0, "cancelled": 0 };
 
-    allEvents.forEach(d => {
+    activeEvents.forEach(d => {
       if (d.region) byRegion[d.region] = (byRegion[d.region] || 0) + 1;
       if (d.type) byType[d.type] = (byType[d.type] || 0) + 1;
     });
@@ -457,7 +464,7 @@ export default function App() {
       if (d.status && d.status in byStatus) byStatus[d.status] = (byStatus[d.status] || 0) + 1;
     });
 
-    return { total: allEvents.length, byRegion, byType, byStatus };
+    return { total: activeEvents.length, byRegion, byType, byStatus };
   }, [allEvents, filtered]);
 
   const handleUpdateEvent = (id: string, updates: Partial<Event>) => {
