@@ -290,18 +290,36 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             </div>
           </div>
           {!staffLoading && staffBreakdown !== null && (
-            <div className="grid grid-cols-3 gap-1 mt-2.5 pt-2.5 border-t border-white/10">
-              <div className="text-center">
-                <div className="text-lg font-black text-white leading-none">{staffBreakdown.office}</div>
-                <div className="text-[9px] text-white/40 mt-0.5">本社</div>
+            <div className="mt-2.5 pt-2.5 border-t border-white/10 space-y-2">
+              {/* 稼働内訳 */}
+              <div className="grid grid-cols-3 gap-1">
+                <div className="text-center rounded-lg bg-white/5 py-1.5">
+                  <div className="text-lg font-black text-white leading-none">{staffBreakdown.office}</div>
+                  <div className="text-[9px] text-white/45 mt-0.5">本社</div>
+                </div>
+                <div className="text-center rounded-lg bg-white/5 py-1.5">
+                  <div className="text-lg font-black text-white leading-none">{staffBreakdown.event}</div>
+                  <div className="text-[9px] text-white/45 mt-0.5">イベント</div>
+                </div>
+                <div className="text-center rounded-lg bg-white/5 py-1.5">
+                  <div className="text-lg font-black text-white leading-none">{staffBreakdown.dispatch}</div>
+                  <div className="text-[9px] text-white/45 mt-0.5">外出</div>
+                </div>
               </div>
-              <div className="text-center">
-                <div className="text-lg font-black text-white leading-none">{staffBreakdown.event}</div>
-                <div className="text-[9px] text-white/40 mt-0.5">イベント</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-black text-white leading-none">{staffBreakdown.dispatch}</div>
-                <div className="text-[9px] text-white/40 mt-0.5">外出</div>
+              {/* 休み・その他 */}
+              <div className="grid grid-cols-3 gap-1">
+                <div className="text-center rounded-lg bg-white/[0.03] py-1.5">
+                  <div className="text-sm font-black text-white/70 leading-none">{staffBreakdown.rest}</div>
+                  <div className="text-[9px] text-white/35 mt-0.5">公休</div>
+                </div>
+                <div className="text-center rounded-lg bg-white/[0.03] py-1.5">
+                  <div className="text-sm font-black text-white/70 leading-none">{staffBreakdown.request}</div>
+                  <div className="text-[9px] text-white/35 mt-0.5">希望休</div>
+                </div>
+                <div className="text-center rounded-lg bg-white/[0.03] py-1.5">
+                  <div className="text-sm font-black text-white/70 leading-none">{staffBreakdown.other}</div>
+                  <div className="text-[9px] text-white/35 mt-0.5">その他</div>
+                </div>
               </div>
             </div>
           )}
