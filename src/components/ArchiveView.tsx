@@ -1,17 +1,22 @@
 import { ChevronRight } from 'lucide-react';
 import { Event } from '../types';
-import { fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
+import { fmtDateRange, rs, ts } from '../lib/eventHelpers';
 
 interface ArchiveViewProps {
   events: Event[];
   onSelectEvent: (ev: Event) => void;
 }
 
+function statusPill(status: string | undefined): { label: string; cls: string } {
+  if (status === 'cancelled') return { label: 'キャンセル', cls: 'bg-red-500/20 border border-red-400/30 text-red-300' };
+  return { label: '完了', cls: 'bg-slate-500/20 border border-slate-400/30 text-slate-300' };
+}
+
 export default function ArchiveView({ events, onSelectEvent }: ArchiveViewProps) {
   const today = new Date().toISOString().slice(0, 10);
   const archivedEvents = [...events]
-    .filter(ev => ev.end < today)
-    .sort((a, b) => b.end.localeCompare(a.end));
+    .filter(ev => (ev.end || ev.start) < today)
+    .sort((a, b) => (b.end || b.start).localeCompare(a.end || a.start));
 
   const monthGroups: { month: string; events: Event[] }[] = [];
   for (const ev of archivedEvents) {
@@ -23,47 +28,62 @@ export default function ArchiveView({ events, onSelectEvent }: ArchiveViewProps)
   }
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
-      <div className="px-4 py-4">
-        <h2 className="text-base font-black text-slate-800 mb-1">アーカイブ</h2>
-        <p className="text-xs text-slate-400 mb-4">終了したイベントの準備物を確認できます</p>
+    <div className="relative min-h-screen">
+      <div className="flex flex-col gap-5 px-4 pt-6 pb-32 max-w-xl mx-auto w-full">
+
+        <div className="flex items-center gap-2">
+          <div className="w-0.5 h-4 bg-white/40 rounded-full shrink-0" />
+          <div className="text-[11px] font-black text-white/70 uppercase tracking-widest">アーカイブ</div>
+          {archivedEvents.length > 0 && (
+            <span className="text-[10px] text-white/30 font-medium">{archivedEvents.length}件</span>
+          )}
+        </div>
+
         {archivedEvents.length === 0 ? (
-          <div className="text-center py-12 text-slate-400 text-sm">アーカイブされたイベントがありません</div>
-        ) : (
-          <div className="flex flex-col gap-5">
-            {monthGroups.map(({ month, events: evs }) => (
-              <div key={month}>
-                <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2">{month}</div>
-                <div className="flex flex-col gap-2">
-                  {evs.map(ev => {
-                    const s = fmtDateJP(ev.start);
-                    return (
-                      <button
-                        key={ev.id}
-                        onClick={() => onSelectEvent(ev)}
-                        className="w-full text-left bg-white/60 rounded-2xl border border-slate-100 shadow-sm flex items-stretch overflow-hidden hover:border-slate-300 hover:shadow-md transition-all opacity-80 hover:opacity-100"
-                      >
-                        {/* 日付バッジ（グレー） */}
-                        <div className="flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 bg-slate-200">
-                          <span className="text-[10px] font-black text-slate-500 leading-none">{s.month}月</span>
-                          <span className="text-xl font-black text-slate-500 leading-none mt-0.5">{s.day}</span>
-                          <span className="text-[10px] font-black text-slate-400 leading-none mt-0.5">{s.dow}</span>
-                        </div>
-                        {/* コンテンツ */}
-                        <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
-                          <div className="font-bold text-slate-600 text-sm truncate mb-0.5">{ev.venue}</div>
-                          <div className="text-xs text-slate-400 truncate">{fmtDateRange(ev.start, ev.end)}</div>
-                        </div>
-                        <div className="flex items-center pr-3">
-                          <ChevronRight size={16} className="text-slate-300 shrink-0" />
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+          <div className="bg-white/10 border border-white/20 rounded-2xl py-12 text-center text-sm text-white/40">
+            アーカイブされたイベントがありません
           </div>
+        ) : (
+          monthGroups.map(({ month, events: evs }) => (
+            <div key={month}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-0.5 h-4 bg-white/40 rounded-full shrink-0" />
+                <div className="text-[11px] font-black text-white/70 uppercase tracking-widest">{month}</div>
+                <span className="text-[10px] text-white/30">{evs.length}件</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {evs.map(ev => {
+                  const st = statusPill(ev.status);
+                  const emoji = ev.emoji || ts(ev.type || '').icon;
+                  const regionColor = rs(ev.region || '').dot;
+                  return (
+                    <button
+                      key={ev.id}
+                      onClick={() => onSelectEvent(ev)}
+                      className="w-full text-left bg-white/10 backdrop-blur-sm rounded-2xl border border-white/15 flex items-stretch overflow-hidden hover:bg-white/15 active:scale-[0.99] transition-all group opacity-75 hover:opacity-100"
+                    >
+                      <div className="w-1 shrink-0" style={{ background: regionColor }} />
+                      <div className="flex-1 min-w-0 p-4">
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl leading-none mt-0.5 shrink-0">{emoji}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                              <span className="text-base font-black text-white truncate">{ev.venue}</span>
+                              <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black ${st.cls}`}>{st.label}</span>
+                            </div>
+                            <div className="text-xs text-white/50 font-mono">
+                              {fmtDateRange(ev.start, ev.end)}{ev.client ? ` · ${ev.client}` : ''}{ev.region ? ` · ${ev.region}` : ''}
+                            </div>
+                          </div>
+                          <ChevronRight size={15} className="text-white/30 group-hover:text-white/70 shrink-0 mt-1 transition-colors" />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>
