@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronRight, ExternalLink, X, ArrowRight } from 'lucide-react';
@@ -19,25 +19,37 @@ interface Props {
 }
 
 function AnalogClock() {
-  const [now, setNow] = useState(() => new Date());
+  const hmRef = useRef<HTMLDivElement>(null);
+  const secRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
+    const formatter = new Intl.DateTimeFormat('ja-JP', {
+      timeZone: 'Asia/Tokyo',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    });
+    const tick = () => {
+      const fmt = formatter.format(new Date());
+      if (hmRef.current) hmRef.current.textContent = fmt.slice(0, 5);
+      if (secRef.current) secRef.current.textContent = fmt.slice(6, 8);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
 
-  const fmt = new Intl.DateTimeFormat('ja-JP', {
-    timeZone: 'Asia/Tokyo',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  }).format(now);
-  const [hm, sec] = [fmt.slice(0, 5), fmt.slice(6, 8)];
-
   return (
     <div className="flex flex-col items-end shrink-0 select-none">
-      <div className="text-5xl sm:text-6xl md:text-7xl xl:text-8xl font-black text-white leading-none tracking-tighter tabular-nums">
-        {hm}
+      <div
+        ref={hmRef}
+        className="text-5xl sm:text-6xl md:text-7xl xl:text-8xl font-black text-white leading-none tracking-tighter tabular-nums"
+      >
+        --:--
       </div>
-      <div className="text-xl sm:text-2xl md:text-3xl xl:text-4xl font-black text-white/50 leading-none tracking-tighter tabular-nums mt-1 md:mt-1.5">
-        {sec}
+      <div
+        ref={secRef}
+        className="text-xl sm:text-2xl md:text-3xl xl:text-4xl font-black text-white/50 leading-none tracking-tighter tabular-nums mt-1 md:mt-1.5"
+      >
+        --
       </div>
     </div>
   );
@@ -96,7 +108,7 @@ function EventCard({ ev, prog, today, onSelect }: {
     <motion.button
       onClick={() => onSelect(ev)}
       whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}
-      className="w-full text-left bg-white/10 backdrop-blur-sm rounded-2xl transition-all group overflow-hidden border border-white/15"
+      className="w-full text-left bg-white/10 rounded-2xl transition-all group overflow-hidden border border-white/15"
     >
       <div className="flex items-stretch">
         <div className="w-1 shrink-0" style={{ background: regionColor }} />
@@ -233,10 +245,9 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
         {/* Stats — 今月 / 本日稼働 / 次イベント を横並び */}
         <div className="grid grid-cols-3 gap-2">
-          {/* 今月 */}
           <button
             onClick={onNavigateCalendar}
-            className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/15 flex flex-col text-left hover:bg-white/15 transition-colors"
+            className="bg-white/10 rounded-2xl p-3 border border-white/15 flex flex-col text-left hover:bg-white/15 transition-colors"
           >
             <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">今月</div>
             <div className="flex items-baseline gap-1">
@@ -248,8 +259,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             </span>
           </button>
 
-          {/* 本日稼働 */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/15 flex flex-col">
+          <div className="bg-white/10 rounded-2xl p-3 border border-white/15 flex flex-col">
             <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">本日稼働</div>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-black text-white leading-none">
@@ -262,8 +272,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             <span className="mt-auto pt-2 text-[10px] font-bold text-white/40">出勤中</span>
           </div>
 
-          {/* 次イベント */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/15 flex flex-col">
+          <div className="bg-white/10 rounded-2xl p-3 border border-white/15 flex flex-col">
             <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">次イベント</div>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-black text-white leading-none">
@@ -281,7 +290,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
         {/* 稼働内訳 — 本社/イベント/外出/公休/希望休/その他 を横並び */}
         {!staffLoading && staffBreakdown !== null && (
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/15">
+          <div className="bg-white/10 rounded-2xl p-3 border border-white/15">
             <div className="grid grid-cols-6 gap-1">
               {([
                 { label: '本社',   value: staffBreakdown.office,   dim: false },
@@ -300,7 +309,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
           </div>
         )}
         {!staffLoading && staffBreakdown === null && (
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/15 text-[10px] text-white/30">
+          <div className="bg-white/10 rounded-2xl p-3 border border-white/15 text-[10px] text-white/30">
             稼働データを取得できませんでした
           </div>
         )}

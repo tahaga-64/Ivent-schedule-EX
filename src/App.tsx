@@ -1,28 +1,22 @@
-import { useState, useMemo, useEffect, useCallback, useRef, type MouseEvent as ReactMouseEvent } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense, type MouseEvent as ReactMouseEvent } from 'react';
 import { db, auth, loginWithGoogle, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, collectionGroup, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
+import { buildPrepProgressMap } from './lib/prepProgress';
 import { DATA } from './constants';
 import { Event, PreparationItem, EventStatus, type StaffMember } from './types';
 import { buildMonthGridCells, type ValidationError, validateEvent } from './lib/eventHelpers';
 import { Plus } from 'lucide-react';
-import { motion, AnimatePresence, useMotionValue, animate as motionAnimate } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
 import AccessDeniedScreen from './components/AccessDeniedScreen';
-import PreparationList from './components/PreparationList';
 import { usePhotos } from './hooks/usePhotos';
 import { useRoles } from './hooks/useRoles';
 import {
   canEditPreparationList as computeCanEditPreparationList,
 } from './lib/permissions';
-import HomeView from './components/HomeView';
-import MasterItemsView from './components/MasterItemsView';
-import FishListView from './components/FishListView';
-import LayoutView, { LayoutPublicView } from './components/LayoutView';
 import { checkUserAllowed } from './lib/allowedUsers';
-import { CalendarView, HoverCard, EmptyState, MobileTimelineView, MobileWeekStrip, MobileDayAgendaView } from './components/CalendarComponents';
-import EventDetailModal from './components/EventDetailModal';
 import HelpModal from './components/HelpModal';
 import AppSidebar from './components/AppSidebar';
 import AppHeader from './components/AppHeader';
@@ -32,25 +26,27 @@ import MobileBottomNav from './components/MobileBottomNav';
 import MigrationBanner from './components/MigrationBanner';
 import LoadingBar from './components/LoadingBar';
 import LoadingSplash from './components/LoadingSplash';
-import PrepEventList from './components/PrepEventList';
+import ViewLoadingFallback from './components/ViewLoadingFallback';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from './contexts/UnsavedChangesContext';
-import ArchiveView from './components/ArchiveView';
-import AlbumView from './components/AlbumView';
+
+const HomeView = lazy(() => import('./components/HomeView'));
+const MasterItemsView = lazy(() => import('./components/MasterItemsView'));
+const FishListView = lazy(() => import('./components/FishListView'));
+const LayoutView = lazy(() => import('./components/LayoutView'));
+const LayoutPublicView = lazy(() => import('./components/LayoutView').then(m => ({ default: m.LayoutPublicView })));
+const PreparationList = lazy(() => import('./components/PreparationList'));
+const PrepEventList = lazy(() => import('./components/PrepEventList'));
+const ArchiveView = lazy(() => import('./components/ArchiveView'));
+const AlbumView = lazy(() => import('./components/AlbumView'));
+const CalendarView = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.CalendarView })));
+const HoverCard = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.HoverCard })));
+const EmptyState = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.EmptyState })));
+const MobileTimelineView = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileTimelineView })));
+const MobileWeekStrip = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileWeekStrip })));
+const MobileDayAgendaView = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileDayAgendaView })));
+const EventDetailModal = lazy(() => import('./components/EventDetailModal'));
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album";
-
-const MOBILE_VIEWS: ViewMode[] = ['home', 'calendar', 'prep', 'master', 'fish', 'layout', 'album'];
-
-function canScrollHorizontally(el: EventTarget | null): boolean {
-  let node = el as HTMLElement | null;
-  while (node && node.tagName !== 'MAIN') {
-    const style = window.getComputedStyle(node);
-    const ox = style.overflowX;
-    if ((ox === 'auto' || ox === 'scroll') && node.scrollWidth > node.clientWidth) return true;
-    node = node.parentElement;
-  }
-  return false;
-}
 type ModalTab = "detail" | "photos";
 
 // 安全なlocalStorage読み込み
@@ -192,7 +188,6 @@ export default function App() {
   const [hoveredEvent, setHoveredEvent] = useState<Event | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [prepProgressMap, setPrepProgressMap] = useState<Record<string, { total: number; done: number }>>({});
   const [sidebarTypes, setSidebarTypes] = useState<{label: string, icon: string}[]>(() => 
     safeGetItem('sidebarTypes', [
       { label: "職業体験", icon: "🎓" },
@@ -211,25 +206,9 @@ export default function App() {
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [staffExpanded, setStaffExpanded] = useState(false);
   const [pendingNewEventId, setPendingNewEventId] = useState<string | null>(null);
-  const [swipeDir, setSwipeDir] = useState(0); // kept for non-mobile fade transitions
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
-  const swipeInsideScrollable = useRef(false);
-  const dragActiveRef = useRef(false);
-  const dragStartTime = useRef(0);
-
-  // ── Seamless mobile carousel track ─────────────────────────────────
-  // 全モバイルビューを横一列に常駐させ、単一の motion 値でトラックを平行移動する。
-  // ビューはナビゲーション中に一切アンマウントされないため、スワイプ／タブ切替の
-  // どちらでも再マウントによるチラつき・遅延が発生しない（GPU 合成の transform のみ）。
-  const trackX = useMotionValue(0);
-  const dragBaseX = useRef(0);
-  const skipNextTrackAnim = useRef(false);
-  const trackInitDone = useRef(false);
-  const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 0));
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 768 : false));
   useEffect(() => {
-    const onResize = () => { setVw(window.innerWidth); setIsMobile(window.innerWidth < 768); };
+    const onResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -374,30 +353,6 @@ export default function App() {
     return () => unsubscribe();
   }, [selected?.id]);
 
-  // 全イベントの準備物進捗マップ（ホバーカード用）
-  useEffect(() => {
-    if (!user) return;
-    const unsubscribe = onSnapshot(
-      collectionGroup(db, 'preparationItems'),
-      (snapshot) => {
-        const map: Record<string, { total: number; done: number }> = {};
-        snapshot.docs.forEach(d => {
-          const eventId = d.ref.parent.parent?.id;
-          if (!eventId) return;
-          const item = d.data() as PreparationItem;
-          if (!map[eventId]) map[eventId] = { total: 0, done: 0 };
-          map[eventId].total += 1;
-          if (item.arrived && item.prepared) map[eventId].done += 1;
-        });
-        setPrepProgressMap(map);
-      },
-      (error) => {
-        console.warn('prepProgressMap subscription error:', error);
-      }
-    );
-    return () => unsubscribe();
-  }, [user]);
-
   useEffect(() => {
     localStorage.setItem('viewMode', view);
     localStorage.setItem('regionFilter', regionFilter);
@@ -437,6 +392,8 @@ export default function App() {
     const firestoreOnly = Object.values(dbEvents).filter((e: Event) => !staticIds.has(e.id));
     return [...merged, ...firestoreOnly];
   }, [dbEvents, eventsMigrated]);
+
+  const prepProgressMap = useMemo(() => buildPrepProgressMap(allEvents), [allEvents]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -761,29 +718,6 @@ export default function App() {
     runWithGuard(closeEventModal);
   }, [runWithGuard, closeEventModal]);
 
-  // 現在ビューのトラック内インデックス（モバイルビュー以外は -1）
-  const navIdx = MOBILE_VIEWS.indexOf(view);
-
-  // view / 画面幅が変わったらトラックを該当ビュー位置へスプリングで移動。
-  // スワイプ確定時は onTouchEnd 側で速度を引き継いだアニメをかけるため一度スキップ。
-  useEffect(() => {
-    if (!isMobile || navIdx < 0 || dragActiveRef.current) return;
-    const target = -navIdx * vw;
-    if (!trackInitDone.current) {
-      trackX.set(target);
-      trackInitDone.current = true;
-      return;
-    }
-    if (skipNextTrackAnim.current) {
-      skipNextTrackAnim.current = false;
-      return;
-    }
-    const controls = motionAnimate(trackX, target, {
-      type: 'spring', stiffness: 330, damping: 36, mass: 0.85,
-    });
-    return () => controls.stop();
-  }, [navIdx, vw, isMobile, trackX]);
-
   const handleEventHover = (ev: Event, e: ReactMouseEvent<HTMLElement>) => {
     if (ev.id.startsWith("__cal_preview_")) return;
     if (window.innerWidth < 1024) return;
@@ -851,7 +785,11 @@ VITE_FIREBASE_DATABASE_ID`}
   );
   // 公開レイアウト共有リンク（認証・ローディングより前に判定し、共有相手にスプラッシュを出さない）
   const publicLayoutId = new URLSearchParams(window.location.search).get('layout');
-  if (publicLayoutId) return <LayoutPublicView eventId={publicLayoutId} />;
+  if (publicLayoutId) return (
+    <Suspense fallback={<LoadingSplash />}>
+      <LayoutPublicView eventId={publicLayoutId} />
+    </Suspense>
+  );
   if (accessDenied) return (
     <AccessDeniedScreen
       email={auth.currentUser?.email ?? null}
@@ -959,10 +897,10 @@ VITE_FIREBASE_DATABASE_ID`}
         />
       )}
       {v === "master" && (
-        <MasterItemsView canEdit={canEditPreparationList} />
+        <MasterItemsView canEdit={canEditPreparationList} isActive />
       )}
       {v === "fish" && (
-        <FishListView events={allEvents} canEdit={canEditPreparationList} />
+        <FishListView events={allEvents} canEdit={canEditPreparationList} isActive />
       )}
       {v === "layout" && (
         <LayoutView events={allEvents} canEdit={canEditPreparationList} />
@@ -1044,108 +982,30 @@ VITE_FIREBASE_DATABASE_ID`}
         )}
 
         {/* Main Content */}
-        <main
-          className="flex-1 relative overflow-hidden flex flex-col"
-          onTouchStart={e => {
-            if (selected || !isMobile || navIdx < 0) return;
-            touchStartX.current = e.touches[0].clientX;
-            touchStartY.current = e.touches[0].clientY;
-            dragStartTime.current = Date.now();
-            dragActiveRef.current = false;
-            swipeInsideScrollable.current = canScrollHorizontally(e.target);
-            dragBaseX.current = trackX.get();
-          }}
-          onTouchMove={e => {
-            if (swipeInsideScrollable.current || !isMobile || navIdx < 0) return;
-            const dx = e.touches[0].clientX - touchStartX.current;
-            const dy = e.touches[0].clientY - touchStartY.current;
-
-            if (!dragActiveRef.current) {
-              if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.3) {
-                dragActiveRef.current = true;
-                dragBaseX.current = trackX.get(); // 進行中アニメの現在位置を起点に
-              } else {
-                return;
-              }
-            }
-
-            const minX = -(MOBILE_VIEWS.length - 1) * vw;
-            const maxX = 0;
-            let nx = dragBaseX.current + dx;
-            // 端を超えたらゴムのように抵抗をかける
-            if (nx > maxX) nx = maxX + (nx - maxX) * 0.3;
-            else if (nx < minX) nx = minX + (nx - minX) * 0.3;
-            trackX.set(nx);
-          }}
-          onTouchEnd={e => {
-            if (!dragActiveRef.current) return;
-            dragActiveRef.current = false;
-
-            const dx = e.changedTouches[0].clientX - touchStartX.current;
-            const dt = Math.max(1, Date.now() - dragStartTime.current);
-            const velocity = dx / dt; // signed px/ms
-            const passedThreshold = Math.abs(dx) > vw * 0.22 || Math.abs(velocity) > 0.35;
-
-            let target = navIdx;
-            if (passedThreshold) {
-              if ((dx < 0 || velocity < -0.35) && navIdx < MOBILE_VIEWS.length - 1) target = navIdx + 1;
-              else if ((dx > 0 || velocity > 0.35) && navIdx > 0) target = navIdx - 1;
-            }
-
-            // 速度を引き継いだスプリングでトラックを確定位置へ。
-            motionAnimate(trackX, -target * vw, {
-              type: 'spring', stiffness: 330, damping: 36, mass: 0.85,
-              velocity: velocity * 1000, // px/s
-            });
-
-            if (target !== navIdx) {
-              const nextView = MOBILE_VIEWS[target];
-              setSwipeDir(0);
-              skipNextTrackAnim.current = true; // 上のアニメを尊重し effect 側の再アニメを抑止
-              navigateToView(nextView);
-            }
-          }}
-        >
-          {/* Sync / Error Indicator — fixed positioned, stays outside animated region */}
+        <main className="flex-1 relative overflow-hidden flex flex-col">
           <SavingIndicator
             isSaving={isSaving}
             saveError={saveError}
             onDismissError={() => setSaveError(null)}
           />
 
-          {/* View area: overflow-hidden clips off-screen slides */}
           <div className="flex-1 relative overflow-hidden">
-            {isMobile && navIdx >= 0 ? (
-              /* モバイル: 全ビュー常駐の横並びトラック（再マウントなしのシームレス遷移） */
+            <AnimatePresence mode="wait">
               <motion.div
-                className="flex h-full"
-                style={{ x: trackX, width: `${MOBILE_VIEWS.length * 100}vw`, willChange: 'transform' }}
+                key={view + regionFilter + typeFilter + monthFilter + (prepEvent?.id ?? '')}
+                className={`absolute inset-0 overflow-y-auto w-full max-w-none ${
+                  isMobile ? 'p-4 pb-[calc(5rem+env(safe-area-inset-bottom))]' : 'p-4 md:p-6 lg:p-8 pb-20 md:pb-8'
+                }`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: 'easeInOut' }}
               >
-                {MOBILE_VIEWS.map(v => (
-                  <div
-                    key={v}
-                    className="h-full overflow-y-auto p-4"
-                    style={{ width: '100vw', paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
-                  >
-                    {renderView(v)}
-                  </div>
-                ))}
-              </motion.div>
-            ) : (
-              /* デスクトップ / 非モバイルビュー: 軽量フェード */
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={view + regionFilter + typeFilter + monthFilter}
-                  className="absolute inset-0 overflow-y-auto p-4 md:p-6 lg:p-8 pb-20 md:pb-8 w-full max-w-none"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.18, ease: 'easeInOut' }}
-                >
+                <Suspense fallback={<ViewLoadingFallback />}>
                   {renderView(view)}
-                </motion.div>
-              </AnimatePresence>
-            )}
+                </Suspense>
+              </motion.div>
+            </AnimatePresence>
           </div>
         </main>
       </div>
@@ -1164,6 +1024,7 @@ VITE_FIREBASE_DATABASE_ID`}
           />
         )}
         {selected && (
+          <Suspense fallback={null}>
           <EventDetailModal
             selected={selected}
             onClose={handleCloseModal}
@@ -1211,12 +1072,15 @@ VITE_FIREBASE_DATABASE_ID`}
             isNewEvent={pendingNewEventId !== null && selected?.id === pendingNewEventId}
             onCancelNew={handleCancelNewEvent}
           />
+          </Suspense>
         )}
       </AnimatePresence>
 
       {/* Hover Preview Card（PC only） */}
       {hoveredEvent && (
-        <HoverCard event={hoveredEvent} pos={hoverPos} prepStats={prepProgressMap[hoveredEvent.id]} />
+        <Suspense fallback={null}>
+          <HoverCard event={hoveredEvent} pos={hoverPos} prepStats={prepProgressMap[hoveredEvent.id]} />
+        </Suspense>
       )}
 
       {/* モバイル FAB — 新規イベント作成 */}
@@ -1234,7 +1098,7 @@ VITE_FIREBASE_DATABASE_ID`}
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav
         view={view}
-        onSetView={(v) => { setSwipeDir(0); navigateToView(v); }}
+        onSetView={navigateToView}
       />
     </div>
   );

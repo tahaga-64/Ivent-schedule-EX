@@ -6,9 +6,11 @@ export default function LoadingSplash() {
     <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden">
       <div
         className="absolute inset-0 bg-cover bg-center scale-105"
-        style={{ backgroundImage: "url('/mercury-office.jpg')" }}
+        style={{
+          backgroundImage: "image-set(url('/mercury-office.webp') type('image/webp'), url('/mercury-office.jpg') type('image/jpeg'))",
+        }}
       />
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 bg-black/60" />
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}

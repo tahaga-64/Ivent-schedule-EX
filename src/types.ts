@@ -29,6 +29,10 @@ export interface Event {
   photos?: EventPhoto[];
   status?: EventStatus;
   prepBudgetTotal?: number;
+  /** 準備物の件数（空行を除く）。collectionGroup 購読の代替 */
+  prepItemTotal?: number;
+  /** 到着＋準備完了の件数 */
+  prepItemDone?: number;
 }
 
 export interface PreparationItem {

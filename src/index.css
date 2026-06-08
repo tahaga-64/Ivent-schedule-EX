@@ -69,117 +69,108 @@
   }
 }
 
-/* ── 印刷スタイル ─────────────────────────── */
+/* ── 準備物リスト 印刷スタイル ─────────────────── */
 @media print {
-  /* 印刷エリア以外をすべて非表示 */
-  body > *:not(#prep-print-area),
-  #root > *:not(#prep-print-area),
-  header, aside, nav, .print\:hidden {
-    display: none !important;
+  @page {
+    margin: 12mm;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  /* ネスト深い DOM でも印刷エリアだけ表示（visibility 方式） */
+  body * {
+    visibility: hidden;
+  }
+
+  #prep-print-area,
+  #prep-print-area * {
+    visibility: visible;
   }
 
   #prep-print-area {
-    display: block !important;
-    position: fixed;
-    inset: 0;
-    background: white;
-    z-index: 9999;
-    overflow: visible;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white !important;
+    color: #0f172a !important;
+    overflow: visible !important;
     height: auto !important;
+    z-index: 9999;
   }
 
-  /* ページヘッダー情報 */
   #prep-print-area::before {
     content: attr(data-print-title);
     display: block;
     font-size: 14pt;
     font-weight: bold;
-    padding: 8px 16px 4px;
+    color: #0f172a;
+    padding: 0 0 8px;
     border-bottom: 2px solid #1e293b;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
   }
 
-  /* テーブルを1ページに収める */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 9pt;
-  }
-
-  th, td {
-    border: 1px solid #cbd5e1 !important;
-    padding: 4px 6px !important;
-  }
-
-  /* チェックボックスを ☑/☐ に変換 */
-  input[type="checkbox"] {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 14px;
-    height: 14px;
-    position: relative;
-  }
-  input[type="checkbox"]::after {
-    content: '☐';
-    font-size: 12pt;
-    position: absolute;
-    top: -2px;
-    left: 0;
-  }
-  input[type="checkbox"]:checked::after {
-    content: '☑';
-  }
-
-  /* ボタン・スクロールバーを非表示 */
-  button {
+  .print\:hidden,
+  #prep-print-area .prep-print-hide {
     display: none !important;
+    visibility: hidden !important;
   }
 
-  /* フッターを末尾に */
   .print\:block {
     display: block !important;
+    visibility: visible !important;
   }
-}
 
-/* ── 商談提案 印刷スタイル ────────────────────────── */
-@media print {
-  /* 提案モード: #root を非表示にし、提案パネルだけ表示 */
-  body.printing-proposal #root {
+  #prep-print-area button {
     display: none !important;
   }
-  body.printing-proposal .proposal-no-print {
-    display: none !important;
+
+  #prep-print-area input,
+  #prep-print-area textarea {
+    border: none !important;
+    background: transparent !important;
+    color: #0f172a !important;
+    -webkit-text-fill-color: #0f172a !important;
+    box-shadow: none !important;
+    outline: none !important;
+    appearance: none;
+    -webkit-appearance: none;
   }
-  body.printing-proposal #proposal-print-area {
-    display: flex !important;
-    flex-direction: column !important;
-    position: fixed !important;
-    inset: 0 !important;
-    background: white !important;
-    z-index: 9999 !important;
-    border-radius: 0 !important;
-    max-height: none !important;
-    overflow: visible !important;
+
+  #prep-print-area input[type="date"] {
+    color-scheme: light;
   }
-  body.printing-proposal #proposal-content {
-    overflow: visible !important;
-    max-height: none !important;
-    flex: none !important;
+
+  #prep-print-area a {
+    color: #1e40af !important;
+    text-decoration: underline;
   }
-  body.printing-proposal table {
-    width: 100%;
-    font-size: 9pt;
+
+  #prep-print-area table {
+    width: 100% !important;
+    min-width: 0 !important;
     border-collapse: collapse;
+    font-size: 9pt;
     page-break-inside: auto;
   }
-  body.printing-proposal th,
-  body.printing-proposal td {
+
+  #prep-print-area th,
+  #prep-print-area td {
+    border: 1px solid #cbd5e1 !important;
     padding: 4px 6px !important;
-    border-bottom: 1px solid #e2e8f0 !important;
+    color: #0f172a !important;
+    background: white !important;
   }
-  /* 通常印刷モード時: 提案モーダルを非表示 */
-  body:not(.printing-proposal) #proposal-modal-root {
-    display: none !important;
+
+  #prep-print-area th {
+    font-weight: 700;
+    background: #f8fafc !important;
+  }
+
+  #prep-print-area tr {
+    page-break-inside: avoid;
   }
 }
 

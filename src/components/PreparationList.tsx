@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { PreparationItem, Event } from '../types';
-import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer, FileSpreadsheet, Briefcase, MessageSquare, Download, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer, FileSpreadsheet } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
+import { computePrepProgressFields } from '../lib/prepProgress';
 
-const PREP_BG = "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1920&q=80";
+const PREP_BG = 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1280&q=65';
 
 interface Props {
   event: Event;
@@ -67,33 +67,49 @@ function handlePrint() {
   window.print();
 }
 
-async function handleExportExcel(event: Event, items: PreparationItem[]) {
-  const XLSX = await import('xlsx');
-  const rows = items.filter(i => !isEmptyItem(i)).map((item, idx) => ({
-    '#': idx + 1,
-    '到着予定日': item.arrivalDate ?? '',
-    '到着': item.arrived ? '✓' : '',
-    '準備完了': item.prepared ? '✓' : '',
-    '品名': item.name,
-    '数量': item.quantity,
-    '単価': item.unitPrice,
-    '金額': item.amount,
-    '配送料': item.shippingFee,
-    '備考': item.note,
-    'URL': item.url ?? '',
-  }));
+function sanitizeFilename(name: string): string {
+  return name.replace(/[\\/:*?"<>|]/g, '_').trim() || 'export';
+}
 
-  const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [
-    { wch: 4 }, { wch: 14 }, { wch: 6 }, { wch: 8 },
-    { wch: 30 }, { wch: 6 }, { wch: 10 }, { wch: 12 },
-    { wch: 10 }, { wch: 30 }, { wch: 40 },
-  ];
+type ExportResult = { ok: true } | { ok: false; message: string };
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '準備物リスト');
-  const filename = `${event.venue}_準備物リスト_${event.start ?? ''}.xlsx`;
-  XLSX.writeFile(wb, filename);
+async function handleExportExcel(event: Event, items: PreparationItem[]): Promise<ExportResult> {
+  const filled = items.filter(i => !isEmptyItem(i));
+  if (filled.length === 0) {
+    return { ok: false, message: '出力する準備物がありません。品名などを入力してからお試しください。' };
+  }
+  try {
+    const XLSX = await import('xlsx');
+    const rows = filled.map((item, idx) => ({
+      '#': idx + 1,
+      '到着予定日': item.arrivalDate ?? '',
+      '到着': item.arrived ? '✓' : '',
+      '準備完了': item.prepared ? '✓' : '',
+      '品名': item.name,
+      '数量': item.quantity,
+      '単価': item.unitPrice,
+      '金額': item.amount,
+      '配送料': item.shippingFee,
+      '備考': item.note,
+      'URL': item.url ?? '',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 4 }, { wch: 14 }, { wch: 6 }, { wch: 8 },
+      { wch: 30 }, { wch: 6 }, { wch: 10 }, { wch: 12 },
+      { wch: 10 }, { wch: 30 }, { wch: 40 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '準備物リスト');
+    const filename = `${sanitizeFilename(event.venue)}_準備物リスト_${event.start ?? ''}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    return { ok: true };
+  } catch (error) {
+    console.error('PreparationList Excel export error:', error);
+    return { ok: false, message: 'Excel出力に失敗しました。もう一度お試しください。' };
+  }
 }
 
 export default function PreparationList({ event, onBack, canEdit }: Props) {
@@ -101,7 +117,8 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [showProposal, setShowProposal] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const hasChangesRef = useRef(hasChanges);
   hasChangesRef.current = hasChanges;
@@ -143,8 +160,13 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         batch.set(doc(db, `events/${event.id}/preparationItems`, item.id), item);
       });
       await batch.commit();
-      const total = toSave.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0);
-      updateDoc(doc(db, 'events', event.id), { prepBudgetTotal: total }).catch(() => {});
+      const budgetTotal = toSave.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0);
+      const progress = computePrepProgressFields(toSave);
+      updateDoc(doc(db, 'events', event.id), {
+        prepBudgetTotal: budgetTotal,
+        prepItemTotal: progress.prepItemTotal,
+        prepItemDone: progress.prepItemDone,
+      }).catch(() => {});
       if (editVersionRef.current === version) {
         setHasChanges(false);
         savedItemsRef.current = toSave;
@@ -198,7 +220,15 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
     setSaveError(null);
     try {
       await deleteDoc(doc(db, `events/${event.id}/preparationItems`, id));
-      setItems(prev => prev.filter(i => i.id !== id));
+      const next = itemsRef.current.filter(i => i.id !== id);
+      setItems(next);
+      const budgetTotal = next.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0);
+      const progress = computePrepProgressFields(next);
+      await updateDoc(doc(db, 'events', event.id), {
+        prepBudgetTotal: budgetTotal,
+        prepItemTotal: progress.prepItemTotal,
+        prepItemDone: progress.prepItemDone,
+      });
       setIsSaving(false);
     } catch (error) {
       console.error('PreparationList delete error:', error);
@@ -216,6 +246,14 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
     return { subtotal, shipping, total: subtotal + shipping, arrived, prepared, done };
   }, [items]);
 
+  const onExportExcel = async () => {
+    setExportError(null);
+    setIsExporting(true);
+    const result = await handleExportExcel(event, items);
+    setIsExporting(false);
+    if (!result.ok) setExportError(result.message);
+  };
+
 
   return (
     <>
@@ -227,23 +265,23 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       className="relative z-10 flex flex-col h-full bg-transparent"
     >
       {!canEdit && (
-        <div className="px-6 py-2.5 bg-white/10 border-b border-white/10 text-white/60 text-[11px] font-bold text-center backdrop-blur-sm">
+        <div className="px-6 py-2.5 bg-white/10 border-b border-white/10 text-white/60 text-[11px] font-bold text-center print:hidden">
           閲覧のみ（準備物の編集にはログインが必要です）
         </div>
       )}
-      {saveError && (
+      {(saveError || exportError) && (
         <div
           role="alert"
-          onClick={() => setSaveError(null)}
-          className="px-6 py-3 bg-red-500/20 border-b border-red-400/30 text-red-200 text-xs font-bold flex items-center gap-2 cursor-pointer backdrop-blur-sm"
+          onClick={() => { setSaveError(null); setExportError(null); }}
+          className="px-6 py-3 bg-red-500/20 border-b border-red-400/30 text-red-200 text-xs font-bold flex items-center gap-2 cursor-pointer print:hidden"
         >
           <span>⚠️</span>
-          <span className="flex-1">{saveError}</span>
+          <span className="flex-1">{saveError ?? exportError}</span>
           <span className="text-[10px] opacity-60">タップで閉じる</span>
         </div>
       )}
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-white/10 backdrop-blur-sm border-b border-white/10 shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 bg-white/10 border-b border-white/10 shrink-0 print:hidden">
         <div className="flex items-center gap-3">
           <button
             onClick={() => runWithGuard(onBack)}
@@ -262,20 +300,13 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => setShowProposal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 rounded-xl font-bold text-xs transition-colors print:hidden border border-violet-400/30"
-            title="商談提案用PDFを作成"
-          >
-            <Briefcase size={13} />
-            <span>商談提案</span>
-          </button>
-          <button
-            onClick={() => handleExportExcel(event, items)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded-xl font-bold text-xs transition-colors print:hidden border border-emerald-400/30"
+            onClick={onExportExcel}
+            disabled={isExporting}
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded-xl font-bold text-xs transition-colors print:hidden border border-emerald-400/30 disabled:opacity-50"
             title="Excelファイルとしてダウンロード"
           >
             <FileSpreadsheet size={13} />
-            <span>Excel出力</span>
+            <span>{isExporting ? '出力中…' : 'Excel出力'}</span>
           </button>
           <button
             onClick={handlePrint}
@@ -291,8 +322,8 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         </div>
       </div>
 
-      {/* Mobile card list */}
-      <div className="block md:hidden flex-1 overflow-y-auto p-3 space-y-2">
+      {/* Mobile card list — 印刷時はデスクトップ表を使用 */}
+      <div className="block md:hidden print:hidden flex-1 overflow-y-auto p-3 space-y-2">
         {!canEdit && items.filter(i => !isEmptyItem(i)).length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-slate-300">
             <ClipboardList size={36} className="mb-3" />
@@ -302,7 +333,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         {items.filter(item => canEdit || !isEmptyItem(item)).map((item, idx) => (
           <div
             key={item.id}
-            className={`bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl overflow-hidden ${item.prepared ? 'opacity-60' : ''}`}
+            className={`bg-white/10 border border-white/15 rounded-2xl overflow-hidden ${item.prepared ? 'opacity-60' : ''}`}
           >
             {/* Row 1: # + 品名 + delete */}
             <div className="flex items-center gap-2 px-3 pt-3 pb-2">
@@ -445,8 +476,8 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         )}
       </div>
 
-      {/* Desktop table */}
-      <div className="hidden md:block flex-1 overflow-auto p-4 md:p-6 w-full">
+      {/* Desktop table（印刷時も常に表形式） */}
+      <div className="hidden md:block print:block flex-1 overflow-auto p-4 md:p-6 print:p-0 w-full">
         {!canEdit && items.filter(i => !isEmptyItem(i)).length === 0 && (
           <div className="flex flex-col items-center justify-center py-24 text-white/40">
             <ClipboardList size={40} className="mb-3" />
@@ -454,9 +485,9 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
           </div>
         )}
         {(canEdit || items.filter(i => !isEmptyItem(i)).length > 0) && (
-        <div className="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm" style={{ minWidth: '1200px' }}>
+        <div className="bg-white/10 border border-white/15 rounded-2xl overflow-hidden shadow-sm print:border-0 print:shadow-none print:rounded-none">
+          <div className="overflow-x-auto print:overflow-visible">
+            <table className="w-full border-collapse text-sm print:text-[9pt] print:min-w-0" style={{ minWidth: '1200px' }}>
               <thead>
                 <tr className="bg-white/5 border-b border-white/10">
                   <th className="w-10 px-3 py-3 text-[10px] font-black text-white/40 uppercase tracking-widest text-center border-r border-white/10">#</th>
@@ -469,8 +500,8 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                   <th className="w-32 px-3 py-3 text-[10px] font-black text-indigo-300 uppercase tracking-widest text-right border-r border-white/10 bg-indigo-500/10">金額</th>
                   <th className="w-28 px-3 py-3 text-[10px] font-black text-white/60 uppercase tracking-widest text-right border-r border-white/10">配送料</th>
                   <th className="px-4 py-3 text-[10px] font-black text-white/60 uppercase tracking-widest text-left border-r border-white/10" style={{ minWidth: '220px' }}>備考</th>
-                  <th className="px-4 py-3 text-[10px] font-black text-white/60 uppercase tracking-widest text-left border-r border-white/10" style={{ minWidth: '160px' }}>URL</th>
-                  <th className="w-10 px-2 py-3" />
+                  <th className="px-4 py-3 text-[10px] font-black text-white/60 uppercase tracking-widest text-left border-r border-white/10 print:text-slate-700" style={{ minWidth: '160px' }}>URL</th>
+                  <th className="w-10 px-2 py-3 prep-print-hide" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
@@ -479,7 +510,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                     key={item.id}
                     className={`group transition-colors ${
                       item.prepared ? 'bg-indigo-500/10' : item.arrived ? 'bg-emerald-500/10' : 'bg-transparent'
-                    } hover:bg-white/10`}
+                    } hover:bg-white/10 ${isEmptyItem(item) ? 'print:hidden' : ''}`}
                   >
                     <td className="px-3 py-3 text-center text-xs text-white/40 font-mono border-r border-white/10">{idx + 1}</td>
                     <td className="px-2 py-2 text-center border-r border-white/10 bg-orange-500/10">
@@ -492,16 +523,18 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                       />
                     </td>
                     <td className={`px-3 py-3 text-center border-r border-white/10 transition-colors ${item.arrived ? 'bg-emerald-500/20' : ''}`}>
-                      <div className="flex flex-col items-center gap-1">
+                      <div className="print:hidden">
                         <Checkbox checked={item.arrived} disabled={!canEdit} onChange={() => updateItem(item.id, { arrived: !item.arrived })} color="emerald" />
-                        {item.arrived && <span className="text-[9px] font-black text-emerald-300 uppercase tracking-widest">済</span>}
                       </div>
+                      <PrintCheckMark checked={item.arrived} />
+                      {item.arrived && <span className="text-[9px] font-black text-emerald-300 uppercase tracking-widest print:hidden">済</span>}
                     </td>
                     <td className={`px-3 py-3 text-center border-r border-white/10 transition-colors ${item.prepared ? 'bg-indigo-500/20' : ''}`}>
-                      <div className="flex flex-col items-center gap-1">
+                      <div className="print:hidden">
                         <Checkbox checked={item.prepared} disabled={!canEdit} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
-                        {item.prepared && <span className="text-[9px] font-black text-indigo-300 uppercase tracking-widest">済</span>}
                       </div>
+                      <PrintCheckMark checked={item.prepared} />
+                      {item.prepared && <span className="text-[9px] font-black text-indigo-300 uppercase tracking-widest print:hidden">済</span>}
                     </td>
                     <td className="p-0 border-r border-white/10">
                       <input
@@ -587,7 +620,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                         <span className="px-4 py-3 block text-sm text-white/30">—</span>
                       )}
                     </td>
-                    <td className="px-2 py-3 text-center">
+                    <td className="px-2 py-3 text-center prep-print-hide">
                       {canEdit && items.length > 1 && (
                         <button
                           type="button"
@@ -607,7 +640,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
             <button
               type="button"
               onClick={addItem}
-              className="w-full py-4 bg-white/5 hover:bg-white/10 text-white/30 hover:text-indigo-300 text-xs font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 border-t border-white/10"
+              className="w-full py-4 bg-white/5 hover:bg-white/10 text-white/30 hover:text-indigo-300 text-xs font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 border-t border-white/10 print:hidden"
             >
               <Plus size={14} /> 新しい項目を追加
             </button>
@@ -617,22 +650,22 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       </div>
 
       {/* Footer */}
-      <div className="px-4 sm:px-6 py-4 bg-white/10 backdrop-blur-sm border-t border-white/10 shrink-0">
+      <div className="px-4 sm:px-6 py-4 bg-white/10 border-t border-white/10 shrink-0 print:bg-white print:border-slate-200 print:px-0">
         {/* 自動保存のため手動保存ボタンは廃止。保存状態はヘッダーに表示 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/15">
-          <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">SUBTOTAL · 商品計</div>
-          <div className="text-xl font-black text-white font-mono">¥{totals.subtotal.toLocaleString()}</div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:grid-cols-3">
+        <div className="bg-white/10 rounded-2xl p-4 border border-white/15 print:bg-white print:border-slate-200 print:rounded-lg">
+          <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1 print:text-slate-500">SUBTOTAL · 商品計</div>
+          <div className="text-xl font-black text-white font-mono print:text-slate-900">¥{totals.subtotal.toLocaleString()}</div>
         </div>
-        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/15">
-          <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">SHIPPING · 配送料</div>
-          <div className="text-xl font-black text-white font-mono">¥{totals.shipping.toLocaleString()}</div>
+        <div className="bg-white/10 rounded-2xl p-4 border border-white/15 print:bg-white print:border-slate-200 print:rounded-lg">
+          <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1 print:text-slate-500">SHIPPING · 配送料</div>
+          <div className="text-xl font-black text-white font-mono print:text-slate-900">¥{totals.shipping.toLocaleString()}</div>
         </div>
-        <div className="bg-indigo-500/30 backdrop-blur-sm rounded-2xl p-4 border border-indigo-400/30">
-          <div className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-1">TOTAL · 総支払</div>
-          <div className="text-xl font-black text-white font-mono">¥{totals.total.toLocaleString()}</div>
+        <div className="bg-indigo-500/30 rounded-2xl p-4 border border-indigo-400/30 print:bg-white print:border-slate-300 print:rounded-lg">
+          <div className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-1 print:text-slate-500">TOTAL · 総支払</div>
+          <div className="text-xl font-black text-white font-mono print:text-slate-900">¥{totals.total.toLocaleString()}</div>
         </div>
-        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/15 flex flex-col justify-between">
+        <div className="bg-white/10 rounded-2xl p-4 border border-white/15 flex flex-col justify-between prep-print-hide">
           <div className="flex items-center justify-between mb-2">
             <div className="text-[9px] font-black text-white/40 uppercase tracking-widest">PROGRESS · 進捗</div>
             <div className="text-xs font-black text-indigo-300">
@@ -657,16 +690,6 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       </div>
       </div>
     </div>
-    <AnimatePresence>
-      {showProposal && (
-        <ProposalModal
-          event={event}
-          items={items.filter(i => !isEmptyItem(i))}
-          totals={totals}
-          onClose={() => setShowProposal(false)}
-        />
-      )}
-    </AnimatePresence>
     </>
   );
 }
@@ -719,6 +742,14 @@ function SaveStatus({ isSaving, hasChanges, error, savedOnce }: { isSaving: bool
   return null;
 }
 
+function PrintCheckMark({ checked }: { checked: boolean }) {
+  return (
+    <span className="hidden print:inline text-sm font-bold text-slate-900">
+      {checked ? '✓' : '—'}
+    </span>
+  );
+}
+
 function Checkbox({ checked, onChange, disabled, color = 'indigo' }: { checked: boolean; onChange: () => void; disabled?: boolean; color?: 'indigo' | 'emerald' }) {
   const activeClass = color === 'emerald'
     ? 'bg-emerald-500 border-emerald-500'
@@ -741,175 +772,5 @@ function Checkbox({ checked, onChange, disabled, color = 'indigo' }: { checked: 
         </svg>
       )}
     </button>
-  );
-}
-
-function ProposalModal({
-  event,
-  items,
-  totals,
-  onClose,
-}: {
-  event: Event;
-  items: PreparationItem[];
-  totals: { subtotal: number; shipping: number; total: number };
-  onClose: () => void;
-}) {
-  function handleProposalPrint() {
-    document.body.classList.add('printing-proposal');
-    window.print();
-    window.addEventListener('afterprint', () => {
-      document.body.classList.remove('printing-proposal');
-    }, { once: true });
-  }
-
-  function handleLineShare() {
-    const dateRange = event.end && event.end !== event.start
-      ? `${event.start} 〜 ${event.end}`
-      : event.start;
-    const itemLines = items
-      .map((item, i) =>
-        `  ${i + 1}. ${item.name}（${item.quantity}個）¥${item.amount.toLocaleString()}`
-      )
-      .join('\n');
-    const text = [
-      `【商談提案】${event.venue}`,
-      `期間: ${dateRange}`,
-      event.client ? `クライアント: ${event.client}` : null,
-      '',
-      '◆ 準備物リスト',
-      itemLines,
-      '',
-      `商品計: ¥${totals.subtotal.toLocaleString()}`,
-      `配送料: ¥${totals.shipping.toLocaleString()}`,
-      `合計:   ¥${totals.total.toLocaleString()}`,
-    ].filter(l => l !== null).join('\n');
-    window.open(
-      `https://line.me/R/msg/text/?${encodeURIComponent(text)}`,
-      '_blank',
-      'noopener,noreferrer'
-    );
-  }
-
-  return createPortal(
-    <div id="proposal-modal-root" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm proposal-no-print"
-        onClick={onClose}
-      />
-      {/* Panel */}
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 40 }}
-        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-        className="relative w-full sm:max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]"
-        id="proposal-print-area"
-      >
-        {/* Header chrome — 印刷時非表示 */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0 proposal-no-print">
-          <div>
-            <div className="text-[10px] font-black text-violet-500 uppercase tracking-widest mb-0.5">商談提案用</div>
-            <h3 className="text-base font-black text-slate-900">{event.venue}</h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleLineShare}
-              className="flex items-center gap-1.5 px-3 py-2 bg-[#06C755] hover:bg-[#05B34C] text-white rounded-xl font-black text-xs transition-colors"
-            >
-              <MessageSquare size={13} />
-              LINEで共有
-            </button>
-            <button
-              onClick={handleProposalPrint}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-700 text-white rounded-xl font-black text-xs transition-colors"
-            >
-              <Download size={13} />
-              PDFで保存
-            </button>
-            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400">
-              <X size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* スクロール可能なコンテンツ（印刷時は overflow visible） */}
-        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6" id="proposal-content">
-          {/* カバー */}
-          <div className="text-center py-4 border-b border-slate-100">
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2">BUSINESS PROPOSAL</div>
-            <h1 className="text-2xl font-black text-slate-900 mb-1">{event.venue}</h1>
-            <div className="text-sm text-slate-500">
-              {event.start}{event.end && event.end !== event.start ? ` → ${event.end}` : ''}
-              {event.client && (
-                <> · <span className="font-bold text-slate-700">{event.client}</span></>
-              )}
-            </div>
-            {event.type && (
-              <div className="mt-2 inline-block px-3 py-1 bg-violet-50 text-violet-700 text-xs font-black rounded-full">
-                {event.type}
-              </div>
-            )}
-          </div>
-
-          {/* 品目テーブル */}
-          <div>
-            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">準備物一覧</div>
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="border-b-2 border-slate-200">
-                  <th className="text-left py-2 text-xs font-black text-slate-400 pr-3">#</th>
-                  <th className="text-left py-2 text-xs font-black text-slate-400">品名</th>
-                  <th className="text-right py-2 text-xs font-black text-slate-400 px-3">数量</th>
-                  <th className="text-right py-2 text-xs font-black text-slate-400 px-3">単価</th>
-                  <th className="text-right py-2 text-xs font-black text-slate-400 px-3">金額</th>
-                  <th className="text-right py-2 text-xs font-black text-slate-400">配送料</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {items.map((item, idx) => (
-                  <tr key={item.id}>
-                    <td className="py-2.5 pr-3 text-slate-400 text-xs font-mono">{idx + 1}</td>
-                    <td className="py-2.5 font-medium text-slate-800">
-                      {item.name}
-                      {item.note && <div className="text-xs text-slate-400 mt-0.5">{item.note}</div>}
-                    </td>
-                    <td className="py-2.5 text-right font-mono text-slate-700 px-3">{item.quantity}</td>
-                    <td className="py-2.5 text-right font-mono text-slate-700 px-3">¥{item.unitPrice.toLocaleString()}</td>
-                    <td className="py-2.5 text-right font-mono font-bold text-slate-900 px-3">¥{item.amount.toLocaleString()}</td>
-                    <td className="py-2.5 text-right font-mono text-slate-500">
-                      {item.shippingFee > 0 ? `¥${item.shippingFee.toLocaleString()}` : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* 合計 */}
-          <div className="border-t-2 border-slate-200 pt-4 flex flex-col items-end gap-1.5">
-            <div className="flex gap-8 text-sm">
-              <span className="text-slate-500">商品計</span>
-              <span className="font-mono font-bold text-slate-800 w-28 text-right">¥{totals.subtotal.toLocaleString()}</span>
-            </div>
-            <div className="flex gap-8 text-sm">
-              <span className="text-slate-500">配送料計</span>
-              <span className="font-mono font-bold text-slate-800 w-28 text-right">¥{totals.shipping.toLocaleString()}</span>
-            </div>
-            <div className="flex gap-8 text-lg border-t border-slate-200 pt-2 mt-1">
-              <span className="font-black text-slate-900">合計（税抜）</span>
-              <span className="font-mono font-black text-violet-700 w-28 text-right">¥{totals.total.toLocaleString()}</span>
-            </div>
-          </div>
-
-          {/* フッター */}
-          <div className="text-xs text-slate-400 text-center pt-4 border-t border-slate-100">
-            本資料は {new Date().toLocaleDateString('ja-JP')} 時点の情報です。
-          </div>
-        </div>
-      </motion.div>
-    </div>,
-    document.body
   );
 }

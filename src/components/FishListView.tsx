@@ -6,11 +6,12 @@ import type { Event, FishItem } from '../types';
 import { Fish, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-const FISH_BG = "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=1920&q=80";
+const FISH_BG = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=1280&q=65';
 
 interface Props {
   events: Event[];
   canEdit: boolean;
+  isActive?: boolean;
 }
 
 function fmtDateRange(start: string, end: string) {
@@ -22,7 +23,7 @@ function fmtDateRange(start: string, end: string) {
   return `${sm}/${sd}〜${e.getMonth() + 1}/${e.getDate()}`;
 }
 
-export default function FishListView({ events, canEdit }: Props) {
+export default function FishListView({ events, canEdit, isActive = true }: Props) {
   const aquariumEvents = events
     .filter(ev => ev.type === '水族館' && ev.status !== 'cancelled')
     .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
@@ -87,7 +88,7 @@ export default function FishListView({ events, canEdit }: Props) {
   });
 
   useEffect(() => {
-    if (!selectedEventId) return;
+    if (!isActive || !selectedEventId) return;
     const unsub = onSnapshot(
       collection(db, 'events', selectedEventId, 'fishItems'),
       snap => {
@@ -98,7 +99,7 @@ export default function FishListView({ events, canEdit }: Props) {
       err => console.error('fishItems snapshot error:', err)
     );
     return unsub;
-  }, [selectedEventId]);
+  }, [isActive, selectedEventId]);
 
   async function handleAdd() {
     if (!newName.trim() || !selectedEventId) return;
@@ -171,7 +172,7 @@ export default function FishListView({ events, canEdit }: Props) {
               <select
                 value={selectedEventId}
                 onChange={e => runWithGuard(() => setSelectedEventId(e.target.value))}
-                className="w-full rounded-xl border border-white/20 bg-white/15 backdrop-blur-sm px-3 py-2.5 text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full rounded-xl border border-white/20 bg-white/15 px-3 py-2.5 text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
               >
                 {aquariumEvents.map(ev => (
                   <option key={ev.id} value={ev.id} className="text-slate-800 bg-white">
@@ -184,7 +185,7 @@ export default function FishListView({ events, canEdit }: Props) {
             {selectedEvent && (
               <div className="md:grid md:grid-cols-[minmax(260px,340px)_1fr] md:gap-6 xl:gap-8 md:items-start">
               <div className="md:sticky md:top-4 space-y-4">
-                <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-3 border border-white/20">
+                <div className="flex items-center gap-3 bg-white/10 rounded-2xl px-4 py-3 border border-white/20">
                   <div className="w-9 h-9 rounded-xl bg-cyan-400/30 flex items-center justify-center shrink-0">
                     <Fish size={18} className="text-cyan-300" />
                   </div>
@@ -200,7 +201,7 @@ export default function FishListView({ events, canEdit }: Props) {
                 </div>
 
                 {canEdit && (
-                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-cyan-400/20">
+                  <div className="bg-white/10 rounded-2xl p-4 border border-cyan-400/20">
                     <div className="text-xs font-black text-cyan-300 uppercase tracking-widest mb-3">観賞魚を追加</div>
                     <div className="flex flex-col gap-2">
                       <input
@@ -257,7 +258,7 @@ export default function FishListView({ events, canEdit }: Props) {
                         initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, x: 20 }}
-                        className="flex items-center gap-3 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-3 shadow-sm border border-cyan-100"
+                        className="flex items-center gap-3 bg-white/90 rounded-xl px-4 py-3 shadow-sm border border-cyan-100"
                       >
                         <span className="text-lg shrink-0">🐠</span>
                         <div className="flex-1 min-w-0">

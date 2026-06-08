@@ -63,7 +63,9 @@ export default function LoginScreen() {
       {/* Background: MERCURY office photo */}
       <div
         className="absolute inset-0 bg-cover bg-center scale-105"
-        style={{ backgroundImage: "url('/mercury-office.jpg')" }}
+        style={{
+          backgroundImage: "image-set(url('/mercury-office.webp') type('image/webp'), url('/mercury-office.jpg') type('image/jpeg'))",
+        }}
       />
       {/* Dark overlay for readability */}
       <div className="absolute inset-0 bg-black/55" />
