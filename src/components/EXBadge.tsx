@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'motion/react';
 
 interface Props {
@@ -9,20 +10,34 @@ interface Props {
 
 /**
  * ログイン画面と同じ EX ロゴを立体的に横回転させる 3D バッジ。
+ * タップするたびに回転方向が反転する。
  * ヘッダー・ホーム画面など複数箇所で size を変えて再利用する。
  */
 export default function EXBadge({ size = 36, duration = 4 }: Props) {
-  const depth = size * 0.11;   // 前後フェイスの厚み
-  const edgeW = size * 0.22;   // 側面の縁の幅
-  const edgeH = size * 0.83;   // 側面の縁の高さ
+  const depth = size * 0.11;
+  const edgeW = size * 0.22;
+  const edgeH = size * 0.83;
   const fontStyle = { fontSize: size * 0.4 };
 
+  const [reversed, setReversed] = useState(false);
+  const [tapKey, setTapKey] = useState(0);
+
+  const handleTap = () => {
+    setReversed(r => !r);
+    setTapKey(k => k + 1);
+  };
+
   return (
-    <div style={{ perspective: size * 4 }} className="shrink-0">
+    <div
+      style={{ perspective: size * 4 }}
+      className="shrink-0 cursor-pointer"
+      onClick={handleTap}
+    >
       <motion.div
+        key={tapKey}
         className="relative"
         style={{ width: size, height: size, transformStyle: 'preserve-3d' }}
-        animate={{ rotateY: 360 }}
+        animate={{ rotateY: reversed ? -360 : 360 }}
         transition={{ duration, repeat: Infinity, ease: 'linear' }}
       >
         {/* 前面 */}
