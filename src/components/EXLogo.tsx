@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, useAnimation, useMotionValue, useTransform } from 'motion/react';
 
 type Size = 'sm' | 'md' | 'lg' | 'xl';
@@ -18,9 +18,22 @@ interface Props {
 export default function EXLogo({ size = 'lg', showSubtitle = true }: Props) {
   const { fontSize, subtitleSize, glow } = sizeConfig[size];
   const controls = useAnimation();
+  const spinControls = useAnimation();
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isTapping, setIsTapping] = useState(false);
+
+  const handleTap = async () => {
+    if (isTapping) return;
+    setIsTapping(true);
+    await spinControls.start({
+      rotate: -360,
+      transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+    });
+    spinControls.set({ rotate: 0 });
+    setIsTapping(false);
+  };
   const glowX = useTransform(mouseX, (v) => v - glow);
   const glowY = useTransform(mouseY, (v) => v - glow);
 
@@ -58,8 +71,9 @@ export default function EXLogo({ size = 'lg', showSubtitle = true }: Props) {
   return (
     <motion.div
       ref={containerRef}
-      className="relative flex flex-col items-center select-none"
+      className="relative flex flex-col items-center select-none cursor-pointer"
       onMouseMove={handleMouseMove}
+      onClick={handleTap}
       animate={controls}
       initial="hidden"
       variants={containerVariants}
@@ -86,7 +100,7 @@ export default function EXLogo({ size = 'lg', showSubtitle = true }: Props) {
         }}
       />
 
-      <div className="flex items-center gap-1 [perspective:800px]">
+      <motion.div className="flex items-center gap-1 [perspective:800px]" animate={spinControls}>
         <motion.span
           variants={letterVariants}
           className={`${fontSize} font-black tracking-tighter leading-none bg-gradient-to-br from-cyan-300 via-indigo-300 to-violet-400 bg-clip-text text-transparent drop-shadow-[0_0_24px_rgba(96,165,250,0.55)]`}
@@ -103,7 +117,7 @@ export default function EXLogo({ size = 'lg', showSubtitle = true }: Props) {
         >
           X
         </motion.span>
-      </div>
+      </motion.div>
 
       <motion.div
         initial={{ scaleX: 0, opacity: 0 }}
