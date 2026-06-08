@@ -258,7 +258,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
   return (
     <>
     <div className="fixed lg:absolute inset-0 bg-cover bg-center print:hidden" style={{ backgroundImage: `url('${PREP_BG}')` }} />
-    <div className="fixed lg:absolute inset-0 print:hidden" style={{ background: "linear-gradient(to bottom, rgba(15,23,42,0.25) 0%, rgba(15,23,42,0.55) 100%)" }} />
+    <div className="fixed lg:absolute inset-0 print:hidden" style={{ background: "linear-gradient(to bottom, rgba(15,23,42,0.72) 0%, rgba(15,23,42,0.90) 100%)" }} />
     <div
       id="prep-print-area"
       data-print-title={`${event.venue}　準備物リスト　${event.start}〜${event.end}`}
@@ -281,7 +281,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         </div>
       )}
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-white/10 border-b border-white/10 shrink-0 print:hidden">
+      <div className="flex items-center justify-between px-6 py-4 bg-white/10 border-b border-white/15 shrink-0 print:hidden">
         <div className="flex items-center gap-3">
           <button
             onClick={() => runWithGuard(onBack)}
@@ -291,35 +291,12 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
           </button>
           <div>
             <h2 className="text-lg font-black text-white leading-tight">{event.venue}</h2>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[11px] text-white/50 font-mono">{event.start} → {event.end}</span>
-              <span className="text-white/20">·</span>
-              <span className="text-[11px] font-black text-white/40 uppercase tracking-widest">PREPARATION LIST</span>
-            </div>
+            <span className="text-[11px] text-white/50 font-mono">{event.start} → {event.end}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={onExportExcel}
-            disabled={isExporting}
-            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded-xl font-bold text-xs transition-colors print:hidden border border-emerald-400/30 disabled:opacity-50"
-            title="Excelファイルとしてダウンロード"
-          >
-            <FileSpreadsheet size={13} />
-            <span>{isExporting ? '出力中…' : 'Excel出力'}</span>
-          </button>
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white/10 text-white/60 hover:bg-white/20 rounded-xl font-bold text-xs transition-colors print:hidden border border-white/20"
-            title="印刷"
-          >
-            <Printer size={13} />
-            <span className="hidden sm:inline">印刷</span>
-          </button>
-          {canEdit && (
-            <SaveStatus isSaving={isSaving} hasChanges={hasChanges} error={!!saveError} savedOnce={lastSavedAt !== null} />
-          )}
-        </div>
+        {canEdit && (
+          <SaveStatus isSaving={isSaving} hasChanges={hasChanges} error={!!saveError} savedOnce={lastSavedAt !== null} />
+        )}
       </div>
 
       {/* Mobile card list — 印刷時はデスクトップ表を使用 */}
@@ -333,10 +310,18 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         {items.filter(item => canEdit || !isEmptyItem(item)).map((item, idx) => (
           <div
             key={item.id}
-            className={`bg-white/10 border border-white/15 rounded-2xl overflow-hidden ${item.prepared ? 'opacity-60' : ''}`}
+            className={`border rounded-2xl overflow-hidden shadow-sm ${
+              item.prepared
+                ? 'bg-indigo-500/20 border-indigo-400/40'
+                : item.arrived
+                  ? 'bg-emerald-500/15 border-emerald-400/35'
+                  : 'bg-white/15 border-white/20'
+            }`}
           >
-            {/* Row 1: # + 品名 + delete */}
-            <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+            {/* Status stripe */}
+            <div className={`h-1 ${item.prepared ? 'bg-indigo-500' : item.arrived ? 'bg-emerald-400' : 'bg-white/20'}`} />
+            {/* Row 1: # + 品名 + badges + delete */}
+            <div className="flex items-center gap-2 px-3 pt-2.5 pb-2">
               <span className="text-[10px] text-white/40 font-mono w-5 shrink-0">{idx + 1}</span>
               <input
                 type="text"
@@ -344,8 +329,14 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                 value={item.name}
                 onChange={e => updateItem(item.id, { name: e.target.value })}
                 placeholder="アイテム名..."
-                className={`flex-1 text-sm font-bold bg-transparent outline-none read-only:cursor-default placeholder:text-white/30 ${item.prepared ? 'line-through text-white/40' : 'text-white'}`}
+                className={`flex-1 text-base font-black bg-transparent outline-none read-only:cursor-default placeholder:text-white/30 ${item.prepared ? 'line-through text-white/40' : 'text-white'}`}
               />
+              {item.arrived && !item.prepared && (
+                <span className="shrink-0 text-[10px] font-black text-emerald-300 bg-emerald-500/25 px-1.5 py-0.5 rounded-full border border-emerald-400/40">着荷</span>
+              )}
+              {item.prepared && (
+                <span className="shrink-0 text-[10px] font-black text-indigo-200 bg-indigo-500/30 px-1.5 py-0.5 rounded-full border border-indigo-400/40">完了</span>
+              )}
               <button
                 type="button"
                 onClick={() => removeItem(item.id)}
@@ -358,9 +349,9 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
               </button>
             </div>
             {/* Row 2: 数量 / 単価 / 金額 */}
-            <div className="grid grid-cols-3 border-t border-white/10">
-              <div className="px-3 py-2 border-r border-white/10">
-                <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">数量</div>
+            <div className="grid grid-cols-3 border-t border-white/15">
+              <div className="px-3 py-2 border-r border-white/15">
+                <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">数量</div>
                 <input
                   type="number"
                   readOnly={!canEdit}
@@ -388,18 +379,18 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
               </div>
             </div>
             {/* Row 3: 到着予定日 / 到着 / 準備 */}
-            <div className="grid grid-cols-3 border-t border-white/10">
-              <div className="px-3 py-2 border-r border-white/10">
+            <div className="grid grid-cols-3 border-t border-white/15">
+              <div className="px-3 py-2 border-r border-white/15">
                 <div className="text-[9px] font-black text-orange-300 uppercase tracking-widest mb-1">到着予定日</div>
                 <input
                   type="date"
                   readOnly={!canEdit}
                   value={item.arrivalDate ?? ''}
                   onChange={e => updateItem(item.id, { arrivalDate: e.target.value })}
-                  className="w-full text-xs font-mono text-white/80 bg-transparent outline-none read-only:cursor-default"
+                  className="w-full text-xs font-mono text-white/80 bg-transparent outline-none read-only:cursor-default [color-scheme:dark]"
                 />
               </div>
-              <div className="px-3 py-2 flex flex-col items-center border-r border-white/10">
+              <div className="px-3 py-2 flex flex-col items-center border-r border-white/15">
                 <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1.5">到着</div>
                 <Checkbox checked={item.arrived} disabled={!canEdit} onChange={() => updateItem(item.id, { arrived: !item.arrived })} color="emerald" />
               </div>
@@ -409,9 +400,9 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
               </div>
             </div>
             {/* Row 4: 配送料 */}
-            <div className="border-t border-white/10">
+            <div className="border-t border-white/15">
               <div className="px-3 py-2">
-                <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">配送料</div>
+                <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">配送料</div>
                 <div className="flex items-center gap-0.5">
                   <span className="text-[10px] text-white/40">¥</span>
                   <input
@@ -425,17 +416,17 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                 </div>
               </div>
             </div>
-            {/* Row 4: 備考 (shown if has content or canEdit) */}
+            {/* Row 5: 備考 (shown if has content or canEdit) */}
             {(item.note || canEdit) && (
-              <div className="border-t border-white/10 px-3 py-2">
-                <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">備考</div>
+              <div className="border-t border-white/15 px-3 py-2">
+                <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">備考</div>
                 <PreparationNoteField value={item.note || ''} readOnly={!canEdit} onChange={note => updateItem(item.id, { note })} />
               </div>
             )}
-            {/* Row 5: URL (shown if has content or canEdit) */}
+            {/* Row 6: URL (shown if has content or canEdit) */}
             {(item.url || canEdit) && (
-              <div className="border-t border-white/10 px-3 py-2">
-                <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">URL</div>
+              <div className="border-t border-white/15 px-3 py-2">
+                <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">URL</div>
                 {canEdit ? (
                   <div className="flex items-center gap-1.5">
                     <input
@@ -485,11 +476,11 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
           </div>
         )}
         {(canEdit || items.filter(i => !isEmptyItem(i)).length > 0) && (
-        <div className="bg-white/10 border border-white/15 rounded-2xl overflow-hidden shadow-sm print:border-0 print:shadow-none print:rounded-none">
+        <div className="bg-white/15 border border-white/20 rounded-2xl overflow-hidden shadow-sm print:border-0 print:shadow-none print:rounded-none">
           <div className="overflow-x-auto print:overflow-visible">
             <table className="w-full border-collapse text-sm print:text-[9pt] print:min-w-0" style={{ minWidth: '1200px' }}>
               <thead>
-                <tr className="bg-white/5 border-b border-white/10">
+                <tr className="bg-white/10 border-b border-white/15">
                   <th className="w-10 px-3 py-3 text-[10px] font-black text-white/40 uppercase tracking-widest text-center border-r border-white/10">#</th>
                   <th className="w-32 px-3 py-3 text-[10px] font-black text-orange-300 uppercase tracking-widest text-center border-r border-white/10 bg-orange-500/10 whitespace-nowrap">到着予定日</th>
                   <th className="w-20 px-3 py-3 text-[10px] font-black text-emerald-300 uppercase tracking-widest text-center border-r border-white/10 bg-emerald-500/10">到着</th>
@@ -650,39 +641,63 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       </div>
 
       {/* Footer */}
-      <div className="px-4 sm:px-6 py-4 bg-white/10 border-t border-white/10 shrink-0 print:bg-white print:border-slate-200 print:px-0">
-        {/* 自動保存のため手動保存ボタンは廃止。保存状態はヘッダーに表示 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:grid-cols-3">
-        <div className="bg-white/10 rounded-2xl p-4 border border-white/15 print:bg-white print:border-slate-200 print:rounded-lg">
-          <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1 print:text-slate-500">SUBTOTAL · 商品計</div>
-          <div className="text-xl font-black text-white font-mono print:text-slate-900">¥{totals.subtotal.toLocaleString()}</div>
+      <div className="px-4 sm:px-6 py-3 bg-white/10 border-t border-white/15 shrink-0 print:bg-white print:border-slate-200 print:px-0">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 print:grid-cols-3">
+        {/* SUBTOTAL */}
+        <div className="bg-white/10 rounded-xl p-3 border border-white/15 print:bg-white print:border-slate-200 print:rounded-lg">
+          <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-0.5 print:text-slate-500">SUBTOTAL · 商品計</div>
+          <div className="text-base font-black text-white font-mono print:text-slate-900">¥{totals.subtotal.toLocaleString()}</div>
         </div>
-        <div className="bg-white/10 rounded-2xl p-4 border border-white/15 print:bg-white print:border-slate-200 print:rounded-lg">
-          <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1 print:text-slate-500">SHIPPING · 配送料</div>
-          <div className="text-xl font-black text-white font-mono print:text-slate-900">¥{totals.shipping.toLocaleString()}</div>
+        {/* SHIPPING + export/print buttons */}
+        <div className="bg-white/10 rounded-xl p-3 border border-white/15 print:bg-white print:border-slate-200 print:rounded-lg flex flex-col gap-2">
+          <div>
+            <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-0.5 print:text-slate-500">SHIPPING · 配送料</div>
+            <div className="text-base font-black text-white font-mono print:text-slate-900">¥{totals.shipping.toLocaleString()}</div>
+          </div>
+          <div className="flex gap-1.5 print:hidden">
+            <button
+              onClick={onExportExcel}
+              disabled={isExporting}
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded-lg font-bold text-[10px] transition-colors border border-emerald-400/30 disabled:opacity-50"
+              title="Excelファイルとしてダウンロード"
+            >
+              <FileSpreadsheet size={11} />
+              {isExporting ? '...' : 'Excel'}
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-white/10 text-white/60 hover:bg-white/20 rounded-lg font-bold text-[10px] transition-colors border border-white/20"
+              title="印刷"
+            >
+              <Printer size={11} />
+              印刷
+            </button>
+          </div>
         </div>
-        <div className="bg-indigo-500/30 rounded-2xl p-4 border border-indigo-400/30 print:bg-white print:border-slate-300 print:rounded-lg">
-          <div className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-1 print:text-slate-500">TOTAL · 総支払</div>
-          <div className="text-xl font-black text-white font-mono print:text-slate-900">¥{totals.total.toLocaleString()}</div>
+        {/* TOTAL */}
+        <div className="bg-indigo-500/30 rounded-xl p-3 border border-indigo-400/30 print:bg-white print:border-slate-300 print:rounded-lg">
+          <div className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-0.5 print:text-slate-500">TOTAL · 総支払</div>
+          <div className="text-base font-black text-white font-mono print:text-slate-900">¥{totals.total.toLocaleString()}</div>
         </div>
-        <div className="bg-white/10 rounded-2xl p-4 border border-white/15 flex flex-col justify-between prep-print-hide">
-          <div className="flex items-center justify-between mb-2">
+        {/* PROGRESS */}
+        <div className="bg-white/10 rounded-xl p-3 border border-white/15 flex flex-col justify-between prep-print-hide">
+          <div className="flex items-center justify-between mb-1.5">
             <div className="text-[9px] font-black text-white/40 uppercase tracking-widest">PROGRESS · 進捗</div>
             <div className="text-xs font-black text-indigo-300">
               {items.length > 0 ? Math.round((totals.done / items.length) * 100) : 0}%
             </div>
           </div>
-          <div className="w-full bg-white/10 rounded-full h-1.5 mb-1.5">
+          <div className="w-full bg-white/10 rounded-full h-1.5 mb-1">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${items.length > 0 ? (totals.done / items.length) * 100 : 0}%` }}
               className="bg-indigo-400 h-1.5 rounded-full"
             />
           </div>
-          <div className="flex gap-2 text-[10px] font-bold text-white/40">
-            <span>到着 {totals.arrived}</span>
+          <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] font-bold text-white/40">
+            <span>着荷 {totals.arrived}</span>
             <span className="text-white/20">·</span>
-            <span>準備完了 {totals.prepared}</span>
+            <span>完了 {totals.prepared}</span>
             <span className="text-white/20">·</span>
             <span>{items.length} 件</span>
           </div>
