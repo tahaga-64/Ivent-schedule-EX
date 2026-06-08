@@ -228,19 +228,23 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
         {/* Date header — 日付 / EXロゴ / 時計 */}
         <div className="flex items-center justify-between gap-2 text-white">
-          <div className="flex items-end gap-2 min-w-0">
-            <div className="text-7xl sm:text-8xl font-black leading-none tracking-tighter">
+          <div className="flex items-end gap-2 min-w-0 flex-1">
+            <div className="text-6xl sm:text-7xl md:text-8xl font-black leading-none tracking-tighter tabular-nums">
               {new Date().getDate()}
             </div>
-            <div className="pb-1.5 flex flex-col gap-0.5 min-w-0">
-              <div className="text-base sm:text-xl font-black opacity-90 leading-tight truncate">
+            <div className="pb-1 flex flex-col gap-0.5 min-w-0">
+              <div className="text-sm sm:text-xl font-black opacity-90 leading-tight truncate">
                 {new Date().toLocaleDateString('ja-JP', { month: 'long', weekday: 'long' })}
               </div>
               <div className="text-xs sm:text-sm font-bold opacity-40">{new Date().getFullYear()}</div>
             </div>
           </div>
-          <EXBadge size={104} />
-          <AnalogClock />
+          <div className="sm:hidden shrink-0"><EXBadge size={64} /></div>
+          <div className="hidden sm:block md:hidden shrink-0"><EXBadge size={80} /></div>
+          <div className="hidden md:block shrink-0"><EXBadge size={104} /></div>
+          <div className="hidden min-[400px]:block shrink-0">
+            <AnalogClock />
+          </div>
         </div>
 
         {/* Stats — 今月 / 本日稼働 / 次イベント を横並び */}
@@ -291,18 +295,18 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         {/* 稼働内訳 — 本社/イベント/外出/公休/希望休/その他 を横並び */}
         {!staffLoading && staffBreakdown !== null && (
           <div className="bg-white/10 rounded-2xl p-3 border border-white/15">
-            <div className="grid grid-cols-6 gap-1">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
               {([
-                { label: '本社',   value: staffBreakdown.office,   dim: false },
-                { label: 'イベント', value: staffBreakdown.event,    dim: false },
-                { label: '外出',   value: staffBreakdown.dispatch, dim: false },
-                { label: '公休',   value: staffBreakdown.rest,     dim: true },
-                { label: '希望休', value: staffBreakdown.request,  dim: true },
-                { label: 'その他', value: staffBreakdown.other,    dim: true },
-              ] as const).map(({ label, value, dim }) => (
-                <div key={label} className={`text-center rounded-lg py-1.5 ${dim ? 'bg-white/[0.03]' : 'bg-white/5'}`}>
-                  <div className={`font-black leading-none ${dim ? 'text-base text-white/70' : 'text-lg text-white'}`}>{value}</div>
-                  <div className="text-[9px] text-white/40 mt-0.5">{label}</div>
+                { label: '本社',   value: staffBreakdown.office,   bg: 'bg-blue-500/25 border-blue-400/40',   text: 'text-blue-100' },
+                { label: 'イベント', value: staffBreakdown.event,    bg: 'bg-emerald-500/25 border-emerald-400/40', text: 'text-emerald-100' },
+                { label: '外出',   value: staffBreakdown.dispatch, bg: 'bg-amber-500/25 border-amber-400/40', text: 'text-amber-100' },
+                { label: '公休',   value: staffBreakdown.rest,     bg: 'bg-violet-500/25 border-violet-400/40', text: 'text-violet-100' },
+                { label: '希望休', value: staffBreakdown.request,  bg: 'bg-pink-500/25 border-pink-400/40',   text: 'text-pink-100' },
+                { label: 'その他', value: staffBreakdown.other,    bg: 'bg-slate-500/25 border-slate-400/40', text: 'text-slate-200' },
+              ] as const).map(({ label, value, bg, text }) => (
+                <div key={label} className={`text-center rounded-lg py-1.5 border ${bg}`}>
+                  <div className={`font-black leading-none text-lg ${text}`}>{value}</div>
+                  <div className="text-[9px] text-white/70 mt-0.5 font-bold">{label}</div>
                 </div>
               ))}
             </div>

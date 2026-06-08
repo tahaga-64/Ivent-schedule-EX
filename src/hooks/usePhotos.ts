@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { doc, setDoc, runTransaction, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, setDoc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { deleteStoredPhoto, uploadEventPhoto, validateImageFile } from '../lib/photoStorage';
 import { EventPhoto } from '../types';
@@ -44,8 +44,16 @@ export function usePhotos(eventId: string) {
   async function deleteEventPhoto(photo: EventPhoto): Promise<void> {
     setError(null);
     try {
-      await setDoc(doc(db, 'events', eventId), { photos: arrayRemove(photo) }, { merge: true });
-      deleteStoredPhoto(photo).catch(err => {
+      const eventRef = doc(db, 'events', eventId);
+      let storedPhoto: EventPhoto | undefined;
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(eventRef);
+        if (!snap.exists()) return;
+        const photos: EventPhoto[] = snap.data().photos ?? [];
+        storedPhoto = photos.find(p => p.id === photo.id);
+        tx.update(eventRef, { photos: photos.filter(p => p.id !== photo.id) });
+      });
+      deleteStoredPhoto(storedPhoto ?? photo).catch(err => {
         console.error('Stored photo delete failed:', err);
       });
     } catch (e) {

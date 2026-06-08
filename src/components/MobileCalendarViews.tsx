@@ -17,7 +17,7 @@ export function MobileTimelineView({ events, onSelect }: { events: Event[]; onSe
     const [, m, day] = d.split('-');
     const date = new Date(d + 'T00:00:00');
     const dow = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
-    return `${parseInt(m)}/${parseInt(day)} ${dow}`;
+    return `${parseInt(m)}/${parseInt(day)}（${dow}）`;
   };
 
   const grouped = useMemo(() => {
@@ -31,13 +31,13 @@ export function MobileTimelineView({ events, onSelect }: { events: Event[]; onSe
   }, [events]);
 
   return (
-    <div className="space-y-6 pb-2">
+    <div className="space-y-5 pb-2">
       {grouped.map(([date, evs]) => (
         <div key={date}>
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm font-black text-slate-700">{fmtGroup(date)}</span>
-            <div className="flex-1 h-px bg-slate-100" />
-            <span className="text-xs font-bold text-slate-400">{evs.length}</span>
+          <div className="flex items-center gap-3 mb-2.5">
+            <span className="text-sm font-black text-white">{fmtGroup(date)}</span>
+            <div className="flex-1 h-px bg-white/15" />
+            <span className="text-xs font-bold text-white/40 tabular-nums">{evs.length}件</span>
           </div>
           <div className="space-y-2">
             {evs.map((ev) => (
@@ -45,18 +45,18 @@ export function MobileTimelineView({ events, onSelect }: { events: Event[]; onSe
                 key={ev.id}
                 onClick={() => onSelect(ev)}
                 title={ev.status === 'completed' ? '完了済み' : undefined}
-                className="w-full bg-white border border-slate-100 rounded-2xl flex items-center gap-3 text-left shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                className="w-full bg-white/10 border border-white/15 rounded-2xl flex items-center gap-3 text-left active:scale-[0.99] transition-all overflow-hidden"
               >
                 <div className="w-1 self-stretch rounded-l-2xl shrink-0" style={{ background: rs(ev.region || '').dot }} />
-                <span className="text-xl py-4 shrink-0">{ev.emoji || ts(ev.type || '').icon}</span>
-                <div className="flex-1 py-4 min-w-0">
-                  <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">
+                <span className="text-2xl py-3.5 shrink-0">{ev.emoji || ts(ev.type || '').icon}</span>
+                <div className="flex-1 py-3.5 min-w-0">
+                  <div className="font-bold text-white text-sm truncate">{ev.venue}</div>
+                  <div className="text-[11px] text-white/45 mt-0.5">
                     {[ev.region, ev.type || 'その他'].filter(Boolean).join('・')}
                   </div>
                 </div>
                 {ev.end && ev.end !== ev.start && (
-                  <span className="text-[11px] text-slate-400 font-bold pr-4 shrink-0">→{fmtShort(ev.end)}</span>
+                  <span className="text-[11px] text-white/40 font-bold pr-3 shrink-0">→{fmtShort(ev.end)}</span>
                 )}
               </button>
             ))}
@@ -76,21 +76,23 @@ export function MobileWeekStrip({ events }: { events: Event[] }) {
     d.setDate(startOfWeek.getDate() + i);
     return d;
   });
-  const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   return (
-    <div className="flex justify-between px-1 mb-2">
+    <div className="flex justify-between gap-0.5 rounded-2xl border border-white/15 bg-white/10 px-1 py-2">
       {days.map((d, i) => {
         const isToday = d.toDateString() === today.toDateString();
-        const hasEvent = events.some((ev) => ev.start && new Date(ev.start).toDateString() === d.toDateString());
+        const hasEvent = events.some((ev) => ev.start && new Date(ev.start + 'T00:00:00').toDateString() === d.toDateString());
         return (
-          <div key={i} className="flex flex-col items-center gap-1">
-            <span className={`text-[10px] font-bold ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-400'}`}>{dayLabels[i]}</span>
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black transition-all ${isToday ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-slate-600'}`}>
+          <div key={i} className="flex flex-1 flex-col items-center gap-1 min-w-0">
+            <span className={`text-[10px] font-bold ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-white/40'}`}>
+              {DAYS_JP[i]}
+            </span>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black transition-all ${
+              isToday ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/40' : 'text-white/80'
+            }`}>
               {d.getDate()}
             </div>
-            {hasEvent && !isToday && <div className="w-1 h-1 rounded-full bg-indigo-400" />}
-            {!hasEvent && <div className="w-1 h-1" />}
+            <div className={`w-1.5 h-1.5 rounded-full ${hasEvent ? (isToday ? 'bg-white' : 'bg-indigo-400') : 'bg-transparent'}`} />
           </div>
         );
       })}
@@ -187,34 +189,34 @@ export function MobileDayAgendaView({ year, month, agendaDay, setAgendaDay, even
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <button type="button" className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-bold text-slate-600 disabled:opacity-40" disabled={day <= 1} onClick={() => setAgendaDay(day - 1)} aria-label="前の日">‹</button>
+      <div className="flex items-center justify-between gap-2 rounded-2xl border border-white/15 bg-white/10 px-2 py-1.5">
+        <button type="button" className="flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white/80 active:bg-white/10 disabled:opacity-30" disabled={day <= 1} onClick={() => setAgendaDay(day - 1)} aria-label="前の日">‹</button>
         <div className="text-center">
-          <div className="text-lg font-black text-slate-800 tabular-nums">{year}/{month}/{day}</div>
-          <div className="text-xs font-bold text-slate-500">{dow}曜日</div>
+          <div className="text-lg font-black text-white tabular-nums">{month}/{day}</div>
+          <div className="text-xs font-bold text-white/50">{dow}曜日</div>
         </div>
-        <button type="button" className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg font-bold text-slate-600 disabled:opacity-40" disabled={day >= dim} onClick={() => setAgendaDay(day + 1)} aria-label="次の日">›</button>
+        <button type="button" className="flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white/80 active:bg-white/10 disabled:opacity-30" disabled={day >= dim} onClick={() => setAgendaDay(day + 1)} aria-label="次の日">›</button>
       </div>
 
       {dayEvents.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-sm font-bold text-slate-400">この日のイベントはありません</div>
+        <div className="rounded-2xl border border-dashed border-white/20 py-10 text-center text-sm font-bold text-white/40">この日のイベントはありません</div>
       ) : (
         <div className="space-y-2">
           {visible.map((ev) => {
             const typeSty = ts(ev.type || '');
             const meta = buildEventOptionalCaption(ev);
             return (
-              <button key={ev.id} type="button" onClick={() => onSelect(ev)} title={ev.status === 'completed' ? '完了済み' : undefined} style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border }} className="flex min-h-11 w-full items-start gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm ring-1 ring-inset ring-slate-900/[0.04]">
-                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-slate-900/15" style={{ backgroundColor: typeSty.border }} aria-hidden />
+              <button key={ev.id} type="button" onClick={() => onSelect(ev)} title={ev.status === 'completed' ? '完了済み' : undefined} style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border }} className="flex min-h-12 w-full items-start gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-left active:scale-[0.99] transition-all">
+                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-white/20" style={{ backgroundColor: typeSty.border }} aria-hidden />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-bold text-slate-900">{ev.venue}</span>
-                  {meta && <span className="mt-0.5 block truncate text-xs font-medium text-slate-600">{meta}</span>}
+                  <span className="block truncate font-bold text-white">{ev.venue}</span>
+                  {meta && <span className="mt-0.5 block truncate text-xs font-medium text-white/50">{meta}</span>}
                 </span>
               </button>
             );
           })}
           {hiddenCount > 0 && (
-            <button type="button" onClick={() => onOpenDayDetail({ year, month, day, events: dayEvents })} className="flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-slate-200 text-sm font-bold text-slate-800 shadow-sm">ほか +{hiddenCount}件</button>
+            <button type="button" onClick={() => onOpenDayDetail({ year, month, day, events: dayEvents })} className="flex min-h-12 w-full items-center justify-center rounded-xl border border-white/20 bg-white/15 text-sm font-bold text-white active:scale-[0.99] transition-all">ほか +{hiddenCount}件</button>
           )}
         </div>
       )}
@@ -223,12 +225,12 @@ export function MobileDayAgendaView({ year, month, agendaDay, setAgendaDay, even
         <button
           type="button"
           disabled={!canEdit}
-          className={`flex min-h-11 w-full items-center justify-center rounded-xl border border-dashed text-sm font-bold transition-colors ${canEdit ? 'border-indigo-200 bg-indigo-50/50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'}`}
+          className={`flex min-h-12 w-full items-center justify-center rounded-xl border border-dashed text-sm font-bold transition-colors ${canEdit ? 'border-indigo-400/40 bg-indigo-500/15 text-indigo-200 active:scale-[0.99]' : 'border-white/10 bg-white/5 text-white/30 cursor-not-allowed'}`}
           onClick={() => canEdit && onCreateEvent({ start: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` })}
         >
           この日にイベントを追加
         </button>
-        {!canEdit && <p className="text-center text-[11px] text-slate-400">※ 権限がありません</p>}
+        {!canEdit && <p className="text-center text-[11px] text-white/35">※ モバイルではイベント作成はできません</p>}
       </div>
     </div>
   );

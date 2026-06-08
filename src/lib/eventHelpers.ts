@@ -59,6 +59,18 @@ export function statusStyle(status?: string): { label: string; bg: string; text:
   }
 }
 
+/** カレンダー（暗色背景）向けステータス色 */
+export function calStatusStyle(status?: string): { bg: string; hoverBg: string; border: string } {
+  switch (status) {
+    case 'in_progress': return { bg: 'rgba(245,158,11,0.50)', hoverBg: 'rgba(245,158,11,0.62)', border: '#fbbf24' };
+    case 'waiting':     return { bg: 'rgba(59,130,246,0.50)', hoverBg: 'rgba(59,130,246,0.62)', border: '#60a5fa' };
+    case 'ready':       return { bg: 'rgba(16,185,129,0.50)', hoverBg: 'rgba(16,185,129,0.62)', border: '#34d399' };
+    case 'completed':   return { bg: 'rgba(100,116,139,0.42)', hoverBg: 'rgba(100,116,139,0.54)', border: '#94a3b8' };
+    case 'cancelled':   return { bg: 'rgba(239,68,68,0.45)', hoverBg: 'rgba(239,68,68,0.57)', border: '#f87171' };
+    default:            return { bg: 'rgba(71,85,105,0.52)', hoverBg: 'rgba(71,85,105,0.64)', border: '#94a3b8' };
+  }
+}
+
 export const getDaysInRange = (start: string, end: string): string[] => {
   const days: string[] = [];
   const current = new Date(start + 'T00:00:00');

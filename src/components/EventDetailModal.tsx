@@ -115,8 +115,9 @@ export default function EventDetailModal({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 40 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-t-3xl md:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full md:max-w-3xl lg:max-w-4xl xl:max-w-5xl max-h-[92vh] md:max-h-[90vh]"
+        className="bg-white rounded-t-3xl md:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full md:max-w-3xl lg:max-w-4xl xl:max-w-5xl max-h-[92dvh] md:max-h-[90vh]"
       >
+        <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-slate-200 md:hidden" aria-hidden />
         {selected.status === 'completed' && (
           <div className="flex items-center gap-2 px-4 py-3 bg-orange-500 border-b border-orange-600">
             <span className="text-white">⚑</span>
