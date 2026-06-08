@@ -5,7 +5,7 @@ import { ChevronRight, BookOpen, ExternalLink, X, ArrowRight } from 'lucide-reac
 import type { Event } from '../types';
 import { rs, ts, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
 import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule';
-import { auth } from '../lib/firebase';
+import EXBadge from './EXBadge';
 import OperationsManualModal from './OperationsManualModal';
 
 interface Props {
@@ -148,12 +148,6 @@ function SectionEmpty({ label }: { label: string }) {
   );
 }
 
-function getGreeting(name: string | null): string {
-  const h = new Date().getHours();
-  const greet = h < 11 ? 'おはようございます' : h < 17 ? 'こんにちは' : 'お疲れ様です';
-  return name ? `${greet}、${name}さん` : greet;
-}
-
 export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, onNavigateCalendar, canEditEvent }: Props) {
   const [showOpsManual, setShowOpsManual] = useState(false);
   const [showEventPicker, setShowEventPicker] = useState(false);
@@ -161,7 +155,6 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
   const [staffBreakdown, setStaffBreakdown] = useState<StaffBreakdown | null>(null);
   const [staffLoading, setStaffLoading] = useState(true);
   const today = new Date().toISOString().slice(0, 10);
-  const greeting = getGreeting(auth.currentUser?.displayName ?? null);
 
   useEffect(() => {
     if (!showPermissionToast) return;
@@ -223,110 +216,96 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
     <div className="relative min-h-screen">
       <div className="relative z-10 flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-6 pb-32 md:pb-8 w-full max-w-none">
 
-        {/* Date header */}
-        <div className="flex items-start justify-between text-white">
-          <div className="flex items-end gap-4">
-            <div className="text-8xl font-black leading-none tracking-tighter">
+        {/* Date header — 日付 / EXロゴ / 時計 */}
+        <div className="flex items-center justify-between gap-2 text-white">
+          <div className="flex items-end gap-2 min-w-0">
+            <div className="text-7xl sm:text-8xl font-black leading-none tracking-tighter">
               {new Date().getDate()}
             </div>
-            <div className="pb-2 flex flex-col gap-0.5">
-              <div className="text-xl font-black opacity-90 leading-tight">
+            <div className="pb-1.5 flex flex-col gap-0.5 min-w-0">
+              <div className="text-base sm:text-xl font-black opacity-90 leading-tight truncate">
                 {new Date().toLocaleDateString('ja-JP', { month: 'long', weekday: 'long' })}
               </div>
-              <div className="text-sm font-bold opacity-40">{new Date().getFullYear()}</div>
+              <div className="text-xs sm:text-sm font-bold opacity-40">{new Date().getFullYear()}</div>
             </div>
           </div>
+          <EXBadge size={58} />
           <AnalogClock />
         </div>
 
-        {/* Greeting */}
-        <div className="text-sm font-bold text-white/55 -mt-2">{greeting}</div>
-
-        {/* Stats cards — row 1 */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* Stats — 今月 / 本日稼働 / 次イベント を横並び */}
+        <div className="grid grid-cols-3 gap-2">
           {/* 今月 */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15 flex flex-col">
+          <button
+            onClick={onNavigateCalendar}
+            className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/15 flex flex-col text-left hover:bg-white/15 transition-colors"
+          >
             <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">今月</div>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-black text-white leading-none">{stats.thisMonthCount}</span>
-              <span className="text-sm font-bold text-white/50">件</span>
+              <span className="text-xs font-bold text-white/50">件</span>
             </div>
-            <button
-              onClick={onNavigateCalendar}
-              className="mt-auto pt-2.5 flex items-center gap-1 text-[10px] font-black text-indigo-300 hover:text-indigo-200 transition-colors self-start"
-            >
-              詳しく見る <ArrowRight size={10} />
-            </button>
+            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[10px] font-black text-indigo-300">
+              詳しく <ArrowRight size={10} />
+            </span>
+          </button>
+
+          {/* 本日稼働 */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/15 flex flex-col">
+            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">本日稼働</div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-black text-white leading-none">
+                {staffLoading ? '…' : staffBreakdown !== null ? staffBreakdown.total : '—'}
+              </span>
+              {!staffLoading && staffBreakdown !== null && (
+                <span className="text-xs font-bold text-white/50">人</span>
+              )}
+            </div>
+            <span className="mt-auto pt-2 text-[10px] font-bold text-white/40">出勤中</span>
           </div>
 
           {/* 次イベント */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15 flex flex-col">
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/15 flex flex-col">
             <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">次イベント</div>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-black text-white leading-none">
                 {stats.daysToNext === null ? '—' : stats.daysToNext === 0 ? '今日' : stats.daysToNext}
               </span>
               {stats.daysToNext !== null && stats.daysToNext > 0 && (
-                <span className="text-sm font-bold text-white/50">日後</span>
+                <span className="text-xs font-bold text-white/50">日後</span>
               )}
             </div>
-            {stats.nextVenue && (
-              <div className="mt-1 text-[10px] text-white/45 truncate">{stats.nextVenue}</div>
-            )}
+            <span className="mt-auto pt-2 text-[10px] font-bold text-white/40 truncate">
+              {stats.nextVenue || '予定なし'}
+            </span>
           </div>
         </div>
 
-        {/* Stats cards — row 2: 本日稼働 */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15">
-          <div className="flex items-center justify-between">
-            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest">本日稼働</div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-xl font-black text-white leading-none">
-                {staffLoading ? '…' : staffBreakdown !== null ? staffBreakdown.total : '—'}
-              </span>
-              {!staffLoading && staffBreakdown !== null && (
-                <span className="text-sm font-bold text-white/50">人</span>
-              )}
+        {/* 稼働内訳 — 本社/イベント/外出/公休/希望休/その他 を横並び */}
+        {!staffLoading && staffBreakdown !== null && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/15">
+            <div className="grid grid-cols-6 gap-1">
+              {([
+                { label: '本社',   value: staffBreakdown.office,   dim: false },
+                { label: 'イベント', value: staffBreakdown.event,    dim: false },
+                { label: '外出',   value: staffBreakdown.dispatch, dim: false },
+                { label: '公休',   value: staffBreakdown.rest,     dim: true },
+                { label: '希望休', value: staffBreakdown.request,  dim: true },
+                { label: 'その他', value: staffBreakdown.other,    dim: true },
+              ] as const).map(({ label, value, dim }) => (
+                <div key={label} className={`text-center rounded-lg py-1.5 ${dim ? 'bg-white/[0.03]' : 'bg-white/5'}`}>
+                  <div className={`font-black leading-none ${dim ? 'text-base text-white/70' : 'text-lg text-white'}`}>{value}</div>
+                  <div className="text-[9px] text-white/40 mt-0.5">{label}</div>
+                </div>
+              ))}
             </div>
           </div>
-          {!staffLoading && staffBreakdown !== null && (
-            <div className="mt-2.5 pt-2.5 border-t border-white/10 space-y-2">
-              {/* 稼働内訳 */}
-              <div className="grid grid-cols-3 gap-1">
-                <div className="text-center rounded-lg bg-white/5 py-1.5">
-                  <div className="text-lg font-black text-white leading-none">{staffBreakdown.office}</div>
-                  <div className="text-[9px] text-white/45 mt-0.5">本社</div>
-                </div>
-                <div className="text-center rounded-lg bg-white/5 py-1.5">
-                  <div className="text-lg font-black text-white leading-none">{staffBreakdown.event}</div>
-                  <div className="text-[9px] text-white/45 mt-0.5">イベント</div>
-                </div>
-                <div className="text-center rounded-lg bg-white/5 py-1.5">
-                  <div className="text-lg font-black text-white leading-none">{staffBreakdown.dispatch}</div>
-                  <div className="text-[9px] text-white/45 mt-0.5">外出</div>
-                </div>
-              </div>
-              {/* 休み・その他 */}
-              <div className="grid grid-cols-3 gap-1">
-                <div className="text-center rounded-lg bg-white/[0.03] py-1.5">
-                  <div className="text-sm font-black text-white/70 leading-none">{staffBreakdown.rest}</div>
-                  <div className="text-[9px] text-white/35 mt-0.5">公休</div>
-                </div>
-                <div className="text-center rounded-lg bg-white/[0.03] py-1.5">
-                  <div className="text-sm font-black text-white/70 leading-none">{staffBreakdown.request}</div>
-                  <div className="text-[9px] text-white/35 mt-0.5">希望休</div>
-                </div>
-                <div className="text-center rounded-lg bg-white/[0.03] py-1.5">
-                  <div className="text-sm font-black text-white/70 leading-none">{staffBreakdown.other}</div>
-                  <div className="text-[9px] text-white/35 mt-0.5">その他</div>
-                </div>
-              </div>
-            </div>
-          )}
-          {!staffLoading && staffBreakdown === null && (
-            <div className="mt-2 text-[10px] text-white/30">データを取得できませんでした</div>
-          )}
-        </div>
+        )}
+        {!staffLoading && staffBreakdown === null && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/15 text-[10px] text-white/30">
+            稼働データを取得できませんでした
+          </div>
+        )}
 
         <div className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
         {/* 本日のイベント */}
