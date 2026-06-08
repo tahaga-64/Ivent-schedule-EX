@@ -281,7 +281,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         </div>
       )}
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 bg-white/10 border-b border-white/15 shrink-0 print:hidden">
+      <div className="flex items-center justify-between px-5 py-3 shrink-0 print:hidden">
         <div className="flex items-center gap-3">
           <button
             onClick={() => runWithGuard(onBack)}
@@ -640,25 +640,49 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
         )}
       </div>
 
-      {/* Footer */}
-      <div className="px-4 sm:px-6 py-3 bg-white/10 border-t border-white/15 shrink-0 print:bg-white print:border-slate-200 print:px-0">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 print:grid-cols-3">
-        {/* SUBTOTAL */}
-        <div className="bg-white/10 rounded-xl p-3 border border-white/15 print:bg-white print:border-slate-200 print:rounded-lg">
-          <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-0.5 print:text-slate-500">SUBTOTAL · 商品計</div>
-          <div className="text-base font-black text-white font-mono print:text-slate-900">¥{totals.subtotal.toLocaleString()}</div>
-        </div>
-        {/* SHIPPING + export/print buttons */}
-        <div className="bg-white/10 rounded-xl p-3 border border-white/15 print:bg-white print:border-slate-200 print:rounded-lg flex flex-col gap-2">
+      {/* Footer — no card boxes, background image shows through */}
+      <div className="px-5 py-2.5 shrink-0 print:bg-white print:border-t print:border-slate-200 print:px-0 print:py-3">
+        <div className="flex items-start gap-4 sm:gap-6 flex-wrap">
+          {/* SUBTOTAL */}
           <div>
-            <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-0.5 print:text-slate-500">SHIPPING · 配送料</div>
-            <div className="text-base font-black text-white font-mono print:text-slate-900">¥{totals.shipping.toLocaleString()}</div>
+            <div className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-0.5 print:text-slate-500">商品計</div>
+            <div className="text-sm font-black text-white font-mono print:text-slate-900">¥{totals.subtotal.toLocaleString()}</div>
           </div>
-          <div className="flex gap-1.5 print:hidden">
+          {/* SHIPPING */}
+          <div>
+            <div className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-0.5 print:text-slate-500">配送料</div>
+            <div className="text-sm font-black text-white font-mono print:text-slate-900">¥{totals.shipping.toLocaleString()}</div>
+          </div>
+          {/* TOTAL */}
+          <div>
+            <div className="text-[8px] font-black text-indigo-300/70 uppercase tracking-widest mb-0.5 print:text-slate-500">総支払</div>
+            <div className="text-base font-black text-indigo-200 font-mono print:text-slate-900">¥{totals.total.toLocaleString()}</div>
+          </div>
+          {/* PROGRESS */}
+          <div className="flex-1 min-w-[140px] prep-print-hide">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">進捗</span>
+              <span className="text-[10px] font-black text-indigo-300">
+                {items.length > 0 ? Math.round((totals.done / items.length) * 100) : 0}%
+              </span>
+            </div>
+            <div className="w-full bg-white/15 rounded-full h-1 mb-1">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${items.length > 0 ? (totals.done / items.length) * 100 : 0}%` }}
+                className="bg-indigo-400 h-1 rounded-full"
+              />
+            </div>
+            <div className="text-[9px] font-bold text-white/30">
+              着荷 {totals.arrived} · 完了 {totals.prepared} · {items.length}件
+            </div>
+          </div>
+          {/* Excel / 印刷 buttons */}
+          <div className="flex gap-1.5 print:hidden self-end pb-0.5">
             <button
               onClick={onExportExcel}
               disabled={isExporting}
-              className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded-lg font-bold text-[10px] transition-colors border border-emerald-400/30 disabled:opacity-50"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 rounded-lg font-bold text-[10px] transition-colors border border-emerald-400/25 disabled:opacity-50"
               title="Excelファイルとしてダウンロード"
             >
               <FileSpreadsheet size={11} />
@@ -666,7 +690,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
             </button>
             <button
               onClick={handlePrint}
-              className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-white/10 text-white/60 hover:bg-white/20 rounded-lg font-bold text-[10px] transition-colors border border-white/20"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-white/10 text-white/60 hover:bg-white/20 rounded-lg font-bold text-[10px] transition-colors border border-white/15"
               title="印刷"
             >
               <Printer size={11} />
@@ -674,35 +698,6 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
             </button>
           </div>
         </div>
-        {/* TOTAL */}
-        <div className="bg-indigo-500/30 rounded-xl p-3 border border-indigo-400/30 print:bg-white print:border-slate-300 print:rounded-lg">
-          <div className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-0.5 print:text-slate-500">TOTAL · 総支払</div>
-          <div className="text-base font-black text-white font-mono print:text-slate-900">¥{totals.total.toLocaleString()}</div>
-        </div>
-        {/* PROGRESS */}
-        <div className="bg-white/10 rounded-xl p-3 border border-white/15 flex flex-col justify-between prep-print-hide">
-          <div className="flex items-center justify-between mb-1.5">
-            <div className="text-[9px] font-black text-white/40 uppercase tracking-widest">PROGRESS · 進捗</div>
-            <div className="text-xs font-black text-indigo-300">
-              {items.length > 0 ? Math.round((totals.done / items.length) * 100) : 0}%
-            </div>
-          </div>
-          <div className="w-full bg-white/10 rounded-full h-1.5 mb-1">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${items.length > 0 ? (totals.done / items.length) * 100 : 0}%` }}
-              className="bg-indigo-400 h-1.5 rounded-full"
-            />
-          </div>
-          <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] font-bold text-white/40">
-            <span>着荷 {totals.arrived}</span>
-            <span className="text-white/20">·</span>
-            <span>完了 {totals.prepared}</span>
-            <span className="text-white/20">·</span>
-            <span>{items.length} 件</span>
-          </div>
-        </div>
-      </div>
       </div>
     </div>
     </>
