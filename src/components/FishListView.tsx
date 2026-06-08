@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import type { Event, FishItem } from '../types';
@@ -33,8 +34,57 @@ export default function FishListView({ events, canEdit }: Props) {
   const [newNote, setNewNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { runWithGuard } = useUnsavedChanges();
 
   const selectedEvent = aquariumEvents.find(ev => ev.id === selectedEventId);
+
+  const hasDraft = useMemo(
+    () => !!(newName.trim() || newNote.trim() || newCount !== 1),
+    [newName, newNote, newCount]
+  );
+
+  const clearDraft = useCallback(() => {
+    setNewName('');
+    setNewCount(1);
+    setNewNote('');
+    setError(null);
+  }, []);
+
+  const saveDraft = useCallback(async (): Promise<boolean> => {
+    if (!newName.trim() || !selectedEventId) {
+      clearDraft();
+      return true;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const id = crypto.randomUUID();
+      const trimmedNote = newNote.trim();
+      const item: FishItem = {
+        id,
+        name: newName.trim(),
+        count: Number.isFinite(newCount) ? newCount : 0,
+        order: fishItems.length,
+      };
+      if (trimmedNote) item.note = trimmedNote;
+      await setDoc(doc(db, 'events', selectedEventId, 'fishItems', id), item);
+      clearDraft();
+      return true;
+    } catch (err) {
+      console.error('fishItems add error:', err);
+      setError('保存に失敗しました。権限またはネットワークを確認してください。');
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [newName, newNote, newCount, selectedEventId, fishItems.length, clearDraft]);
+
+  useRegisterUnsavedGuard(`fish-draft-${selectedEventId}`, {
+    enabled: canEdit && !!selectedEventId,
+    hasUnsaved: hasDraft,
+    save: saveDraft,
+    discard: clearDraft,
+  });
 
   useEffect(() => {
     if (!selectedEventId) return;
@@ -99,7 +149,7 @@ export default function FishListView({ events, canEdit }: Props) {
 
   return (
     <div className="relative min-h-screen">
-      <div className="relative z-10 max-w-2xl mx-auto px-4 py-6 pb-28">
+      <div className="relative z-10 w-full max-w-none px-4 md:px-6 lg:px-8 py-6 pb-28 md:pb-8">
 
         {aquariumEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-white/60">
@@ -120,7 +170,7 @@ export default function FishListView({ events, canEdit }: Props) {
               </label>
               <select
                 value={selectedEventId}
-                onChange={e => setSelectedEventId(e.target.value)}
+                onChange={e => runWithGuard(() => setSelectedEventId(e.target.value))}
                 className="w-full rounded-xl border border-white/20 bg-white/15 backdrop-blur-sm px-3 py-2.5 text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
               >
                 {aquariumEvents.map(ev => (
@@ -132,8 +182,9 @@ export default function FishListView({ events, canEdit }: Props) {
             </div>
 
             {selectedEvent && (
-              <>
-                <div className="flex items-center gap-3 mb-4 bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-3 border border-white/20">
+              <div className="md:grid md:grid-cols-[minmax(260px,340px)_1fr] md:gap-6 xl:gap-8 md:items-start">
+              <div className="md:sticky md:top-4 space-y-4">
+                <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-3 border border-white/20">
                   <div className="w-9 h-9 rounded-xl bg-cyan-400/30 flex items-center justify-center shrink-0">
                     <Fish size={18} className="text-cyan-300" />
                   </div>
@@ -146,54 +197,6 @@ export default function FishListView({ events, canEdit }: Props) {
                   <span className="ml-auto shrink-0 text-xs font-black text-cyan-300 bg-cyan-900/40 px-3 py-1 rounded-full border border-cyan-400/30">
                     {fishItems.length}種
                   </span>
-                </div>
-
-                {error && (
-                  <div className="mb-3 bg-red-500/20 border border-red-400/30 rounded-xl px-4 py-2 text-xs text-red-200 font-bold">
-                    {error}
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-2 mb-4">
-                  <AnimatePresence initial={false}>
-                    {fishItems.map(item => (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, x: 20 }}
-                        className="flex items-center gap-3 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-3 shadow-sm border border-cyan-100"
-                      >
-                        <span className="text-lg shrink-0">🐠</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-sm text-slate-800">{item.name}</div>
-                          {item.note && <div className="text-xs text-slate-400 truncate">{item.note}</div>}
-                        </div>
-                        {canEdit ? (
-                          <input
-                            type="number"
-                            min={0}
-                            value={item.count}
-                            onChange={e => handleCountChange(item, Number(e.target.value))}
-                            className="w-16 text-center rounded-lg border border-slate-200 px-2 py-1 text-sm font-black text-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
-                          />
-                        ) : (
-                          <span className="text-sm font-black text-cyan-700 w-16 text-center">{item.count}</span>
-                        )}
-                        <span className="text-xs text-slate-400 -ml-1">匹</span>
-                        {canEdit && (
-                          <button onClick={() => handleDelete(item.id)} className="text-slate-300 hover:text-red-400 transition-colors p-1 shrink-0">
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                  {fishItems.length === 0 && (
-                    <div className="text-center py-10 text-white/40 text-sm bg-white/5 rounded-2xl border border-white/10">
-                      観賞魚を追加してください
-                    </div>
-                  )}
                 </div>
 
                 {canEdit && (
@@ -237,7 +240,58 @@ export default function FishListView({ events, canEdit }: Props) {
                     </div>
                   </div>
                 )}
-              </>
+              </div>
+
+              <div className="min-w-0">
+                {error && (
+                  <div className="mb-3 bg-red-500/20 border border-red-400/30 rounded-xl px-4 py-2 text-xs text-red-200 font-bold">
+                    {error}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 mb-4">
+                  <AnimatePresence initial={false}>
+                    {fishItems.map(item => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        className="flex items-center gap-3 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-3 shadow-sm border border-cyan-100"
+                      >
+                        <span className="text-lg shrink-0">🐠</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-sm text-slate-800">{item.name}</div>
+                          {item.note && <div className="text-xs text-slate-400 truncate">{item.note}</div>}
+                        </div>
+                        {canEdit ? (
+                          <input
+                            type="number"
+                            min={0}
+                            value={item.count}
+                            onChange={e => handleCountChange(item, Number(e.target.value))}
+                            className="w-16 text-center rounded-lg border border-slate-200 px-2 py-1 text-sm font-black text-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
+                          />
+                        ) : (
+                          <span className="text-sm font-black text-cyan-700 w-16 text-center">{item.count}</span>
+                        )}
+                        <span className="text-xs text-slate-400 -ml-1">匹</span>
+                        {canEdit && (
+                          <button onClick={() => handleDelete(item.id)} className="text-slate-300 hover:text-red-400 transition-colors p-1 shrink-0">
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                  {fishItems.length === 0 && (
+                    <div className="text-center py-10 text-white/40 text-sm bg-white/5 rounded-2xl border border-white/10">
+                      観賞魚を追加してください
+                    </div>
+                  )}
+                </div>
+              </div>
+              </div>
             )}
           </>
         )}

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { Plus, Pencil, Trash2, ExternalLink, Package } from 'lucide-react';
@@ -27,6 +28,33 @@ export default function MasterItemsView({ canEdit }: Props) {
   const [editing, setEditing] = useState<MasterItem | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const { runWithGuard } = useUnsavedChanges();
+
+  const isFormDirty = useMemo(() => {
+    if (!showForm) return false;
+    if (editing) {
+      return (
+        form.name.trim() !== editing.name ||
+        (parseInt(form.unitPrice) || 0) !== editing.unitPrice ||
+        (parseInt(form.defaultQuantity) || 1) !== editing.defaultQuantity ||
+        form.note.trim() !== (editing.note ?? '') ||
+        form.url.trim() !== (editing.url ?? '')
+      );
+    }
+    return !!(
+      form.name.trim() ||
+      form.unitPrice ||
+      form.note.trim() ||
+      form.url.trim() ||
+      (form.defaultQuantity && form.defaultQuantity !== '1')
+    );
+  }, [showForm, editing, form]);
+
+  const closeForm = useCallback(() => {
+    setShowForm(false);
+    setEditing(null);
+    setForm(EMPTY_FORM);
+  }, []);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'masterItems'), snap => {
@@ -55,9 +83,9 @@ export default function MasterItemsView({ canEdit }: Props) {
     setShowForm(true);
   }
 
-  async function handleSave() {
+  const handleSave = useCallback(async (): Promise<boolean> => {
     const trimmed = form.name.trim();
-    if (!trimmed) return;
+    if (!trimmed) return false;
     const data = {
       name: trimmed,
       unitPrice: parseInt(form.unitPrice) || 0,
@@ -72,12 +100,21 @@ export default function MasterItemsView({ canEdit }: Props) {
       } else {
         await addDoc(collection(db, 'masterItems'), data);
       }
-      setShowForm(false);
+      closeForm();
+      return true;
     } catch (err) {
       console.error('masterItems save error:', err);
       alert('保存に失敗しました。権限またはネットワークを確認してください。');
+      return false;
     }
-  }
+  }, [form, editing, closeForm]);
+
+  useRegisterUnsavedGuard('master-items-form', {
+    enabled: canEdit && showForm,
+    hasUnsaved: isFormDirty,
+    save: handleSave,
+    discard: closeForm,
+  });
 
   async function handleDelete(item: MasterItem) {
     if (!confirm(`「${item.name}」を削除しますか？`)) return;
@@ -165,7 +202,7 @@ export default function MasterItemsView({ canEdit }: Props) {
       <AnimatePresence>
         {showForm && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowForm(false)} />
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => runWithGuard(closeForm)} />
             <motion.div
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
@@ -231,13 +268,13 @@ export default function MasterItemsView({ canEdit }: Props) {
               </div>
               <div className="flex gap-2 mt-5">
                 <button
-                  onClick={() => setShowForm(false)}
+                  onClick={() => runWithGuard(closeForm)}
                   className="flex-1 py-2.5 rounded-xl border border-[var(--border)] text-sm font-bold text-[var(--text-secondary)] hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
                 >
                   キャンセル
                 </button>
                 <button
-                  onClick={handleSave}
+                  onClick={() => void handleSave()}
                   disabled={!form.name.trim()}
                   className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black transition-colors disabled:opacity-50"
                 >

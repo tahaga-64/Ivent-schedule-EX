@@ -6,7 +6,6 @@ type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "
 interface MobileBottomNavProps {
   view: ViewMode;
   onSetView: (v: ViewMode) => void;
-  onClearPrepEvent: () => void;
 }
 
 const NAV_ITEMS: { id: ViewMode; icon: React.ReactNode; label: string }[] = [
@@ -18,7 +17,7 @@ const NAV_ITEMS: { id: ViewMode; icon: React.ReactNode; label: string }[] = [
   { id: "layout",   icon: <LayoutGrid size={20} />,     label: "レイアウト" },
 ];
 
-export default function MobileBottomNav({ view, onSetView, onClearPrepEvent }: MobileBottomNavProps) {
+export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProps) {
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 border-t border-white/15 flex items-center justify-around pb-[env(safe-area-inset-bottom)] z-20 md:hidden"
@@ -27,10 +26,7 @@ export default function MobileBottomNav({ view, onSetView, onClearPrepEvent }: M
       {NAV_ITEMS.map(tab => (
         <button
           key={tab.id}
-          onClick={() => {
-            if (tab.id !== 'prep' && tab.id !== 'archive') onClearPrepEvent();
-            onSetView(tab.id);
-          }}
+          onClick={() => onSetView(tab.id)}
           className={`relative flex flex-col items-center gap-0.5 px-3 py-3 text-[10px] font-bold transition-colors ${
             view === tab.id ? "text-white" : "text-white/50"
           }`}

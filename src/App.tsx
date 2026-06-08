@@ -33,6 +33,7 @@ import MigrationBanner from './components/MigrationBanner';
 import LoadingBar from './components/LoadingBar';
 import LoadingSplash from './components/LoadingSplash';
 import PrepEventList from './components/PrepEventList';
+import { useRegisterUnsavedGuard, useUnsavedChanges } from './contexts/UnsavedChangesContext';
 import ArchiveView from './components/ArchiveView';
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout";
@@ -133,12 +134,29 @@ export default function App() {
   });
   const [viewLoading, setViewLoading] = useState(false);
   const viewLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleSetView = useCallback((v: ViewMode) => {
+  const { runWithGuard } = useUnsavedChanges();
+
+  const applySetView = useCallback((v: ViewMode) => {
     setViewLoading(true);
     if (viewLoadTimerRef.current) clearTimeout(viewLoadTimerRef.current);
     viewLoadTimerRef.current = setTimeout(() => setViewLoading(false), 400);
     setView(v);
   }, []);
+
+  const navigateToView = useCallback((v: ViewMode) => {
+    runWithGuard(() => {
+      if (v !== 'prep' && v !== 'archive') setPrepEvent(null);
+      applySetView(v);
+    });
+  }, [runWithGuard, applySetView]);
+
+  const handleSetPrepEvent = useCallback((ev: Event | null) => {
+    runWithGuard(() => setPrepEvent(ev));
+  }, [runWithGuard]);
+
+  const handleClearPrepEvent = useCallback(() => {
+    runWithGuard(() => setPrepEvent(null));
+  }, [runWithGuard]);
   const [regionFilter, setRegionFilter] = useState(() => localStorage.getItem('regionFilter') || "すべて");
   const [typeFilter, setTypeFilter] = useState(() => localStorage.getItem('typeFilter') || "すべて");
   // 月は常に「現在の月」で起動する（前回保存の古い月で固定されないように）
@@ -214,17 +232,6 @@ export default function App() {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
-
-  // 未保存変更の警告（ブラウザを閉じる・リロード時）
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedChanges]);
 
   // Auth state
   useEffect(() => {
@@ -573,27 +580,28 @@ export default function App() {
     }
   };
 
-  const handleCreateEvent = async (initialData: Partial<Event> = {}) => {
-    const id = crypto.randomUUID();
-    const newEvent: Event = {
-      id,
-      venue: initialData.venue || "新しいイベント",
-      start: initialData.start || new Date().toISOString().split('T')[0],
-      end: initialData.end || initialData.start || new Date().toISOString().split('T')[0],
-      region: initialData.region || "東日本",
-      dept: "",
-      type: initialData.type || "その他",
-      client: "",
-      note: "",
-      emoji: initialData.emoji || "📅"
-    };
-    setSaveError(null);
-    // 楽観的にUIへ反映（保存完了前にも一覧 / モーダルに表示）
-    setDbEvents(prev => ({ ...prev, [id]: newEvent }));
-    setSelected(newEvent);
-    setPendingNewEventId(id);
-    setLastEditedId(id);
-  };
+  const handleCreateEvent = useCallback((initialData: Partial<Event> = {}) => {
+    runWithGuard(() => {
+      const id = crypto.randomUUID();
+      const newEvent: Event = {
+        id,
+        venue: initialData.venue || "新しいイベント",
+        start: initialData.start || new Date().toISOString().split('T')[0],
+        end: initialData.end || initialData.start || new Date().toISOString().split('T')[0],
+        region: initialData.region || "東日本",
+        dept: "",
+        type: initialData.type || "その他",
+        client: "",
+        note: "",
+        emoji: initialData.emoji || "📅"
+      };
+      setSaveError(null);
+      setDbEvents(prev => ({ ...prev, [id]: newEvent }));
+      setSelected(newEvent);
+      setPendingNewEventId(id);
+      setLastEditedId(id);
+    });
+  }, [runWithGuard]);
 
   const handleDeleteEvent = async () => {
     if (!selected) return;
@@ -707,47 +715,50 @@ export default function App() {
     }
   };
 
-  // モーダルを閉じる（未保存の変更がある場合は確認）
-  const handleCloseModal = useCallback(() => {
+  const closeEventModal = useCallback(() => {
     const isNew = pendingNewEventId !== null && selected?.id === pendingNewEventId;
-
-    if (isNew && !hasUnsavedChanges) {
+    if (isNew) {
       setDbEvents(prev => { const n = { ...prev }; delete n[pendingNewEventId!]; return n; });
       setPendingNewEventId(null);
-      setSelected(null);
-      hasUnsavedChangesRef.current = false;
-      setHasUnsavedChanges(false);
-      setValidationErrors([]);
-      setModalTab('detail');
-      return;
     }
+    setSelected(null);
+    hasUnsavedChangesRef.current = false;
+    setHasUnsavedChanges(false);
+    setValidationErrors([]);
+    setModalTab('detail');
+  }, [pendingNewEventId, selected]);
 
-    if (hasUnsavedChanges) {
-      if (!window.confirm('未保存の変更があります。破棄しますか？')) return;
-      if (isNew) {
-        setDbEvents(prev => { const n = { ...prev }; delete n[pendingNewEventId!]; return n; });
-        setPendingNewEventId(null);
+  const discardEventChanges = useCallback(() => {
+    const isNew = pendingNewEventId !== null && selected?.id === pendingNewEventId;
+    if (isNew) {
+      setDbEvents(prev => { const n = { ...prev }; delete n[pendingNewEventId!]; return n; });
+      setPendingNewEventId(null);
+    } else if (selected) {
+      const original = dbEvents[selected.id];
+      if (original) {
+        setSelected(original);
+        setLocalDailyRoles(original.dailyRoles ?? {});
       }
     }
-
-    setSelected(null);
     hasUnsavedChangesRef.current = false;
     setHasUnsavedChanges(false);
     setValidationErrors([]);
-    setModalTab('detail');
-  }, [hasUnsavedChanges, pendingNewEventId, selected]);
+  }, [selected, pendingNewEventId, dbEvents]);
+
+  useRegisterUnsavedGuard('event-modal', {
+    enabled: !!selected,
+    hasUnsaved: hasUnsavedChanges,
+    save: handleSaveEvent,
+    discard: discardEventChanges,
+  });
+
+  const handleCloseModal = useCallback(() => {
+    runWithGuard(closeEventModal);
+  }, [runWithGuard, closeEventModal]);
 
   const handleCancelNewEvent = useCallback(() => {
-    if (pendingNewEventId) {
-      setDbEvents(prev => { const n = { ...prev }; delete n[pendingNewEventId]; return n; });
-      setPendingNewEventId(null);
-    }
-    setSelected(null);
-    hasUnsavedChangesRef.current = false;
-    setHasUnsavedChanges(false);
-    setValidationErrors([]);
-    setModalTab('detail');
-  }, [pendingNewEventId]);
+    runWithGuard(closeEventModal);
+  }, [runWithGuard, closeEventModal]);
 
   // 現在ビューのトラック内インデックス（モバイルビュー以外は -1）
   const navIdx = MOBILE_VIEWS.indexOf(view);
@@ -791,7 +802,7 @@ export default function App() {
   const handleEventSelect = (ev: Event) => {
     handleEventHoverEnd();
     if (ev.id.startsWith("__cal_preview_")) return;
-    setSelected(ev);
+    runWithGuard(() => setSelected(ev));
   };
 
   const handleOpenDayDetail = useCallback((ctx: { year: number; month: number; day: number; events: Event[] }) => {
@@ -806,8 +817,10 @@ export default function App() {
   const handlePickEventFromDayDetail = (ev: Event) => {
     if (ev.id.startsWith("__cal_preview_")) return;
     handleEventHoverEnd();
-    setDayDetail(null);
-    setSelected(ev);
+    runWithGuard(() => {
+      setDayDetail(null);
+      setSelected(ev);
+    });
   };
 
   useEffect(() => {
@@ -937,7 +950,7 @@ VITE_FIREBASE_DATABASE_ID`}
           events={allEvents}
           prepProgressMap={prepProgressMap}
           onSelectEvent={handleEventSelect}
-          onSelectPrepEvent={(ev) => { setPrepEvent(ev); setView('prep'); }}
+          onSelectPrepEvent={(ev) => { runWithGuard(() => { setPrepEvent(ev); applySetView('prep'); }); }}
           onCreateEvent={() => handleCreateEvent()}
           onOpenSchedule={() => window.open('https://ex-2026-04-802549538762.us-west1.run.app', '_blank', 'noopener,noreferrer')}
           canEditEvent={canEditEvent}
@@ -955,13 +968,13 @@ VITE_FIREBASE_DATABASE_ID`}
       {(v === "prep" || v === "archive") && prepEvent ? (
         <PreparationList
           event={prepEvent}
-          onBack={() => setPrepEvent(null)}
+          onBack={handleClearPrepEvent}
           canEdit={canEditPreparationList}
         />
       ) : v === "prep" ? (
-        <PrepEventList events={allEvents} onSelectEvent={setPrepEvent} />
+        <PrepEventList events={allEvents} onSelectEvent={handleSetPrepEvent} />
       ) : v === "archive" ? (
-        <ArchiveView events={allEvents} onSelectEvent={setPrepEvent} />
+        <ArchiveView events={allEvents} onSelectEvent={handleSetPrepEvent} />
       ) : null}
     </>
   );
@@ -983,11 +996,10 @@ VITE_FIREBASE_DATABASE_ID`}
         searchQuery={searchQuery}
         narrowViewport={narrowViewport}
         onToggleSidebar={() => setSideOpen(v => !v)}
-        onSetView={handleSetView}
+        onSetView={navigateToView}
         onSearchChange={setSearchQuery}
         onCreateEvent={() => handleCreateEvent()}
         onShowHelp={() => setShowHelp(true)}
-        onClearPrepEvent={() => setPrepEvent(null)}
       />
 
       <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
@@ -1083,10 +1095,9 @@ VITE_FIREBASE_DATABASE_ID`}
 
             if (target !== navIdx) {
               const nextView = MOBILE_VIEWS[target];
-              if (nextView !== 'prep' && nextView !== 'archive') setPrepEvent(null);
               setSwipeDir(0);
               skipNextTrackAnim.current = true; // 上のアニメを尊重し effect 側の再アニメを抑止
-              handleSetView(nextView);
+              navigateToView(nextView);
             }
           }}
         >
@@ -1167,7 +1178,13 @@ VITE_FIREBASE_DATABASE_ID`}
             onUpdate={handleUpdateEvent}
             onSave={handleSaveEvent}
             onDelete={handleDeleteEvent}
-            onOpenPrepList={() => { setPrepEvent(selected); setView('prep'); setSelected(null); }}
+            onOpenPrepList={() => {
+              runWithGuard(() => {
+                if (selected) setPrepEvent(selected);
+                applySetView('prep');
+                closeEventModal();
+              });
+            }}
             photoUploading={photoUploading}
             uploadProgress={uploadProgress}
             photoError={photoError}
@@ -1212,8 +1229,7 @@ VITE_FIREBASE_DATABASE_ID`}
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav
         view={view}
-        onSetView={(v) => { setSwipeDir(0); handleSetView(v); }}
-        onClearPrepEvent={() => setPrepEvent(null)}
+        onSetView={(v) => { setSwipeDir(0); navigateToView(v); }}
       />
     </div>
   );

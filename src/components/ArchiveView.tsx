@@ -32,12 +32,14 @@ export default function ArchiveView({ events, onSelectEvent }: ArchiveViewProps)
     <div className="relative z-10 w-full">
       <div className="flex flex-col gap-5 px-4 md:px-6 pt-6 pb-32 md:pb-8 w-full max-w-none">
 
-        <div className="flex items-center gap-2">
-          <div className="w-0.5 h-4 bg-white/40 rounded-full shrink-0" />
-          <div className="text-[11px] font-black text-white/70 uppercase tracking-widest">アーカイブ</div>
-          {archivedEvents.length > 0 && (
-            <span className="text-[10px] text-white/30 font-medium">{archivedEvents.length}件</span>
-          )}
+        <div className="mb-6">
+          <div className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-1">ARCHIVE</div>
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-2xl font-black text-white">アーカイブ</h2>
+            {archivedEvents.length > 0 && (
+              <span className="text-[10px] text-white/40 font-medium">{archivedEvents.length}件</span>
+            )}
+          </div>
         </div>
 
         {archivedEvents.length === 0 ? (
