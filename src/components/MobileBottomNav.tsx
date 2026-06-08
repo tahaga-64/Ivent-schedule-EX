@@ -1,5 +1,7 @@
-import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid, Images } from 'lucide-react';
-import { motion } from 'motion/react';
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid, Images, Archive, MoreHorizontal, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album";
 
@@ -8,41 +10,137 @@ interface MobileBottomNavProps {
   onSetView: (v: ViewMode) => void;
 }
 
-const NAV_ITEMS: { id: ViewMode; icon: React.ReactNode; label: string }[] = [
-  { id: "home",     icon: <Home size={20} />,           label: "ホーム" },
-  { id: "calendar", icon: <Calendar size={20} />,       label: "カレンダー" },
-  { id: "prep",     icon: <ClipboardList size={20} />,  label: "準備物" },
-  { id: "master",   icon: <Package size={20} />,        label: "備品" },
-  { id: "fish",     icon: <Fish size={20} />,           label: "魚リスト" },
-  { id: "layout",   icon: <LayoutGrid size={20} />,     label: "レイアウト" },
-  { id: "album",    icon: <Images size={20} />,         label: "アルバム" },
+const PRIMARY_TABS: { id: ViewMode | 'more'; icon: React.ReactNode; label: string }[] = [
+  { id: "home",     icon: <Home size={22} />,           label: "ホーム" },
+  { id: "calendar", icon: <Calendar size={22} />,       label: "カレンダー" },
+  { id: "prep",     icon: <ClipboardList size={22} />,  label: "準備物" },
+  { id: "more",     icon: <MoreHorizontal size={22} />, label: "その他" },
 ];
 
+const MORE_ITEMS: { id: ViewMode; icon: React.ReactNode; label: string; sub: string }[] = [
+  { id: "master",  icon: <Package size={20} />,    label: "備品マスター", sub: "備品の登録・管理" },
+  { id: "fish",    icon: <Fish size={20} />,       label: "魚リスト",     sub: "水族館イベント用" },
+  { id: "layout",  icon: <LayoutGrid size={20} />, label: "レイアウト",   sub: "会場配置図" },
+  { id: "album",   icon: <Images size={20} />,     label: "アルバム",     sub: "イベント写真" },
+  { id: "archive", icon: <Archive size={20} />,    label: "アーカイブ",   sub: "終了したイベント" },
+];
+
+const MORE_VIEW_IDS = new Set<ViewMode>(MORE_ITEMS.map(i => i.id));
+
 export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProps) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const isMoreActive = MORE_VIEW_IDS.has(view);
+
+  const handleTab = (id: ViewMode | 'more') => {
+    if (id === 'more') {
+      setMoreOpen(true);
+      return;
+    }
+    setMoreOpen(false);
+    onSetView(id);
+  };
+
+  const handleMoreSelect = (id: ViewMode) => {
+    setMoreOpen(false);
+    onSetView(id);
+  };
+
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 border-t border-white/15 flex items-center justify-around pb-[env(safe-area-inset-bottom)] z-20 md:hidden"
-      style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.60) 0%, rgba(0,0,0,0.92) 100%)" }}
-    >
-      {NAV_ITEMS.map(tab => (
-        <button
-          key={tab.id}
-          onClick={() => onSetView(tab.id)}
-          className={`relative flex flex-col items-center gap-0.5 px-3 py-3 text-[10px] font-bold transition-colors ${
-            view === tab.id ? "text-white" : "text-white/50"
-          }`}
-        >
-          {tab.icon}
-          {tab.label}
-          {view === tab.id && (
-            <motion.div
-              layoutId="nav-indicator"
-              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-white"
-              transition={{ type: 'spring', stiffness: 400, damping: 35 }}
-            />
+    <>
+      <nav
+        className="fixed bottom-0 left-0 right-0 border-t border-white/15 z-20 md:hidden"
+        style={{
+          background: 'linear-gradient(to bottom, rgba(15,23,42,0.75) 0%, rgba(15,23,42,0.97) 100%)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        }}
+      >
+        <div className="flex items-stretch justify-around px-1">
+          {PRIMARY_TABS.map(tab => {
+            const active = tab.id === 'more' ? isMoreActive : view === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTab(tab.id)}
+                className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[3.25rem] py-2 text-[10px] font-bold transition-colors active:scale-95 ${
+                  active ? 'text-white' : 'text-white/45'
+                }`}
+              >
+                {tab.icon}
+                <span className="leading-none">{tab.label}</span>
+                {active && (
+                  <motion.div
+                    layoutId="nav-indicator"
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-indigo-400"
+                    transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {createPortal(
+        <AnimatePresence>
+          {moreOpen && (
+            <>
+              <motion.div
+                className="fixed inset-0 z-40 bg-black/55 backdrop-blur-sm md:hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMoreOpen(false)}
+              />
+              <motion.div
+                className="fixed inset-x-0 bottom-0 z-50 md:hidden flex flex-col overflow-hidden rounded-t-3xl border-t border-white/15 bg-slate-900/98 backdrop-blur-xl"
+                style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="flex justify-center pt-3 pb-1 shrink-0">
+                  <div className="w-9 h-1 rounded-full bg-white/20" />
+                </div>
+                <div className="flex items-center justify-between px-5 py-2 shrink-0">
+                  <h2 className="text-sm font-black text-white">メニュー</h2>
+                  <button
+                    type="button"
+                    onClick={() => setMoreOpen(false)}
+                    className="p-2 rounded-xl text-white/50 hover:bg-white/10 transition-colors"
+                    aria-label="閉じる"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <div className="overflow-y-auto px-4 pb-2 space-y-1.5 max-h-[60dvh]">
+                  {MORE_ITEMS.map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleMoreSelect(item.id)}
+                      className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-left transition-all active:scale-[0.98] ${
+                        view === item.id
+                          ? 'bg-indigo-600/30 border border-indigo-400/40'
+                          : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      <span className={`shrink-0 ${view === item.id ? 'text-indigo-300' : 'text-white/60'}`}>
+                        {item.icon}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-black text-white">{item.label}</span>
+                        <span className="block text-[11px] text-white/45 mt-0.5">{item.sub}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            </>
           )}
-        </button>
-      ))}
-    </nav>
+        </AnimatePresence>,
+        document.body
+      )}
+    </>
   );
 }

@@ -53,31 +53,43 @@ export default function AppHeader({
   ];
 
   return (
-    <header className="sticky top-0 z-30 bg-transparent border-b border-white/15" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-      <div className="h-14 flex items-center justify-between px-4 gap-2 sm:gap-4">
+    <header
+      className="sticky top-0 z-30 border-b border-white/15 backdrop-blur-md"
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        background: 'linear-gradient(to bottom, rgba(15,23,42,0.85) 0%, rgba(15,23,42,0.65) 100%)',
+      }}
+    >
+      <div className="h-14 flex items-center justify-between px-3 sm:px-4 gap-2 sm:gap-4">
         {/* 左: ハンバーガー + ロゴ */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button onClick={onToggleSidebar} className="p-1.5 rounded-lg text-white/80 hover:bg-white/15 transition-colors">
-            <Menu size={18} />
+        <div className="flex items-center gap-2 shrink-0 min-w-0">
+          <button
+            onClick={onToggleSidebar}
+            className="p-2 -ml-1 rounded-xl text-white/80 hover:bg-white/15 active:bg-white/20 transition-colors"
+            aria-label="フィルターを開く"
+          >
+            <Menu size={20} />
           </button>
           <div className="hidden sm:block">
             <div className="font-bold text-sm text-white leading-tight">Event Manager</div>
           </div>
-          <div className="sm:hidden flex flex-col">
-            <div className="text-[10px] font-black text-white/60 tracking-widest uppercase">{calYear}年{calMonth}月</div>
-            <div className="font-black text-sm text-white leading-tight">{viewLabel}</div>
+          <div className="sm:hidden flex flex-col min-w-0">
+            <div className="font-black text-sm text-white leading-tight truncate">{viewLabel}</div>
+            {view === 'calendar' && (
+              <div className="text-[10px] font-bold text-white/45 tabular-nums">{calYear}年{calMonth}月</div>
+            )}
           </div>
         </div>
 
         {/* 中央: 検索バー */}
         <div className="flex-1 min-w-0 max-w-sm md:max-w-xl xl:max-w-2xl">
-          <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-2">
-            <Search size={13} className="text-white/60 shrink-0" />
+          <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-2.5 sm:px-3 py-2">
+            <Search size={14} className="text-white/60 shrink-0" />
             <input
-              type="text"
+              type="search"
               value={searchQuery}
               onChange={e => onSearchChange(e.target.value)}
-              placeholder="会場・クライアントを検索..."
+              placeholder="検索..."
               className="flex-1 bg-transparent text-xs text-white placeholder-white/40 outline-none min-w-0"
             />
             <kbd className="hidden sm:block text-[10px] text-white/40 font-medium bg-white/10 px-1.5 py-0.5 rounded">⌘K</kbd>
@@ -85,7 +97,7 @@ export default function AppHeader({
         </div>
 
         {/* 右: ビュー切替 + 新規 + アバター */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <div className="hidden md:flex bg-white/10 p-1 rounded-xl">
             {desktopNavItems.map(v => (
               <button
@@ -112,27 +124,28 @@ export default function AppHeader({
             </button>
           )}
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-0.5 sm:gap-1.5">
             <button
               onClick={onShowHelp}
-              className="p-1.5 rounded-lg text-white/70 hover:bg-white/15 hover:text-white transition-colors"
+              className="hidden sm:flex p-1.5 rounded-lg text-white/70 hover:bg-white/15 hover:text-white transition-colors"
               title="使い方"
             >
               <HelpCircle size={16} />
             </button>
             {user.photoURL ? (
-              <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-white/50" />
+              <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-white/50 hidden sm:block" />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white/50">
+              <div className="w-8 h-8 rounded-full bg-amber-200 hidden sm:flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white/50">
                 {user.displayName?.[0] || 'U'}
               </div>
             )}
             <button
               onClick={() => auth.signOut()}
-              className="p-1.5 rounded-lg text-white/70 hover:bg-white/15 hover:text-red-300 transition-colors"
+              className="p-2 rounded-xl text-white/70 hover:bg-white/15 hover:text-red-300 active:bg-white/20 transition-colors"
               title="ログアウト"
+              aria-label="ログアウト"
             >
-              <LogOut size={15} />
+              <LogOut size={16} />
             </button>
           </div>
         </div>

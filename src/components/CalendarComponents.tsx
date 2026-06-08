@@ -3,7 +3,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react';
 import { Plus, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { DAYS_JP } from '../constants';
 import { Event } from '../types';
-import { rs, ts, fmtShort, buildEventOptionalCaption, eventCoversDate, buildMonthGridCells } from '../lib/eventHelpers';
+import { rs, ts, fmtShort, buildEventOptionalCaption, eventCoversDate, buildMonthGridCells, calStatusStyle } from '../lib/eventHelpers';
 
 const MAX_EVENTS_IN_DAY_CELL = 3;
 const MAX_EVENTS_IN_DAY_CELL_NARROW = 2;
@@ -46,14 +46,17 @@ export function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps
             <span className="text-xs font-bold text-white/40">{evs.length}</span>
           </div>
           <div className="space-y-2">
-            {evs.map((ev) => (
+            {evs.map((ev) => {
+              const statusSty = calStatusStyle(ev.status);
+              return (
               <button
                 key={ev.id}
                 onClick={() => onSelect(ev)}
                 title={ev.status === 'completed' ? '完了済み' : undefined}
-                className="w-full bg-slate-600/40 backdrop-blur-sm border border-white/15 rounded-2xl flex items-center gap-3 text-left shadow-sm hover:bg-slate-600/50 transition-colors overflow-hidden"
+                style={{ backgroundColor: statusSty.bg, borderColor: statusSty.border }}
+                className="w-full backdrop-blur-sm border rounded-2xl flex items-center gap-3 text-left shadow-sm transition-all overflow-hidden hover:brightness-110 active:scale-[0.99] min-h-12"
               >
-                <div className="w-1 self-stretch rounded-l-2xl shrink-0" style={{ background: rs(ev.region || "").dot }} />
+                <div className="w-1 self-stretch rounded-l-2xl shrink-0" style={{ background: statusSty.border }} />
                 <span className="text-xl py-4 shrink-0">{ev.emoji || ts(ev.type || "").icon}</span>
                 <div className="flex-1 py-4 min-w-0">
                   <div className="font-bold text-white text-sm truncate">{ev.venue}</div>
@@ -65,7 +68,8 @@ export function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps
                   <span className="text-[11px] text-white/40 font-bold pr-4 shrink-0">→{fmtShort(ev.end)}</span>
                 )}
               </button>
-            ))}
+            );
+            })}
           </div>
         </div>
       ))}
@@ -89,20 +93,19 @@ export function MobileWeekStrip({ events }: MobileWeekStripProps) {
   const dayLabels = DAYS_JP;
 
   return (
-    <div className="flex justify-between px-1 mb-2">
+    <div className="flex justify-between gap-0.5 rounded-2xl border border-white/15 bg-white/10 px-1 py-2">
       {days.map((d, i) => {
         const isToday = d.toDateString() === today.toDateString();
-        const hasEvent = events.some((ev) => ev.start && new Date(ev.start).toDateString() === d.toDateString());
+        const hasEvent = events.some((ev) => ev.start && new Date(ev.start + 'T00:00:00').toDateString() === d.toDateString());
         return (
-          <div key={i} className="flex flex-col items-center gap-1">
+          <div key={i} className="flex flex-1 flex-col items-center gap-1 min-w-0">
             <span className={`text-[10px] font-bold ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-white/40"}`}>{dayLabels[i]}</span>
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black transition-all ${
-              isToday ? "bg-indigo-600 text-white shadow-md shadow-indigo-900/40" : "text-white/70"
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black transition-all ${
+              isToday ? "bg-indigo-600 text-white shadow-md shadow-indigo-900/40" : "text-white/80"
             }`}>
               {d.getDate()}
             </div>
-            {hasEvent && !isToday && <div className="w-1 h-1 rounded-full bg-indigo-400" />}
-            {!hasEvent && <div className="w-1 h-1" />}
+            <div className={`w-1.5 h-1.5 rounded-full ${hasEvent ? (isToday ? 'bg-white' : 'bg-indigo-400') : 'bg-transparent'}`} />
           </div>
         );
       })}
@@ -203,6 +206,7 @@ export function MobileMonthWeekGrid({
               >
                 {visible.map((ev) => {
                   const typeSty = ts(ev.type || "");
+                  const statusSty = calStatusStyle(ev.status);
                   const captionNd = buildEventOptionalCaption(ev, { includeDates: false });
                   return (
                     <button
@@ -212,11 +216,12 @@ export function MobileMonthWeekGrid({
                       title={ev.status === 'completed' ? '完了済み' : undefined}
                       style={{
                         borderLeftWidth: 3,
-                        borderLeftColor: typeSty.border,
+                        borderLeftColor: statusSty.border,
+                        backgroundColor: statusSty.bg,
                         minHeight: CAL_EVENT_ROW_MIN_HEIGHT_TOUCH,
                       }}
                       aria-label={captionNd ? `${ev.venue}。${captionNd}` : ev.venue}
-                      className="flex w-full shrink-0 flex-col justify-center overflow-hidden rounded border border-white/15 bg-slate-600/40 px-1 py-0.5 text-left ring-1 ring-inset ring-white/5"
+                      className="flex w-full shrink-0 flex-col justify-center overflow-hidden rounded border border-white/20 px-1 py-0.5 text-left ring-1 ring-inset ring-white/10 hover:brightness-110"
                     >
                       <span className="w-full truncate text-[11px] font-bold leading-tight text-white">
                         {ev.venue}
@@ -292,10 +297,10 @@ export function MobileDayAgendaView({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 rounded-2xl border border-white/15 bg-white/10 px-2 py-1.5">
         <button
           type="button"
-          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-lg font-bold text-white/70 disabled:opacity-40"
+          className="flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white/80 active:bg-white/10 disabled:opacity-30"
           disabled={day <= 1}
           onClick={() => setAgendaDay(day - 1)}
           aria-label="前の日"
@@ -304,13 +309,13 @@ export function MobileDayAgendaView({
         </button>
         <div className="text-center">
           <div className="text-lg font-black text-white tabular-nums">
-            {year}/{month}/{day}
+            {month}/{day}
           </div>
           <div className="text-xs font-bold text-white/50">{dow}曜日</div>
         </div>
         <button
           type="button"
-          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-lg font-bold text-white/70 disabled:opacity-40"
+          className="flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white/80 active:bg-white/10 disabled:opacity-30"
           disabled={day >= dim}
           onClick={() => setAgendaDay(day + 1)}
           aria-label="次の日"
@@ -327,6 +332,7 @@ export function MobileDayAgendaView({
         <div className="space-y-2">
           {visible.map((ev) => {
             const typeSty = ts(ev.type || "");
+            const statusSty = calStatusStyle(ev.status);
             const meta = buildEventOptionalCaption(ev);
             return (
               <button
@@ -334,8 +340,8 @@ export function MobileDayAgendaView({
                 type="button"
                 onClick={() => onSelect(ev)}
                 title={ev.status === 'completed' ? '完了済み' : undefined}
-                style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border }}
-                className="flex min-h-11 w-full items-start gap-2 rounded-xl border border-white/15 bg-slate-600/40 px-3 py-2 text-left shadow-sm ring-1 ring-inset ring-white/5"
+                style={{ borderLeftWidth: 3, borderLeftColor: statusSty.border, backgroundColor: statusSty.bg }}
+                className="flex min-h-12 w-full items-start gap-2 rounded-xl border border-white/20 px-3 py-2.5 text-left shadow-sm ring-1 ring-inset ring-white/10 hover:brightness-110 active:scale-[0.99] transition-all"
               >
                 <span
                   className="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-white/20"
@@ -514,6 +520,7 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
                   >
                     {visibleEvents.map((ev) => {
                       const typeSty = ts(ev.type || "");
+                      const statusSty = calStatusStyle(ev.status);
                       const captionNoDates = buildEventOptionalCaption(ev, { includeDates: false });
                       const captionFull = buildEventOptionalCaption(ev);
                       return (
@@ -525,7 +532,8 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
                         onMouseLeave={onHoverEnd}
                         style={{
                           borderLeftWidth: 3,
-                          borderLeftColor: typeSty.border,
+                          borderLeftColor: statusSty.border,
+                          backgroundColor: statusSty.bg,
                           minHeight: eventRowMinHeight,
                         }}
                         aria-label={
@@ -534,7 +542,7 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
                             : (captionFull ? `${ev.venue}。${captionFull}` : ev.venue)
                         }
                         title={ev.status === 'completed' ? '完了済み' : undefined}
-                        className="relative overflow-hidden flex w-full shrink-0 items-center gap-1.5 rounded-md border border-solid border-white/15 bg-slate-600/40 px-1.5 py-0.5 text-left shadow-sm ring-1 ring-inset ring-white/5 transition hover:border-white/25 hover:bg-slate-600/50"
+                        className="relative overflow-hidden flex w-full shrink-0 items-center gap-1.5 rounded-md border border-solid border-white/20 px-1.5 py-0.5 text-left shadow-sm ring-1 ring-inset ring-white/10 transition hover:brightness-110"
                       >
                         <span
                           className="h-1.5 w-1.5 shrink-0 rounded-full border border-white/20"

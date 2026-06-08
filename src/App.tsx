@@ -4,7 +4,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
 import { buildPrepProgressMap } from './lib/prepProgress';
 import { DATA } from './constants';
-import { Event, PreparationItem, EventStatus, type StaffMember } from './types';
+import { Event, EventPhoto, PreparationItem, EventStatus, type StaffMember } from './types';
 import { buildMonthGridCells, type ValidationError, validateEvent } from './lib/eventHelpers';
 import { Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -23,6 +23,7 @@ import AppHeader from './components/AppHeader';
 import DayDetailModal from './components/DayDetailModal';
 import SavingIndicator from './components/SavingIndicator';
 import MobileBottomNav from './components/MobileBottomNav';
+import MobileMonthNav from './components/MobileMonthNav';
 import MigrationBanner from './components/MigrationBanner';
 import LoadingBar from './components/LoadingBar';
 import LoadingSplash from './components/LoadingSplash';
@@ -168,7 +169,9 @@ export default function App() {
   const [calendarMobileLayout, setCalendarMobileLayout] = useState<"list" | "day">("list");
   const [mobileWeekRowIndex, setMobileWeekRowIndex] = useState(0);
   const [mobileAgendaDay, setMobileAgendaDay] = useState(() => new Date().getDate());
-  const [sideOpen, setSideOpen] = useState(true);
+  const [sideOpen, setSideOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 768 : true
+  );
   const [showHelp, setShowHelp] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [prepEvent, setPrepEvent] = useState<Event | null>(null);
@@ -829,6 +832,24 @@ VITE_FIREBASE_DATABASE_ID`}
             />
           </div>
           <div className="md:hidden space-y-3">
+            <MobileMonthNav
+              year={calYear}
+              month={calMonth}
+              onPrev={() => {
+                if (calMonth === 1) { setCalYear(calYear - 1); setCalMonth(12); }
+                else setCalMonth(calMonth - 1);
+              }}
+              onNext={() => {
+                if (calMonth === 12) { setCalYear(calYear + 1); setCalMonth(1); }
+                else setCalMonth(calMonth + 1);
+              }}
+              onToday={() => {
+                const d = new Date();
+                setCalYear(d.getFullYear());
+                setCalMonth(d.getMonth() + 1);
+                setMobileAgendaDay(d.getDate());
+              }}
+            />
             <div className="flex gap-1 rounded-xl bg-white/10 border border-white/15 p-1" role="tablist" aria-label="カレンダー表示の切替">
               {(
                 [
@@ -923,7 +944,7 @@ VITE_FIREBASE_DATABASE_ID`}
   );
 
   return (
-    <div className="relative isolate flex flex-col min-h-dvh">
+    <div className="relative isolate flex flex-col h-dvh min-h-dvh overflow-hidden">
       <div className="absolute inset-0 -z-10 print:hidden"
         style={{ background: 'linear-gradient(160deg, #0f172a 0%, #1e1b4b 50%, #0c1a35 100%)' }} />
 
@@ -956,10 +977,11 @@ VITE_FIREBASE_DATABASE_ID`}
         />
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar */}
-        {sideOpen && (
-          <AppSidebar
+        <AppSidebar
+            open={sideOpen}
+            onClose={() => setSideOpen(false)}
             stats={stats}
             regionFilter={regionFilter}
             setRegionFilter={setRegionFilter}
@@ -979,7 +1001,6 @@ VITE_FIREBASE_DATABASE_ID`}
             onEditStaffEmail={handleEditStaffEmail}
             onDeleteType={handleDeleteType}
           />
-        )}
 
         {/* Main Content */}
         <main className="flex-1 relative overflow-hidden flex flex-col">
@@ -993,8 +1014,8 @@ VITE_FIREBASE_DATABASE_ID`}
             <AnimatePresence mode="wait">
               <motion.div
                 key={view + regionFilter + typeFilter + monthFilter + (prepEvent?.id ?? '')}
-                className={`absolute inset-0 overflow-y-auto w-full max-w-none ${
-                  isMobile ? 'p-4 pb-[calc(5rem+env(safe-area-inset-bottom))]' : 'p-4 md:p-6 lg:p-8 pb-20 md:pb-8'
+                className={`absolute inset-0 overflow-y-auto w-full max-w-none overscroll-contain ${
+                  isMobile ? 'p-3 sm:p-4 pb-[calc(3.75rem+env(safe-area-inset-bottom))]' : 'p-4 md:p-6 lg:p-8 pb-20 md:pb-8'
                 }`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -1063,7 +1084,14 @@ VITE_FIREBASE_DATABASE_ID`}
             }}
             onDeletePhoto={async (photo) => {
               await deleteEventPhoto(photo);
-              setSelected(prev => prev ? { ...prev, photos: (prev.photos ?? []).filter(p => p.id !== photo.id) } : prev);
+              const filterPhotos = (photos: EventPhoto[] | undefined) =>
+                (photos ?? []).filter(p => p.id !== photo.id);
+              setSelected(prev => prev ? { ...prev, photos: filterPhotos(prev.photos) } : prev);
+              setDbEvents(prev => {
+                const ev = prev[selected.id];
+                if (!ev) return prev;
+                return { ...prev, [selected.id]: { ...ev, photos: filterPhotos(ev.photos) } };
+              });
             }}
             onUpdatePhotoCaption={async (photo, caption) => {
               await updatePhotoCaption(photo, caption);
@@ -1088,7 +1116,7 @@ VITE_FIREBASE_DATABASE_ID`}
         <button
           type="button"
           onClick={() => handleCreateEvent()}
-          className="fixed bottom-[4.5rem] right-4 z-30 md:hidden w-14 h-14 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-full shadow-xl shadow-indigo-500/40 flex items-center justify-center transition-all"
+          className="fixed bottom-[calc(3.75rem+env(safe-area-inset-bottom))] right-4 z-30 md:hidden w-14 h-14 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-full shadow-xl shadow-indigo-500/40 flex items-center justify-center transition-all"
           aria-label="新規イベントを作成"
         >
           <Plus size={24} />

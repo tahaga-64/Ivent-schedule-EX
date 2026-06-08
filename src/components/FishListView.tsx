@@ -23,10 +23,19 @@ function fmtDateRange(start: string, end: string) {
   return `${sm}/${sd}〜${e.getMonth() + 1}/${e.getDate()}`;
 }
 
+function isEventPast(ev: Event): boolean {
+  const today = new Date().toISOString().split('T')[0];
+  const endDate = ev.end || ev.start;
+  return !!endDate && endDate < today;
+}
+
 export default function FishListView({ events, canEdit, isActive = true }: Props) {
-  const aquariumEvents = events
-    .filter(ev => ev.type === '水族館' && ev.status !== 'cancelled')
-    .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+  const aquariumEvents = useMemo(
+    () => events
+      .filter(ev => ev.type === '水族館' && ev.status !== 'cancelled' && !isEventPast(ev))
+      .sort((a, b) => (a.start || '').localeCompare(b.start || '')),
+    [events]
+  );
 
   const [selectedEventId, setSelectedEventId] = useState<string>(() => aquariumEvents[0]?.id ?? '');
   const [fishItems, setFishItems] = useState<FishItem[]>([]);
@@ -86,6 +95,16 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
     save: saveDraft,
     discard: clearDraft,
   });
+
+  useEffect(() => {
+    if (aquariumEvents.length === 0) {
+      setSelectedEventId('');
+      return;
+    }
+    if (!aquariumEvents.some(ev => ev.id === selectedEventId)) {
+      setSelectedEventId(aquariumEvents[0].id);
+    }
+  }, [aquariumEvents, selectedEventId]);
 
   useEffect(() => {
     if (!isActive || !selectedEventId) return;

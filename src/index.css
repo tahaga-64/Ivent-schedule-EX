@@ -56,6 +56,11 @@
 
   body, #root {
     @apply bg-[var(--bg-app)] text-[var(--text-primary)] antialiased transition-colors duration-500 overflow-x-hidden w-full min-h-full;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button, a, [role="button"] {
+    touch-action: manipulation;
   }
 }
 
