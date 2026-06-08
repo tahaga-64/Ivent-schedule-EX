@@ -52,7 +52,7 @@ export function MobileTimelineView({ events, onSelect }: { events: Event[]; onSe
                 <div className="flex-1 py-3.5 min-w-0">
                   <div className="font-bold text-white text-sm truncate">{ev.venue}</div>
                   <div className="text-[11px] text-white/45 mt-0.5">
-                    {[ev.region, ev.type || 'その他'].filter(Boolean).join('・')}
+                    {ev.type || 'その他'}
                   </div>
                 </div>
                 {ev.end && ev.end !== ev.start && (
@@ -146,7 +146,7 @@ export function MobileMonthWeekGrid({ year, month, weekRowIndex, onWeekRowChange
                   return (
                     <button key={ev.id} type="button" onClick={() => onSelect(ev)} title={ev.status === 'completed' ? '完了済み' : undefined} style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border, minHeight: CAL_EVENT_ROW_MIN_HEIGHT_TOUCH }} aria-label={captionNd ? `${ev.venue}。${captionNd}` : ev.venue} className="flex w-full shrink-0 flex-col justify-center overflow-hidden rounded border border-slate-200 bg-white px-1 py-0.5 text-left ring-1 ring-inset ring-slate-900/[0.04]">
                       <span className="w-full truncate text-[11px] font-bold leading-tight text-slate-900">{ev.venue}</span>
-                      <span className="w-full truncate text-[9px] leading-tight text-slate-400">{ev.region}{ev.type ? `・${ev.type}` : ''}</span>
+                      <span className="w-full truncate text-[9px] leading-tight text-slate-400">{ev.type || ''}</span>
                     </button>
                   );
                 })}

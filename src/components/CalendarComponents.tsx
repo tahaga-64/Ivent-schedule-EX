@@ -61,7 +61,7 @@ export function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps
                 <div className="flex-1 py-4 min-w-0">
                   <div className="font-bold text-white text-sm truncate">{ev.venue}</div>
                   <div className="text-[11px] text-white/50 mt-0.5">
-                    {[ev.region, ev.type || "その他"].filter(Boolean).join("・")}
+                    {ev.type || "その他"}
                   </div>
                 </div>
                 {ev.end && ev.end !== ev.start && (

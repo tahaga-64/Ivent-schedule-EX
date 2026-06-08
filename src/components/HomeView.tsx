@@ -129,7 +129,7 @@ function EventCard({ ev, prog, today, onSelect }: {
                 )}
               </div>
               <div className="text-xs text-white/50 font-mono">
-                {fmtRange(ev.start, ev.end)}{ev.client ? ` · ${ev.client}` : ''}{ev.region ? ` · ${ev.region}` : ''}
+                {fmtRange(ev.start, ev.end)}{ev.type ? ` · ${ev.type}` : ''}
               </div>
               {pct >= 0 && (
                 <div className="flex items-center gap-2 mt-2">
