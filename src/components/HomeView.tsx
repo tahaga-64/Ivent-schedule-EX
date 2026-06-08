@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, BookOpen, ExternalLink, X } from 'lucide-react';
+import { ChevronRight, ExternalLink, X, ArrowRight } from 'lucide-react';
 import type { Event } from '../types';
 import { rs, ts, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
-import { fetchTodayStaffCount } from '../lib/exSchedule';
-import OperationsManualModal from './OperationsManualModal';
+import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule';
+import EXBadge from './EXBadge';
 
 interface Props {
   events: Event[];
@@ -14,6 +14,7 @@ interface Props {
   onSelectPrepEvent: (event: Event) => void;
   onCreateEvent: () => void;
   onOpenSchedule: () => void;
+  onNavigateCalendar: () => void;
   canEditEvent: boolean;
 }
 
@@ -158,11 +159,10 @@ function SectionEmpty({ label }: { label: string }) {
   );
 }
 
-export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, canEditEvent }: Props) {
-  const [showOpsManual, setShowOpsManual] = useState(false);
+export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, onNavigateCalendar, canEditEvent }: Props) {
   const [showEventPicker, setShowEventPicker] = useState(false);
   const [showPermissionToast, setShowPermissionToast] = useState(false);
-  const [staffCount, setStaffCount] = useState<number | null>(null);
+  const [staffBreakdown, setStaffBreakdown] = useState<StaffBreakdown | null>(null);
   const [staffLoading, setStaffLoading] = useState(true);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -174,8 +174,8 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
   useEffect(() => {
     setStaffLoading(true);
-    fetchTodayStaffCount()
-      .then(n => setStaffCount(n))
+    fetchTodayStaffBreakdown()
+      .then(bd => setStaffBreakdown(bd))
       .finally(() => setStaffLoading(false));
   }, [today]);
   const in7  = addDays(today, 7);
@@ -219,53 +219,100 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
     const daysToNext = nextEvent
       ? Math.ceil((new Date(nextEvent.start + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000)
       : null;
-    return { thisMonthCount: thisMonth.length, daysToNext };
+    return { thisMonthCount: thisMonth.length, daysToNext, nextVenue: nextEvent?.venue ?? null };
   }, [events, today]);
 
   return (
     <div className="relative min-h-screen">
       <div className="relative z-10 flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-6 pb-32 md:pb-8 w-full max-w-none">
 
-        {/* Date header */}
-        <div className="flex items-center justify-between text-white">
-          <div className="flex items-end gap-4">
-            <div className="text-8xl font-black leading-none tracking-tighter">
+        {/* Date header — 日付 / EXロゴ / 時計 */}
+        <div className="flex items-center justify-between gap-2 text-white">
+          <div className="flex items-end gap-2 min-w-0">
+            <div className="text-7xl sm:text-8xl font-black leading-none tracking-tighter">
               {new Date().getDate()}
             </div>
-            <div className="pb-2 flex flex-col gap-0.5">
-              <div className="text-xl font-black opacity-90 leading-tight">
+            <div className="pb-1.5 flex flex-col gap-0.5 min-w-0">
+              <div className="text-base sm:text-xl font-black opacity-90 leading-tight truncate">
                 {new Date().toLocaleDateString('ja-JP', { month: 'long', weekday: 'long' })}
               </div>
-              <div className="text-sm font-bold opacity-40">{new Date().getFullYear()}</div>
+              <div className="text-xs sm:text-sm font-bold opacity-40">{new Date().getFullYear()}</div>
             </div>
           </div>
+          <EXBadge size={80} />
           <AnalogClock />
         </div>
 
-        {/* Stats cards */}
-        <div className="grid grid-cols-3 md:grid-cols-3 gap-2 md:gap-4">
-          <div className="bg-white/10 rounded-2xl p-3.5 border border-white/15">
-            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">今月</div>
-            <div className="text-2xl font-black text-white leading-none">{stats.thisMonthCount}</div>
-            <div className="text-[10px] text-white/40 mt-0.5">件</div>
+        {/* Stats — 今月 / 本日稼働 / 次イベント を横並び */}
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            onClick={onNavigateCalendar}
+            className="bg-white/10 rounded-2xl p-3 border border-white/15 flex flex-col text-left hover:bg-white/15 transition-colors"
+          >
+            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">今月</div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-black text-white leading-none">{stats.thisMonthCount}</span>
+              <span className="text-xs font-bold text-white/50">件</span>
+            </div>
+            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[10px] font-black text-indigo-300">
+              詳しく <ArrowRight size={10} />
+            </span>
+          </button>
+
+          <div className="bg-white/10 rounded-2xl p-3 border border-white/15 flex flex-col">
+            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">本日稼働</div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-black text-white leading-none">
+                {staffLoading ? '…' : staffBreakdown !== null ? staffBreakdown.total : '—'}
+              </span>
+              {!staffLoading && staffBreakdown !== null && (
+                <span className="text-xs font-bold text-white/50">人</span>
+              )}
+            </div>
+            <span className="mt-auto pt-2 text-[10px] font-bold text-white/40">出勤中</span>
           </div>
-          <div className="bg-white/10 rounded-2xl p-3.5 border border-white/15">
-            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">今日の稼働</div>
-            <div className="text-2xl font-black text-white leading-none">
-              {staffLoading ? '…' : staffCount !== null ? staffCount : '—'}
+
+          <div className="bg-white/10 rounded-2xl p-3 border border-white/15 flex flex-col">
+            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">次イベント</div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-black text-white leading-none">
+                {stats.daysToNext === null ? '—' : stats.daysToNext === 0 ? '今日' : stats.daysToNext}
+              </span>
+              {stats.daysToNext !== null && stats.daysToNext > 0 && (
+                <span className="text-xs font-bold text-white/50">日後</span>
+              )}
             </div>
-            <div className="text-[10px] text-white/40 mt-0.5">{!staffLoading && staffCount !== null ? '人' : ''}</div>
-          </div>
-          <div className="bg-white/10 rounded-2xl p-3.5 border border-white/15">
-            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">次イベント</div>
-            <div className="text-2xl font-black text-white leading-none">
-              {stats.daysToNext === null ? '—' : stats.daysToNext === 0 ? '今日' : stats.daysToNext}
-            </div>
-            <div className="text-[10px] text-white/40 mt-0.5">
-              {stats.daysToNext !== null && stats.daysToNext > 0 ? '日後' : ''}
-            </div>
+            <span className="mt-auto pt-2 text-[10px] font-bold text-white/40 truncate">
+              {stats.nextVenue || '予定なし'}
+            </span>
           </div>
         </div>
+
+        {/* 稼働内訳 — 本社/イベント/外出/公休/希望休/その他 を横並び */}
+        {!staffLoading && staffBreakdown !== null && (
+          <div className="bg-white/10 rounded-2xl p-3 border border-white/15">
+            <div className="grid grid-cols-6 gap-1">
+              {([
+                { label: '本社',   value: staffBreakdown.office,   dim: false },
+                { label: 'イベント', value: staffBreakdown.event,    dim: false },
+                { label: '外出',   value: staffBreakdown.dispatch, dim: false },
+                { label: '公休',   value: staffBreakdown.rest,     dim: true },
+                { label: '希望休', value: staffBreakdown.request,  dim: true },
+                { label: 'その他', value: staffBreakdown.other,    dim: true },
+              ] as const).map(({ label, value, dim }) => (
+                <div key={label} className={`text-center rounded-lg py-1.5 ${dim ? 'bg-white/[0.03]' : 'bg-white/5'}`}>
+                  <div className={`font-black leading-none ${dim ? 'text-base text-white/70' : 'text-lg text-white'}`}>{value}</div>
+                  <div className="text-[9px] text-white/40 mt-0.5">{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {!staffLoading && staffBreakdown === null && (
+          <div className="bg-white/10 rounded-2xl p-3 border border-white/15 text-[10px] text-white/30">
+            稼働データを取得できませんでした
+          </div>
+        )}
 
         <div className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
         {/* 本日のイベント */}
@@ -330,14 +377,6 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             スケジュール
           </button>
 
-          {/* 運用手順書: PC のみ表示 */}
-          <button
-            onClick={() => setShowOpsManual(true)}
-            className="hidden md:flex items-center gap-3 bg-white/15 border border-white/25 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/25 active:scale-[0.98] transition-all"
-          >
-            <BookOpen size={18} className="text-white/80 shrink-0" />
-            編集スタッフ 運用手順書
-          </button>
         </div>
 
         {/* マーキュリー サービス */}
@@ -365,8 +404,6 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         </div>
         </div>
       </div>
-
-      <OperationsManualModal open={showOpsManual} onClose={() => setShowOpsManual(false)} />
 
       {/* Event Picker Bottom Sheet — portal to escape carousel transform */}
       {createPortal(

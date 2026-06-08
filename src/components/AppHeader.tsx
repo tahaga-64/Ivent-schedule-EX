@@ -1,7 +1,8 @@
 import { User } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Plus, Search, LogOut, HelpCircle } from 'lucide-react';
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout";
+import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Images, Plus, Search, LogOut, HelpCircle } from 'lucide-react';
+
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album";
 
 interface AppHeaderProps {
   user: User;
@@ -37,7 +38,8 @@ export default function AppHeader({
     view === 'archive' ? 'アーカイブ' :
     view === 'master' ? '備品マスター' :
     view === 'fish' ? '魚リスト' :
-    view === 'layout' ? 'レイアウト' : '';
+    view === 'layout' ? 'レイアウト' :
+    view === 'album' ? 'アルバム' : '';
 
   const desktopNavItems: { id: ViewMode; icon: React.ReactNode; label: string }[] = [
     { id: "home",     icon: <Home size={14} />,           label: "ホーム" },
@@ -47,6 +49,7 @@ export default function AppHeader({
     { id: "master",   icon: <Package size={14} />,        label: "備品" },
     { id: "fish",     icon: <Fish size={14} />,           label: "魚リスト" },
     { id: "layout",   icon: <LayoutGrid size={14} />,     label: "レイアウト" },
+    { id: "album",    icon: <Images size={14} />,         label: "アルバム" },
   ];
 
   return (
@@ -57,18 +60,6 @@ export default function AppHeader({
           <button onClick={onToggleSidebar} className="p-1.5 rounded-lg text-white/80 hover:bg-white/15 transition-colors">
             <Menu size={18} />
           </button>
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-            style={{
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.45) 0%, rgba(79,70,229,0.25) 100%)',
-              border: '1px solid rgba(165,180,252,0.5)',
-              boxShadow: 'inset 0 1px 3px rgba(255,255,255,0.35), 0 0 12px rgba(96,165,250,0.25)',
-            }}
-          >
-            <span className="font-black text-sm bg-gradient-to-br from-cyan-300 via-indigo-200 to-violet-400 bg-clip-text text-transparent tracking-tighter leading-none">
-              EX
-            </span>
-          </div>
           <div className="hidden sm:block">
             <div className="font-bold text-sm text-white leading-tight">Event Manager</div>
           </div>
