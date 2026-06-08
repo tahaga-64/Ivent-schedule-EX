@@ -128,7 +128,7 @@ export default function MasterItemsView({ canEdit }: Props) {
       <div className="relative z-10 flex items-center justify-between px-4 py-4 border-b border-white/10 bg-white/5 backdrop-blur-md sticky top-0">
         <div>
           <div className="text-[10px] font-black text-white/60 uppercase tracking-widest">MASTER</div>
-          <h2 className="text-base font-black text-white">備品マスター</h2>
+          <h2 className="text-2xl font-black text-white">備品マスター</h2>
         </div>
         {canEdit && (
           <button

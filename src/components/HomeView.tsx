@@ -1,12 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, BookOpen, ExternalLink, X, ArrowRight } from 'lucide-react';
+import { ChevronRight, ExternalLink, X, ArrowRight } from 'lucide-react';
 import type { Event } from '../types';
 import { rs, ts, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
 import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule';
 import EXBadge from './EXBadge';
-import OperationsManualModal from './OperationsManualModal';
 
 interface Props {
   events: Event[];
@@ -149,7 +148,6 @@ function SectionEmpty({ label }: { label: string }) {
 }
 
 export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, onNavigateCalendar, canEditEvent }: Props) {
-  const [showOpsManual, setShowOpsManual] = useState(false);
   const [showEventPicker, setShowEventPicker] = useState(false);
   const [showPermissionToast, setShowPermissionToast] = useState(false);
   const [staffBreakdown, setStaffBreakdown] = useState<StaffBreakdown | null>(null);
@@ -229,7 +227,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               <div className="text-xs sm:text-sm font-bold opacity-40">{new Date().getFullYear()}</div>
             </div>
           </div>
-          <EXBadge size={58} />
+          <EXBadge size={80} />
           <AnalogClock />
         </div>
 
@@ -370,14 +368,6 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             スケジュール
           </button>
 
-          {/* 運用手順書: PC のみ表示 */}
-          <button
-            onClick={() => setShowOpsManual(true)}
-            className="hidden md:flex items-center gap-3 bg-white/15 border border-white/25 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/25 active:scale-[0.98] transition-all backdrop-blur-sm"
-          >
-            <BookOpen size={18} className="text-white/80 shrink-0" />
-            編集スタッフ 運用手順書
-          </button>
         </div>
 
         {/* マーキュリー サービス */}
@@ -405,8 +395,6 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         </div>
         </div>
       </div>
-
-      <OperationsManualModal open={showOpsManual} onClose={() => setShowOpsManual(false)} />
 
       {/* Event Picker Bottom Sheet — portal to escape carousel transform */}
       {createPortal(

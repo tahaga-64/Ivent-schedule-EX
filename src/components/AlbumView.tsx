@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, X, Images } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Images, Trash2 } from 'lucide-react';
 import type { Event, EventPhoto } from '../types';
 import { rs } from '../lib/eventHelpers';
+import { usePhotos } from '../hooks/usePhotos';
 
 interface Props {
   events: Event[];
@@ -19,6 +20,98 @@ function fmtDate(start: string, end: string): string {
 
 interface LightboxPhoto extends EventPhoto {
   eventVenue: string;
+}
+
+function AlbumDetail({ event, onBack }: { event: Event; onBack: () => void }) {
+  const { deleteEventPhoto } = usePhotos(event.id);
+  const [confirmDelete, setConfirmDelete] = useState<EventPhoto | null>(null);
+  const [lightbox, setLightbox] = useState<{ photos: LightboxPhoto[]; index: number } | null>(null);
+  const regionColor = rs(event.region || '').dot;
+  const lbPhotos: LightboxPhoto[] = (event.photos ?? []).map(p => ({ ...p, eventVenue: event.venue }));
+
+  function openLightbox(index: number) { setLightbox({ photos: lbPhotos, index }); }
+  function closeLightbox() { setLightbox(null); }
+  function lbPrev() { setLightbox(lb => lb ? { ...lb, index: (lb.index - 1 + lb.photos.length) % lb.photos.length } : null); }
+  function lbNext() { setLightbox(lb => lb ? { ...lb, index: (lb.index + 1) % lb.photos.length } : null); }
+
+  async function handleDelete(photo: EventPhoto) {
+    await deleteEventPhoto(photo);
+    setConfirmDelete(null);
+  }
+
+  return (
+    <div className="relative z-10 flex flex-col min-h-full">
+      {/* Header */}
+      <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3.5 border-b border-white/10 bg-white/5 backdrop-blur-md">
+        <button
+          onClick={onBack}
+          className="p-1.5 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <div className="w-1 h-5 rounded-full shrink-0" style={{ background: regionColor }} />
+        <div className="min-w-0">
+          <div className="font-black text-sm text-white truncate">{event.venue}</div>
+          <div className="text-[10px] text-white/50">{fmtDate(event.start, event.end)} · {lbPhotos.length}枚</div>
+        </div>
+      </div>
+
+      {/* Photo grid */}
+      <div className="p-3 pb-28">
+        <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 lg:grid-cols-5">
+          {lbPhotos.map((photo, i) => (
+            <motion.div
+              key={photo.id}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.03 }}
+              className="relative aspect-square overflow-hidden rounded-lg bg-white/5 group"
+            >
+              <img
+                src={photo.thumbnailUrl || photo.url}
+                alt={photo.caption || `写真 ${i + 1}`}
+                onClick={() => openLightbox(i)}
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-200 cursor-pointer"
+              />
+              {/* Delete button */}
+              <button
+                onClick={e => { e.stopPropagation(); setConfirmDelete(photo); }}
+                className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80"
+                title="写真を削除"
+              >
+                <Trash2 size={11} className="text-white" />
+              </button>
+              {/* Delete confirmation overlay */}
+              {confirmDelete?.id === photo.id && (
+                <div
+                  className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-2 rounded-lg"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <p className="text-[11px] text-white text-center px-2 font-bold">削除しますか？</p>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setConfirmDelete(null)}
+                      className="px-2.5 py-1 text-[10px] rounded-lg bg-white/20 text-white font-bold hover:bg-white/30 transition-colors"
+                    >
+                      キャンセル
+                    </button>
+                    <button
+                      onClick={() => handleDelete(photo)}
+                      className="px-2.5 py-1 text-[10px] rounded-lg bg-red-500 text-white font-bold hover:bg-red-600 transition-colors"
+                    >
+                      削除
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      <Lightbox lightbox={lightbox} onClose={closeLightbox} onPrev={lbPrev} onNext={lbNext} />
+    </div>
+  );
 }
 
 export default function AlbumView({ events }: Props) {
@@ -47,54 +140,8 @@ export default function AlbumView({ events }: Props) {
     setLightbox(lb => lb ? { ...lb, index: (lb.index + 1) % lb.photos.length } : null);
   }
 
-  // Detail view — single event's photos
   if (selectedEvent) {
-    const lbPhotos: LightboxPhoto[] = (selectedEvent.photos ?? []).map(p => ({ ...p, eventVenue: selectedEvent.venue }));
-    const regionColor = rs(selectedEvent.region || '').dot;
-
-    return (
-      <div className="relative z-10 flex flex-col min-h-full">
-        {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3.5 border-b border-white/10 bg-white/5 backdrop-blur-md">
-          <button
-            onClick={() => setSelectedId(null)}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="w-1 h-5 rounded-full shrink-0" style={{ background: regionColor }} />
-          <div className="min-w-0">
-            <div className="font-black text-sm text-white truncate">{selectedEvent.venue}</div>
-            <div className="text-[10px] text-white/50">{fmtDate(selectedEvent.start, selectedEvent.end)} · {lbPhotos.length}枚</div>
-          </div>
-        </div>
-
-        {/* Photo grid */}
-        <div className="p-3 pb-28">
-          <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 lg:grid-cols-5">
-            {lbPhotos.map((photo, i) => (
-              <motion.button
-                key={photo.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.03 }}
-                onClick={() => openLightbox(lbPhotos, i)}
-                className="relative aspect-square overflow-hidden rounded-lg bg-white/5"
-              >
-                <img
-                  src={photo.thumbnailUrl || photo.url}
-                  alt={photo.caption || `写真 ${i + 1}`}
-                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
-                />
-              </motion.button>
-            ))}
-          </div>
-        </div>
-
-        {/* Lightbox */}
-        <Lightbox lightbox={lightbox} onClose={closeLightbox} onPrev={lbPrev} onNext={lbNext} />
-      </div>
-    );
+    return <AlbumDetail event={selectedEvent} onBack={() => setSelectedId(null)} />;
   }
 
   // Album list
@@ -104,7 +151,7 @@ export default function AlbumView({ events }: Props) {
       <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 border-b border-white/10 bg-white/5 backdrop-blur-md">
         <div>
           <div className="text-[10px] font-black text-white/60 uppercase tracking-widest">PHOTOS</div>
-          <h2 className="text-base font-black text-white">アルバム</h2>
+          <h2 className="text-2xl font-black text-white">アルバム</h2>
         </div>
         <div className="text-xs font-bold text-white/40">{albumEvents.length}件のアルバム</div>
       </div>
@@ -159,7 +206,6 @@ export default function AlbumView({ events }: Props) {
                         ))}
                       </div>
                     )}
-                    {/* Quick lightbox on long press / direct photo tap */}
                     <button
                       className="absolute inset-0"
                       onClick={e => { e.stopPropagation(); setSelectedId(ev.id); }}
