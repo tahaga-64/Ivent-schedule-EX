@@ -35,7 +35,11 @@ function AlbumDetail({ event, onBack }: { event: Event; onBack: () => void }) {
   function lbNext() { setLightbox(lb => lb ? { ...lb, index: (lb.index + 1) % lb.photos.length } : null); }
 
   async function handleDelete(photo: EventPhoto) {
-    await deleteEventPhoto(photo);
+    // lightbox 用に eventVenue を付与した派生オブジェクトではなく、
+    // Firestore 配列に格納されている元の photo オブジェクトを arrayRemove に渡す
+    // （余計なフィールドがあると arrayRemove が一致せず削除されないため）
+    const original = (event.photos ?? []).find(p => p.id === photo.id) ?? photo;
+    await deleteEventPhoto(original);
     setConfirmDelete(null);
   }
 

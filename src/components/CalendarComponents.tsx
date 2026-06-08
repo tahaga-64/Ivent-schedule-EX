@@ -51,7 +51,7 @@ export function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps
                 key={ev.id}
                 onClick={() => onSelect(ev)}
                 title={ev.status === 'completed' ? '完了済み' : undefined}
-                className="w-full bg-slate-600/40 backdrop-blur-sm border border-white/15 rounded-2xl flex items-center gap-3 text-left shadow-sm hover:bg-slate-600/50 transition-colors overflow-hidden"
+                className="w-full bg-slate-700/70 backdrop-blur-sm border border-white/15 rounded-2xl flex items-center gap-3 text-left shadow-sm hover:bg-slate-700/90 transition-colors overflow-hidden"
               >
                 <div className="w-1 self-stretch rounded-l-2xl shrink-0" style={{ background: rs(ev.region || "").dot }} />
                 <span className="text-xl py-4 shrink-0">{ev.emoji || ts(ev.type || "").icon}</span>
@@ -216,7 +216,7 @@ export function MobileMonthWeekGrid({
                         minHeight: CAL_EVENT_ROW_MIN_HEIGHT_TOUCH,
                       }}
                       aria-label={captionNd ? `${ev.venue}。${captionNd}` : ev.venue}
-                      className="flex w-full shrink-0 flex-col justify-center overflow-hidden rounded border border-white/15 bg-slate-600/40 px-1 py-0.5 text-left ring-1 ring-inset ring-white/5"
+                      className="flex w-full shrink-0 flex-col justify-center overflow-hidden rounded border border-white/15 bg-slate-700/70 px-1 py-0.5 text-left ring-1 ring-inset ring-white/5"
                     >
                       <span className="w-full truncate text-[11px] font-bold leading-tight text-white">
                         {ev.venue}
@@ -232,7 +232,7 @@ export function MobileMonthWeekGrid({
                     type="button"
                     style={{ minHeight: CAL_EVENT_ROW_MIN_HEIGHT_TOUCH }}
                     onClick={() => onOpenDayDetail({ year, month, day: cell.day, events: dayEvents })}
-                    className="w-full shrink-0 rounded border border-white/15 bg-slate-600/40 py-1 text-center text-[10px] font-bold text-white shadow-sm"
+                    className="w-full shrink-0 rounded border border-white/15 bg-slate-700/70 py-1 text-center text-[10px] font-bold text-white shadow-sm"
                   >
                     +{hiddenCount}
                   </button>
@@ -335,7 +335,7 @@ export function MobileDayAgendaView({
                 onClick={() => onSelect(ev)}
                 title={ev.status === 'completed' ? '完了済み' : undefined}
                 style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border }}
-                className="flex min-h-11 w-full items-start gap-2 rounded-xl border border-white/15 bg-slate-600/40 px-3 py-2 text-left shadow-sm ring-1 ring-inset ring-white/5"
+                className="flex min-h-11 w-full items-start gap-2 rounded-xl border border-white/15 bg-slate-700/70 px-3 py-2 text-left shadow-sm ring-1 ring-inset ring-white/5"
               >
                 <span
                   className="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-white/20"
@@ -355,7 +355,7 @@ export function MobileDayAgendaView({
             <button
               type="button"
               onClick={() => onOpenDayDetail({ year, month, day, events: dayEvents })}
-              className="flex min-h-11 w-full items-center justify-center rounded-xl border border-white/15 bg-slate-600/40 text-sm font-bold text-white shadow-sm"
+              className="flex min-h-11 w-full items-center justify-center rounded-xl border border-white/15 bg-slate-700/70 text-sm font-bold text-white shadow-sm"
             >
               ほか +{hiddenCount}件
             </button>
@@ -534,7 +534,7 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
                             : (captionFull ? `${ev.venue}。${captionFull}` : ev.venue)
                         }
                         title={ev.status === 'completed' ? '完了済み' : undefined}
-                        className="relative overflow-hidden flex w-full shrink-0 items-center gap-1.5 rounded-md border border-solid border-white/15 bg-slate-600/40 px-1.5 py-0.5 text-left shadow-sm ring-1 ring-inset ring-white/5 transition hover:border-white/25 hover:bg-slate-600/50"
+                        className="relative overflow-hidden flex w-full shrink-0 items-center gap-1.5 rounded-md border border-solid border-white/15 bg-slate-700/70 px-1.5 py-0.5 text-left shadow-sm ring-1 ring-inset ring-white/5 transition hover:border-white/25 hover:bg-slate-700/90"
                       >
                         <span
                           className="h-1.5 w-1.5 shrink-0 rounded-full border border-white/20"
@@ -570,7 +570,7 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
                           })
                         }
                         style={{ minHeight: eventRowMinHeight }}
-                        className="w-full shrink-0 text-left rounded-md border border-solid border-white/15 bg-slate-600/40 px-1 py-0.5 flex items-center justify-center overflow-hidden transition hover:bg-slate-600/50 hover:border-white/25 text-[12px] max-xl:text-[11px] leading-none font-bold text-white shadow-sm ring-1 ring-inset ring-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1"
+                        className="w-full shrink-0 text-left rounded-md border border-solid border-white/15 bg-slate-700/70 px-1 py-0.5 flex items-center justify-center overflow-hidden transition hover:bg-slate-700/90 hover:border-white/25 text-[12px] max-xl:text-[11px] leading-none font-bold text-white shadow-sm ring-1 ring-inset ring-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1"
                         aria-label={`あと${hiddenCount}件のイベントを表示`}
                       >
                         +{hiddenCount}件

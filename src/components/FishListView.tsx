@@ -24,8 +24,13 @@ function fmtDateRange(start: string, end: string) {
 }
 
 export default function FishListView({ events, canEdit, isActive = true }: Props) {
+  const today = new Date().toISOString().slice(0, 10);
   const aquariumEvents = events
-    .filter(ev => ev.type === '水族館' && ev.status !== 'cancelled')
+    .filter(ev =>
+      ev.type === '水族館' &&
+      ev.status !== 'cancelled' &&
+      (ev.end || ev.start || '') >= today
+    )
     .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
 
   const [selectedEventId, setSelectedEventId] = useState<string>(() => aquariumEvents[0]?.id ?? '');

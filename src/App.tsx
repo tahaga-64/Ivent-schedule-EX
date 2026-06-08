@@ -426,6 +426,11 @@ export default function App() {
     );
   }, [filtered, calendarDensityPreview, calYear, calMonth, regionFilter, typeFilter]);
 
+  const mobileCalendarEvents = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return filtered.filter(ev => (ev.end || ev.start || '') >= todayStr);
+  }, [filtered]);
+
   const {
     uploading: photoUploading,
     uploadProgress,
@@ -861,9 +866,9 @@ VITE_FIREBASE_DATABASE_ID`}
 
             {calendarMobileLayout === "list" && (
               <>
-                <MobileWeekStrip events={filtered} />
+                <MobileWeekStrip events={mobileCalendarEvents} />
                 <div className="mt-4">
-                  {filtered.length === 0 ? <EmptyState /> : <MobileTimelineView events={filtered} onSelect={handleEventSelect} />}
+                  {mobileCalendarEvents.length === 0 ? <EmptyState /> : <MobileTimelineView events={mobileCalendarEvents} onSelect={handleEventSelect} />}
                 </div>
               </>
             )}
@@ -873,7 +878,7 @@ VITE_FIREBASE_DATABASE_ID`}
                 month={calMonth}
                 agendaDay={mobileAgendaDay}
                 setAgendaDay={setMobileAgendaDay}
-                events={desktopCalendarEvents}
+                events={mobileCalendarEvents}
                 onSelect={handleEventSelect}
                 onOpenDayDetail={handleOpenDayDetail}
                 onCreateEvent={handleCreateEvent}
@@ -923,7 +928,7 @@ VITE_FIREBASE_DATABASE_ID`}
   );
 
   return (
-    <div className="relative isolate flex flex-col min-h-dvh">
+    <div className="relative isolate flex flex-col h-dvh">
       <div className="absolute inset-0 -z-10 print:hidden"
         style={{ background: 'linear-gradient(160deg, #0f172a 0%, #1e1b4b 50%, #0c1a35 100%)' }} />
 
