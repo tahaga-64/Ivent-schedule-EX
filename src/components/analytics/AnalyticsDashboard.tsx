@@ -126,7 +126,7 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
     .map(e => ({ date: e.start!, attendance: e.attendance! }));
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 w-full max-w-none">
       {/* Row 0: Page header */}
       <div className="flex items-center justify-between">
         <div>
@@ -143,7 +143,7 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
       </div>
 
       {/* Row 1: 8 KPI cards - 4 per row, 2 rows */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-8 gap-4">
         {/* Row A */}
         <KpiCard icon={<Calendar size={18} className="text-indigo-600"/>} label="総イベント数" rawValue={data.totalEvents} formatter={n => String(Math.round(n))} sub={`完了: ${data.completedEvents}`} color="bg-indigo-50" delay={0} />
         <KpiCard icon={<DollarSign size={18} className="text-emerald-600"/>} label="総売上" rawValue={data.totalSales} formatter={n => formatCurrencyCompact(n)} sub={`粗利: ${formatCurrencyCompact(data.totalGrossProfit)}`} color="bg-emerald-50" delay={0.05} />
@@ -157,7 +157,7 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
       </div>
 
       {/* Row 2: Monthly trends - 2 cols */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -190,7 +190,7 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
       </div>
 
       {/* Row 3: Conversion funnel */}
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <motion.div initial={{opacity:0,y:20}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{delay:0.4}} className="bg-white rounded-2xl border border-slate-100 p-6">
           <SectionHeader title="コンバージョンファネル" sub="来場 → 着座 → 成約の転換率" />
           <div className="space-y-5 mt-4">
@@ -215,6 +215,60 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
           </div>
         </motion.div>
 
+        {data.clientStats.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.45 }}
+            className="bg-white rounded-2xl border border-slate-100 p-6"
+          >
+            <SectionHeader title="クライアント別実績" sub="上位クライアントのイベント数・予算" />
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="text-left text-[10px] font-black text-slate-400 uppercase tracking-widest pb-3">クライアント</th>
+                    <th className="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest pb-3">件数</th>
+                    <th className="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest pb-3 hidden sm:table-cell">予算</th>
+                    <th className="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest pb-3">シェア</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {data.clientStats.map((c, i) => {
+                    const pct = data.totalEvents > 0 ? (c.count / data.totalEvents) * 100 : 0;
+                    return (
+                      <tr key={c.client} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-3 pr-4">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-400 to-violet-400 flex items-center justify-center text-white text-[10px] font-black shrink-0">
+                              {i + 1}
+                            </div>
+                            <span className="text-sm font-bold text-slate-700">{c.client}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 text-right">
+                          <span className="text-sm font-black text-slate-700">{c.count}</span>
+                        </td>
+                        <td className="py-3 text-right hidden sm:table-cell">
+                          <span className="text-sm font-bold text-slate-500">{formatCurrencyCompact(c.budget)}</span>
+                        </td>
+                        <td className="py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="text-[11px] font-black text-slate-400 w-8">{pct.toFixed(0)}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* Row 4: Attendance heatmap - full width */}
@@ -226,7 +280,7 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
       )}
 
       {/* Row 5: venues/regions/types - 3 cols */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {/* Top venues */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -318,61 +372,6 @@ export default function AnalyticsDashboard({ data, loading, events = [] }: Props
         </motion.div>
       </div>
 
-      {/* Row 7: Client table */}
-      {data.clientStats.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.45 }}
-          className="bg-white rounded-2xl border border-slate-100 p-6"
-        >
-          <SectionHeader title="クライアント別実績" sub="上位クライアントのイベント数・予算" />
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left text-[10px] font-black text-slate-400 uppercase tracking-widest pb-3">クライアント</th>
-                  <th className="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest pb-3">件数</th>
-                  <th className="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest pb-3 hidden sm:table-cell">予算</th>
-                  <th className="text-right text-[10px] font-black text-slate-400 uppercase tracking-widest pb-3">シェア</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {data.clientStats.map((c, i) => {
-                  const pct = data.totalEvents > 0 ? (c.count / data.totalEvents) * 100 : 0;
-                  return (
-                    <tr key={c.client} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-400 to-violet-400 flex items-center justify-center text-white text-[10px] font-black shrink-0">
-                            {i + 1}
-                          </div>
-                          <span className="text-sm font-bold text-slate-700">{c.client}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 text-right">
-                        <span className="text-sm font-black text-slate-700">{c.count}</span>
-                      </td>
-                      <td className="py-3 text-right hidden sm:table-cell">
-                        <span className="text-sm font-bold text-slate-500">{formatCurrencyCompact(c.budget)}</span>
-                      </td>
-                      <td className="py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
-                          </div>
-                          <span className="text-[11px] font-black text-slate-400 w-8">{pct.toFixed(0)}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 }

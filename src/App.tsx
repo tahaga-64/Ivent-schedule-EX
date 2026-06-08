@@ -665,8 +665,15 @@ export default function App() {
   }, []);
 
   if (user === undefined) return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-      <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-app)' }}>
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white text-lg" style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', boxShadow: '0 8px 32px rgba(79,70,229,0.35)' }}>EX</div>
+        <div className="flex gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full dot-bounce" style={{ background: 'var(--primary)' }} />
+          <span className="w-1.5 h-1.5 rounded-full dot-bounce" style={{ background: 'var(--primary)' }} />
+          <span className="w-1.5 h-1.5 rounded-full dot-bounce" style={{ background: 'var(--primary)' }} />
+        </div>
+      </div>
     </div>
   );
   if (!user) return <LoginScreen />;
@@ -684,56 +691,100 @@ export default function App() {
   );
 
   return (
-    <div className="flex flex-col min-h-screen transition-colors duration-300">
-      {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-slate-100 sticky top-0 z-30 gap-4">
-        {/* 左: ハンバーガー + ロゴ */}
+    <div className="flex flex-col min-h-screen h-dvh w-full" style={{ background: 'var(--bg-app)', color: 'var(--text-primary)', transition: 'background-color 0.4s, color 0.4s' }}>
+      {/* ── Header ── */}
+      <header
+        className="h-14 flex items-center justify-between px-4 sticky top-0 z-30 gap-4"
+        style={{
+          background: 'var(--bg-header)',
+          borderBottom: '1px solid var(--border-light)',
+          backdropFilter: 'blur(20px) saturate(160%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+        }}
+      >
+        {/* Left */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <button onClick={() => setSideOpen(v => !v)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors">
+          <button
+            onClick={() => setSideOpen(v => !v)}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: 'var(--text-muted)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
             <Menu size={18} />
           </button>
-          <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-indigo-200 shadow-md">EX</div>
+
+          {/* Logo */}
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-white font-black text-xs shrink-0"
+            style={{
+              background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)',
+              boxShadow: '0 4px 12px rgba(79,70,229,0.35)',
+            }}
+          >
+            EX
+          </div>
+
           <div className="hidden sm:block">
-            <div className="font-bold text-sm text-slate-800 leading-tight">Ivent Manager</div>
-            <div className="text-[10px] text-slate-400 font-bold tracking-tight">Preparation & Scheduling</div>
+            <div className="font-bold text-sm leading-tight" style={{ color: 'var(--text-primary)' }}>Ivent Manager</div>
+            <div className="text-[10px] font-bold tracking-tight" style={{ color: 'var(--text-muted)' }}>Preparation & Scheduling</div>
           </div>
           <div className="sm:hidden flex flex-col">
-            <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase">{calYear}年{calMonth}月</div>
-            <div className="font-black text-sm text-slate-800 leading-tight">{view === 'calendar' ? 'カレンダー' : view === 'analytics' ? '分析' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : ''}</div>
+            <div className="text-[10px] font-black tracking-widest uppercase" style={{ color: 'var(--text-muted)' }}>{calYear}年{calMonth}月</div>
+            <div className="font-black text-sm leading-tight" style={{ color: 'var(--text-primary)' }}>
+              {view === 'calendar' ? 'カレンダー' : view === 'analytics' ? '分析' : view === 'prep' ? '準備物リスト' : 'アーカイブ'}
+            </div>
           </div>
         </div>
 
-        {/* 中央: 検索バー */}
-        <div className="flex-1 max-w-md">
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-            <Search size={13} className="text-slate-400 shrink-0" />
+        {/* Centre: Search */}
+        <div className="flex-1 max-w-sm md:max-w-xl xl:max-w-2xl">
+          <div
+            className="flex items-center gap-2 rounded-xl px-3 py-2 transition-all"
+            style={{
+              background: 'var(--surface-raised)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <Search size={13} style={{ color: 'var(--text-muted)' }} className="shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="会場・クライアントを検索..."
-              className="flex-1 bg-transparent text-xs text-slate-600 placeholder-slate-400 outline-none"
+              className="flex-1 bg-transparent text-xs outline-none"
+              style={{ color: 'var(--text-primary)' }}
             />
-            <kbd className="hidden sm:block text-[10px] text-slate-400 font-medium bg-slate-200 px-1.5 py-0.5 rounded">⌘K</kbd>
+            <kbd
+              className="hidden sm:block text-[10px] font-medium px-1.5 py-0.5 rounded"
+              style={{ background: 'var(--border)', color: 'var(--text-muted)' }}
+            >
+              ⌘K
+            </kbd>
           </div>
         </div>
 
-        {/* 右: ビュー切替 + 新規 + アバター */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
+        {/* Right */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* View switcher */}
+          <div
+            className="hidden md:flex p-1 rounded-xl gap-0.5"
+            style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
+          >
             {[
-              { id: "calendar", icon: <Calendar size={14} />, label: "カレンダー" },
-              { id: "analytics", icon: <BarChart2 size={14} />, label: "分析" },
-              { id: "prep", icon: <ClipboardList size={14} />, label: "準備物" },
-              { id: "archive", icon: <Archive size={14} />, label: "アーカイブ" },
+              { id: "calendar",  icon: <Calendar size={13} />,     label: "カレンダー" },
+              { id: "analytics", icon: <BarChart2 size={13} />,    label: "分析" },
+              { id: "prep",      icon: <ClipboardList size={13} />, label: "準備物" },
+              { id: "archive",   icon: <Archive size={13} />,       label: "アーカイブ" },
             ].map(v => (
               <button
                 key={v.id}
                 onClick={() => setView(v.id as any)}
-                className={`
-                  flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all
-                  ${view === v.id ? 'bg-white text-slate-800 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-700'}
-                `}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-150"
+                style={view === v.id
+                  ? { background: 'var(--primary)', color: '#fff', boxShadow: '0 2px 8px var(--primary-glow)' }
+                  : { color: 'var(--text-secondary)' }
+                }
               >
                 {v.icon}
                 <span className="hidden md:inline">{v.label}</span>
@@ -741,173 +792,247 @@ export default function App() {
             ))}
           </div>
 
-          {!narrowViewport && (
+          {/* Dark mode toggle */}
           <button
-            onClick={() => handleCreateEvent()}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black transition-all shadow-indigo-200 shadow-md"
+            onClick={() => setIsDark(v => !v)}
+            className="p-2 rounded-lg transition-colors"
+            style={{ color: 'var(--text-muted)', background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
+            title={isDark ? 'ライトモード' : 'ダークモード'}
           >
-            <Plus size={14} strokeWidth={3} />
-            <span className="hidden sm:inline">新規イベント</span>
+            <span className="text-sm leading-none">{isDark ? '☀️' : '🌙'}</span>
           </button>
+
+          {/* New event */}
+          {!narrowViewport && (
+            <motion.button
+              onClick={() => handleCreateEvent()}
+              whileHover={{ scale: 1.03, y: -1 }}
+              whileTap={{ scale: 0.97 }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black text-white transition-all"
+              style={{
+                background: 'linear-gradient(135deg, #4F46E5, #7C3AED)',
+                boxShadow: '0 4px 14px rgba(79,70,229,0.35)',
+              }}
+            >
+              <Plus size={13} strokeWidth={3} />
+              <span className="hidden sm:inline">新規イベント</span>
+            </motion.button>
           )}
 
           <NotificationCenter />
 
-          <div className="flex items-center gap-2">
+          {/* Avatar */}
+          <div className="flex items-center gap-1.5">
             {user.photoURL ? (
-              <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-white" />
+              <img
+                src={user.photoURL}
+                alt="avatar"
+                className="w-8 h-8 rounded-full"
+                style={{ border: '2px solid var(--primary-glow)', boxShadow: '0 0 0 2px var(--primary-light)' }}
+              />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs"
+                style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)' }}
+              >
                 {user.displayName?.[0] || 'U'}
               </div>
             )}
-            <button onClick={() => auth.signOut()} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-red-400 transition-colors" title="ログアウト">
-              <LogOut size={15} />
+            <button
+              onClick={() => auth.signOut()}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}
+              title="ログアウト"
+            >
+              <LogOut size={14} />
             </button>
           </div>
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        {sideOpen && <aside className="w-72 flex flex-col flex-shrink-0 bg-white border-r border-slate-100 overflow-y-auto hidden lg:flex">
-          <div className="p-6 space-y-8">
-            {/* TODAY Section */}
-            <div className="space-y-2 pb-4 border-b border-slate-100">
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TODAY</div>
-              <div className="text-4xl font-black text-slate-800 tracking-tighter leading-none">
-                {new Date().getDate()}
-              </div>
-              <div className="text-xs font-bold text-slate-500">
-                {new Date().toLocaleDateString('ja-JP', { month: 'long', weekday: 'long' })}
-              </div>
-            </div>
+        {/* ── Sidebar ── */}
+        {sideOpen && (
+          <aside
+            className="w-64 flex flex-col flex-shrink-0 overflow-y-auto hidden md:flex"
+            style={{ background: 'var(--bg-sidebar)', borderRight: '1px solid var(--border-light)' }}
+          >
+            <div className="p-5 space-y-6">
 
-            {/* WORKSPACE Section */}
-            <div className="space-y-3">
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WORKSPACE</div>
-              <div className="flex flex-col gap-0.5">
-                {[
-                  { label: "すべてのイベント", icon: <Calendar size={14} />, count: stats.total, value: "すべて" },
-                  { label: "準備中", icon: <ClipboardList size={14} />, count: stats.byStatus["準備中"], value: "準備中" },
-                  { label: "入荷待ち", icon: <Building2 size={14} />, count: stats.byStatus["入荷待ち"], value: "入荷待ち" },
-                ].map((item) => (
-                  <button 
-                    key={item.label} 
-                    onClick={() => {
-                      setRegionFilter("すべて");
-                      setTypeFilter("すべて");
-                      setMonthFilter("すべて");
-                      // ステータスフィルターがあればここに追加
-                    }}
-                    className="group flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white hover:shadow-sm hover:border-slate-100 border border-transparent transition-all"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-indigo-600 opacity-60 group-hover:opacity-100">{item.icon}</span>
-                      <span className="text-xs font-bold text-slate-600 group-hover:text-indigo-600 font-sans">{item.label}</span>
-                    </div>
-                    <span className="text-xs font-bold text-slate-400">{item.count}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* REGION Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-black text-slate-700">本部</span>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">REGION</span>
-              </div>
-              <div className="flex flex-col gap-0.5">
-                {(["すべて", ...REGIONS] as const).map((label) => (
-                  <button
-                    key={label}
-                    onClick={() => setRegionFilter(label)}
-                    className={`
-                      group flex items-center justify-between px-3 py-2 rounded-lg transition-all
-                      ${regionFilter === label
-                        ? "bg-indigo-50 text-indigo-700"
-                        : "text-slate-600 hover:bg-slate-100/70"}
-                    `}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: rs(label).dot }}></span>
-                      <span className="text-xs font-bold font-sans">{label}</span>
-                    </div>
-                    <span className="text-xs font-bold text-slate-400 font-sans">{label === "すべて" ? "" : (stats.byRegion[label] || 0)}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* TYPE Section */}
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-black text-slate-700">種別</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TYPE</span>
-                  <button
-                    onClick={() => {
-                    const newType = prompt("新しい案件種別を入力してください:");
-                    const trimmed = newType?.trim() ?? '';
-                    if (!trimmed || trimmed.length > 50) return;
-                    if (sidebarTypes.some(t => t.label === trimmed)) { alert('その種別は既に存在します'); return; }
-                    const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
-                    setSidebarTypes(prev => [...prev, { label: trimmed, icon }]);
-                  }}
-                  className="p-1 hover:bg-indigo-50 rounded text-indigo-400 hover:text-indigo-600 transition-colors"
-                >
-                  <Plus size={12} />
-                </button>
+              {/* TODAY */}
+              <div
+                className="rounded-2xl p-4 relative overflow-hidden"
+                style={{
+                  background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 60%, #2563EB 100%)',
+                  boxShadow: '0 4px 20px rgba(79,70,229,0.3)',
+                }}
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-10 translate-x-6 -translate-y-6" style={{ background: 'white' }} />
+                <div className="relative">
+                  <div className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1">TODAY</div>
+                  <div className="text-5xl font-black text-white tracking-tighter leading-none tabular-nums">
+                    {new Date().getDate()}
+                  </div>
+                  <div className="text-xs font-bold text-white/60 mt-1">
+                    {new Date().toLocaleDateString('ja-JP', { month: 'long', weekday: 'long' })}
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-white/15 flex items-center gap-2">
+                    <span className="text-white/60 text-[11px] font-bold">{stats.total} イベント</span>
+                    <span className="w-1 h-1 rounded-full bg-white/30" />
+                    <span className="text-white/60 text-[11px] font-bold">{filtered.length} 表示中</span>
+                  </div>
                 </div>
               </div>
-              <div className="flex flex-col gap-0.5">
-                <button 
-                  onClick={() => setTypeFilter("すべて")}
-                  className={`
-                    group flex items-center gap-3 px-3 py-2 rounded-lg transition-all
-                    ${typeFilter === "すべて"
-                      ? "bg-indigo-50 text-indigo-700"
-                      : "text-slate-600 hover:bg-slate-100/70"}
-                  `}
-                >
-                  <span className="text-sm">📁</span>
-                  <span className="text-xs font-bold font-sans">すべて</span>
-                </button>
-                {sidebarTypes.map((type) => (
-                  <div key={type.label} className="group relative flex items-center">
-                    <button
-                      onClick={() => setTypeFilter(type.label)}
-                      className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
-                        typeFilter === type.label ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100/70"
-                      }`}
+
+              {/* WORKSPACE */}
+              <div className="space-y-1.5">
+                <div className="text-[10px] font-black uppercase tracking-widest px-1 mb-2" style={{ color: 'var(--text-muted)' }}>WORKSPACE</div>
+                {[
+                  { label: "すべてのイベント", icon: <Calendar size={13} />, count: stats.total },
+                  { label: "準備中", icon: <ClipboardList size={13} />, count: stats.byStatus["準備中"] },
+                  { label: "入荷待ち", icon: <Building2 size={13} />, count: stats.byStatus["入荷待ち"] },
+                ].map(item => (
+                  <button
+                    key={item.label}
+                    onClick={() => { setRegionFilter("すべて"); setTypeFilter("すべて"); setMonthFilter("すべて"); }}
+                    className="group w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all duration-150"
+                    style={{ color: 'var(--text-secondary)' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span style={{ color: 'var(--primary)' }}>{item.icon}</span>
+                      <span className="text-xs font-bold">{item.label}</span>
+                    </div>
+                    <span
+                      className="text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums"
+                      style={{ background: 'var(--primary-light)', color: 'var(--primary)' }}
                     >
-                      <span className="text-sm">{type.icon}</span>
-                      <span className="text-xs font-bold font-sans">{type.label}</span>
-                    </button>
-                    {sidebarTypes.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteType(type.label);
-                        }}
-                        className="absolute right-1 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
-                        aria-label={`${type.label}を削除`}
-                      >
-                        <X size={12} />
-                      </button>
-                    )}
-                  </div>
+                      {item.count || 0}
+                    </span>
+                  </button>
                 ))}
               </div>
-            </div>
-          </div>
-        </aside>}
 
-        {/* Main Content */}
-        <main className="flex-1 bg-white relative overflow-hidden flex flex-col">
-          <div className="p-4 lg:p-8 pb-20 lg:pb-8 flex-1 overflow-y-auto">
+              {/* REGION */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between px-1 mb-2">
+                  <span className="text-xs font-black" style={{ color: 'var(--text-primary)' }}>本部</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>REGION</span>
+                </div>
+                {(["すべて", ...REGIONS] as const).map(label => {
+                  const active = regionFilter === label;
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => setRegionFilter(label)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all duration-150"
+                      style={active
+                        ? { background: 'var(--primary-light)', color: 'var(--primary)' }
+                        : { color: 'var(--text-secondary)' }
+                      }
+                      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface-hover)'; }}
+                      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ background: label === 'すべて' ? 'var(--text-muted)' : rs(label).dot }}
+                        />
+                        <span className="text-xs font-bold">{label}</span>
+                      </div>
+                      {label !== 'すべて' && (
+                        <span className="text-[11px] font-bold tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                          {stats.byRegion[label] || 0}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* TYPE */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between px-1 mb-2">
+                  <span className="text-xs font-black" style={{ color: 'var(--text-primary)' }}>種別</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>TYPE</span>
+                    <button
+                      onClick={() => {
+                        const newType = prompt("新しい案件種別を入力してください:");
+                        const trimmed = newType?.trim() ?? '';
+                        if (!trimmed || trimmed.length > 50) return;
+                        if (sidebarTypes.some(t => t.label === trimmed)) { alert('その種別は既に存在します'); return; }
+                        const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
+                        setSidebarTypes(prev => [...prev, { label: trimmed, icon }]);
+                      }}
+                      className="w-5 h-5 flex items-center justify-center rounded-md transition-colors"
+                      style={{ color: 'var(--primary)', background: 'var(--primary-light)' }}
+                    >
+                      <Plus size={11} />
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setTypeFilter("すべて")}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all duration-150"
+                  style={typeFilter === 'すべて'
+                    ? { background: 'var(--primary-light)', color: 'var(--primary)' }
+                    : { color: 'var(--text-secondary)' }
+                  }
+                  onMouseEnter={e => { if (typeFilter !== 'すべて') e.currentTarget.style.background = 'var(--surface-hover)'; }}
+                  onMouseLeave={e => { if (typeFilter !== 'すべて') e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <span className="text-sm">📁</span>
+                  <span className="text-xs font-bold">すべて</span>
+                </button>
+                {sidebarTypes.map(type => {
+                  const active = typeFilter === type.label;
+                  return (
+                    <div key={type.label} className="group relative flex items-center">
+                      <button
+                        onClick={() => setTypeFilter(type.label)}
+                        className="flex-1 flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all duration-150"
+                        style={active
+                          ? { background: 'var(--primary-light)', color: 'var(--primary)' }
+                          : { color: 'var(--text-secondary)' }
+                        }
+                        onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface-hover)'; }}
+                        onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <span className="text-sm">{type.icon}</span>
+                        <span className="text-xs font-bold">{type.label}</span>
+                      </button>
+                      {sidebarTypes.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); handleDeleteType(type.label); }}
+                          className="absolute right-1 opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded transition-all"
+                          style={{ color: 'var(--text-muted)' }}
+                          onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'transparent'; }}
+                          aria-label={`${type.label}を削除`}
+                        >
+                          <X size={11} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+            </div>
+          </aside>
+        )}
+
+        {/* ── Main Content ── */}
+        <main
+          className="flex-1 relative overflow-hidden flex flex-col"
+          style={{ background: 'var(--bg-app)' }}
+        >
+          <div className="p-4 md:p-6 pb-20 md:pb-6 flex-1 overflow-y-auto w-full max-w-none">
           {/* Sync / Error Indicator */}
           <AnimatePresence>
             {isSaving && (
@@ -956,11 +1081,12 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
+              className="w-full max-w-none"
             >
               {/* Desktop: Calendar grid / Mobile: Timeline list */}
               {view === "calendar" && (
                 <>
-                  <div className="hidden lg:block">
+                  <div className="hidden md:flex md:flex-col md:min-h-[calc(100dvh-9rem)]">
                     <CalendarView
                       events={desktopCalendarEvents}
                       year={calYear} month={calMonth}
@@ -974,7 +1100,7 @@ export default function App() {
                       densityPreview={calendarDensityPreview}
                     />
                   </div>
-                  <div className="lg:hidden space-y-3">
+                  <div className="md:hidden space-y-3">
                     <div className="flex gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="カレンダー表示の切替">
                       {(
                         [
@@ -1091,41 +1217,19 @@ export default function App() {
                   .filter(ev => ev.end >= today)
                   .sort((a, b) => a.start.localeCompare(b.start));
                 return (
-                  <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
-                    <div className="px-4 py-4">
-                      <h2 className="text-base font-black text-slate-800 mb-3">準備物リスト</h2>
+                  <div className="flex flex-col h-full w-full overflow-y-auto pb-20 md:pb-0">
+                    <div className="py-2 md:py-4 w-full">
+                      <h2 className="text-base md:text-lg font-black mb-1 md:mb-3" style={{ color: 'var(--text-primary)' }}>準備物リスト</h2>
+                      <p className="hidden md:block text-xs mb-4" style={{ color: 'var(--text-muted)' }}>進行中のイベントを選択して準備物を管理します</p>
                       {activeEvents.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400 text-sm">進行中のイベントがありません</div>
+                        <div className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>進行中のイベントがありません</div>
                       ) : (
-                        <div className="flex flex-col gap-2">
-                          {activeEvents.map(ev => {
-                            const prog = prepProgress[ev.id];
-                            const pct = prog && prog.total > 0 ? Math.round((prog.prepared / prog.total) * 100) : 0;
-                            return (
-                              <button
-                                key={ev.id}
-                                onClick={() => setPrepEvent(ev)}
-                                className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between mb-0.5">
-                                    <div className="font-bold text-slate-800 text-sm truncate">{ev.venue}</div>
-                                    {prog && prog.total > 0 && (
-                                      <span className="text-xs font-black text-indigo-600 shrink-0 ml-2">{pct}%</span>
-                                    )}
-                                  </div>
-                                  <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
-                                  {prog && prog.total > 0 && (
-                                    <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1">
-                                      <div className="bg-indigo-500 h-1 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                                    </div>
-                                  )}
-                                </div>
-                                <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
-                              </button>
-                            );
-                          })}
-                        </div>
+                        <EventPickerList
+                          events={activeEvents}
+                          prepProgress={prepProgress}
+                          onSelect={setPrepEvent}
+                          variant="active"
+                        />
                       )}
                     </div>
                   </div>
@@ -1136,42 +1240,19 @@ export default function App() {
                   .filter(ev => ev.end < today)
                   .sort((a, b) => b.end.localeCompare(a.end));
                 return (
-                  <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
-                    <div className="px-4 py-4">
-                      <h2 className="text-base font-black text-slate-800 mb-1">アーカイブ</h2>
-                      <p className="text-xs text-slate-400 mb-3">終了したイベントの準備物を確認できます</p>
+                  <div className="flex flex-col h-full w-full overflow-y-auto pb-20 md:pb-0">
+                    <div className="py-2 md:py-4 w-full">
+                      <h2 className="text-base md:text-lg font-black mb-1" style={{ color: 'var(--text-primary)' }}>アーカイブ</h2>
+                      <p className="text-xs mb-3 md:mb-4" style={{ color: 'var(--text-muted)' }}>終了したイベントの準備物を確認できます</p>
                       {archivedEvents.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400 text-sm">アーカイブされたイベントがありません</div>
+                        <div className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>アーカイブされたイベントがありません</div>
                       ) : (
-                        <div className="flex flex-col gap-2">
-                          {archivedEvents.map(ev => {
-                            const prog = prepProgress[ev.id];
-                            const pct = prog && prog.total > 0 ? Math.round((prog.prepared / prog.total) * 100) : 0;
-                            return (
-                              <button
-                                key={ev.id}
-                                onClick={() => setPrepEvent(ev)}
-                                className="w-full text-left bg-white rounded-2xl px-4 py-3 border border-slate-100 shadow-sm flex items-center justify-between opacity-75"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between mb-0.5">
-                                    <div className="font-bold text-slate-600 text-sm truncate">{ev.venue}</div>
-                                    {prog && prog.total > 0 && (
-                                      <span className={`text-xs font-black shrink-0 ml-2 ${pct === 100 ? 'text-emerald-600' : 'text-slate-400'}`}>{pct}%</span>
-                                    )}
-                                  </div>
-                                  <div className="text-xs text-slate-400">{ev.start} → {ev.end}</div>
-                                  {prog && prog.total > 0 && (
-                                    <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1">
-                                      <div className={`h-1 rounded-full transition-all ${pct === 100 ? 'bg-emerald-400' : 'bg-slate-300'}`} style={{ width: `${pct}%` }} />
-                                    </div>
-                                  )}
-                                </div>
-                                <ChevronRight size={16} className="text-slate-300 shrink-0 ml-2" />
-                              </button>
-                            );
-                          })}
-                        </div>
+                        <EventPickerList
+                          events={archivedEvents}
+                          prepProgress={prepProgress}
+                          onSelect={setPrepEvent}
+                          variant="archive"
+                        />
                       )}
                     </div>
                   </div>
@@ -1192,7 +1273,7 @@ export default function App() {
       {/* Modals */}
       <AnimatePresence>
         {dayDetail && (
-          <div key="day-detail" className="fixed inset-0 z-50 flex items-end lg:items-center justify-center lg:p-4">
+          <div key="day-detail" className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -1205,10 +1286,10 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 40 }}
               onPointerDown={(e) => e.stopPropagation()}
-              className="relative z-10 flex max-h-[85vh] flex-col overflow-hidden rounded-t-3xl border border-gray-100 bg-white shadow-2xl max-lg:max-h-[92dvh] max-lg:rounded-b-none max-lg:border-b-0 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:max-w-md lg:rounded-3xl w-full"
+              className="relative z-10 flex max-h-[85vh] flex-col overflow-hidden rounded-t-3xl border border-gray-100 bg-white shadow-2xl max-md:max-h-[92dvh] max-md:rounded-b-none max-md:border-b-0 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] md:max-w-2xl lg:max-w-3xl xl:max-w-4xl md:rounded-3xl w-full"
             >
-              <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-slate-200 lg:hidden" aria-hidden />
-              <div className="p-5 lg:p-6 border-b border-slate-100 flex justify-between items-start gap-3 shrink-0">
+              <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-slate-200 md:hidden" aria-hidden />
+              <div className="p-5 md:p-6 border-b border-slate-100 flex justify-between items-start gap-3 shrink-0">
                 <div>
                   <h3 className="text-lg font-black text-slate-800 tracking-tight">
                     {dayDetail.year}年{dayDetail.month}月{dayDetail.day}日
@@ -1224,7 +1305,7 @@ export default function App() {
                   <X size={18} />
                 </button>
               </div>
-              <div className="overflow-y-auto p-4 lg:p-5 space-y-2 flex-1 min-h-0">
+              <div className="overflow-y-auto p-4 md:p-5 md:grid md:grid-cols-2 md:gap-3 md:auto-rows-min space-y-2 md:space-y-0 flex-1 min-h-0">
                 {dayDetail.events.map((ev) => {
                   const typeSty = ts(ev.type || "");
                   const optionalLine = buildEventOptionalCaption(ev);
@@ -1260,22 +1341,29 @@ export default function App() {
           </div>
         )}
         {selected && (
-          <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center lg:p-4">
-            <motion.div 
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4">
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={handleCloseModal}
-              className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm" 
+              className="absolute inset-0 backdrop-blur-md"
+              style={{ background: 'rgba(0,0,0,0.5)' }}
             />
             <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 40 }}
+              initial={{ opacity: 0, y: 40, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 40, scale: 0.97 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-t-3xl lg:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full lg:w-[520px] lg:max-w-[520px] max-h-[92vh] lg:max-h-[90vh]"
+              className="rounded-t-3xl md:rounded-3xl relative z-10 overflow-hidden flex flex-col w-full md:max-w-3xl lg:max-w-4xl xl:max-w-5xl max-h-[92vh] md:max-h-[90vh]"
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                boxShadow: 'var(--shadow-xl)',
+              }}
             >
-                <div className="p-6 lg:p-8 overflow-y-auto overflow-x-hidden">
+                <div className="p-6 md:p-7 overflow-y-auto overflow-x-hidden">
                   {/* Header: タグ + 閉じるボタン */}
                   <div className="flex justify-between items-center mb-5">
                     <div className="flex flex-col gap-2 flex-1 min-w-0">
@@ -1286,14 +1374,10 @@ export default function App() {
                             type="button"
                             disabled={!canEditEvent}
                             onClick={() => canEditEvent && handleUpdateEvent(selected.id, { region: r, dept: '' })}
-                            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
-                              selected.region === r
-                                ? 'text-white border-transparent'
-                                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                            } ${!canEditEvent ? 'cursor-default' : 'cursor-pointer'}`}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${!canEditEvent ? 'cursor-default' : 'cursor-pointer'}`}
                             style={selected.region === r
-                              ? { background: rs(r).dot, borderColor: rs(r).dot }
-                              : {}
+                              ? { background: rs(r).dot, color: '#fff', borderColor: 'transparent' }
+                              : { background: 'var(--surface-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }
                             }
                           >
                             {r}
@@ -1307,11 +1391,11 @@ export default function App() {
                             type="button"
                             disabled={!canEditEvent}
                             onClick={() => canEditEvent && handleUpdateEvent(selected.id, { type: t.label })}
-                            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
-                              selected.type === t.label
-                                ? 'bg-indigo-600 text-white border-indigo-600'
-                                : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
-                            } ${!canEditEvent ? 'cursor-default' : 'cursor-pointer'}`}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${!canEditEvent ? 'cursor-default' : 'cursor-pointer'}`}
+                            style={selected.type === t.label
+                              ? { background: 'var(--primary)', color: '#fff', borderColor: 'transparent' }
+                              : { background: 'var(--surface-raised)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }
+                            }
                           >
                             <span>{t.icon}</span><span>{t.label}</span>
                           </button>
@@ -1320,16 +1404,19 @@ export default function App() {
                     </div>
                     <button
                       onClick={handleCloseModal}
-                      className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center rounded-full transition-colors"
+                      style={{ color: 'var(--text-muted)' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                     >
-                      <X size={18} />
+                      <X size={17} />
                     </button>
                   </div>
 
-                  <div className="h-px bg-gray-100 mb-4"></div>
+                  <div className="h-px mb-4" style={{ background: 'var(--border-light)' }} />
 
                   {/* タブ切替 */}
-                  <div className="flex bg-slate-100 rounded-xl p-1 mb-5">
+                  <div className="flex rounded-xl p-1 mb-5" style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}>
                     {[
                       { id: 'detail', label: '詳細' },
                       { id: 'photos', label: `写真${selected.photos?.length ? ` (${selected.photos.length})` : ''}` },
@@ -1337,7 +1424,11 @@ export default function App() {
                       <button
                         key={t.id}
                         onClick={() => setModalTab(t.id as any)}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${modalTab === t.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
+                        className="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        style={modalTab === t.id
+                          ? { background: 'var(--primary)', color: '#fff', boxShadow: 'var(--shadow-sm)' }
+                          : { color: 'var(--text-muted)' }
+                        }
                       >
                         {t.label}
                       </button>
@@ -1370,11 +1461,14 @@ export default function App() {
                   )}
 
                   {/* フィールド */}
-                  {modalTab === 'detail' && <><div className="space-y-5">
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">VENUE・会場</label>
+                  {modalTab === 'detail' && <><div className="space-y-4 md:grid md:grid-cols-2 md:gap-x-6 md:gap-y-4 md:space-y-0">
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>VENUE・会場</label>
                       <input
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                        className="w-full rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-all"
+                        style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                        onFocus={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--primary-glow)'; }}
+                        onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                         value={selected.venue}
                         placeholder="会場を入力..."
                         disabled={!canEditEvent}
@@ -1382,22 +1476,28 @@ export default function App() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-3 md:col-span-2">
                       <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">START</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>START</label>
                         <input
                           type="date"
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                          className="w-full rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-all"
+                          style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                          onFocus={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--primary-glow)'; }}
+                          onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                           value={selected.start}
                           disabled={!canEditEvent}
                           onChange={e => handleUpdateEvent(selected.id, { start: e.target.value })}
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">END</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>END</label>
                         <input
                           type="date"
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                          className="w-full rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-all"
+                          style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                          onFocus={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--primary-glow)'; }}
+                          onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                           value={selected.end}
                           disabled={!canEditEvent}
                           onChange={e => handleUpdateEvent(selected.id, { end: e.target.value })}
@@ -1406,9 +1506,12 @@ export default function App() {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">CLIENT・クライアント</label>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>CLIENT・クライアント</label>
                       <input
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full rounded-xl px-4 py-3 text-sm font-medium focus:outline-none transition-all"
+                        style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                        onFocus={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--primary-glow)'; }}
+                        onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                         value={selected.client}
                         placeholder="クライアント名を入力..."
                         onChange={e => handleUpdateEvent(selected.id, { client: e.target.value })}
@@ -1416,9 +1519,12 @@ export default function App() {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">メモ</label>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>メモ</label>
                       <textarea
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[88px] resize-none read-only:bg-gray-50 read-only:text-gray-500"
+                        className="w-full rounded-xl px-4 py-3 text-sm font-medium focus:outline-none min-h-[88px] resize-none transition-all"
+                        style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                        onFocus={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--primary-glow)'; }}
+                        onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                         value={selected.detailMemo ?? ''}
                         placeholder="例：搬入は西口ローリング床／15:00までに主電源・Wi-Fi確認"
                         readOnly={!user}
@@ -1431,17 +1537,20 @@ export default function App() {
                         }}
                       />
                       {formatAttributionLine(selected.detailMemoAttribution) ? (
-                        <p className="mt-1.5 text-[11px] text-gray-500">{formatAttributionLine(selected.detailMemoAttribution)}</p>
+                        <p className="mt-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>{formatAttributionLine(selected.detailMemoAttribution)}</p>
                       ) : null}
                       {!user && (
-                        <p className="mt-1.5 text-[11px] text-amber-700/90">ログインするとメモを記入・保存できます。</p>
+                        <p className="mt-1.5 text-[11px]" style={{ color: '#d97706' }}>ログインするとメモを記入・保存できます。</p>
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">担当者</label>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>担当者</label>
                       <textarea
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[72px] resize-none read-only:bg-gray-50 read-only:text-gray-500"
+                        className="w-full rounded-xl px-4 py-3 text-sm font-medium focus:outline-none min-h-[72px] resize-none transition-all"
+                        style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                        onFocus={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--primary-glow)'; }}
+                        onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                         value={selected.assigneeNote ?? ''}
                         placeholder="例：当日責任 山田／設営サポート 佐藤・伊藤／受付 外部スタッフ"
                         readOnly={!user}
@@ -1454,58 +1563,60 @@ export default function App() {
                         }}
                       />
                       {formatAttributionLine(selected.assigneeNoteAttribution) ? (
-                        <p className="mt-1.5 text-[11px] text-gray-500">{formatAttributionLine(selected.assigneeNoteAttribution)}</p>
+                        <p className="mt-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>{formatAttributionLine(selected.assigneeNoteAttribution)}</p>
                       ) : null}
                       {!user && (
-                        <p className="mt-1.5 text-[11px] text-amber-700/90">ログインすると担当者欄を記入・保存できます。</p>
+                        <p className="mt-1.5 text-[11px]" style={{ color: '#d97706' }}>ログインすると担当者欄を記入・保存できます。</p>
                       )}
                     </div>
-                  </div>
 
                   {/* 統計パネル */}
-                  <div className="mt-6 bg-gray-50 rounded-2xl p-5 grid grid-cols-3 divide-x divide-gray-200">
-                    <div className="pr-5">
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">ITEMS</div>
-                      <div className="text-2xl font-black text-gray-800">{eventStats.itemCount}</div>
-                    </div>
-                    <div className="px-5">
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">PREPARED</div>
-                      <div className="text-2xl font-black text-indigo-600">
-                        {eventStats.preparedCount}/{eventStats.itemCount}
+                  <div className="mt-1 md:col-span-2 rounded-2xl p-4 grid grid-cols-3 gap-0" style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}>
+                    {[
+                      { label: 'ITEMS', value: String(eventStats.itemCount), color: 'var(--text-primary)' },
+                      { label: 'PREPARED', value: `${eventStats.preparedCount}/${eventStats.itemCount}`, color: 'var(--primary)' },
+                      { label: 'BUDGET', value: `¥${eventStats.budget.toLocaleString()}`, color: 'var(--text-primary)' },
+                    ].map((s, i) => (
+                      <div key={s.label} className={`${i === 1 ? 'px-4 border-x' : i === 0 ? 'pr-4' : 'pl-4'}`} style={i === 1 ? { borderColor: 'var(--border)' } : {}}>
+                        <div className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>{s.label}</div>
+                        <div className="text-xl font-black tabular-nums" style={{ color: s.color }}>{s.value}</div>
                       </div>
-                    </div>
-                    <div className="pl-5">
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">BUDGET</div>
-                      <div className="text-2xl font-black text-gray-800">¥{eventStats.budget.toLocaleString()}</div>
-                    </div>
+                    ))}
                   </div>
 
                   {/* ボタン */}
-                  <div className="mt-6 flex gap-3">
+                  <div className="mt-1 md:col-span-2 flex gap-2.5">
                     {hasUnsavedChanges && (
-                      <button
+                      <motion.button
                         onClick={handleSaveEvent}
                         disabled={isSaving}
-                        className="flex-1 py-4 rounded-2xl bg-amber-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-amber-600 disabled:opacity-60 transition-colors shadow-lg shadow-amber-500/20"
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                        className="flex-1 py-3.5 rounded-2xl text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60 transition-all"
+                        style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', boxShadow: '0 4px 14px rgba(245,158,11,0.3)' }}
                       >
-                        <Save size={16} />
+                        <Save size={15} />
                         {isSaving ? "保存中..." : "保存する"}
-                      </button>
+                      </motion.button>
                     )}
-                    <button
+                    <motion.button
                       onClick={() => { if (selected) { setPrepEvent(selected); setView('prep'); setSelected(null); } }}
-                      className="flex-1 py-4 rounded-2xl bg-indigo-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20"
+                      whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                      className="flex-1 py-3.5 rounded-2xl text-white text-sm font-bold flex items-center justify-center gap-2 transition-all"
+                      style={{ background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', boxShadow: '0 4px 14px rgba(79,70,229,0.3)' }}
                     >
-                      <ClipboardList size={18} />
+                      <ClipboardList size={16} />
                       準備物リストを開く
-                    </button>
+                    </motion.button>
                   </div>
                   {canEditEvent && (
                     <button
                       onClick={handleDeleteEvent}
-                      className="w-full mt-2 py-3 rounded-2xl border border-red-200 text-sm font-bold text-red-400 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors flex items-center justify-center gap-2"
+                      className="w-full md:col-span-2 mt-1 py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
+                      style={{ border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.06)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)'; }}
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={15} />
                       このイベントを削除
                     </button>
                   )}
@@ -1516,7 +1627,7 @@ export default function App() {
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 6 }}
-                        className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl"
+                        className="mt-4 md:col-span-2 p-3 bg-red-50 border border-red-200 rounded-xl"
                       >
                         {validationErrors.map((err, i) => (
                           <p key={i} className="text-xs text-red-600 font-bold">
@@ -1530,12 +1641,13 @@ export default function App() {
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 6 }}
-                        className="text-[10px] text-center text-amber-500 mt-4 font-bold tracking-widest"
+                        className="text-[10px] text-center text-amber-500 mt-4 md:col-span-2 font-bold tracking-widest"
                       >
                         ⚠️ 未保存の変更があります
                       </motion.p>
                     )}
                   </AnimatePresence>
+                  </div>
                   </>}
                 </div>
             </motion.div>
@@ -1548,24 +1660,41 @@ export default function App() {
         <HoverCard event={hoveredEvent} pos={hoverPos} prepProgress={prepProgress[hoveredEvent.id]} />
       )}
 
-      {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex items-center justify-around pb-safe z-20 lg:hidden">
+      {/* ── Mobile Bottom Navigation ── */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 flex items-center justify-around z-20 md:hidden"
+        style={{
+          background: 'var(--bg-header)',
+          borderTop: '1px solid var(--border-light)',
+          backdropFilter: 'blur(20px) saturate(160%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
         {[
-          { id: "calendar", icon: <Calendar size={22} />,     label: "カレンダー" },
-          { id: "prep",     icon: <ClipboardList size={22} />, label: "準備物" },
-          { id: "archive",  icon: <Archive size={22} />,       label: "アーカイブ" },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); setView(tab.id as any); }}
-            className={`flex flex-col items-center gap-0.5 px-4 py-3 text-[10px] font-bold transition-colors ${
-              view === tab.id ? "text-indigo-600" : "text-slate-400"
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+          { id: "calendar", icon: <Calendar size={20} />,      label: "カレンダー" },
+          { id: "prep",     icon: <ClipboardList size={20} />,  label: "準備物" },
+          { id: "archive",  icon: <Archive size={20} />,        label: "アーカイブ" },
+        ].map(tab => {
+          const active = view === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => { if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null); setView(tab.id as any); }}
+              className="flex flex-col items-center gap-0.5 px-6 py-3 text-[10px] font-bold transition-all relative"
+              style={{ color: active ? 'var(--primary)' : 'var(--text-muted)' }}
+            >
+              {active && (
+                <span
+                  className="absolute top-1.5 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
+                  style={{ background: 'var(--primary)' }}
+                />
+              )}
+              {tab.icon}
+              {tab.label}
+            </button>
+          );
+        })}
       </nav>
     </div>
   );
@@ -1574,6 +1703,112 @@ export default function App() {
 /* ═══════════════════════════════════════
    サブコンポーネント
 ═══════════════════════════════════════ */
+
+interface EventPickerListProps {
+  events: Event[];
+  prepProgress: Record<string, { prepared: number; total: number } | undefined>;
+  onSelect: (event: Event) => void;
+  variant: 'active' | 'archive';
+}
+
+function EventPickerList({ events, prepProgress, onSelect, variant }: EventPickerListProps) {
+  const isArchive = variant === 'archive';
+
+  return (
+    <>
+      <div
+        className="hidden md:block rounded-2xl overflow-hidden w-full"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}
+      >
+        <table className="w-full text-sm">
+          <thead>
+            <tr style={{ background: 'var(--surface-raised)', borderBottom: '1px solid var(--border)' }}>
+              <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>会場</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>期間</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest hidden lg:table-cell" style={{ color: 'var(--text-muted)' }}>本部</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest hidden xl:table-cell" style={{ color: 'var(--text-muted)' }}>種別</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest hidden xl:table-cell" style={{ color: 'var(--text-muted)' }}>クライアント</th>
+              <th className="text-right px-4 py-3 text-[10px] font-black uppercase tracking-widest w-40" style={{ color: 'var(--text-muted)' }}>進捗</th>
+              <th className="w-10" />
+            </tr>
+          </thead>
+          <tbody>
+            {events.map(ev => {
+              const prog = prepProgress[ev.id];
+              const pct = prog && prog.total > 0 ? Math.round((prog.prepared / prog.total) * 100) : 0;
+              const progressColor = isArchive ? (pct === 100 ? '#10b981' : 'var(--text-muted)') : 'var(--primary)';
+              return (
+                <tr
+                  key={ev.id}
+                  onClick={() => onSelect(ev)}
+                  className={`cursor-pointer transition-colors ${isArchive ? 'opacity-90 hover:opacity-100' : ''}`}
+                  style={{ borderBottom: '1px solid var(--border-light)' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <td className="px-4 py-3.5 font-bold truncate max-w-[280px]" style={{ color: isArchive ? 'var(--text-secondary)' : 'var(--text-primary)' }}>{ev.venue}</td>
+                  <td className="px-4 py-3.5 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{ev.start} → {ev.end}</td>
+                  <td className="px-4 py-3.5 text-xs hidden lg:table-cell" style={{ color: 'var(--text-secondary)' }}>{ev.region || '—'}</td>
+                  <td className="px-4 py-3.5 text-xs hidden xl:table-cell" style={{ color: 'var(--text-secondary)' }}>{ev.type || '—'}</td>
+                  <td className="px-4 py-3.5 text-xs hidden xl:table-cell truncate max-w-[200px]" style={{ color: 'var(--text-muted)' }}>{ev.client || '—'}</td>
+                  <td className="px-4 py-3.5">
+                    {prog && prog.total > 0 ? (
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="w-24 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-hover)' }}>
+                          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: progressColor }} />
+                        </div>
+                        <span className="text-xs font-black w-8 text-right tabular-nums" style={{ color: progressColor }}>{pct}%</span>
+                      </div>
+                    ) : (
+                      <span className="block text-right text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
+                    )}
+                  </td>
+                  <td className="px-2 py-3.5" style={{ color: 'var(--text-muted)' }}>
+                    <ChevronRight size={16} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="md:hidden flex flex-col gap-2">
+        {events.map(ev => {
+          const prog = prepProgress[ev.id];
+          const pct = prog && prog.total > 0 ? Math.round((prog.prepared / prog.total) * 100) : 0;
+          const progressColor = isArchive ? (pct === 100 ? '#10b981' : 'var(--text-muted)') : 'var(--primary)';
+          return (
+            <button
+              key={ev.id}
+              onClick={() => onSelect(ev)}
+              className={`w-full text-left rounded-2xl px-4 py-3.5 flex items-center justify-between transition-all ${isArchive ? 'opacity-80 hover:opacity-100' : ''}`}
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}
+              onMouseEnter={e => { if (!isArchive) e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
+              onMouseLeave={e => { if (!isArchive) e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <div className="font-bold text-sm truncate" style={{ color: isArchive ? 'var(--text-secondary)' : 'var(--text-primary)' }}>{ev.venue}</div>
+                  {prog && prog.total > 0 && (
+                    <span className="text-xs font-black shrink-0 ml-2" style={{ color: progressColor }}>{pct}%</span>
+                  )}
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{ev.start} → {ev.end}</div>
+                {prog && prog.total > 0 && (
+                  <div className="mt-2 w-full rounded-full h-1" style={{ background: 'var(--surface-hover)' }}>
+                    <div className="h-1 rounded-full transition-all" style={{ width: `${pct}%`, background: progressColor }} />
+                  </div>
+                )}
+              </div>
+              <ChevronRight size={16} className="shrink-0 ml-2" style={{ color: 'var(--text-muted)' }} />
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
 
 interface MobileTimelineViewProps {
   events: Event[];
@@ -2014,37 +2249,35 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
   const isSixWeekMonth = weekRows >= 6;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full w-full min-h-0 flex-1">
       {densityPreview && (
         <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-bold leading-snug text-amber-900">
           開発プレビュー: URL に <code className="rounded bg-white/80 px-1">?calPreview=density</code> を付けた状態です。月内の同一週に「0件 / 2件 / 4件 / 6件」のサンプル行が並びます（狭い画面では最大{MAX_EVENTS_IN_DAY_CELL_NARROW}件、それ以外は最大{MAX_EVENTS_IN_DAY_CELL}件まで表示し、残りは「+N件」から一覧を開けます。リロードで解除）。
         </div>
       )}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-            {monthNames[month]} <span className="text-slate-400 font-bold ml-1">{year}</span>
-          </h2>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1">
-            <button onClick={prevMonth} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ChevronLeft size={20} /></button>
-            <button onClick={setToday} className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm ml-1 mr-1">今日</button>
-            <button onClick={nextMonth} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ChevronRight size={20} /></button>
-          </div>
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="text-2xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
+          {monthNames[month]}
+          <span className="font-bold ml-2 text-lg" style={{ color: 'var(--text-muted)' }}>{year}</span>
+        </h2>
+        <div className="flex items-center gap-1.5">
+          <button onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-lg transition-all" style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }} onMouseEnter={e=>{e.currentTarget.style.color='var(--primary)';e.currentTarget.style.background='var(--primary-light)';}} onMouseLeave={e=>{e.currentTarget.style.color='var(--text-muted)';e.currentTarget.style.background='transparent';}}><ChevronLeft size={16} /></button>
+          <button onClick={setToday} className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all" style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', background: 'var(--surface)' }} onMouseEnter={e=>{e.currentTarget.style.color='var(--primary)';e.currentTarget.style.borderColor='var(--primary)';}} onMouseLeave={e=>{e.currentTarget.style.color='var(--text-secondary)';e.currentTarget.style.borderColor='var(--border)';}}>今日</button>
+          <button onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-lg transition-all" style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }} onMouseEnter={e=>{e.currentTarget.style.color='var(--primary)';e.currentTarget.style.background='var(--primary-light)';}} onMouseLeave={e=>{e.currentTarget.style.color='var(--text-muted)';e.currentTarget.style.background='transparent';}}><ChevronRight size={16} /></button>
         </div>
       </div>
 
       <div
-        className="flex-1 grid min-h-0 grid-cols-7 border-t border-l border-slate-100"
+        className="flex-1 grid min-h-0 grid-cols-7 rounded-2xl overflow-hidden"
         style={{
           gridTemplateRows: `auto repeat(${weekRows}, minmax(0, 1fr))`,
+          border: '1px solid var(--border)',
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
         {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d, i) => (
-          <div key={d} className="border-r border-b border-slate-100 bg-slate-50/10 py-2 px-3">
-            <span className={`text-[9px] font-black uppercase tracking-widest ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-slate-400"}`}>{d}</span>
+          <div key={d} className="py-2.5 px-2" style={{ borderRight: i<6 ? '1px solid var(--border-light)' : 'none', borderBottom: '1px solid var(--border)', background: 'var(--surface-raised)' }}>
+            <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: i===0 ? '#f87171' : i===6 ? '#60a5fa' : 'var(--text-muted)' }}>{d}</span>
           </div>
         ))}
         
@@ -2058,28 +2291,25 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
           return (
             <div
               key={idx}
-              className={`
-                group relative flex h-full min-h-0 flex-col overflow-hidden border-r border-b border-slate-100 px-1 pb-1.5 pt-1.5
-                ${cell.current ? "bg-white" : "bg-slate-50/20"}
-                ${isSixWeekMonth
-                  ? "min-h-[104px] sm:min-h-[112px] md:min-h-[118px] lg:min-h-[122px] xl:min-h-[128px] 2xl:min-h-[136px]"
-                  : "min-h-[128px] sm:min-h-[136px] md:min-h-[144px] lg:min-h-[152px] xl:min-h-[160px]"}
-              `}
+              className="group relative flex h-full min-h-0 flex-col overflow-hidden px-1 pb-1.5 pt-1"
+              style={{
+                borderRight: idx % 7 < 6 ? '1px solid var(--border-light)' : 'none',
+                borderBottom: '1px solid var(--border-light)',
+                background: isToday ? 'var(--primary-light)' : cell.current ? 'var(--surface)' : 'var(--surface-raised)',
+                minHeight: narrowViewport ? (isSixWeekMonth ? '104px' : '128px') : (isSixWeekMonth ? '120px' : '148px'),
+                boxShadow: isToday ? 'inset 0 0 0 1.5px var(--primary-glow)' : 'none',
+                transition: 'background 0.15s',
+              }}
             >
-              {/* 今日・祝日・選択日などの装飾は背景レイヤに分離（テキスト／イベント領域の高さを圧迫しない）。祝日・選択日の色帯も同 div 内に載せる */}
-              <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
-                {cell.current && isToday && (
-                  <div className="absolute inset-0 bg-indigo-50/50 ring-1 ring-inset ring-indigo-100/80" />
-                )}
-              </div>
-
               <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-                <div className="flex h-7 shrink-0 items-center border-b border-slate-100/90 px-0.5">
+                <div className="flex h-7 shrink-0 items-center px-0.5 mb-0.5" style={{ borderBottom: '1px solid var(--border-light)' }}>
                   <span
-                    className={`
-                      inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-md text-[11px] font-bold tabular-nums
-                      ${!cell.current ? "text-slate-300" : isToday ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200/60" : isSun ? "text-red-500" : "text-slate-700"}
-                    `}
+                    className="inline-flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-lg text-[11px] font-bold tabular-nums"
+                    style={{
+                      color: !cell.current ? 'var(--text-muted)' : isToday ? '#fff' : isSun ? '#f87171' : 'var(--text-primary)',
+                      background: isToday ? 'var(--primary)' : 'transparent',
+                      boxShadow: isToday ? 'var(--shadow-primary)' : 'none',
+                    }}
                   >
                     {cell.day}
                   </span>
@@ -2087,19 +2317,17 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
                     <button
                       type="button"
                       onClick={() => onCreateEvent({ start: `${year}-${String(month).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}` })}
-                      className="ml-auto w-5 h-5 rounded flex items-center justify-center text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 opacity-0 group-hover:opacity-100 transition-all"
+                      className="ml-auto w-5 h-5 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                      style={{ color: 'var(--primary)', background: 'var(--primary-light)' }}
                       aria-label="イベントを追加"
                     >
-                      <Plus size={11} />
+                      <Plus size={10} />
                     </button>
                   )}
                 </div>
 
-                <div className="mt-1 flex min-h-0 flex-1 flex-col">
-                  <div
-                    className="flex min-h-0 flex-col gap-1 overflow-hidden"
-                    style={{ maxHeight: eventsPanelMaxHeight }}
-                  >
+                <div className="flex min-h-0 flex-1 flex-col mt-0.5">
+                  <div className="flex min-h-0 flex-col gap-0.5 overflow-hidden" style={{ maxHeight: eventsPanelMaxHeight }}>
                     {visibleEvents.map((ev) => {
                       const typeSty = ts(ev.type || "");
                       const captionNoDates = buildEventOptionalCaption(ev, { includeDates: false });
@@ -2111,24 +2339,11 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
                         onClick={() => onSelect(ev)}
                         onMouseEnter={(e) => onHover(ev, e)}
                         onMouseLeave={onHoverEnd}
-                        style={{
-                          borderLeftWidth: 3,
-                          borderLeftColor: typeSty.border,
-                          minHeight: eventRowMinHeight,
-                        }}
-                        aria-label={
-                          narrowViewport
-                            ? (captionNoDates ? `${ev.venue}。${captionNoDates}` : ev.venue)
-                            : (captionFull ? `${ev.venue}。${captionFull}` : ev.venue)
-                        }
-                        className="flex w-full shrink-0 items-center gap-1.5 overflow-hidden rounded-md border border-solid border-slate-200 bg-white px-1.5 py-0.5 text-left shadow-sm ring-1 ring-inset ring-slate-900/[0.04] transition hover:border-slate-300 hover:bg-slate-50/90"
+                        style={{ borderLeft: `3px solid ${typeSty.border}`, minHeight: eventRowMinHeight, background: `${typeSty.border}18` }}
+                        aria-label={narrowViewport ? (captionNoDates ? `${ev.venue}。${captionNoDates}` : ev.venue) : (captionFull ? `${ev.venue}。${captionFull}` : ev.venue)}
+                        className="flex w-full shrink-0 items-center gap-1 overflow-hidden rounded-r-md px-1 py-0.5 text-left transition-all hover:brightness-95"
                       >
-                        <span
-                          className="h-1.5 w-1.5 shrink-0 rounded-full border border-slate-900/20"
-                          style={{ backgroundColor: typeSty.border }}
-                          aria-hidden
-                        />
-                        <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[12px] font-semibold leading-tight text-slate-900 max-xl:text-[11px]">
+                        <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[11px] font-semibold leading-tight max-xl:text-[10px]" style={{ color: 'var(--text-primary)' }}>
                           {ev.venue}
                         </span>
                       </button>
@@ -2137,16 +2352,9 @@ function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHove
                     {hiddenCount > 0 && (
                       <button
                         type="button"
-                        onClick={() =>
-                          onOpenDayDetail({
-                            year,
-                            month,
-                            day: cell.day,
-                            events: dayEvents,
-                          })
-                        }
-                        style={{ minHeight: eventRowMinHeight }}
-                        className="w-full shrink-0 text-left rounded-md border border-solid border-slate-300/80 bg-slate-200/90 px-1 py-0.5 flex items-center justify-center overflow-hidden transition hover:bg-slate-300/90 hover:border-slate-400/80 text-[12px] max-xl:text-[11px] leading-none font-bold text-slate-800 shadow-sm ring-1 ring-inset ring-slate-900/[0.05] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1"
+                        onClick={() => onOpenDayDetail({ year, month, day: cell.day, events: dayEvents })}
+                        style={{ minHeight: eventRowMinHeight, background: 'var(--primary-light)', color: 'var(--primary)' }}
+                        className="w-full shrink-0 rounded-md px-1 py-0.5 flex items-center justify-center overflow-hidden transition hover:brightness-95 text-[11px] max-xl:text-[10px] font-bold"
                         aria-label={`あと${hiddenCount}件のイベントを表示`}
                       >
                         +{hiddenCount}件
@@ -2294,59 +2502,55 @@ function HoverCard({ event, pos, prepProgress }: {
   const start = new Date(event.start || ''); start.setHours(0,0,0,0);
   const daysUntil = Math.ceil((start.getTime() - today.getTime()) / 86400000);
 
+  const progressColor = pct === 100 ? '#10b981' : daysUntil <= 3 ? '#ef4444' : daysUntil <= 14 ? '#f59e0b' : '#6366f1';
+
   return (
     <div
-      className="fixed z-[200] w-60 bg-white border border-slate-100 rounded-2xl shadow-2xl p-4 pointer-events-none hidden lg:block"
-      style={{ left, top }}
+      className="fixed z-[200] w-64 rounded-2xl p-4 pointer-events-none hidden md:block animate-scale-in"
+      style={{
+        left, top,
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        boxShadow: 'var(--shadow-xl)',
+        backdropFilter: 'blur(16px)',
+      }}
     >
-      <div className="flex items-start gap-2 mb-3">
-        <span
-          className="mt-0.5 h-2 w-2 shrink-0 rounded-full border border-slate-900/15"
-          style={{ backgroundColor: ts(event.type || "").border }}
-          aria-hidden
-        />
-        <div className="min-w-0">
-          <div className="font-black text-sm text-slate-900 leading-tight truncate">{event.venue}</div>
-          <div className="text-[10px] font-bold text-slate-600 mt-0.5">{buildEventOptionalCaption(event) || (event.type || "その他")}</div>
+      {/* Colored top strip */}
+      <div className="absolute top-0 left-0 right-0 h-0.5 rounded-t-2xl" style={{ background: `linear-gradient(90deg, ${ts(event.type || '').border}, transparent)` }} />
+
+      <div className="flex items-start gap-2.5 mb-3">
+        <div
+          className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-sm"
+          style={{ background: `${ts(event.type || '').border}20` }}
+        >
+          {event.emoji || ts(event.type || '').icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-black text-sm leading-tight truncate" style={{ color: 'var(--text-primary)' }}>{event.venue}</div>
+          <div className="text-[10px] font-bold mt-0.5" style={{ color: 'var(--text-muted)' }}>{buildEventOptionalCaption(event) || (event.type || "その他")}</div>
         </div>
       </div>
-      <div className="space-y-1.5 text-xs text-slate-700">
-        <div className="flex gap-2">
-          <span className="w-2 h-2 rounded-full mt-1 shrink-0 ring-1 ring-slate-900/10" style={{ background: rs(event.region || '').dot }} />
-          <span>{event.region}</span>
+
+      <div className="space-y-1.5 text-xs" style={{ borderTop: '1px solid var(--border-light)', paddingTop: '10px' }}>
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: rs(event.region || '').dot }} />
+          <span style={{ color: 'var(--text-secondary)' }}>{event.region}</span>
         </div>
-        <div className="font-mono text-slate-500">
+        <div className="font-mono" style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
           {event.start}{event.end && event.end !== event.start ? ` → ${event.end}` : ''}
         </div>
-        {event.client && <div className="text-slate-500">{event.client}</div>}
-        {event.note && <div className="text-slate-400 line-clamp-2">{event.note}</div>}
+        {event.client && <div style={{ color: 'var(--text-secondary)' }}>{event.client}</div>}
+        {event.note && <div className="line-clamp-2" style={{ color: 'var(--text-muted)' }}>{event.note}</div>}
         {pct !== null && prepProgress && prepProgress.total > 0 && (
-          <div className={`mt-3 pt-3 border-t border-slate-100 rounded-lg px-1 ${
-            pct < 100 && daysUntil > 0
-              ? daysUntil <= 3 ? 'bg-red-50' : daysUntil <= 14 ? 'bg-amber-50' : daysUntil <= 30 ? 'bg-blue-50' : ''
-              : ''
-          }`}>
+          <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--border-light)' }}>
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-bold text-slate-500">準備進捗</span>
-              <span className={`text-[10px] font-black ${
-                pct === 100 ? 'text-emerald-600'
-                : daysUntil <= 3 ? 'text-red-600'
-                : daysUntil <= 14 ? 'text-amber-600'
-                : 'text-blue-600'
-              }`}>
+              <span className="text-[10px] font-bold" style={{ color: 'var(--text-muted)' }}>準備進捗</span>
+              <span className="text-[10px] font-black" style={{ color: progressColor }}>
                 {prepProgress.prepared}/{prepProgress.total} ({pct}%)
               </span>
             </div>
-            <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  pct === 100 ? 'bg-emerald-500'
-                  : daysUntil <= 3 ? 'bg-red-500'
-                  : daysUntil <= 14 ? 'bg-amber-500'
-                  : 'bg-blue-400'
-                }`}
-                style={{ width: `${pct}%` }}
-              />
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-hover)' }}>
+              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: progressColor }} />
             </div>
           </div>
         )}
@@ -2390,11 +2594,15 @@ function FilterGroup({ label, options, value, onChange }: FilterGroupProps) {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-24 text-slate-300 dark:text-zinc-700">
-      <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-zinc-900 flex items-center justify-center mb-6">
-        <Calendar size={32} />
+    <div className="flex flex-col items-center justify-center py-24">
+      <div
+        className="w-20 h-20 rounded-2xl flex items-center justify-center mb-5"
+        style={{ background: 'var(--surface-raised)', border: '1px solid var(--border)' }}
+      >
+        <Calendar size={28} style={{ color: 'var(--text-muted)' }} />
       </div>
-      <div className="text-sm font-bold text-slate-400 dark:text-zinc-600">イベントが見つかりません</div>
+      <div className="text-sm font-bold" style={{ color: 'var(--text-muted)' }}>イベントが見つかりません</div>
+      <div className="text-xs mt-1" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>フィルターを変更するか、新規イベントを追加してください</div>
     </div>
   );
 }

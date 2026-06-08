@@ -192,7 +192,7 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       </div>
 
       {/* Mobile card list */}
-      <div className="block lg:hidden flex-1 overflow-y-auto p-3 space-y-2">
+      <div className="block md:hidden flex-1 overflow-y-auto p-3 space-y-2">
         {items.map((item, idx) => (
           <div
             key={item.id}
@@ -327,10 +327,10 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
       </div>
 
       {/* Desktop table */}
-      <div className="hidden lg:block flex-1 overflow-auto p-6">
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm" style={{ minWidth: '1100px' }}>
+      <div className="hidden md:block flex-1 overflow-auto p-4 md:p-6 w-full">
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm w-full">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full border-collapse text-sm table-fixed">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="w-10 px-3 py-3 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center border-r border-gray-100">#</th>
