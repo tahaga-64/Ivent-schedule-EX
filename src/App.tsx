@@ -953,6 +953,7 @@ VITE_FIREBASE_DATABASE_ID`}
           onSelectPrepEvent={(ev) => { runWithGuard(() => { setPrepEvent(ev); applySetView('prep'); }); }}
           onCreateEvent={() => handleCreateEvent()}
           onOpenSchedule={() => window.open('https://ex-2026-04-802549538762.us-west1.run.app', '_blank', 'noopener,noreferrer')}
+          onNavigateCalendar={() => applySetView('calendar')}
           canEditEvent={canEditEvent}
         />
       )}

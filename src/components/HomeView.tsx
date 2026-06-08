@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, BookOpen, ExternalLink, X } from 'lucide-react';
+import { ChevronRight, BookOpen, ExternalLink, X, ArrowRight } from 'lucide-react';
 import type { Event } from '../types';
 import { rs, ts, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
-import { fetchTodayStaffCount } from '../lib/exSchedule';
+import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule';
+import { auth } from '../lib/firebase';
 import OperationsManualModal from './OperationsManualModal';
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
   onSelectPrepEvent: (event: Event) => void;
   onCreateEvent: () => void;
   onOpenSchedule: () => void;
+  onNavigateCalendar: () => void;
   canEditEvent: boolean;
 }
 
@@ -146,13 +148,20 @@ function SectionEmpty({ label }: { label: string }) {
   );
 }
 
-export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, canEditEvent }: Props) {
+function getGreeting(name: string | null): string {
+  const h = new Date().getHours();
+  const greet = h < 11 ? 'おはようございます' : h < 17 ? 'こんにちは' : 'お疲れ様です';
+  return name ? `${greet}、${name}さん` : greet;
+}
+
+export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, onNavigateCalendar, canEditEvent }: Props) {
   const [showOpsManual, setShowOpsManual] = useState(false);
   const [showEventPicker, setShowEventPicker] = useState(false);
   const [showPermissionToast, setShowPermissionToast] = useState(false);
-  const [staffCount, setStaffCount] = useState<number | null>(null);
+  const [staffBreakdown, setStaffBreakdown] = useState<StaffBreakdown | null>(null);
   const [staffLoading, setStaffLoading] = useState(true);
   const today = new Date().toISOString().slice(0, 10);
+  const greeting = getGreeting(auth.currentUser?.displayName ?? null);
 
   useEffect(() => {
     if (!showPermissionToast) return;
@@ -162,8 +171,8 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
   useEffect(() => {
     setStaffLoading(true);
-    fetchTodayStaffCount()
-      .then(n => setStaffCount(n))
+    fetchTodayStaffBreakdown()
+      .then(bd => setStaffBreakdown(bd))
       .finally(() => setStaffLoading(false));
   }, [today]);
   const in7  = addDays(today, 7);
@@ -207,7 +216,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
     const daysToNext = nextEvent
       ? Math.ceil((new Date(nextEvent.start + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000)
       : null;
-    return { thisMonthCount: thisMonth.length, daysToNext };
+    return { thisMonthCount: thisMonth.length, daysToNext, nextVenue: nextEvent?.venue ?? null };
   }, [events, today]);
 
   return (
@@ -215,7 +224,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
       <div className="relative z-10 flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-6 pb-32 md:pb-8 w-full max-w-none">
 
         {/* Date header */}
-        <div className="flex items-center justify-between text-white">
+        <div className="flex items-start justify-between text-white">
           <div className="flex items-end gap-4">
             <div className="text-8xl font-black leading-none tracking-tighter">
               {new Date().getDate()}
@@ -230,29 +239,75 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
           <AnalogClock />
         </div>
 
-        {/* Stats cards */}
-        <div className="grid grid-cols-3 md:grid-cols-3 gap-2 md:gap-4">
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15">
-            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">今月</div>
-            <div className="text-2xl font-black text-white leading-none">{stats.thisMonthCount}</div>
-            <div className="text-[10px] text-white/40 mt-0.5">件</div>
-          </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15">
-            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">今日の稼働</div>
-            <div className="text-2xl font-black text-white leading-none">
-              {staffLoading ? '…' : staffCount !== null ? staffCount : '—'}
+        {/* Greeting */}
+        <div className="text-sm font-bold text-white/55 -mt-2">{greeting}</div>
+
+        {/* Stats cards — row 1 */}
+        <div className="grid grid-cols-2 gap-2">
+          {/* 今月 */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15 flex flex-col">
+            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">今月</div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-black text-white leading-none">{stats.thisMonthCount}</span>
+              <span className="text-sm font-bold text-white/50">件</span>
             </div>
-            <div className="text-[10px] text-white/40 mt-0.5">{!staffLoading && staffCount !== null ? '人' : ''}</div>
+            <button
+              onClick={onNavigateCalendar}
+              className="mt-auto pt-2.5 flex items-center gap-1 text-[10px] font-black text-indigo-300 hover:text-indigo-200 transition-colors self-start"
+            >
+              詳しく見る <ArrowRight size={10} />
+            </button>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15">
-            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">次イベント</div>
-            <div className="text-2xl font-black text-white leading-none">
-              {stats.daysToNext === null ? '—' : stats.daysToNext === 0 ? '今日' : stats.daysToNext}
+
+          {/* 次イベント */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15 flex flex-col">
+            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">次イベント</div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-black text-white leading-none">
+                {stats.daysToNext === null ? '—' : stats.daysToNext === 0 ? '今日' : stats.daysToNext}
+              </span>
+              {stats.daysToNext !== null && stats.daysToNext > 0 && (
+                <span className="text-sm font-bold text-white/50">日後</span>
+              )}
             </div>
-            <div className="text-[10px] text-white/40 mt-0.5">
-              {stats.daysToNext !== null && stats.daysToNext > 0 ? '日後' : ''}
+            {stats.nextVenue && (
+              <div className="mt-1 text-[10px] text-white/45 truncate">{stats.nextVenue}</div>
+            )}
+          </div>
+        </div>
+
+        {/* Stats cards — row 2: 本日稼働 */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15">
+          <div className="flex items-center justify-between">
+            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest">本日稼働</div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-xl font-black text-white leading-none">
+                {staffLoading ? '…' : staffBreakdown !== null ? staffBreakdown.total : '—'}
+              </span>
+              {!staffLoading && staffBreakdown !== null && (
+                <span className="text-sm font-bold text-white/50">人</span>
+              )}
             </div>
           </div>
+          {!staffLoading && staffBreakdown !== null && (
+            <div className="grid grid-cols-3 gap-1 mt-2.5 pt-2.5 border-t border-white/10">
+              <div className="text-center">
+                <div className="text-lg font-black text-white leading-none">{staffBreakdown.office}</div>
+                <div className="text-[9px] text-white/40 mt-0.5">本社</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-black text-white leading-none">{staffBreakdown.event}</div>
+                <div className="text-[9px] text-white/40 mt-0.5">イベント</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-black text-white leading-none">{staffBreakdown.dispatch}</div>
+                <div className="text-[9px] text-white/40 mt-0.5">外出</div>
+              </div>
+            </div>
+          )}
+          {!staffLoading && staffBreakdown === null && (
+            <div className="mt-2 text-[10px] text-white/30">データを取得できませんでした</div>
+          )}
         </div>
 
         <div className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
