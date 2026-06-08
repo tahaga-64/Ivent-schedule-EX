@@ -1,9 +1,9 @@
 import { User } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Plus, Search, LogOut, HelpCircle } from 'lucide-react';
+import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Images, Plus, Search, LogOut, HelpCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album";
 
 interface AppHeaderProps {
   user: User;
@@ -39,7 +39,8 @@ export default function AppHeader({
     view === 'archive' ? 'アーカイブ' :
     view === 'master' ? '備品マスター' :
     view === 'fish' ? '魚リスト' :
-    view === 'layout' ? 'レイアウト' : '';
+    view === 'layout' ? 'レイアウト' :
+    view === 'album' ? 'アルバム' : '';
 
   const desktopNavItems: { id: ViewMode; icon: React.ReactNode; label: string }[] = [
     { id: "home",     icon: <Home size={14} />,           label: "ホーム" },
@@ -49,6 +50,7 @@ export default function AppHeader({
     { id: "master",   icon: <Package size={14} />,        label: "備品" },
     { id: "fish",     icon: <Fish size={14} />,           label: "魚リスト" },
     { id: "layout",   icon: <LayoutGrid size={14} />,     label: "レイアウト" },
+    { id: "album",    icon: <Images size={14} />,         label: "アルバム" },
   ];
 
   return (

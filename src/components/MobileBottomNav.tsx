@@ -1,7 +1,7 @@
-import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid } from 'lucide-react';
+import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid, Images } from 'lucide-react';
 import { motion } from 'motion/react';
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album";
 
 interface MobileBottomNavProps {
   view: ViewMode;
@@ -15,6 +15,7 @@ const NAV_ITEMS: { id: ViewMode; icon: React.ReactNode; label: string }[] = [
   { id: "master",   icon: <Package size={20} />,        label: "備品" },
   { id: "fish",     icon: <Fish size={20} />,           label: "魚リスト" },
   { id: "layout",   icon: <LayoutGrid size={20} />,     label: "レイアウト" },
+  { id: "album",    icon: <Images size={20} />,         label: "アルバム" },
 ];
 
 export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProps) {

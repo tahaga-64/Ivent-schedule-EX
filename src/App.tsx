@@ -35,10 +35,11 @@ import LoadingSplash from './components/LoadingSplash';
 import PrepEventList from './components/PrepEventList';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from './contexts/UnsavedChangesContext';
 import ArchiveView from './components/ArchiveView';
+import AlbumView from './components/AlbumView';
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album";
 
-const MOBILE_VIEWS: ViewMode[] = ['home', 'calendar', 'prep', 'master', 'fish', 'layout'];
+const MOBILE_VIEWS: ViewMode[] = ['home', 'calendar', 'prep', 'master', 'fish', 'layout', 'album'];
 
 function canScrollHorizontally(el: EventTarget | null): boolean {
   let node = el as HTMLElement | null;
@@ -129,7 +130,7 @@ export default function App() {
   const [needsNameSetup, setNeedsNameSetup] = useState(false);
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
-    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout'];
+    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout', 'album'];
     return valid.includes(saved as ViewMode) ? saved as ViewMode : 'home';
   });
   const [viewLoading, setViewLoading] = useState(false);
@@ -965,6 +966,9 @@ VITE_FIREBASE_DATABASE_ID`}
       )}
       {v === "layout" && (
         <LayoutView events={allEvents} canEdit={canEditPreparationList} />
+      )}
+      {v === "album" && (
+        <AlbumView events={allEvents} />
       )}
       {(v === "prep" || v === "archive") && prepEvent ? (
         <PreparationList
