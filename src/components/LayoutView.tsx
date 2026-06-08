@@ -7,7 +7,8 @@
  * Firestore: layouts/{eventId} = { items, customItems, photos, eventName, updatedAt }
  *   rules: layouts/{layoutId} は allow read: if true; allow write: if isAuthenticated();（共有リンク用に読み取り公開）
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot, setDoc, deleteDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { Trash2, RotateCw, Copy, Check, ChevronRight, LayoutGrid, Plus, Maximize2, Minimize2, Image as ImageIcon, X, Upload } from 'lucide-react';
@@ -76,6 +77,7 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
   const [photos, setPhotos] = useState<EventPhoto[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [hasUnsaved, setHasUnsaved] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -124,35 +126,73 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
   }, [eventId]);
 
   // Firestore へ書き込み（items / customItems / photos をまとめて保存）
-  async function writeLayout() {
-    await setDoc(doc(db, 'layouts', eventIdRef.current), {
-      items: itemsRef.current,
-      customItems: customItemsRef.current,
-      photos: photosRef.current,
-      eventName: eventNameRef.current,
-      updatedAt: serverTimestamp(),
-    });
+  async function writeLayout(): Promise<boolean> {
+    try {
+      await setDoc(doc(db, 'layouts', eventIdRef.current), {
+        items: itemsRef.current,
+        customItems: customItemsRef.current,
+        photos: photosRef.current,
+        eventName: eventNameRef.current,
+        updatedAt: serverTimestamp(),
+      });
+      setSavedAt(new Date());
+      setHasUnsaved(false);
+      return true;
+    } catch (err) {
+      console.error('layout save error:', err);
+      return false;
+    }
   }
 
-  // ドラッグ等の連続操作はデバウンス保存
+  // ドラッグ等の連続操作はデバウンス保存（ページ内では自動保存、離脱時は確認ダイアログ）
   function scheduleSave() {
+    if (!canEdit) return;
+    setHasUnsaved(true);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       setSaving(true);
-      try { await writeLayout(); setSavedAt(new Date()); }
-      catch (err) { console.error('layout save error:', err); }
-      finally { setSaving(false); }
+      await writeLayout();
+      setSaving(false);
     }, 700);
   }
 
   // 写真・カスタムアイテム等の単発操作は即時保存
-  async function flushSave() {
+  async function flushSave(): Promise<boolean> {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
     setSaving(true);
-    try { await writeLayout(); setSavedAt(new Date()); }
-    catch (err) { console.error('layout save error:', err); }
-    finally { setSaving(false); }
+    const ok = await writeLayout();
+    setSaving(false);
+    return ok;
   }
+
+  const discardChanges = useCallback(async () => {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    setHasUnsaved(false);
+    const snap = await getDoc(doc(db, 'layouts', eventId));
+    if (snap.exists()) {
+      const d = snap.data() as { items?: LayoutItemData[]; customItems?: CustomCatalogItem[]; photos?: EventPhoto[] };
+      const loaded = d.items ?? [];
+      itemsRef.current = loaded;
+      setItems(loaded);
+      const ci = d.customItems ?? [];
+      customItemsRef.current = ci;
+      setCustomItems(ci);
+      const ph = d.photos ?? [];
+      photosRef.current = ph;
+      setPhotos(ph);
+    } else {
+      itemsRef.current = []; setItems([]);
+      customItemsRef.current = []; setCustomItems([]);
+      photosRef.current = []; setPhotos([]);
+    }
+  }, [eventId]);
+
+  useRegisterUnsavedGuard(`layout-${eventId}`, {
+    enabled: canEdit,
+    hasUnsaved,
+    save: flushSave,
+    discard: () => { void discardChanges(); },
+  });
 
   function updateItems(next: LayoutItemData[]) {
     itemsRef.current = next;
@@ -446,7 +486,7 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
           {/* Canvas */}
           <div
             ref={canvasRef}
-            className="relative rounded-2xl overflow-hidden w-full max-w-[960px] mx-auto shadow-2xl"
+            className="relative rounded-2xl overflow-hidden w-full max-w-none shadow-2xl"
             style={{
               aspectRatio: '4/3',
               backgroundImage: 'radial-gradient(circle, #334155 1px, transparent 1px)',
@@ -729,6 +769,7 @@ function EventCard({ ev, onSelect, past }: { ev: Event; onSelect: () => void; pa
 
 export default function LayoutView({ events, canEdit }: AdminProps) {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const { runWithGuard } = useUnsavedChanges();
 
   // すべてのイベントを対象（中止のみ除外）。終了したイベントは下部にアーカイブ表示。
   const today = new Date().toISOString().slice(0, 10);
@@ -749,7 +790,7 @@ export default function LayoutView({ events, canEdit }: AdminProps) {
           {/* Back button */}
           <div className="flex items-center gap-2 px-4 py-3 shrink-0 border-b border-white/10">
             <button
-              onClick={() => setSelectedEventId(null)}
+              onClick={() => runWithGuard(() => setSelectedEventId(null))}
               className="flex items-center gap-1.5 text-white/60 hover:text-white text-xs font-bold transition-colors"
             >
               <ChevronRight size={14} className="rotate-180" />
@@ -771,7 +812,7 @@ export default function LayoutView({ events, canEdit }: AdminProps) {
   return (
     <div className="relative flex flex-col min-h-full">
 
-      <div className="relative z-10 px-4 py-6 pb-32 max-w-2xl mx-auto w-full">
+      <div className="relative z-10 px-4 md:px-6 lg:px-8 py-6 pb-32 md:pb-8 w-full max-w-none">
         <div className="mb-6">
           <div className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1">LAYOUT PLANNER</div>
           <h2 className="text-2xl font-black text-white">レイアウト</h2>
@@ -784,18 +825,18 @@ export default function LayoutView({ events, canEdit }: AdminProps) {
             <div className="text-sm">イベントがありません</div>
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 md:gap-3">
             {upcoming.map(ev => (
-              <EventCard key={ev.id} ev={ev} onSelect={() => setSelectedEventId(ev.id)} />
+              <EventCard key={ev.id} ev={ev} onSelect={() => runWithGuard(() => setSelectedEventId(ev.id))} />
             ))}
             {past.length > 0 && (
               <>
-                <div className="flex items-center gap-2 mt-5 mb-1 px-1">
+                <div className="flex items-center gap-2 mt-3 mb-1 px-1 md:col-span-full">
                   <span className="text-[10px] font-black text-white/40 uppercase tracking-widest shrink-0">終了したイベント</span>
                   <div className="flex-1 h-px bg-white/10" />
                 </div>
                 {past.map(ev => (
-                  <EventCard key={ev.id} ev={ev} onSelect={() => setSelectedEventId(ev.id)} past />
+                  <EventCard key={ev.id} ev={ev} onSelect={() => runWithGuard(() => setSelectedEventId(ev.id))} past />
                 ))}
               </>
             )}

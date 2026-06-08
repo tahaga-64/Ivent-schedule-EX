@@ -32,10 +32,10 @@ function AnalogClock() {
 
   return (
     <div className="flex flex-col items-end shrink-0 select-none">
-      <div className="text-4xl font-black text-white leading-none tracking-tighter tabular-nums">
+      <div className="text-5xl sm:text-6xl md:text-7xl xl:text-8xl font-black text-white leading-none tracking-tighter tabular-nums">
         {hm}
       </div>
-      <div className="text-lg font-black text-white/50 leading-none tracking-tighter tabular-nums mt-0.5">
+      <div className="text-xl sm:text-2xl md:text-3xl xl:text-4xl font-black text-white/50 leading-none tracking-tighter tabular-nums mt-1 md:mt-1.5">
         {sec}
       </div>
     </div>
@@ -212,7 +212,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
   return (
     <div className="relative min-h-screen">
-      <div className="relative z-10 flex flex-col gap-5 px-4 pt-6 pb-32 max-w-xl mx-auto w-full">
+      <div className="relative z-10 flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-6 pb-32 md:pb-8 w-full max-w-none">
 
         {/* Date header */}
         <div className="flex items-center justify-between text-white">
@@ -231,7 +231,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         </div>
 
         {/* Stats cards */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 md:grid-cols-3 gap-2 md:gap-4">
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3.5 border border-white/15">
             <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">今月</div>
             <div className="text-2xl font-black text-white leading-none">{stats.thisMonthCount}</div>
@@ -255,6 +255,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
           </div>
         </div>
 
+        <div className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
         {/* 本日のイベント */}
         <div>
           <div className="flex items-center gap-2 mb-3">
@@ -289,7 +290,9 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               </div>
           }
         </div>
+        </div>
 
+        <div className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
         {/* クイックアクション */}
         <div className="mt-2 flex flex-col gap-2">
           <div className="text-[11px] font-black text-white/70 uppercase tracking-widest mb-1">クイックアクション</div>
@@ -318,7 +321,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
           {/* 運用手順書: PC のみ表示 */}
           <button
             onClick={() => setShowOpsManual(true)}
-            className="hidden lg:flex items-center gap-3 bg-white/15 border border-white/25 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/25 active:scale-[0.98] transition-all backdrop-blur-sm"
+            className="hidden md:flex items-center gap-3 bg-white/15 border border-white/25 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/25 active:scale-[0.98] transition-all backdrop-blur-sm"
           >
             <BookOpen size={18} className="text-white/80 shrink-0" />
             編集スタッフ 運用手順書
@@ -347,6 +350,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               <ExternalLink size={14} className="text-slate-300 shrink-0 ml-3" />
             </a>
           ))}
+        </div>
         </div>
       </div>
 

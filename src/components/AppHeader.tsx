@@ -17,7 +17,6 @@ interface AppHeaderProps {
   onSearchChange: (q: string) => void;
   onCreateEvent: () => void;
   onShowHelp: () => void;
-  onClearPrepEvent: () => void;
 }
 
 export default function AppHeader({
@@ -32,7 +31,6 @@ export default function AppHeader({
   onSearchChange,
   onCreateEvent,
   onShowHelp,
-  onClearPrepEvent,
 }: AppHeaderProps) {
   const viewLabel =
     view === 'home' ? 'ホーム' :
@@ -143,7 +141,7 @@ export default function AppHeader({
             {desktopNavItems.map(v => (
               <button
                 key={v.id}
-                onClick={() => { if (v.id !== 'prep' && v.id !== 'archive') onClearPrepEvent(); onSetView(v.id); }}
+                onClick={() => onSetView(v.id)}
                 className={`
                   flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all
                   ${view === v.id ? 'bg-white/25 text-white shadow-sm border border-white/20' : 'text-white/50 hover:text-white/80'}
