@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronRight, BookOpen, ExternalLink, X } from 'lucide-react';
 import type { Event } from '../types';
-import { rs, ts, fmtDateJP, fmtDateRange, daysUntil } from '../lib/eventHelpers';
+import { rs, ts, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
 import { fetchTodayStaffCount } from '../lib/exSchedule';
 import OperationsManualModal from './OperationsManualModal';
 
@@ -412,7 +412,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
                       <div className="flex flex-col gap-2">
                         {evs.map(ev => {
                           const s = fmtDateJP(ev.start);
-                          const until = daysUntil(ev.start);
+                          const until = daysUntil(ev.start, today);
                           const isToday = until === 0;
                           const isSoon = until > 0 && until <= 7;
                           const isOngoing = until < 0 && (ev.end || ev.start) >= today;

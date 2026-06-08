@@ -4,13 +4,12 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, collectionGroup, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
 import { DATA } from './constants';
 import { Event, PreparationItem, EventStatus, type StaffMember } from './types';
-import { fmtDateJP, fmtDateRange, daysUntil, ts, buildEventOptionalCaption, buildMonthGridCells, type ValidationError, validateEvent } from './lib/eventHelpers';
-import { Calendar, Menu, X, ChevronRight, ClipboardList, Plus, Search, LogOut, Archive, Home, Package, Fish, LayoutGrid, HelpCircle } from 'lucide-react';
+import { buildMonthGridCells, type ValidationError, validateEvent } from './lib/eventHelpers';
+import { Plus } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, animate as motionAnimate } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
 import ProfileSetupScreen from './components/ProfileSetupScreen';
 import AccessDeniedScreen from './components/AccessDeniedScreen';
-import EXLogo from './components/EXLogo';
 import PreparationList from './components/PreparationList';
 import { usePhotos } from './hooks/usePhotos';
 import { useRoles } from './hooks/useRoles';
@@ -26,6 +25,15 @@ import { CalendarView, HoverCard, EmptyState, MobileTimelineView, MobileWeekStri
 import EventDetailModal from './components/EventDetailModal';
 import HelpModal from './components/HelpModal';
 import AppSidebar from './components/AppSidebar';
+import AppHeader from './components/AppHeader';
+import DayDetailModal from './components/DayDetailModal';
+import SavingIndicator from './components/SavingIndicator';
+import MobileBottomNav from './components/MobileBottomNav';
+import MigrationBanner from './components/MigrationBanner';
+import LoadingBar from './components/LoadingBar';
+import LoadingSplash from './components/LoadingSplash';
+import PrepEventList from './components/PrepEventList';
+import ArchiveView from './components/ArchiveView';
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout";
 
@@ -113,46 +121,6 @@ function buildCalendarDensityPreviewEvents(
 
 
 
-const CALENDAR_BG = "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=1920&q=80";
-const PREP_BG    = "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1920&q=80";
-
-
-function InventoryAppBanner() {
-  const ready = INVENTORY_APP_URL.length > 0;
-  return (
-    <div className="mt-10 mb-6">
-      <div className="relative overflow-hidden rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/50 px-6 py-5 flex items-center gap-4">
-        <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl shrink-0">📦</div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-sm font-black text-slate-700">イベント在庫管理</span>
-            {!ready && (
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 uppercase tracking-wide">新機能実装予定</span>
-            )}
-          </div>
-          <p className="text-xs text-slate-400">備品・消耗品の在庫をリアルタイムで管理できる機能を開発中です</p>
-        </div>
-        {ready ? (
-          <a
-            href={INVENTORY_APP_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black transition-colors"
-          >
-            開く
-          </a>
-        ) : (
-          <button
-            disabled
-            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-100 text-indigo-300 text-xs font-black cursor-not-allowed"
-          >
-            開く
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -876,31 +844,7 @@ VITE_FIREBASE_DATABASE_ID`}
       onRetry={() => setAccessDenied(false)}
     />
   );
-  if (user === undefined) return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden">
-      <div
-        className="absolute inset-0 bg-cover bg-center scale-105"
-        style={{ backgroundImage: "url('/mercury-office.jpg')" }}
-      />
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-10 flex flex-col items-center gap-10"
-      >
-        <EXLogo size="lg" showSubtitle />
-        <div className="w-40 h-[2px] bg-white/15 rounded-full overflow-hidden">
-          <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-indigo-400 to-violet-400"
-            initial={{ x: '-100%' }}
-            animate={{ x: '120%' }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.2 }}
-          />
-        </div>
-      </motion.div>
-    </div>
-  );
+  if (user === undefined) return <LoadingSplash />;
   if (!user) return <LoginScreen />;
   if (needsNameSetup) return (
     <ProfileSetupScreen
@@ -1014,143 +958,11 @@ VITE_FIREBASE_DATABASE_ID`}
           onBack={() => setPrepEvent(null)}
           canEdit={canEditPreparationList}
         />
-      ) : v === "prep" ? (() => {
-        const today = new Date().toISOString().slice(0, 10);
-        const activeEvents = [...allEvents]
-          .filter(ev => ev.end >= today)
-          .sort((a, b) => a.start.localeCompare(b.start));
-        // 月ごとにグループ化
-        const monthGroups: { month: string; events: Event[] }[] = [];
-        for (const ev of activeEvents) {
-          const [y, m] = ev.start.split('-');
-          const label = `${parseInt(y)}年${parseInt(m)}月`;
-          const last = monthGroups[monthGroups.length - 1];
-          if (last?.month === label) last.events.push(ev);
-          else monthGroups.push({ month: label, events: [ev] });
-        }
-        return (
-          <>
-          <div className="relative z-10 flex flex-col h-full overflow-y-auto pb-20">
-            <div className="px-4 py-4">
-              <h2 className="text-base font-black text-white mb-4">準備物リスト</h2>
-              {activeEvents.length === 0 ? (
-                <div className="text-center py-12 text-white/50 text-sm">進行中のイベントがありません</div>
-              ) : (
-                <div className="flex flex-col gap-5">
-                  {monthGroups.map(({ month, events: evs }) => (
-                    <div key={month}>
-                      <div className="text-[11px] font-black text-white/60 uppercase tracking-widest px-1 mb-2">{month}</div>
-                      <div className="flex flex-col gap-2">
-                        {evs.map(ev => {
-                          const s = fmtDateJP(ev.start);
-                          const until = daysUntil(ev.start);
-                          const isToday = until === 0;
-                          const isSoon = until > 0 && until <= 7;
-                          const isOngoing = until < 0 && ev.end >= today;
-                          const urgencyBadge = isToday
-                            ? { label: '今日', cls: 'bg-red-500 text-white' }
-                            : isOngoing
-                            ? { label: '開催中', cls: 'bg-emerald-500 text-white' }
-                            : isSoon
-                            ? { label: `${until}日後`, cls: 'bg-amber-400 text-white' }
-                            : null;
-                          return (
-                            <button
-                              key={ev.id}
-                              onClick={() => setPrepEvent(ev)}
-                              className="w-full text-left bg-white/10 backdrop-blur-sm rounded-2xl border border-white/15 flex items-stretch overflow-hidden hover:bg-white/15 active:scale-[0.98] transition-all"
-                            >
-                              {/* 日付バッジ */}
-                              <div className={`flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 ${isToday ? 'bg-red-500' : isOngoing ? 'bg-emerald-500' : isSoon ? 'bg-amber-400' : 'bg-indigo-600'}`}>
-                                <span className="text-[10px] font-black text-white/70 leading-none">{s.month}月</span>
-                                <span className="text-xl font-black text-white leading-none mt-0.5">{s.day}</span>
-                                <span className="text-[10px] font-black text-white/80 leading-none mt-0.5">{s.dow}</span>
-                              </div>
-                              {/* コンテンツ */}
-                              <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  <span className="font-bold text-white text-sm truncate">{ev.venue}</span>
-                                  {urgencyBadge && (
-                                    <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full ${urgencyBadge.cls}`}>{urgencyBadge.label}</span>
-                                  )}
-                                </div>
-                                <div className="text-xs text-white/50 truncate">{fmtDateRange(ev.start, ev.end)}</div>
-                              </div>
-                              <div className="flex items-center pr-3">
-                                <ChevronRight size={16} className="text-white/30 shrink-0" />
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          </>
-        );
-      })() : v === "archive" ? (() => {
-        const today = new Date().toISOString().slice(0, 10);
-        const archivedEvents = [...allEvents]
-          .filter(ev => ev.end < today)
-          .sort((a, b) => b.end.localeCompare(a.end));
-        const monthGroups: { month: string; events: Event[] }[] = [];
-        for (const ev of archivedEvents) {
-          const [y, m] = ev.start.split('-');
-          const label = `${parseInt(y)}年${parseInt(m)}月`;
-          const last = monthGroups[monthGroups.length - 1];
-          if (last?.month === label) last.events.push(ev);
-          else monthGroups.push({ month: label, events: [ev] });
-        }
-        return (
-          <div className="flex flex-col h-full overflow-y-auto pb-20 bg-slate-50">
-            <div className="px-4 py-4">
-              <h2 className="text-base font-black text-slate-800 mb-1">アーカイブ</h2>
-              <p className="text-xs text-slate-400 mb-4">終了したイベントの準備物を確認できます</p>
-              {archivedEvents.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 text-sm">アーカイブされたイベントがありません</div>
-              ) : (
-                <div className="flex flex-col gap-5">
-                  {monthGroups.map(({ month, events: evs }) => (
-                    <div key={month}>
-                      <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2">{month}</div>
-                      <div className="flex flex-col gap-2">
-                        {evs.map(ev => {
-                          const s = fmtDateJP(ev.start);
-                          return (
-                            <button
-                              key={ev.id}
-                              onClick={() => setPrepEvent(ev)}
-                              className="w-full text-left bg-white/60 rounded-2xl border border-slate-100 shadow-sm flex items-stretch overflow-hidden hover:border-slate-300 hover:shadow-md transition-all opacity-80 hover:opacity-100"
-                            >
-                              {/* 日付バッジ（グレー） */}
-                              <div className="flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 bg-slate-200">
-                                <span className="text-[10px] font-black text-slate-500 leading-none">{s.month}月</span>
-                                <span className="text-xl font-black text-slate-500 leading-none mt-0.5">{s.day}</span>
-                                <span className="text-[10px] font-black text-slate-400 leading-none mt-0.5">{s.dow}</span>
-                              </div>
-                              {/* コンテンツ */}
-                              <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
-                                <div className="font-bold text-slate-600 text-sm truncate mb-0.5">{ev.venue}</div>
-                                <div className="text-xs text-slate-400 truncate">{fmtDateRange(ev.start, ev.end)}</div>
-                              </div>
-                              <div className="flex items-center pr-3">
-                                <ChevronRight size={16} className="text-slate-300 shrink-0" />
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })() : null}
+      ) : v === "prep" ? (
+        <PrepEventList events={allEvents} onSelectEvent={setPrepEvent} />
+      ) : v === "archive" ? (
+        <ArchiveView events={allEvents} onSelectEvent={setPrepEvent} />
+      ) : null}
     </>
   );
 
@@ -1160,137 +972,33 @@ VITE_FIREBASE_DATABASE_ID`}
         style={{ background: 'linear-gradient(160deg, #0f172a 0%, #1e1b4b 50%, #0c1a35 100%)' }} />
 
       {/* ページ切替ローディングバー */}
-      <AnimatePresence>
-        {viewLoading && (
-          <motion.div
-            key="loading-bar"
-            className="fixed top-0 left-0 right-0 h-0.5 z-50 overflow-hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.1 }}
-          >
-            <motion.div
-              className="h-full bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-400"
-              initial={{ x: '-100%' }}
-              animate={{ x: '0%' }}
-              transition={{ duration: 0.35, ease: 'easeOut' }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <LoadingBar visible={viewLoading} />
+
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-transparent border-b border-white/15" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-      <div className="h-14 flex items-center justify-between px-4 gap-2 sm:gap-4">
-        {/* 左: ハンバーガー + ロゴ */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button onClick={() => setSideOpen(v => !v)} className="p-1.5 rounded-lg text-white/80 hover:bg-white/15 transition-colors">
-            <Menu size={18} />
-          </button>
-          <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-indigo-200 shadow-md">EX</div>
-          <div className="hidden sm:block">
-            <div className="font-bold text-sm text-white leading-tight">Ivent Manager</div>
-            <div className="text-[10px] text-white/60 font-bold tracking-tight">Preparation & Scheduling</div>
-          </div>
-          <div className="sm:hidden flex flex-col">
-            <div className="text-[10px] font-black text-white/60 tracking-widest uppercase">{calYear}年{calMonth}月</div>
-            <div className="font-black text-sm text-white leading-tight">{view === 'home' ? 'ホーム' : view === 'calendar' ? 'カレンダー' : view === 'prep' ? '準備物リスト' : view === 'archive' ? 'アーカイブ' : view === 'master' ? '備品マスター' : view === 'fish' ? '魚リスト' : view === 'layout' ? 'レイアウト' : ''}</div>
-          </div>
-        </div>
-
-        {/* 中央: 検索バー */}
-        <div className="flex-1 min-w-0 max-w-md">
-          <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-3 py-2">
-            <Search size={13} className="text-white/60 shrink-0" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="会場・クライアントを検索..."
-              className="flex-1 bg-transparent text-xs text-white placeholder-white/40 outline-none min-w-0"
-            />
-            <kbd className="hidden sm:block text-[10px] text-white/40 font-medium bg-white/10 px-1.5 py-0.5 rounded">⌘K</kbd>
-          </div>
-        </div>
-
-        {/* 右: ビュー切替 + 新規 + アバター */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="hidden md:flex bg-white/10 p-1 rounded-xl">
-            {(
-              [
-                { id: "home",     icon: <Home size={14} />,           label: "ホーム" },
-                { id: "calendar", icon: <Calendar size={14} />,      label: "カレンダー" },
-                { id: "prep",     icon: <ClipboardList size={14} />,  label: "準備物" },
-                { id: "archive",  icon: <Archive size={14} />,        label: "アーカイブ" },
-                { id: "master",   icon: <Package size={14} />,        label: "備品" },
-                { id: "fish",     icon: <Fish size={14} />,           label: "魚リスト" },
-                { id: "layout",   icon: <LayoutGrid size={14} />,     label: "レイアウト" },
-              ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
-            ).map(v => (
-              <button
-                key={v.id}
-                onClick={() => { if (v.id !== 'prep' && v.id !== 'archive') setPrepEvent(null); handleSetView(v.id); }}
-                className={`
-                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all
-                  ${view === v.id ? 'bg-white/25 text-white shadow-sm border border-white/20' : 'text-white/50 hover:text-white/80'}
-                `}
-              >
-                {v.icon}
-                <span className="hidden lg:inline">{v.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {!narrowViewport && (
-          <button
-            onClick={() => handleCreateEvent()}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black transition-all shadow-indigo-200 shadow-md"
-          >
-            <Plus size={14} strokeWidth={3} />
-            <span className="hidden sm:inline">新規イベント</span>
-          </button>
-          )}
-
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setShowHelp(true)}
-              className="p-1.5 rounded-lg text-white/70 hover:bg-white/15 hover:text-white transition-colors"
-              title="使い方"
-            >
-              <HelpCircle size={16} />
-            </button>
-            {user.photoURL ? (
-              <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-white/50" />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white/50">
-                {user.displayName?.[0] || 'U'}
-              </div>
-            )}
-            <button onClick={() => auth.signOut()} className="p-1.5 rounded-lg text-white/70 hover:bg-white/15 hover:text-red-300 transition-colors" title="ログアウト">
-              <LogOut size={15} />
-            </button>
-          </div>
-        </div>
-      </div>
-      </header>
+      <AppHeader
+        user={user}
+        view={view}
+        calYear={calYear}
+        calMonth={calMonth}
+        searchQuery={searchQuery}
+        narrowViewport={narrowViewport}
+        onToggleSidebar={() => setSideOpen(v => !v)}
+        onSetView={handleSetView}
+        onSearchChange={setSearchQuery}
+        onCreateEvent={() => handleCreateEvent()}
+        onShowHelp={() => setShowHelp(true)}
+        onClearPrepEvent={() => setPrepEvent(null)}
+      />
 
       <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
 
       {/* 初期データ移行バナー（編集者のみ・未移行時） */}
       {canEditEvent && !eventsMigrated && (
-        <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center justify-between gap-3 flex-wrap">
-          <div className="text-[12px] text-amber-800 font-bold">
-            ⚠️ 初期イベント（{DATA.length}件）がFirestore未移行です。取り込むと全端末で同期・削除が可能になります。
-            {seedError && <span className="block text-red-600 font-mono text-[11px] mt-0.5">取込失敗: {seedError}</span>}
-          </div>
-          <button
-            onClick={handleSeedEvents}
-            disabled={seeding}
-            className="shrink-0 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black text-xs transition-colors disabled:opacity-60"
-          >
-            {seeding ? '取込中…' : '初期データを取り込む'}
-          </button>
-        </div>
+        <MigrationBanner
+          seeding={seeding}
+          seedError={seedError}
+          onSeed={handleSeedEvents}
+        />
       )}
 
       <div className="flex flex-1 overflow-hidden">
@@ -1383,45 +1091,11 @@ VITE_FIREBASE_DATABASE_ID`}
           }}
         >
           {/* Sync / Error Indicator — fixed positioned, stays outside animated region */}
-          <AnimatePresence>
-            {isSaving && (
-              <motion.div
-                key="sync"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-center gap-3 bg-zinc-900 dark:bg-amber-500 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
-              >
-                <div className="relative flex items-center justify-center">
-                  <motion.div
-                    animate={{ scale: [1, 1.5, 1], opacity: [1, 0, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute w-2 h-2 bg-white rounded-full blur-[2px]"
-                  />
-                  <div className="relative w-1.5 h-1.5 bg-white rounded-full" />
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Cloud Syncing...</span>
-              </motion.div>
-            )}
-            {saveError && (
-              <motion.div
-                key="error"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                role="alert"
-                onClick={() => setSaveError(null)}
-                className="fixed bottom-24 lg:bottom-10 right-4 lg:right-10 z-[100] flex items-start gap-3 bg-red-600 text-white px-5 py-3 rounded-2xl shadow-2xl max-w-sm cursor-pointer"
-              >
-                <span className="text-base leading-none mt-0.5">⚠️</span>
-                <div className="flex-1">
-                  <div className="text-[10px] font-black uppercase tracking-[0.2em] mb-1">保存エラー</div>
-                  <div className="text-xs font-bold leading-snug">{saveError}</div>
-                  <div className="text-[10px] opacity-70 mt-1">タップで閉じる</div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <SavingIndicator
+            isSaving={isSaving}
+            saveError={saveError}
+            onDismissError={() => setSaveError(null)}
+          />
 
           {/* View area: overflow-hidden clips off-screen slides */}
           <div className="flex-1 relative overflow-hidden">
@@ -1463,73 +1137,15 @@ VITE_FIREBASE_DATABASE_ID`}
       {/* Modals */}
       <AnimatePresence>
         {dayDetail && (
-          <div key="day-detail" className="fixed inset-0 z-50 flex items-end lg:items-center justify-center lg:p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={handleCloseDayDetail}
-              className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 40 }}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="relative z-10 flex max-h-[85vh] flex-col overflow-hidden rounded-t-3xl border border-gray-100 bg-white shadow-2xl max-lg:max-h-[92dvh] max-lg:rounded-b-none max-lg:border-b-0 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:max-w-md lg:rounded-3xl w-full"
-            >
-              <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-slate-200 lg:hidden" aria-hidden />
-              <div className="p-5 lg:p-6 border-b border-slate-100 flex justify-between items-start gap-3 shrink-0">
-                <div>
-                  <h3 className="text-lg font-black text-slate-800 tracking-tight">
-                    {dayDetail.year}年{dayDetail.month}月{dayDetail.day}日
-                  </h3>
-                  <p className="text-xs font-bold text-slate-500 mt-1">この日のイベント {dayDetail.events.length} 件</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCloseDayDetail}
-                  className="w-9 h-9 shrink-0 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
-                  aria-label="閉じる"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-              <div className="overflow-y-auto p-4 lg:p-5 space-y-2 flex-1 min-h-0">
-                {dayDetail.events.map((ev) => {
-                  const typeSty = ts(ev.type || "");
-                  const optionalLine = buildEventOptionalCaption(ev);
-                  return (
-                  <button
-                    key={ev.id}
-                    type="button"
-                    onClick={() => handlePickEventFromDayDetail(ev)}
-                    title={ev.status === 'completed' ? '完了済み' : undefined}
-                    style={{
-                      borderLeftWidth: 3,
-                      borderLeftColor: typeSty.border,
-                    }}
-                    className="flex min-h-11 w-full items-center text-left rounded-xl border border-solid border-slate-200 bg-white px-3 py-2 shadow-sm ring-1 ring-inset ring-slate-900/[0.04] overflow-hidden transition hover:border-slate-300 hover:bg-slate-50/80"
-                  >
-                    <div className="flex min-h-0 w-full items-center gap-2.5">
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full border border-slate-900/15"
-                        style={{ backgroundColor: typeSty.border }}
-                        aria-hidden
-                      />
-                      <span className="min-w-0 flex-1 py-0.5">
-                        <span className="font-bold text-sm text-slate-900 truncate block">{ev.venue}</span>
-                        {optionalLine ? (
-                          <span className="text-[11px] font-medium text-slate-600 truncate block mt-0.5">{optionalLine}</span>
-                        ) : null}
-                      </span>
-                    </div>
-                  </button>
-                );
-                })}
-              </div>
-            </motion.div>
-          </div>
+          <DayDetailModal
+            key="day-detail"
+            year={dayDetail.year}
+            month={dayDetail.month}
+            day={dayDetail.day}
+            events={dayDetail.events}
+            onClose={handleCloseDayDetail}
+            onPickEvent={handlePickEventFromDayDetail}
+          />
         )}
         {selected && (
           <EventDetailModal
@@ -1594,40 +1210,11 @@ VITE_FIREBASE_DATABASE_ID`}
       )}
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 border-t border-white/15 flex items-center justify-around pb-[env(safe-area-inset-bottom)] z-20 lg:hidden" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.60) 0%, rgba(0,0,0,0.92) 100%)" }}>
-        {(
-          [
-            { id: "home",     icon: <Home size={20} />,           label: "ホーム" },
-            { id: "calendar", icon: <Calendar size={20} />,       label: "カレンダー" },
-            { id: "prep",     icon: <ClipboardList size={20} />,  label: "準備物" },
-            { id: "master",   icon: <Package size={20} />,        label: "備品" },
-            { id: "fish",     icon: <Fish size={20} />,           label: "魚リスト" },
-            { id: "layout",   icon: <LayoutGrid size={20} />,     label: "レイアウト" },
-          ] as { id: ViewMode; icon: React.ReactNode; label: string }[]
-        ).map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => {
-              if (tab.id !== 'prep' && tab.id !== 'archive') setPrepEvent(null);
-              setSwipeDir(0);
-              handleSetView(tab.id);
-            }}
-            className={`relative flex flex-col items-center gap-0.5 px-3 py-3 text-[10px] font-bold transition-colors ${
-              view === tab.id ? "text-white" : "text-white/50"
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-            {view === tab.id && (
-              <motion.div
-                layoutId="nav-indicator"
-                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-white"
-                transition={{ type: 'spring', stiffness: 400, damping: 35 }}
-              />
-            )}
-          </button>
-        ))}
-      </nav>
+      <MobileBottomNav
+        view={view}
+        onSetView={(v) => { setSwipeDir(0); handleSetView(v); }}
+        onClearPrepEvent={() => setPrepEvent(null)}
+      />
     </div>
   );
 }
