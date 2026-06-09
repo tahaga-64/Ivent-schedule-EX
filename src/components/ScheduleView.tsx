@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronLeft, ChevronRight, RefreshCw, Upload, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Upload, X } from 'lucide-react';
 import {
   fetchMonthData,
   saveMonthDataFields,
@@ -56,12 +56,59 @@ function needsDetail(type: StatusType): boolean {
   return type !== 'normal' && type !== 'request' && type !== 'rest';
 }
 
-// 一覧セル・行に表示する短いテキスト
+// 一覧セル・行に表示する短いテキスト（〇 → 公休、◎ → 希望休 と表記する）
 function displayText(item: { type: StatusType; detail: string }): string {
-  if (item.type === 'normal') return '〇';
-  if (item.type === 'request') return '◎';
+  if (item.type === 'normal') return '公休';
+  if (item.type === 'request') return '希望休';
   if (item.type === 'rest') return item.detail === '未定' ? '未定' : item.detail || '－';
   return item.detail || TYPE_LABEL[item.type];
+}
+
+// ─── 1日分の詳細情報（モバイル: タップ展開 / デスクトップ: ホバー表示） ──────
+
+type DayInfo = {
+  type: StatusType;
+  typeLabel: string;
+  detail: string;
+  trainingName?: string;
+  trainingLocation?: string;
+  memo?: string;
+};
+
+function dayInfo(data: MonthData, member: string, dayIdx: number): DayInfo {
+  const item = data.schedule[member]?.[dayIdx] ?? { type: 'rest' as StatusType, detail: '' };
+  const labels = data.trainingLabels ?? TRAINING_LABELS;
+  const locations = data.trainingLocations ?? TRAINING_LOCATIONS;
+  const key = (item.detail ?? '').trim();
+  return {
+    type: item.type,
+    typeLabel: TYPE_LABEL[item.type].replace('(〇)', '').replace('(◎)', ''),
+    detail: item.detail,
+    trainingName: labels[key] || undefined,
+    trainingLocation: locations[key] || undefined,
+    memo: data.memos[member]?.[dayIdx + 1] || undefined,
+  };
+}
+
+function DayDetail({ info }: { info: DayInfo }) {
+  const rows: { label: string; value: string; className?: string }[] = [
+    { label: '区分', value: info.typeLabel, className: STATUS_COLOR[info.type] },
+  ];
+  if (needsDetail(info.type) && info.detail) {
+    rows.push({ label: '内容', value: info.trainingName ? `${info.detail}（${info.trainingName}）` : info.detail });
+  }
+  if (info.trainingLocation) rows.push({ label: '場所', value: info.trainingLocation });
+  if (info.memo) rows.push({ label: 'メモ', value: info.memo });
+  return (
+    <div className="border-l-2 border-white/15 pl-3 space-y-1 text-xs">
+      {rows.map(r => (
+        <div key={r.label} className="flex gap-2">
+          <span className="w-8 shrink-0 text-white/40">{r.label}</span>
+          <span className={r.className ?? 'text-white/85'}>{r.value}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ─── ローカル入力（iOS ズーム防止のため 16px 固定・onBlur で確定） ───────────
@@ -280,12 +327,29 @@ function MyScheduleView({
   const totalDays = getDaysInMonth(year, month);
   const now = new Date();
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+  // タップで詳細を開いている日（モバイル）
+  const [openDay, setOpenDay] = useState<number | null>(null);
+
+  // 月間サマリー（稼働・公休・希望休の日数）
+  let workDays = 0, offDays = 0, requestDays = 0;
+  for (let i = 0; i < totalDays; i++) {
+    const t = data.schedule[member]?.[i]?.type;
+    if (!t) continue;
+    if (needsDetail(t)) workDays++;
+    else if (t === 'normal') offDays++;
+    else if (t === 'request') requestDays++;
+  }
 
   return (
     <div className="max-w-2xl space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-white">{member.replace('　', ' ')}</span>
-        <button onClick={onChangeName} className="text-xs text-white/40 hover:text-white/70 underline underline-offset-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-baseline gap-3 min-w-0">
+          <span className="text-sm font-bold text-white shrink-0">{member.replace('　', ' ')}</span>
+          <span className="text-xs text-white/45 tabular-nums truncate">
+            稼働 {workDays}日 ・ 公休 {offDays}日 ・ 希望休 {requestDays}日
+          </span>
+        </div>
+        <button onClick={onChangeName} className="shrink-0 text-xs text-white/40 hover:text-white/70 underline underline-offset-2">
           名前を変更
         </button>
       </div>
@@ -299,56 +363,88 @@ function MyScheduleView({
           const isToday = isCurrentMonth && day === now.getDate();
           const item = data.schedule[member]?.[i] ?? { type: 'rest' as StatusType, detail: '' };
           const memo = data.memos[member]?.[day] ?? '';
+          const info = dayInfo(data, member, i);
 
+          const dayLabel = (
+            <span className={`w-14 shrink-0 text-sm tabular-nums ${
+              dow === 0 ? 'text-red-300' : dow === 6 ? 'text-blue-300' : 'text-white/60'
+            }`}>
+              {day}日（{WEEK_JP[dow]}）
+            </span>
+          );
+
+          // モバイル: 行をタップでその日の詳細を展開
+          if (readOnly) {
+            const open = openDay === day;
+            return (
+              <div key={day} className={isToday ? 'bg-white/8' : ''}>
+                <button
+                  onClick={() => setOpenDay(open ? null : day)}
+                  className="w-full px-3 py-2 text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    {dayLabel}
+                    <span className={`flex-1 text-sm truncate ${STATUS_COLOR[item.type]}`}>
+                      {displayText(item)}
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      className={`shrink-0 text-white/30 transition-transform ${open ? 'rotate-180' : ''}`}
+                    />
+                  </div>
+                  {memo && !open && (
+                    <div className="mt-1 pl-[68px] text-xs text-white/45 truncate">{memo}</div>
+                  )}
+                </button>
+                {open && (
+                  <div className="px-3 pb-3 pl-[80px]">
+                    <DayDetail info={info} />
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          // デスクトップ: インライン編集
           return (
             <div key={day} className={`px-3 py-2 ${isToday ? 'bg-white/8' : ''}`}>
               <div className="flex items-center gap-3">
-                <span className={`w-14 shrink-0 text-sm tabular-nums ${
-                  dow === 0 ? 'text-red-300' : dow === 6 ? 'text-blue-300' : 'text-white/60'
-                }`}>
-                  {day}日（{WEEK_JP[dow]}）
-                </span>
-
-                {readOnly ? (
-                  <span className={`text-sm ${STATUS_COLOR[item.type]}`}>
-                    {displayText(item)}
-                  </span>
-                ) : (
+                {dayLabel}
+                <select
+                  value={item.type}
+                  onChange={e => onTypeChange(member, i, e.target.value as StatusType)}
+                  className="h-8 w-32 shrink-0 rounded border border-white/15 bg-slate-800 text-white text-xs px-1 outline-none"
+                >
+                  {(Object.keys(TYPE_LABEL) as StatusType[]).map(t => (
+                    <option key={t} value={t}>{TYPE_LABEL[t].replace('(〇)', '').replace('(◎)', '')}</option>
+                  ))}
+                </select>
+                {needsDetail(item.type) && (
                   <>
-                    <select
-                      value={item.type}
-                      onChange={e => onTypeChange(member, i, e.target.value as StatusType)}
-                      className="h-8 w-32 shrink-0 rounded border border-white/15 bg-slate-800 text-white text-xs px-1 outline-none"
-                    >
-                      {(Object.keys(TYPE_LABEL) as StatusType[]).map(t => (
-                        <option key={t} value={t}>{TYPE_LABEL[t]}</option>
-                      ))}
-                    </select>
-                    {needsDetail(item.type) && (
-                      <LocalInput
-                        className="flex-1 h-8 px-2 rounded border border-white/15 bg-white/5 text-white/85 outline-none focus:border-white/40"
-                        value={item.detail}
-                        onChange={v => onDetailChange(member, i, v)}
-                        placeholder="詳細"
-                        list="schedule-suggestions"
-                      />
+                    <LocalInput
+                      className="flex-1 h-8 px-2 rounded border border-white/15 bg-white/5 text-white/85 outline-none focus:border-white/40"
+                      value={item.detail}
+                      onChange={v => onDetailChange(member, i, v)}
+                      placeholder="詳細"
+                      list="schedule-suggestions"
+                    />
+                    {info.trainingName && (
+                      <span className="shrink-0 max-w-[200px] truncate text-xs text-white/45">
+                        {info.trainingName}{info.trainingLocation ? `・${info.trainingLocation}` : ''}
+                      </span>
                     )}
                   </>
                 )}
               </div>
 
-              {readOnly ? (
-                memo && <div className="mt-1 pl-[68px] text-xs text-white/45">{memo}</div>
-              ) : (
-                <div className="mt-1.5 pl-[68px]">
-                  <LocalInput
-                    className="w-full h-8 px-2 rounded border border-white/10 bg-transparent text-white/60 outline-none focus:border-white/30"
-                    value={memo}
-                    onChange={v => onMemoChange(member, day, v)}
-                    placeholder="メモ"
-                  />
-                </div>
-              )}
+              <div className="mt-1.5 pl-[68px]">
+                <LocalInput
+                  className="w-full h-8 px-2 rounded border border-white/10 bg-transparent text-white/60 outline-none focus:border-white/30"
+                  value={memo}
+                  onChange={v => onMemoChange(member, day, v)}
+                  placeholder="メモ"
+                />
+              </div>
             </div>
           );
         })}
@@ -376,6 +472,12 @@ function AllScheduleView({
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
   const [editMode, setEditMode] = useState(false);
   const [selDay, setSelDay] = useState(isCurrentMonth ? now.getDate() : 1);
+  // タップで詳細を開いているメンバー（モバイル）
+  const [openMember, setOpenMember] = useState<string | null>(null);
+  // ホバー中のセル（デスクトップ・表示モードのみ）
+  const [hover, setHover] = useState<{
+    x: number; top: number; bottom: number; member: string; di: number;
+  } | null>(null);
 
   useEffect(() => {
     setSelDay(d => Math.min(Math.max(1, d), totalDays));
@@ -408,7 +510,7 @@ function AllScheduleView({
             return (
               <button
                 key={d}
-                onClick={() => setSelDay(d)}
+                onClick={() => { setSelDay(d); setOpenMember(null); }}
                 className={`flex flex-col items-center justify-center min-w-[44px] h-12 rounded border shrink-0 ${
                   sel ? 'bg-white text-slate-900 border-white'
                     : today ? 'border-white/40 text-white bg-white/5'
@@ -434,12 +536,27 @@ function AllScheduleView({
         <div className="border border-white/10 rounded divide-y divide-white/5">
           {MEMBERS.map(name => {
             const item = data.schedule[name]?.[di] ?? { type: 'rest' as StatusType, detail: '' };
+            const open = openMember === name;
             return (
-              <div key={name} className="flex items-center gap-3 px-3 py-2.5">
-                <span className="flex-1 text-sm text-white/80 truncate">{name.replace('　', ' ')}</span>
-                <span className={`text-sm text-right ${STATUS_COLOR[item.type]}`}>
-                  {displayText(item)}
-                </span>
+              <div key={name}>
+                <button
+                  onClick={() => setOpenMember(open ? null : name)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left"
+                >
+                  <span className="flex-1 text-sm text-white/80 truncate">{name.replace('　', ' ')}</span>
+                  <span className={`text-sm text-right ${STATUS_COLOR[item.type]}`}>
+                    {displayText(item)}
+                  </span>
+                  <ChevronDown
+                    size={13}
+                    className={`shrink-0 text-white/30 transition-transform ${open ? 'rotate-180' : ''}`}
+                  />
+                </button>
+                {open && (
+                  <div className="px-3 pb-3">
+                    <DayDetail info={dayInfo(data, name, di)} />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -469,7 +586,7 @@ function AllScheduleView({
           />
         </div>
         <button
-          onClick={() => setEditMode(v => !v)}
+          onClick={() => { setEditMode(v => !v); setHover(null); }}
           className={`h-9 px-4 rounded border text-sm shrink-0 ${
             editMode
               ? 'bg-white text-slate-900 border-white font-bold'
@@ -481,7 +598,7 @@ function AllScheduleView({
       </div>
 
       <div className="border border-white/10 rounded overflow-hidden">
-        <div className="overflow-auto max-h-[65vh]">
+        <div className="overflow-auto max-h-[65vh]" onScroll={() => setHover(null)}>
           <table className="border-collapse text-xs" style={{ minWidth: `${120 + totalDays * (editMode ? 88 : 56)}px` }}>
             <thead className="sticky top-0 z-20">
               <tr className="bg-slate-900">
@@ -556,7 +673,11 @@ function AllScheduleView({
                           <div
                             className={`text-center whitespace-nowrap overflow-hidden text-ellipsis ${STATUS_COLOR[item.type]}`}
                             style={{ maxWidth: 72 }}
-                            title={displayText(item)}
+                            onMouseEnter={e => {
+                              const r = e.currentTarget.getBoundingClientRect();
+                              setHover({ x: r.left + r.width / 2, top: r.top, bottom: r.bottom, member: name, di });
+                            }}
+                            onMouseLeave={() => setHover(null)}
                           >
                             {displayText(item)}
                           </div>
@@ -570,6 +691,29 @@ function AllScheduleView({
           </table>
         </div>
       </div>
+
+      {/* ホバー詳細（fixed 配置で overflow にクリップされない） */}
+      {!editMode && hover && (() => {
+        const info = dayInfo(data, hover.member, hover.di);
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const left = Math.min(Math.max(hover.x, 140), vw - 140);
+        const showBelow = hover.bottom + 170 < vh;
+        return (
+          <div
+            className="fixed z-[150] w-64 -translate-x-1/2 rounded border border-white/20 bg-slate-900 px-3 py-2.5 text-xs shadow-xl pointer-events-none"
+            style={showBelow ? { left, top: hover.bottom + 6 } : { left, bottom: vh - hover.top + 6 }}
+          >
+            <div className="flex items-baseline justify-between gap-2 mb-1.5">
+              <span className="font-bold text-white truncate">{hover.member.replace('　', ' ')}</span>
+              <span className="shrink-0 text-white/45 tabular-nums">
+                {month}月{hover.di + 1}日（{WEEK_JP[new Date(year, month - 1, hover.di + 1).getDay()]}）
+              </span>
+            </div>
+            <DayDetail info={info} />
+          </div>
+        );
+      })()}
 
       <div className="border border-white/10 rounded px-3 py-2.5">
         <div className="text-xs text-white/40 mb-1.5">全体メモ / 連絡事項</div>
