@@ -1,17 +1,32 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
+// EX-schedule は ivent-schedule-EX とは別の独立した Firebase プロジェクトに
+// データを保存している。以下は EX-schedule リポジトリの firebase-applet-config.json
+// に公開済みの Web クライアント設定（Firebase の Web 設定値は秘匿情報ではなく、
+// アクセス制御は Firestore セキュリティルールで担保される）。
+// Vercel 等で環境変数が設定されていればそちらを優先し、無ければ公開設定を使う。
+//
+// 重要: このプロジェクトはデフォルトではない named database
+// (ai-studio-...) を使うため、databaseId の指定が必須。これを誤ると
+// データが一切取得できない。
+const EX_SCHEDULE_CONFIG = {
+  apiKey: import.meta.env.VITE_EX_SCHEDULE_API_KEY ?? 'AIzaSyBlm_kU-uonN-clZO7EtCDAT1alxa2mVhk',
+  authDomain: import.meta.env.VITE_EX_SCHEDULE_AUTH_DOMAIN ?? 'gen-lang-client-0070384633.firebaseapp.com',
+  projectId: import.meta.env.VITE_EX_SCHEDULE_PROJECT_ID ?? 'gen-lang-client-0070384633',
+  storageBucket: import.meta.env.VITE_EX_SCHEDULE_STORAGE_BUCKET ?? 'gen-lang-client-0070384633.firebasestorage.app',
+  messagingSenderId: import.meta.env.VITE_EX_SCHEDULE_MESSAGING_SENDER_ID ?? '802549538762',
+  appId: import.meta.env.VITE_EX_SCHEDULE_APP_ID ?? '1:802549538762:web:fa33891040e7ed5cd57933',
+};
+
+const EX_SCHEDULE_DATABASE_ID =
+  import.meta.env.VITE_EX_SCHEDULE_DATABASE_ID ?? 'ai-studio-e6c2ec46-2ca9-43b4-b057-65599668d27c';
+
 const APP_NAME = 'ex-schedule';
 const exApp =
   getApps().find(a => a.name === APP_NAME) ??
-  initializeApp(
-    {
-      apiKey: import.meta.env.VITE_EX_SCHEDULE_API_KEY,
-      projectId: import.meta.env.VITE_EX_SCHEDULE_PROJECT_ID,
-    },
-    APP_NAME,
-  );
-const exDb = getFirestore(exApp, import.meta.env.VITE_EX_SCHEDULE_DATABASE_ID ?? '(default)');
+  initializeApp(EX_SCHEDULE_CONFIG, APP_NAME);
+const exDb = getFirestore(exApp, EX_SCHEDULE_DATABASE_ID);
 
 // ─── 定数（EX-schedule constants.ts から移植） ────────────────────────────────
 

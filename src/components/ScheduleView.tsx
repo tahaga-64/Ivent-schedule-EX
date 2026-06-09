@@ -452,6 +452,8 @@ export default function ScheduleView() {
   const [saving, setSaving] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // デバウンス中の保留更新を蓄積（連続編集で前の変更を失わないため）
+  const pendingRef = useRef<Record<string, unknown>>({});
 
   const monthKey = `${year}-${month}`;
 
@@ -464,12 +466,31 @@ export default function ScheduleView() {
 
   useEffect(() => { load(year, month); }, [year, month, load]);
 
-  const persistChanges = useCallback((updates: Partial<MonthData>) => {
+  const persistChanges = useCallback((updates: Partial<MonthData> & Record<string, unknown>) => {
+    // schedule / memos / dones などのマップは深くマージし、別メンバーへの
+    // 連続編集が互いを上書きしないようにする。
+    const pending = pendingRef.current;
+    for (const [key, val] of Object.entries(updates)) {
+      const prevVal = pending[key];
+      if (
+        (key === 'schedule' || key === 'memos' || key === 'dones') &&
+        val && typeof val === 'object' && !Array.isArray(val) &&
+        prevVal && typeof prevVal === 'object' && !Array.isArray(prevVal)
+      ) {
+        pending[key] = { ...(prevVal as object), ...(val as object) };
+      } else {
+        pending[key] = val;
+      }
+    }
+
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
+      const toSave = pendingRef.current;
+      pendingRef.current = {};
+      if (Object.keys(toSave).length === 0) return;
       setSaving(true);
       try {
-        await saveMonthDataFields(year, month, updates as Partial<MonthData> & Record<string, unknown>);
+        await saveMonthDataFields(year, month, toSave);
       } finally {
         setSaving(false);
       }
@@ -487,7 +508,7 @@ export default function ScheduleView() {
       const memberSched = [...(prev.schedule[member] ?? [])];
       memberSched[dayIdx] = { ...memberSched[dayIdx], type };
       const newSched = { ...prev.schedule, [member]: memberSched };
-      persistChanges({ [`schedule.${member}`]: memberSched } as unknown as Partial<MonthData>);
+      persistChanges({ schedule: { [member]: memberSched } });
       return { ...prev, schedule: newSched };
     });
   }, [persistChanges]);
@@ -498,7 +519,7 @@ export default function ScheduleView() {
       const memberSched = [...(prev.schedule[member] ?? [])];
       memberSched[dayIdx] = { ...memberSched[dayIdx], detail };
       const newSched = { ...prev.schedule, [member]: memberSched };
-      persistChanges({ [`schedule.${member}`]: memberSched } as unknown as Partial<MonthData>);
+      persistChanges({ schedule: { [member]: memberSched } });
       return { ...prev, schedule: newSched };
     });
   }, [persistChanges]);
