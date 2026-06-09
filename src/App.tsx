@@ -640,6 +640,42 @@ export default function App() {
     }
   };
 
+  const handleDuplicateEvent = useCallback(() => {
+    if (!selected || !canEditEvent) return;
+    const source = selected;
+    runWithGuard(() => {
+      const newId = crypto.randomUUID();
+      const { id: _id, photos: _photos, prepBudgetTotal: _bt, prepItemTotal: _pt, prepItemDone: _pd, ...base } = source;
+      const newEvent: Event = {
+        ...base,
+        id: newId,
+        venue: `${source.venue}（複製）`,
+        status: 'scheduled',
+      };
+      setSaveError(null);
+      setDbEvents(prev => ({ ...prev, [newId]: newEvent }));
+      setSelected(newEvent);
+      setPendingNewEventId(newId);
+      setLastEditedId(newId);
+      setLocalDailyRoles(newEvent.dailyRoles ?? {});
+      hasUnsavedChangesRef.current = false;
+      setHasUnsavedChanges(false);
+      setValidationErrors([]);
+      setModalTab('detail');
+
+      // 準備物を非同期でコピー（イベント保存前でもサブコレクション書き込み可）
+      getDocs(collection(db, `events/${source.id}/preparationItems`)).then(snap => {
+        if (snap.empty) return;
+        const batch = writeBatch(db);
+        snap.docs.forEach(d => {
+          const newItemId = crypto.randomUUID();
+          batch.set(doc(db, `events/${newId}/preparationItems`, newItemId), { ...d.data(), id: newItemId });
+        });
+        batch.commit().catch(console.error);
+      }).catch(console.error);
+    });
+  }, [selected, canEditEvent, runWithGuard]);
+
   // 種別削除：該当種別を持つイベントのtypeをFirestoreから一括クリア
   const handleDeleteType = async (label: string) => {
     const affected = allEvents.filter(e => e.type === label);
@@ -973,6 +1009,7 @@ VITE_FIREBASE_DATABASE_ID`}
           event={prepEvent}
           onBack={handleClearPrepEvent}
           canEdit={canEditPreparationList}
+          user={user ?? null}
         />
       ) : v === "prep" ? (
         <PrepEventList events={allEvents} onSelectEvent={handleSetPrepEvent} />
@@ -1138,6 +1175,7 @@ VITE_FIREBASE_DATABASE_ID`}
             }}
             isNewEvent={pendingNewEventId !== null && selected?.id === pendingNewEventId}
             onCancelNew={handleCancelNewEvent}
+            onDuplicate={handleDuplicateEvent}
           />
           </Suspense>
         )}

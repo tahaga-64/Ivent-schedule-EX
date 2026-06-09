@@ -47,6 +47,8 @@ export interface Event {
   photos?: EventPhoto[];
   status?: EventStatus;
   prepBudgetTotal?: number;
+  prepBudget?: number;
+  nearestStation?: string;
   financials?: EventFinancials;
   /** 準備物の件数（空行を除く）。collectionGroup 購読の代替 */
   prepItemTotal?: number;
@@ -65,6 +67,9 @@ export interface PreparationItem {
   prepared: boolean;
   arrivalDate?: string;
   note: string;
+  noteUpdatedByName?: string | null;
+  noteUpdatedByEmail?: string | null;
+  noteUpdatedAt?: string;
   url?: string;
   order: number;
 }

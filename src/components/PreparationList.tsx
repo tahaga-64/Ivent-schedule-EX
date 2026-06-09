@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { User } from 'firebase/auth';
 import { PreparationItem, Event } from '../types';
 import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer, FileSpreadsheet } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -14,6 +15,7 @@ interface Props {
   onBack: () => void;
   /** 準備物の追加・編集・保存・削除を許可するか（ログイン済みなら true を渡す想定） */
   canEdit: boolean;
+  user?: User | null;
 }
 
 function createEmptyItem(order: number): PreparationItem {
@@ -112,7 +114,13 @@ async function handleExportExcel(event: Event, items: PreparationItem[]): Promis
   }
 }
 
-export default function PreparationList({ event, onBack, canEdit }: Props) {
+function formatNoteDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+export default function PreparationList({ event, onBack, canEdit, user }: Props) {
   const [items, setItems] = useState<PreparationItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -199,7 +207,16 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
     if (!canEdit) return;
     const item = items.find(i => i.id === id);
     if (!item) return;
-    const newItem = { ...item, ...updates };
+    let enriched = { ...updates };
+    if ('note' in updates && user) {
+      enriched = {
+        ...enriched,
+        noteUpdatedByName: user.displayName ?? null,
+        noteUpdatedByEmail: user.email ?? null,
+        noteUpdatedAt: new Date().toISOString(),
+      };
+    }
+    const newItem = { ...item, ...enriched };
     newItem.amount = (newItem.quantity || 0) * (newItem.unitPrice || 0);
     editVersionRef.current += 1;
     setItems(prev => prev.map(i => i.id === id ? newItem : i));
@@ -437,6 +454,11 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
               <div className="border-t border-white/15 px-3 py-2">
                 <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">備考</div>
                 <PreparationNoteField value={item.note || ''} readOnly={!canEdit} onChange={note => updateItem(item.id, { note })} />
+                {item.noteUpdatedAt && (
+                  <p className="text-[10px] text-white/30 mt-0.5 leading-tight">
+                    {[item.noteUpdatedByName || item.noteUpdatedByEmail, formatNoteDate(item.noteUpdatedAt)].filter(Boolean).join(' · ')}
+                  </p>
+                )}
               </div>
             )}
             {/* Row 6: URL (shown if has content or canEdit) */}
@@ -596,6 +618,11 @@ export default function PreparationList({ event, onBack, canEdit }: Props) {
                         onChange={note => updateItem(item.id, { note })}
                         desktop
                       />
+                      {item.noteUpdatedAt && (
+                        <p className="px-4 pb-1.5 text-[10px] text-white/30 leading-tight">
+                          {[item.noteUpdatedByName || item.noteUpdatedByEmail, formatNoteDate(item.noteUpdatedAt)].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
                     </td>
                     <td className="p-0 border-r border-white/10">
                       {canEdit ? (

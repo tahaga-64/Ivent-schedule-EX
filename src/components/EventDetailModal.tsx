@@ -1,4 +1,4 @@
-import { X, Save, Trash2, ClipboardList } from 'lucide-react';
+import { X, Save, Trash2, ClipboardList, Copy, MapPin, Navigation } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { Event, EventStatus, EventPhoto, type FieldAuthorAttribution } from '../types';
@@ -69,6 +69,7 @@ export interface EventDetailModalProps {
   onUpdatePhotoCaption: (photo: EventPhoto, caption: string) => Promise<void>;
   isNewEvent?: boolean;
   onCancelNew?: () => void;
+  onDuplicate?: () => void;
 }
 
 // ── コンポーネント ─────────────────────────────────────────────────────────
@@ -101,6 +102,7 @@ export default function EventDetailModal({
   onUpdatePhotoCaption,
   isNewEvent,
   onCancelNew,
+  onDuplicate,
 }: EventDetailModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4">
@@ -243,13 +245,47 @@ export default function EventDetailModal({
             <div className="space-y-5">
             <div>
               <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">VENUE・会場</label>
-              <input
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
-                value={selected.venue}
-                placeholder="会場を入力..."
-                disabled={!canEditEvent}
-                onChange={e => onUpdate(selected.id, { venue: e.target.value })}
-              />
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                  value={selected.venue}
+                  placeholder="会場を入力..."
+                  disabled={!canEditEvent}
+                  onChange={e => onUpdate(selected.id, { venue: e.target.value })}
+                />
+                {selected.venue && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selected.venue)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 flex items-center justify-center w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 hover:bg-emerald-100 transition-colors"
+                    title="Google マップで検索"
+                  >
+                    <MapPin size={16} />
+                  </a>
+                )}
+              </div>
+              {/* 最寄り駅 */}
+              <div className="mt-2 flex items-center gap-2">
+                <Navigation size={13} className="shrink-0 text-gray-400" />
+                <input
+                  className="flex-1 text-sm text-gray-600 bg-transparent outline-none border-b border-dashed border-gray-200 focus:border-indigo-400 py-1 disabled:opacity-50 placeholder:text-gray-300"
+                  value={selected.nearestStation ?? ''}
+                  placeholder="最寄り駅（例: 久喜駅）"
+                  disabled={!canEditEvent}
+                  onChange={e => onUpdate(selected.id, { nearestStation: e.target.value || undefined })}
+                />
+                {selected.nearestStation && (
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selected.nearestStation)}&destination_place_id=`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 text-[10px] font-bold text-indigo-500 hover:text-indigo-700 whitespace-nowrap"
+                  >
+                    地図で見る
+                  </a>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -284,6 +320,22 @@ export default function EventDetailModal({
                 disabled={!canEditEvent}
                 onChange={e => onUpdate(selected.id, { client: e.target.value })}
               />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">予算（備品・ノベルティ）</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">¥</span>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full border border-gray-200 rounded-xl pl-7 pr-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                  value={selected.prepBudget ?? ''}
+                  placeholder="0"
+                  disabled={!canEditEvent}
+                  onChange={e => onUpdate(selected.id, { prepBudget: parseInt(e.target.value) || undefined })}
+                />
+              </div>
             </div>
 
             <div>
@@ -423,7 +475,28 @@ export default function EventDetailModal({
             </div>
             <div className="pl-5">
               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">BUDGET</div>
-              <div className="text-2xl font-black text-gray-800">¥{eventStats.budget.toLocaleString()}</div>
+              {selected.prepBudget ? (
+                <>
+                  <div className={`text-xl font-black leading-tight ${eventStats.budget > selected.prepBudget ? 'text-red-600' : 'text-gray-800'}`}>
+                    ¥{eventStats.budget.toLocaleString()}
+                    <span className="text-xs font-medium text-gray-400"> / ¥{selected.prepBudget.toLocaleString()}</span>
+                  </div>
+                  <div className="mt-1.5 w-full bg-gray-200 rounded-full h-1.5">
+                    <div
+                      className={`h-1.5 rounded-full transition-all ${
+                        eventStats.budget > selected.prepBudget ? 'bg-red-500' :
+                        eventStats.budget > selected.prepBudget * 0.8 ? 'bg-amber-500' : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${Math.min(100, (eventStats.budget / selected.prepBudget) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400 mt-0.5">
+                    {Math.round((eventStats.budget / selected.prepBudget) * 100)}% 使用
+                  </div>
+                </>
+              ) : (
+                <div className="text-2xl font-black text-gray-800">¥{eventStats.budget.toLocaleString()}</div>
+              )}
             </div>
           </div>
 
@@ -454,6 +527,16 @@ export default function EventDetailModal({
               className="w-full mt-2 py-4 rounded-2xl bg-slate-100 text-slate-600 text-sm font-bold hover:bg-slate-200 transition-colors"
             >
               キャンセル（保存しない）
+            </button>
+          )}
+          {canEditEvent && !isNewEvent && onDuplicate && (
+            <button
+              type="button"
+              onClick={onDuplicate}
+              className="w-full mt-2 py-3 rounded-2xl border border-indigo-200 text-sm font-bold text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 transition-colors flex items-center justify-center gap-2"
+            >
+              <Copy size={16} />
+              このイベントを複製
             </button>
           )}
           {canEditEvent && (
