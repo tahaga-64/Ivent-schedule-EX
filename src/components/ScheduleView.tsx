@@ -5,6 +5,7 @@ import {
   saveMonthDataFields,
   MEMBERS,
   TRAINING_LABELS,
+  TRAINING_LOCATIONS,
   TYPE_LABEL,
   TYPE_CLASS,
   getDaysInMonth,
@@ -14,6 +15,24 @@ import {
 } from '../lib/exSchedule';
 
 const DAYS_JP = ['月', '火', '水', '木', '金', '土', '日'];
+// getDay() (0=日) に対応する曜日ラベル
+const WEEK_JP = ['日', '月', '火', '水', '木', '金', '土'];
+
+// ─── 画面幅検出（モバイル/デスクトップ出し分け） ─────────────────────────────
+function useIsMobile(breakpoint = 1024) {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < breakpoint,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const handler = () => setIsMobile(mq.matches);
+    handler();
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [breakpoint]);
+  return isMobile;
+}
 
 // ─── ローカル入力コンポーネント ───────────────────────────────────────────────
 // iOS での自動ズーム防止のため 16px スケールトリックを使用
@@ -145,9 +164,39 @@ function BulkImportModal({ onClose, onImport }: {
   );
 }
 
-// ─── メンバービュー（個人カレンダー） ────────────────────────────────────────
+// ─── 共通: 詳細入力の候補リスト ───────────────────────────────────────────────
 
-function MemberScheduleView({
+function ScheduleSuggestions({ trainingLabels }: { trainingLabels?: Record<string, string> }) {
+  return (
+    <datalist id="schedule-suggestions">
+      {Object.keys(trainingLabels ?? TRAINING_LABELS).map(k => (
+        <option key={k} value={k} />
+      ))}
+      <option value="待機(海浜幕張)" />
+      <option value="待機(鳥浜)" />
+      <option value="海浜幕張" />
+      <option value="鳥浜" />
+      <option value="外販ミステリー1" />
+      <option value="イベントメンバー選抜" />
+      <option value="VR" />
+      <option value="販売" />
+    </datalist>
+  );
+}
+
+// detail を表示すべきステータスか
+function needsDetail(type: StatusType): boolean {
+  return type !== 'normal' && type !== 'request' && type !== 'rest';
+}
+
+// 稼働中（公休/希望休/未定 以外）か
+function isActive(type: StatusType): boolean {
+  return needsDetail(type);
+}
+
+// ─── メンバービュー モバイル版（縦アジェンダ） ───────────────────────────────
+
+function MemberAgendaList({
   year, month, member, data,
   onTypeChange, onDetailChange, onMemoChange, onDoneChange,
 }: {
@@ -158,8 +207,158 @@ function MemberScheduleView({
   onDoneChange: (member: string, day: number, checked: boolean) => void;
 }) {
   const totalDays = getDaysInMonth(year, month);
+  const now = new Date();
+  const trainingLabels = data.trainingLabels ?? TRAINING_LABELS;
+  const trainingLocations = data.trainingLocations ?? TRAINING_LOCATIONS;
+  const [showTraining, setShowTraining] = useState(false);
+
+  const trainingKeys = Object.keys(trainingLabels).filter(k => trainingLabels[k]);
+
+  return (
+    <div className="space-y-2.5">
+      {/* 研修詳細（折りたたみ） */}
+      {trainingKeys.length > 0 && (
+        <div className="bg-white/5 rounded-2xl border border-white/10 overflow-hidden">
+          <button
+            onClick={() => setShowTraining(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 text-left"
+          >
+            <span className="text-xs font-black text-white/70 flex items-center gap-2">
+              <Info size={14} className="text-indigo-300" /> 研修・イベント詳細
+            </span>
+            <ChevronRight
+              size={16}
+              className={`text-white/40 transition-transform ${showTraining ? 'rotate-90' : ''}`}
+            />
+          </button>
+          {showTraining && (
+            <div className="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {trainingKeys.map(key => (
+                <div key={key} className="bg-white/5 rounded-xl p-2.5 border border-white/10">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2 py-0.5 rounded-md bg-purple-500/30 text-purple-200 text-[10px] font-black">{key}</span>
+                    <span className="text-xs font-bold text-white/90">{trainingLabels[key]}</span>
+                  </div>
+                  <div className="text-[10px] text-white/50 leading-snug">{trainingLocations[key] || '詳細なし'}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 日別カード */}
+      {Array.from({ length: totalDays }).map((_, i) => {
+        const day = i + 1;
+        const date = new Date(year, month - 1, day);
+        const dow = date.getDay(); // 0=日
+        const isSun = dow === 0;
+        const isSat = dow === 6;
+        const isToday = year === now.getFullYear() && month === now.getMonth() + 1 && day === now.getDate();
+        const item = data.schedule[member]?.[i] ?? { type: 'rest' as StatusType, detail: '' };
+        const isDone = data.dones[member]?.[day] ?? false;
+        const memo = data.memos[member]?.[day] ?? '';
+
+        return (
+          <div
+            key={day}
+            className={`rounded-2xl border p-3 transition-all ${isDone ? 'opacity-50' : ''} ${
+              isToday
+                ? 'border-indigo-400/60 bg-indigo-500/10 ring-1 ring-indigo-400/30'
+                : isSun ? 'border-red-500/20 bg-red-500/5'
+                : isSat ? 'border-blue-500/20 bg-blue-500/5'
+                : 'border-white/10 bg-white/5'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              {/* 日付ブロック */}
+              <div className="flex flex-col items-center justify-center w-11 shrink-0">
+                <span className={`text-2xl font-black leading-none tabular-nums ${
+                  isSun ? 'text-red-400' : isSat ? 'text-blue-400' : isToday ? 'text-indigo-300' : 'text-white'
+                }`}>{day}</span>
+                <span className={`text-[10px] font-bold mt-0.5 ${
+                  isSun ? 'text-red-400/70' : isSat ? 'text-blue-400/70' : 'text-white/40'
+                }`}>{WEEK_JP[dow]}</span>
+              </div>
+
+              {/* ステータス選択（大きめタッチターゲット） */}
+              <select
+                value={item.type}
+                onChange={e => onTypeChange(member, i, e.target.value as StatusType)}
+                className={`flex-1 h-11 rounded-xl px-3 font-black text-sm border-0 outline-none appearance-none cursor-pointer ${TYPE_CLASS[item.type]}`}
+                style={{ fontSize: 16 }}
+              >
+                {(Object.keys(TYPE_LABEL) as StatusType[]).map(t => (
+                  <option key={t} value={t}>{TYPE_LABEL[t]}</option>
+                ))}
+              </select>
+
+              {/* 完了チェック */}
+              <label className="flex flex-col items-center gap-0.5 shrink-0 cursor-pointer px-1">
+                <input
+                  type="checkbox"
+                  checked={isDone}
+                  onChange={e => onDoneChange(member, day, e.target.checked)}
+                  className="accent-indigo-500 w-5 h-5"
+                />
+                <span className="text-[9px] text-white/40 font-bold">完了</span>
+              </label>
+            </div>
+
+            {needsDetail(item.type) && (
+              <LocalInput
+                className="w-full mt-2 h-10 px-3 rounded-xl bg-white/10 text-white/90 border border-white/10 focus:border-indigo-400 outline-none"
+                value={item.detail}
+                onChange={v => onDetailChange(member, i, v)}
+                placeholder="詳細（場所・内容）"
+                list="schedule-suggestions"
+              />
+            )}
+
+            <LocalInput
+              className="w-full mt-2 h-10 px-3 rounded-xl bg-white/5 text-white/70 border border-white/10 focus:border-indigo-400 outline-none"
+              value={memo}
+              onChange={v => onMemoChange(member, day, v)}
+              placeholder="メモ"
+            />
+          </div>
+        );
+      })}
+
+      <ScheduleSuggestions trainingLabels={data.trainingLabels} />
+    </div>
+  );
+}
+
+// ─── メンバービュー（個人カレンダー） ────────────────────────────────────────
+
+function MemberScheduleView({
+  isMobile,
+  year, month, member, data,
+  onTypeChange, onDetailChange, onMemoChange, onDoneChange,
+}: {
+  isMobile: boolean;
+  year: number; month: number; member: string; data: MonthData;
+  onTypeChange: (member: string, dayIdx: number, type: StatusType) => void;
+  onDetailChange: (member: string, dayIdx: number, detail: string) => void;
+  onMemoChange: (member: string, day: number, val: string) => void;
+  onDoneChange: (member: string, day: number, checked: boolean) => void;
+}) {
+  const totalDays = getDaysInMonth(year, month);
   const startOffset = getStartOffset(year, month);
   const now = new Date();
+
+  if (isMobile) {
+    return (
+      <MemberAgendaList
+        year={year} month={month} member={member} data={data}
+        onTypeChange={onTypeChange}
+        onDetailChange={onDetailChange}
+        onMemoChange={onMemoChange}
+        onDoneChange={onDoneChange}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -293,9 +492,9 @@ function MemberScheduleView({
   );
 }
 
-// ─── 全体テーブルビュー ───────────────────────────────────────────────────────
+// ─── 全体ビュー モバイル版（日付ピッカー + 当日メンバー一覧） ───────────────
 
-function OverallTableView({
+function OverallDayView({
   year, month, data,
   onTypeChange, onDetailChange, onTeamGoalChange, onOverallMemoChange,
 }: {
@@ -307,6 +506,155 @@ function OverallTableView({
 }) {
   const totalDays = getDaysInMonth(year, month);
   const now = new Date();
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+  const [selDay, setSelDay] = useState(isCurrentMonth ? now.getDate() : 1);
+
+  // 月が変わって日数が減った場合にクランプ
+  useEffect(() => {
+    setSelDay(d => Math.min(Math.max(1, d), totalDays));
+  }, [totalDays]);
+
+  const di = selDay - 1;
+  let activeCount = 0;
+  MEMBERS.forEach(name => {
+    const it = data.schedule[name]?.[di];
+    if (it && isActive(it.type)) activeCount++;
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* チーム目標 */}
+      <div className="bg-white/5 rounded-2xl border border-white/10 p-4">
+        <div className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">今月のチーム目標</div>
+        <LocalInput
+          className="w-full h-11 px-3 rounded-xl bg-indigo-500/10 border border-indigo-400/20 text-sm text-white/90 font-bold outline-none focus:border-indigo-400"
+          value={data.teamGoal}
+          onChange={onTeamGoalChange}
+          placeholder="今月の全体目標を入力..."
+        />
+      </div>
+
+      {/* 日付ストリップ */}
+      <div className="sticky top-0 z-10 -mx-1 px-1 py-1 bg-slate-950/80 backdrop-blur-sm rounded-xl">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+          {Array.from({ length: totalDays }).map((_, i) => {
+            const d = i + 1;
+            const dt = new Date(year, month - 1, d);
+            const w = dt.getDay();
+            const sel = d === selDay;
+            const today = isCurrentMonth && d === now.getDate();
+            return (
+              <button
+                key={d}
+                onClick={() => setSelDay(d)}
+                className={`flex flex-col items-center justify-center min-w-[46px] h-14 rounded-xl border shrink-0 transition-colors ${
+                  sel
+                    ? 'bg-indigo-600 border-indigo-500 text-white'
+                    : today ? 'border-indigo-400/40 bg-indigo-500/10 text-indigo-200'
+                    : 'bg-white/5 border-white/10 text-white/60'
+                }`}
+              >
+                <span className="text-base font-black tabular-nums leading-none">{d}</span>
+                <span className={`text-[9px] font-bold mt-1 ${
+                  sel ? 'text-white/80' : w === 0 ? 'text-red-400/80' : w === 6 ? 'text-blue-400/80' : 'text-white/40'
+                }`}>{WEEK_JP[w]}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 選択日ヘッダー + 稼働人数 */}
+      <div className="flex items-center justify-between px-1">
+        <span className="text-sm font-black text-white">
+          {month}月{selDay}日（{WEEK_JP[new Date(year, month - 1, selDay).getDay()]}）
+        </span>
+        <span className="text-xs font-black text-indigo-300 bg-indigo-500/15 px-3 py-1 rounded-full">
+          稼働 {activeCount}名
+        </span>
+      </div>
+
+      {/* 当日のメンバー一覧 */}
+      <div className="space-y-2">
+        {MEMBERS.map(name => {
+          const item = data.schedule[name]?.[di] ?? { type: 'rest' as StatusType, detail: '' };
+          return (
+            <div key={name} className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="flex items-center gap-3">
+                <span className="flex-1 text-sm font-bold text-white/80 truncate">{name.replace('　', ' ')}</span>
+                <select
+                  value={item.type}
+                  onChange={e => onTypeChange(name, di, e.target.value as StatusType)}
+                  className={`h-10 rounded-xl px-3 font-black text-sm border-0 outline-none appearance-none cursor-pointer ${TYPE_CLASS[item.type]}`}
+                  style={{ fontSize: 16 }}
+                >
+                  {(Object.keys(TYPE_LABEL) as StatusType[]).map(t => (
+                    <option key={t} value={t}>{TYPE_LABEL[t]}</option>
+                  ))}
+                </select>
+              </div>
+              {needsDetail(item.type) && (
+                <LocalInput
+                  className="w-full mt-2 h-10 px-3 rounded-xl bg-white/10 text-white/90 border border-white/10 focus:border-indigo-400 outline-none"
+                  value={item.detail}
+                  onChange={v => onDetailChange(name, di, v)}
+                  placeholder="詳細（場所・内容）"
+                  list="schedule-suggestions"
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 全体メモ */}
+      <div className="bg-white/5 rounded-2xl border border-white/10 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Info size={13} className="text-white/40" />
+          <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">全体メモ / 連絡事項</span>
+        </div>
+        <LocalTextarea
+          className="w-full border border-white/10 rounded-xl p-3 text-sm bg-white/5 text-white/70 focus:border-indigo-400 outline-none min-h-[100px] resize-none leading-relaxed"
+          value={data.overallMemo ?? ''}
+          onChange={onOverallMemoChange}
+          placeholder="全体に向けた連絡事項や月間の特記事項を入力してください..."
+          rows={4}
+        />
+      </div>
+
+      <ScheduleSuggestions trainingLabels={data.trainingLabels} />
+    </div>
+  );
+}
+
+// ─── 全体テーブルビュー ───────────────────────────────────────────────────────
+
+function OverallTableView({
+  isMobile,
+  year, month, data,
+  onTypeChange, onDetailChange, onTeamGoalChange, onOverallMemoChange,
+}: {
+  isMobile: boolean;
+  year: number; month: number; data: MonthData;
+  onTypeChange: (member: string, dayIdx: number, type: StatusType) => void;
+  onDetailChange: (member: string, dayIdx: number, detail: string) => void;
+  onTeamGoalChange: (val: string) => void;
+  onOverallMemoChange: (val: string) => void;
+}) {
+  const totalDays = getDaysInMonth(year, month);
+  const now = new Date();
+
+  if (isMobile) {
+    return (
+      <OverallDayView
+        year={year} month={month} data={data}
+        onTypeChange={onTypeChange}
+        onDetailChange={onDetailChange}
+        onTeamGoalChange={onTeamGoalChange}
+        onOverallMemoChange={onOverallMemoChange}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -442,6 +790,7 @@ function OverallTableView({
 // ─── メインコンポーネント ─────────────────────────────────────────────────────
 
 export default function ScheduleView() {
+  const isMobile = useIsMobile();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -636,16 +985,16 @@ export default function ScheduleView() {
 
           {saving && <span className="text-xs text-indigo-300 font-bold animate-pulse flex items-center gap-1"><Save size={12} />保存中...</span>}
 
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
             <button
               onClick={() => setShowImport(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/20 text-emerald-300 text-xs font-bold transition-colors"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/20 text-emerald-300 text-xs font-bold transition-colors"
             >
               <Upload size={12} /> 一括インポート
             </button>
             <button
               onClick={handleResetMonth}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-400/20 text-red-300 text-xs font-bold transition-colors"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-400/20 text-red-300 text-xs font-bold transition-colors"
             >
               月をリセット
             </button>
@@ -712,6 +1061,7 @@ export default function ScheduleView() {
             </div>
 
             <MemberScheduleView
+              isMobile={isMobile}
               year={year} month={month} member={currentMember} data={data}
               onTypeChange={handleTypeChange}
               onDetailChange={handleDetailChange}
@@ -721,6 +1071,7 @@ export default function ScheduleView() {
           </>
         ) : (
           <OverallTableView
+            isMobile={isMobile}
             year={year} month={month} data={data}
             onTypeChange={handleTypeChange}
             onDetailChange={handleDetailChange}
