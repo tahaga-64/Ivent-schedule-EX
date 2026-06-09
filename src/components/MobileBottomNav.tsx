@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid, Images, Archive, MoreHorizontal, X } from 'lucide-react';
+import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid, Images, Archive, MoreHorizontal, X, CalendarDays } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule";
 
 interface MobileBottomNavProps {
   view: ViewMode;
@@ -18,6 +18,7 @@ const PRIMARY_TABS: { id: ViewMode | 'more'; icon: React.ReactNode; label: strin
 ];
 
 const MORE_ITEMS: { id: ViewMode; icon: React.ReactNode; label: string; sub: string }[] = [
+  { id: "schedule", icon: <CalendarDays size={20} />, label: "シフト管理",    sub: "スタッフシフト表" },
   { id: "master",  icon: <Package size={20} />,    label: "備品マスター", sub: "備品の登録・管理" },
   { id: "fish",    icon: <Fish size={20} />,       label: "魚リスト",     sub: "水族館イベント用" },
   { id: "layout",  icon: <LayoutGrid size={20} />, label: "レイアウト",   sub: "会場配置図" },

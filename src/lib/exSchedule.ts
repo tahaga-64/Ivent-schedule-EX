@@ -1,24 +1,57 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
 const APP_NAME = 'ex-schedule';
 const exApp =
   getApps().find(a => a.name === APP_NAME) ??
   initializeApp(
-    { apiKey: 'AIzaSyBlm_kU-uonN-clZO7EtCDAT1alxa2mVhk', projectId: 'gen-lang-client-0070384633' },
+    {
+      apiKey: import.meta.env.VITE_EX_SCHEDULE_API_KEY,
+      projectId: import.meta.env.VITE_EX_SCHEDULE_PROJECT_ID,
+    },
     APP_NAME,
   );
-const exDb = getFirestore(exApp, 'ai-studio-e6c2ec46-2ca9-43b4-b057-65599668d27c');
+const exDb = getFirestore(exApp, import.meta.env.VITE_EX_SCHEDULE_DATABASE_ID ?? '(default)');
 
 export interface StaffBreakdown {
-  total: number;     // 稼働合計（本社 + イベント + 外出）
-  office: number;    // 本社
-  event: number;     // イベント
-  dispatch: number;  // 外出（dispatch / standby）
-  rest: number;      // 公休
-  request: number;   // 希望休
-  other: number;     // その他（研修など）
+  total: number;
+  office: number;
+  event: number;
+  dispatch: number;
+  rest: number;
+  request: number;
+  other: number;
 }
+
+export interface DayEntry {
+  type: string;
+  note?: string;
+}
+
+export interface MonthSchedule {
+  /** staffId/staffName → 日付インデックス(0始まり)ごとのエントリ */
+  schedule: Record<string, DayEntry[]>;
+  /** ドキュメントに staffNames フィールドがあれば使用 */
+  staffNames?: Record<string, string>;
+}
+
+export const SHIFT_TYPES: Record<string, { label: string; bg: string; text: string; emoji: string }> = {
+  office:   { label: '本社',    bg: 'rgba(99,102,241,0.28)',  text: '#a5b4fc', emoji: '🏢' },
+  event:    { label: 'イベント', bg: 'rgba(16,185,129,0.28)',  text: '#6ee7b7', emoji: '🎪' },
+  dispatch: { label: '外出',    bg: 'rgba(245,158,11,0.28)',  text: '#fcd34d', emoji: '🚗' },
+  standby:  { label: '待機',    bg: 'rgba(245,158,11,0.20)',  text: '#fcd34d', emoji: '⏳' },
+  rest:     { label: '公休',    bg: 'rgba(100,116,139,0.20)', text: '#94a3b8', emoji: '🏖' },
+  normal:   { label: '公休',    bg: 'rgba(100,116,139,0.20)', text: '#94a3b8', emoji: '🏖' },
+  request:  { label: '希望休',  bg: 'rgba(167,139,250,0.25)', text: '#c4b5fd', emoji: '📅' },
+  absence:  { label: '欠勤',    bg: 'rgba(239,68,68,0.28)',   text: '#fca5a5', emoji: '❌' },
+  training: { label: '研修',    bg: 'rgba(56,189,248,0.25)',  text: '#7dd3fc', emoji: '📚' },
+};
+
+export function shiftInfo(type: string) {
+  return SHIFT_TYPES[type] ?? { label: type, bg: 'rgba(100,116,139,0.15)', text: '#94a3b8', emoji: '—' };
+}
+
+// ─── 読み取り ────────────────────────────────────────────────────────────────
 
 export async function fetchTodayStaffBreakdown(): Promise<StaffBreakdown | null> {
   const now = new Date();
@@ -34,20 +67,57 @@ export async function fetchTodayStaffBreakdown(): Promise<StaffBreakdown | null>
       const entry = days[dayIndex];
       if (!entry) continue;
       switch (entry.type) {
-        case 'office':  office++;  total++; break;
-        case 'event':   event++;   total++; break;
+        case 'office':   office++;  total++; break;
+        case 'event':    event++;   total++; break;
         case 'dispatch':
-        case 'standby': dispatch++; total++; break;
+        case 'standby':  dispatch++; total++; break;
         case 'rest':
-        case 'normal':  rest++;    break;
-        case 'request': request++; break;
-        case 'absence': break; // 欠勤はカウントしない
-        // training / other / その他の稼働扱いステータス
-        default:        other++;   total++; break;
+        case 'normal':   rest++;    break;
+        case 'request':  request++; break;
+        case 'absence':  break;
+        default:         other++;   total++; break;
       }
     }
     return { total, office, event, dispatch, rest, request, other };
   } catch {
     return null;
   }
+}
+
+export async function fetchMonthSchedule(year: number, month: number): Promise<MonthSchedule | null> {
+  const monthKey = `${year}-${month}`;
+  try {
+    const snap = await getDoc(doc(exDb, 'months', monthKey));
+    if (!snap.exists()) return { schedule: {} };
+    const data = snap.data();
+    return {
+      schedule: (data.schedule ?? {}) as Record<string, DayEntry[]>,
+      staffNames: data.staffNames as Record<string, string> | undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ─── 書き込み ────────────────────────────────────────────────────────────────
+
+export async function saveMonthSchedule(year: number, month: number, data: MonthSchedule): Promise<void> {
+  const monthKey = `${year}-${month}`;
+  await setDoc(doc(exDb, 'months', monthKey), data, { merge: true });
+}
+
+export async function updateStaffDay(
+  staffId: string,
+  year: number,
+  month: number,
+  dayIndex: number,
+  type: string,
+): Promise<void> {
+  const current = await fetchMonthSchedule(year, month);
+  if (!current) return;
+  const schedule = { ...current.schedule };
+  const days = schedule[staffId] ? [...schedule[staffId]] : [];
+  days[dayIndex] = { ...(days[dayIndex] ?? {}), type };
+  schedule[staffId] = days;
+  await saveMonthSchedule(year, month, { ...current, schedule });
 }

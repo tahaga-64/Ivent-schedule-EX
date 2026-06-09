@@ -40,6 +40,7 @@ const PreparationList = lazy(() => import('./components/PreparationList'));
 const PrepEventList = lazy(() => import('./components/PrepEventList'));
 const ArchiveView = lazy(() => import('./components/ArchiveView'));
 const AlbumView = lazy(() => import('./components/AlbumView'));
+const ScheduleView = lazy(() => import('./components/ScheduleView'));
 const CalendarView = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.CalendarView })));
 const HoverCard = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.HoverCard })));
 const EmptyState = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.EmptyState })));
@@ -48,7 +49,7 @@ const MobileWeekStrip = lazy(() => import('./components/CalendarComponents').the
 const MobileDayAgendaView = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileDayAgendaView })));
 const EventDetailModal = lazy(() => import('./components/EventDetailModal'));
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule";
 type ModalTab = "detail" | "photos" | "financial";
 
 // 安全なlocalStorage読み込み
@@ -128,7 +129,7 @@ export default function App() {
   const [needsNameSetup, setNeedsNameSetup] = useState(false);
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
-    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout', 'album'];
+    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout', 'album', 'schedule'];
     return valid.includes(saved as ViewMode) ? saved as ViewMode : 'home';
   });
   const [viewLoading, setViewLoading] = useState(false);
@@ -947,7 +948,7 @@ VITE_FIREBASE_DATABASE_ID`}
           onSelectEvent={handleEventSelect}
           onSelectPrepEvent={(ev) => { runWithGuard(() => { setPrepEvent(ev); applySetView('prep'); }); }}
           onCreateEvent={() => handleCreateEvent()}
-          onOpenSchedule={() => window.open('https://ex-2026-04-802549538762.us-west1.run.app', '_blank', 'noopener,noreferrer')}
+          onOpenSchedule={() => applySetView('schedule')}
           onNavigateCalendar={() => applySetView('calendar')}
           canEditEvent={canEditEvent}
         />
@@ -963,6 +964,9 @@ VITE_FIREBASE_DATABASE_ID`}
       )}
       {v === "album" && (
         <AlbumView events={allEvents} />
+      )}
+      {v === "schedule" && (
+        <ScheduleView />
       )}
       {(v === "prep" || v === "archive") && prepEvent ? (
         <PreparationList
