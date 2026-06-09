@@ -49,7 +49,7 @@ const MobileDayAgendaView = lazy(() => import('./components/CalendarComponents')
 const EventDetailModal = lazy(() => import('./components/EventDetailModal'));
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album";
-type ModalTab = "detail" | "photos";
+type ModalTab = "detail" | "photos" | "financial";
 
 // 安全なlocalStorage読み込み
 function safeGetItem<T>(key: string, fallback: T): T {

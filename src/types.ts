@@ -8,6 +8,24 @@ export interface FieldAuthorAttribution {
   updatedAt?: string;
 }
 
+export interface EventFinancials {
+  estimatedRevenue?: number;
+  actualRevenue?: number;
+  estimatedStaffCost?: number;
+  actualStaffCost?: number;
+  estimatedOutsourceCost?: number;
+  actualOutsourceCost?: number;
+  estimatedVenueCost?: number;
+  actualVenueCost?: number;
+  estimatedTransportCost?: number;
+  actualTransportCost?: number;
+  estimatedPrepCost?: number;
+  actualPrepCost?: number;
+  estimatedOtherCost?: number;
+  actualOtherCost?: number;
+  memo?: string;
+}
+
 export interface Event {
   id: string;
   start: string;
@@ -29,6 +47,7 @@ export interface Event {
   photos?: EventPhoto[];
   status?: EventStatus;
   prepBudgetTotal?: number;
+  financials?: EventFinancials;
   /** 準備物の件数（空行を除く）。collectionGroup 購読の代替 */
   prepItemTotal?: number;
   /** 到着＋準備完了の件数 */

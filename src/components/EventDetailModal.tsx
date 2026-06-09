@@ -8,6 +8,7 @@ import { type StaffMember } from '../types';
 import PhotoUpload from './photos/PhotoUpload';
 import PhotoGallery from './photos/PhotoGallery';
 import { MAX_PHOTOS } from '../lib/photoStorage';
+import FinancialTab from './FinancialTab';
 
 // ── フィールド帰属 ─────────────────────────────────────────────────────────
 
@@ -38,7 +39,7 @@ function formatAttributionLine(meta: FieldAuthorAttribution | undefined): string
 
 // ── 型 ────────────────────────────────────────────────────────────────────
 
-type ModalTab = 'detail' | 'photos';
+type ModalTab = 'detail' | 'photos' | 'financial';
 
 export interface EventDetailModalProps {
   selected: Event;
@@ -183,6 +184,7 @@ export default function EventDetailModal({
               [
                 { id: 'detail', label: '詳細' },
                 { id: 'photos', label: `写真${selected.photos?.length ? ` (${selected.photos.length})` : ''}` },
+                { id: 'financial', label: '💰 財務' },
               ] as { id: ModalTab; label: string }[]
             ).map(t => (
               <button
@@ -194,6 +196,15 @@ export default function EventDetailModal({
               </button>
             ))}
           </div>
+
+          {/* 財務タブ */}
+          {modalTab === 'financial' && (
+            <FinancialTab
+              event={selected}
+              canEdit={canEditEvent}
+              onUpdate={(updates) => onUpdate(selected.id, updates)}
+            />
+          )}
 
           {/* 写真タブ */}
           {modalTab === 'photos' && (
