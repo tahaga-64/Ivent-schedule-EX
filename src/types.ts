@@ -56,6 +56,8 @@ export interface Event {
   prepItemDone?: number;
 }
 
+export type OrderStatus = 'unordered' | 'ordered' | 'shipping' | 'arrived';
+
 export interface PreparationItem {
   id: string;
   name: string;
@@ -70,6 +72,7 @@ export interface PreparationItem {
   noteUpdatedByName?: string | null;
   noteUpdatedByEmail?: string | null;
   noteUpdatedAt?: string;
+  orderStatus?: OrderStatus;
   url?: string;
   order: number;
 }

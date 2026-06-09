@@ -2,11 +2,20 @@ import { useState, useEffect, useMemo, useRef, useLayoutEffect, useCallback } fr
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { User } from 'firebase/auth';
-import { PreparationItem, Event } from '../types';
+import { PreparationItem, Event, OrderStatus } from '../types';
 import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer, FileSpreadsheet } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
-import { computePrepProgressFields } from '../lib/prepProgress';
+import { computePrepProgressFields, effectiveArrived } from '../lib/prepProgress';
+
+// ─── 発注ステータス ──────────────────────────────────────────────────────────
+
+const ORDER_STEPS: Array<{ key: OrderStatus; label: string; emoji: string; activeCls: string; rowBg: string }> = [
+  { key: 'unordered', label: '未発注', emoji: '📋', activeCls: 'bg-white/15 text-white/60 border-white/30',        rowBg: '' },
+  { key: 'ordered',   label: '発注済', emoji: '🛒', activeCls: 'bg-amber-500/25 text-amber-300 border-amber-400/50', rowBg: 'bg-amber-500/8' },
+  { key: 'shipping',  label: '配送中', emoji: '🚚', activeCls: 'bg-blue-500/25 text-blue-300 border-blue-400/50',   rowBg: 'bg-blue-500/8' },
+  { key: 'arrived',   label: '着荷',   emoji: '✅', activeCls: 'bg-emerald-500/25 text-emerald-300 border-emerald-400/50', rowBg: 'bg-emerald-500/10' },
+];
 
 const PREP_BG = 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1280&q=65';
 
@@ -44,7 +53,8 @@ function isEmptyItem(item: PreparationItem): boolean {
     !item.amount &&
     !item.shippingFee &&
     !item.arrived &&
-    !item.prepared
+    !item.prepared &&
+    !item.orderStatus
   );
 }
 
@@ -85,7 +95,7 @@ async function handleExportExcel(event: Event, items: PreparationItem[]): Promis
     const rows = filled.map((item, idx) => ({
       '#': idx + 1,
       '到着予定日': item.arrivalDate ?? '',
-      '到着': item.arrived ? '✓' : '',
+      '発注状況': ORDER_STEPS.find(s => s.key === (item.orderStatus ?? 'unordered'))?.label ?? '未発注',
       '準備完了': item.prepared ? '✓' : '',
       '品名': item.name,
       '数量': item.quantity,
@@ -93,6 +103,7 @@ async function handleExportExcel(event: Event, items: PreparationItem[]): Promis
       '金額': item.amount,
       '配送料': item.shippingFee,
       '備考': item.note,
+      '備考記入者': item.noteUpdatedByName ?? item.noteUpdatedByEmail ?? '',
       'URL': item.url ?? '',
     }));
 
@@ -255,12 +266,16 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
   };
 
   const totals = useMemo(() => {
+    const filled = items.filter(i => !isEmptyItem(i));
     const subtotal = items.reduce((s, i) => s + (i.amount || 0), 0);
     const shipping = items.reduce((s, i) => s + (i.shippingFee || 0), 0);
-    const arrived = items.filter(i => i.arrived).length;
-    const prepared = items.filter(i => i.prepared).length;
-    const done = items.filter(i => i.arrived && i.prepared).length;
-    return { subtotal, shipping, total: subtotal + shipping, arrived, prepared, done };
+    const arrived = filled.filter(i => effectiveArrived(i)).length;
+    const prepared = filled.filter(i => i.prepared).length;
+    const done = filled.filter(i => effectiveArrived(i) && i.prepared).length;
+    const orderedCount = filled.filter(i => i.orderStatus === 'ordered').length;
+    const shippingCount = filled.filter(i => i.orderStatus === 'shipping').length;
+    const unorderedCount = filled.filter(i => (i.orderStatus ?? 'unordered') === 'unordered').length;
+    return { subtotal, shipping, total: subtotal + shipping, arrived, prepared, done, orderedCount, shippingCount, unorderedCount };
   }, [items]);
 
   const onExportExcel = async () => {
@@ -340,19 +355,32 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
             <p className="text-sm font-bold text-slate-400">準備物が登録されていません</p>
           </div>
         )}
-        {items.filter(item => canEdit || !isEmptyItem(item)).map((item, idx) => (
+        {items.filter(item => canEdit || !isEmptyItem(item)).map((item, idx) => {
+          const os = item.orderStatus ?? 'unordered';
+          const step = ORDER_STEPS.find(s => s.key === os) ?? ORDER_STEPS[0];
+          return (
           <div
             key={item.id}
             className={`border rounded-2xl overflow-hidden shadow-sm ${
               item.prepared
                 ? 'bg-indigo-500/20 border-indigo-400/40'
-                : item.arrived
+                : effectiveArrived(item)
                   ? 'bg-emerald-500/15 border-emerald-400/35'
-                  : 'bg-white/15 border-white/20'
+                  : os === 'shipping'
+                    ? 'bg-blue-500/10 border-blue-400/30'
+                    : os === 'ordered'
+                      ? 'bg-amber-500/10 border-amber-400/25'
+                      : 'bg-white/15 border-white/20'
             }`}
           >
             {/* Status stripe */}
-            <div className={`h-1 ${item.prepared ? 'bg-indigo-500' : item.arrived ? 'bg-emerald-400' : 'bg-white/20'}`} />
+            <div className={`h-1 ${
+              item.prepared ? 'bg-indigo-500'
+              : effectiveArrived(item) ? 'bg-emerald-400'
+              : os === 'shipping' ? 'bg-blue-400'
+              : os === 'ordered' ? 'bg-amber-400'
+              : 'bg-white/20'
+            }`} />
             {/* Row 1: # + 品名 + badges + delete */}
             <div className="flex items-center gap-2 px-3 pt-2.5 pb-2">
               <span className="text-[10px] text-white/40 font-mono w-5 shrink-0">{idx + 1}</span>
@@ -364,11 +392,13 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                 placeholder="アイテム名..."
                 className={`flex-1 text-base font-black bg-transparent outline-none read-only:cursor-default placeholder:text-white/30 ${item.prepared ? 'line-through text-white/40' : 'text-white'}`}
               />
-              {item.arrived && !item.prepared && (
-                <span className="shrink-0 text-[10px] font-black text-emerald-300 bg-emerald-500/25 px-1.5 py-0.5 rounded-full border border-emerald-400/40">着荷</span>
+              {!item.prepared && os !== 'unordered' && (
+                <span className={`shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-full border ${step.activeCls}`}>
+                  {step.emoji} {step.label}
+                </span>
               )}
               {item.prepared && (
-                <span className="shrink-0 text-[10px] font-black text-indigo-200 bg-indigo-500/30 px-1.5 py-0.5 rounded-full border border-indigo-400/40">完了</span>
+                <span className="shrink-0 text-[10px] font-black text-indigo-200 bg-indigo-500/30 px-1.5 py-0.5 rounded-full border border-indigo-400/40">✓ 完了</span>
               )}
               <button
                 type="button"
@@ -411,8 +441,8 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                 <div className="text-sm font-black text-indigo-300 font-mono">¥{(item.amount || 0).toLocaleString()}</div>
               </div>
             </div>
-            {/* Row 3: 到着予定日 / 到着 / 準備 */}
-            <div className="grid grid-cols-3 border-t border-white/15">
+            {/* Row 3: 到着予定日 / 準備完了 */}
+            <div className="grid grid-cols-2 border-t border-white/15">
               <div className="px-3 py-2 border-r border-white/15">
                 <div className="text-[9px] font-black text-orange-300 uppercase tracking-widest mb-1">到着予定日</div>
                 <input
@@ -423,14 +453,20 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                   className="w-full text-xs font-mono text-white/80 bg-transparent outline-none read-only:cursor-default [color-scheme:dark]"
                 />
               </div>
-              <div className="px-3 py-2 flex flex-col items-center border-r border-white/15">
-                <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1.5">到着</div>
-                <Checkbox checked={item.arrived} disabled={!canEdit} onChange={() => updateItem(item.id, { arrived: !item.arrived })} color="emerald" />
-              </div>
               <div className="px-3 py-2 flex flex-col items-center">
                 <div className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-1.5">準備完了</div>
                 <Checkbox checked={item.prepared} disabled={!canEdit} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
               </div>
+            </div>
+            {/* Row 4: 発注状況 */}
+            <div className="border-t border-white/15 px-3 py-2">
+              <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">発注状況</div>
+              <OrderStatusPicker
+                status={item.orderStatus}
+                itemUrl={item.url}
+                disabled={!canEdit}
+                onChange={(s) => updateItem(item.id, { orderStatus: s, arrived: s === 'arrived' })}
+              />
             </div>
             {/* Row 4: 配送料 */}
             <div className="border-t border-white/15">
@@ -493,7 +529,8 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
         {canEdit && (
           <button
             type="button"
@@ -521,7 +558,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                 <tr className="bg-white/10 border-b border-white/15">
                   <th className="w-10 px-3 py-3 text-[10px] font-black text-white/40 uppercase tracking-widest text-center border-r border-white/10">#</th>
                   <th className="w-32 px-3 py-3 text-[10px] font-black text-orange-300 uppercase tracking-widest text-center border-r border-white/10 bg-orange-500/10 whitespace-nowrap">到着予定日</th>
-                  <th className="w-20 px-3 py-3 text-[10px] font-black text-emerald-300 uppercase tracking-widest text-center border-r border-white/10 bg-emerald-500/10">到着</th>
+                  <th className="px-3 py-3 text-[10px] font-black text-amber-300 uppercase tracking-widest text-center border-r border-white/10 bg-amber-500/8 whitespace-nowrap" style={{ minWidth: '200px' }}>発注状況</th>
                   <th className="w-20 px-3 py-3 text-[10px] font-black text-indigo-300 uppercase tracking-widest text-center border-r border-white/10 bg-indigo-500/10 whitespace-nowrap">準備完了</th>
                   <th className="px-4 py-3 text-[10px] font-black text-white/60 uppercase tracking-widest text-left border-r border-white/10" style={{ minWidth: '200px' }}>品名</th>
                   <th className="w-20 px-3 py-3 text-[10px] font-black text-white/60 uppercase tracking-widest text-center border-r border-white/10">数量</th>
@@ -534,11 +571,16 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
-                {items.map((item, idx) => (
+                {items.map((item, idx) => {
+                  const rowOs = item.orderStatus ?? 'unordered';
+                  const rowStep = ORDER_STEPS.find(s => s.key === rowOs) ?? ORDER_STEPS[0];
+                  return (
                   <tr
                     key={item.id}
                     className={`group transition-colors ${
-                      item.prepared ? 'bg-indigo-500/10' : item.arrived ? 'bg-emerald-500/10' : 'bg-transparent'
+                      item.prepared ? 'bg-indigo-500/10'
+                      : effectiveArrived(item) ? 'bg-emerald-500/10'
+                      : rowStep.rowBg
                     } hover:bg-white/10 ${isEmptyItem(item) ? 'print:hidden' : ''}`}
                   >
                     <td className="px-3 py-3 text-center text-xs text-white/40 font-mono border-r border-white/10">{idx + 1}</td>
@@ -551,12 +593,17 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                         className="w-full text-xs font-mono text-white/80 bg-transparent outline-none read-only:cursor-default text-center [color-scheme:dark]"
                       />
                     </td>
-                    <td className={`px-3 py-3 text-center border-r border-white/10 transition-colors ${item.arrived ? 'bg-emerald-500/20' : ''}`}>
-                      <div className="print:hidden">
-                        <Checkbox checked={item.arrived} disabled={!canEdit} onChange={() => updateItem(item.id, { arrived: !item.arrived })} color="emerald" />
+                    <td className={`px-3 py-2 border-r border-white/10 transition-colors ${rowStep.rowBg}`}>
+                      <div className="print:hidden flex justify-center">
+                        <OrderStatusPicker
+                          status={item.orderStatus}
+                          itemUrl={item.url}
+                          disabled={!canEdit}
+                          compact
+                          onChange={(s) => updateItem(item.id, { orderStatus: s, arrived: s === 'arrived' })}
+                        />
                       </div>
-                      <PrintCheckMark checked={item.arrived} />
-                      {item.arrived && <span className="text-[9px] font-black text-emerald-300 uppercase tracking-widest print:hidden">済</span>}
+                      <PrintCheckMark checked={effectiveArrived(item)} />
                     </td>
                     <td className={`px-3 py-3 text-center border-r border-white/10 transition-colors ${item.prepared ? 'bg-indigo-500/20' : ''}`}>
                       <div className="print:hidden">
@@ -666,7 +713,8 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -702,24 +750,29 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
             <div className="text-base font-black text-indigo-200 font-mono print:text-slate-900">¥{totals.total.toLocaleString()}</div>
           </div>
           {/* PROGRESS */}
-          <div className="flex-1 min-w-[140px] prep-print-hide">
+          <div className="flex-1 min-w-[160px] prep-print-hide">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">進捗</span>
               <span className="text-[10px] font-black text-indigo-300">
-                {items.length > 0 ? Math.round((totals.done / items.length) * 100) : 0}%
+                {items.filter(i => !isEmptyItem(i)).length > 0
+                  ? Math.round((totals.done / items.filter(i => !isEmptyItem(i)).length) * 100)
+                  : 0}%
               </span>
             </div>
-            <div className="w-full bg-white/15 rounded-full h-1 mb-1">
+            <div className="w-full bg-white/15 rounded-full h-1 mb-1.5">
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${items.length > 0 ? (totals.done / items.length) * 100 : 0}%` }}
+                animate={{ width: `${items.filter(i => !isEmptyItem(i)).length > 0 ? (totals.done / items.filter(i => !isEmptyItem(i)).length) * 100 : 0}%` }}
                 className="bg-indigo-400 h-1 rounded-full"
               />
             </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[10px] font-black text-white/50">着荷 {totals.arrived}</span>
+            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+              {totals.unorderedCount > 0 && <span className="text-[10px] font-black text-white/35">📋 {totals.unorderedCount}</span>}
+              {totals.orderedCount > 0 && <span className="text-[10px] font-black text-amber-300">🛒 {totals.orderedCount}</span>}
+              {totals.shippingCount > 0 && <span className="text-[10px] font-black text-blue-300">🚚 {totals.shippingCount}</span>}
+              {totals.arrived > 0 && <span className="text-[10px] font-black text-emerald-300">✅ {totals.arrived}</span>}
               <span className="text-white/20">·</span>
-              <span className="text-[10px] font-black text-white/50">完了 {totals.prepared}</span>
+              <span className="text-[10px] font-black text-indigo-300">✓ {totals.prepared}</span>
               <span className="text-white/20">·</span>
               <span className="text-[11px] font-black text-white/80">{items.filter(i => !isEmptyItem(i)).length}件</span>
             </div>
@@ -748,6 +801,59 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
       </div>
     </div>
     </>
+  );
+}
+
+function OrderStatusPicker({
+  status,
+  itemUrl,
+  disabled,
+  compact,
+  onChange,
+}: {
+  status: OrderStatus | undefined;
+  itemUrl?: string;
+  disabled?: boolean;
+  compact?: boolean;
+  onChange: (s: OrderStatus) => void;
+}) {
+  const current: OrderStatus = status ?? 'unordered';
+  return (
+    <div className={`flex items-center flex-wrap ${compact ? 'gap-0.5' : 'gap-1'}`}>
+      {ORDER_STEPS.map(step => {
+        const isActive = current === step.key;
+        return (
+          <button
+            key={step.key}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange(step.key)}
+            title={step.label}
+            className={`flex items-center gap-0.5 rounded border transition-all disabled:pointer-events-none ${
+              compact ? 'px-1 py-0.5 text-[9px]' : 'px-2 py-1 text-[11px]'
+            } font-black ${
+              isActive
+                ? step.activeCls
+                : 'bg-transparent text-white/20 border-white/10 hover:border-white/30 hover:text-white/40'
+            }`}
+          >
+            <span>{step.emoji}</span>
+            {!compact && <span className="ml-0.5">{step.label}</span>}
+          </button>
+        );
+      })}
+      {current === 'unordered' && itemUrl && !disabled && (
+        <a
+          href={itemUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => onChange('ordered')}
+          className="ml-1 text-[10px] font-black text-amber-300 hover:text-amber-200 border border-amber-400/40 rounded px-2 py-0.5 whitespace-nowrap bg-amber-500/10 transition-colors"
+        >
+          発注する →
+        </a>
+      )}
+    </div>
   );
 }
 

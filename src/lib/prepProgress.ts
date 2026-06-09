@@ -1,5 +1,10 @@
 import type { Event, PreparationItem } from '../types';
 
+export function effectiveArrived(item: PreparationItem): boolean {
+  if (item.orderStatus !== undefined) return item.orderStatus === 'arrived';
+  return item.arrived;
+}
+
 export function isEmptyPrepItem(item: PreparationItem): boolean {
   return (
     !item.name?.trim() &&
@@ -10,7 +15,8 @@ export function isEmptyPrepItem(item: PreparationItem): boolean {
     !item.amount &&
     !item.shippingFee &&
     !item.arrived &&
-    !item.prepared
+    !item.prepared &&
+    !item.orderStatus
   );
 }
 
@@ -22,7 +28,7 @@ export function computePrepProgressFields(items: PreparationItem[]): {
   const filled = items.filter(i => !isEmptyPrepItem(i));
   return {
     prepItemTotal: filled.length,
-    prepItemDone: filled.filter(i => i.arrived && i.prepared).length,
+    prepItemDone: filled.filter(i => effectiveArrived(i) && i.prepared).length,
   };
 }
 
