@@ -3,6 +3,7 @@ import { db, auth, loginWithGoogle, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
 import { buildPrepProgressMap } from './lib/prepProgress';
+import { sendPushNotification, isPushNotificationConfigured } from './lib/pushNotifications';
 import { DATA } from './constants';
 import { Event, EventPhoto, PreparationItem, EventStatus, type StaffMember } from './types';
 import { buildMonthGridCells, type ValidationError, validateEvent } from './lib/eventHelpers';
@@ -540,9 +541,31 @@ export default function App() {
       setHasUnsavedChanges(false);
       setLastEditedId(selected.id);
       setIsSaving(false);
-      if (user) {
+      if (user && isPushNotificationConfigured()) {
+        const isNew = pendingNewEventId !== null && selected.id === pendingNewEventId;
+        if (isNew) {
+          sendPushNotification({
+            type: 'event_created',
+            title: '新しいイベント',
+            message: selected.venue || 'イベントが追加されました',
+            eventId: selected.id,
+          }).catch(() => {});
+        }
         const oldAssignees = dbEvents[selected.id]?.assignees ?? [];
         const newAssignees = selected.assignees ?? [];
+        const addedIds = newAssignees.filter(id => !oldAssignees.includes(id));
+        for (const staffId of addedIds) {
+          const member = staffList.find(s => s.id === staffId);
+          if (member?.email) {
+            sendPushNotification({
+              type: 'member_added',
+              title: 'イベントに追加されました',
+              message: selected.venue || 'あなたがイベントのメンバーに追加されました',
+              eventId: selected.id,
+              targetEmail: member.email,
+            }).catch(() => {});
+          }
+        }
       }
       return true;
     } catch (error) {

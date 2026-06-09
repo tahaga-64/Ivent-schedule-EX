@@ -28,6 +28,7 @@ type StoredSubscription = {
   };
   userAgent?: string;
   uid: string;
+  email?: string;
   updatedAt: string;
 };
 
@@ -36,6 +37,7 @@ type PushPayload = {
   title?: string;
   message?: string;
   eventId?: string;
+  targetEmail?: string;
   data?: Record<string, unknown>;
 };
 
@@ -85,6 +87,7 @@ async function handleSubscribe(request: Request, env: Env): Promise<Response> {
     },
     userAgent: body.userAgent,
     uid: user.uid,
+    ...(user.email ? { email: user.email } : {}),
     updatedAt: new Date().toISOString(),
   };
 
@@ -104,12 +107,16 @@ async function handleSend(request: Request, env: Env): Promise<Response> {
   }
 
   const list = await env.PUSH_SUBSCRIPTIONS.list({ prefix: 'sub:' });
-  const subscriptions = await Promise.all(
+  const allSubscriptions = await Promise.all(
     list.keys.map(async key => {
       const raw = await env.PUSH_SUBSCRIPTIONS.get(key.name);
       return raw ? JSON.parse(raw) as StoredSubscription : null;
     })
   );
+
+  const subscriptions = payload.targetEmail
+    ? allSubscriptions.filter(s => s?.email === payload.targetEmail)
+    : allSubscriptions;
 
   const results = await Promise.allSettled(
     subscriptions.flatMap(subscription => subscription ? [sendWebPush(subscription, payload, env)] : [])
@@ -121,8 +128,7 @@ async function handleSend(request: Request, env: Env): Promise<Response> {
 }
 
 function canSendNotificationType(type: string, email: string | undefined, env: Env): boolean {
-  if (type === 'prep_item_updated') return true;
-  if (type === 'event_created' || type === 'event_updated' || type === 'event_deleted') {
+  if (type === 'event_created' || type === 'member_added') {
     const editors = (env.EDITOR_EMAILS || '')
       .split(',')
       .map(value => value.trim().toLowerCase())

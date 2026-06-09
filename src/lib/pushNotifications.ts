@@ -15,6 +15,7 @@ export type PushNotificationPayload = {
   title: string;
   message: string;
   eventId?: string;
+  targetEmail?: string;
   data?: Record<string, unknown>;
 };
 
