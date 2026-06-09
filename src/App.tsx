@@ -1021,8 +1021,14 @@ VITE_FIREBASE_DATABASE_ID`}
 
   return (
     <div className="relative isolate flex flex-col h-dvh min-h-dvh overflow-hidden">
-      <div className="absolute inset-0 -z-10 print:hidden"
-        style={{ background: 'linear-gradient(160deg, #0f172a 0%, #1e1b4b 50%, #0c1a35 100%)' }} />
+      {/* 全ページ共通の背景: オフィス写真 + 濃いオーバーレイ（可読性確保） */}
+      <div className="absolute inset-0 -z-10 print:hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: "url('/mercury-office.webp')" }}
+        />
+        <div className="absolute inset-0" style={{ background: 'rgba(7, 12, 25, 0.93)' }} />
+      </div>
 
       {/* ページ切替ローディングバー */}
       <LoadingBar visible={viewLoading} />
