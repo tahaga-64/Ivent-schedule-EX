@@ -18,18 +18,19 @@ const WEEK_JP = ['日', '月', '火', '水', '木', '金', '土'];
 // 「自分の予定」で表示するメンバー名の保存キー
 const MY_NAME_KEY = 'ex-schedule:my-name';
 
-// ステータスごとの文字色（ダーク背景向け・控えめな配色）
+// ステータスごとの文字色。休み系はグレーで沈め、稼働は通常の白、
+// イベントのみ赤で目立たせる（業務上いちばん見たい情報のため）
 const STATUS_COLOR: Record<StatusType, string> = {
-  normal: 'text-white/50',
-  request: 'text-pink-300',
-  training: 'text-violet-300',
-  dispatch: 'text-orange-300',
-  standby: 'text-amber-300',
+  normal: 'text-white/45',
+  request: 'text-white/45',
+  training: 'text-white/85',
+  dispatch: 'text-white/85',
+  standby: 'text-white/85',
   event: 'text-red-300',
-  office: 'text-emerald-300',
-  absence: 'text-white/35',
-  other: 'text-sky-300',
-  rest: 'text-white/25',
+  office: 'text-white/85',
+  absence: 'text-white/40',
+  other: 'text-white/85',
+  rest: 'text-white/30',
 };
 
 // ─── 画面幅検出（モバイル = 閲覧専用） ───────────────────────────────────────
@@ -100,7 +101,7 @@ function DayDetail({ info }: { info: DayInfo }) {
   if (info.trainingLocation) rows.push({ label: '場所', value: info.trainingLocation });
   if (info.memo) rows.push({ label: 'メモ', value: info.memo });
   return (
-    <div className="border-l-2 border-white/15 pl-3 space-y-1 text-xs">
+    <div className="space-y-1 text-xs">
       {rows.map(r => (
         <div key={r.label} className="flex gap-2">
           <span className="w-8 shrink-0 text-white/40">{r.label}</span>

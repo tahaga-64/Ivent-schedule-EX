@@ -12,11 +12,11 @@ const pct = (profit: number, revenue: number) => {
   return Math.round((profit / revenue) * 100);
 };
 
+// 経理の慣習に合わせ、黒字は黒・赤字のみ赤で表示する
 function profitColor(profit: number, revenue: number): string {
   if (!revenue) return 'text-slate-400';
-  if (profit > 0) return 'text-emerald-600';
   if (profit < 0) return 'text-red-600';
-  return 'text-slate-500';
+  return 'text-slate-800';
 }
 
 interface CostRow {
@@ -72,8 +72,6 @@ export default function FinancialTab({ event, canEdit, onUpdate }: Props) {
   const estPct = pct(estProfit, estRev);
   const actPct = pct(actProfit, actRev);
 
-  const hasAnyData = estRev > 0 || actRev > 0;
-
   const handleExport = () => {
     const exportRows = [
       ['項目', '見積', '実績'],
@@ -97,31 +95,13 @@ export default function FinancialTab({ event, canEdit, onUpdate }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* サマリー */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <Stat label="売上高（実績）" value={fmt(actRev || undefined)} sub={actRev ? undefined : '未入力'} />
-        <Stat label="費用合計（実績）" value={fmt(actCosts || undefined)} sub={actCosts ? undefined : '未入力'} />
-        <Stat
-          label="粗利（実績）"
-          value={actRev ? fmt(actProfit) : '—'}
-          sub={actPct != null ? `粗利率 ${actPct}%` : undefined}
-          valueClass={profitColor(actProfit, actRev)}
-        />
-        <Stat
-          label="見積との差"
-          value={hasAnyData ? fmt(actProfit - estProfit) : '—'}
-          sub={hasAnyData ? `見積粗利 ${fmt(estProfit)}` : undefined}
-          valueClass={hasAnyData ? (actProfit >= estProfit ? 'text-emerald-600' : 'text-red-600') : undefined}
-        />
-      </div>
-
       {/* 損益内訳 */}
-      <div className="rounded-lg border border-slate-200 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 bg-slate-50">
-          <span className="text-xs font-bold text-slate-600">損益内訳（見積 / 実績）</span>
+      <div className="rounded border border-slate-300 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-300 bg-slate-50">
+          <span className="text-sm font-medium text-slate-700">損益内訳（見積 / 実績）</span>
           <button
             onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-300 text-slate-600 hover:bg-slate-100 text-[11px] font-bold"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-300 text-slate-600 hover:bg-slate-100 text-xs"
           >
             <Download size={12} />
             Excel出力
@@ -131,15 +111,15 @@ export default function FinancialTab({ event, canEdit, onUpdate }: Props) {
         {/* デスクトップ: 3列テーブル */}
         <table className="w-full text-sm hidden sm:table">
           <thead>
-            <tr className="border-b border-slate-100">
-              <th className="text-left px-4 py-2 text-[11px] font-bold text-slate-400 w-[44%]">項目</th>
-              <th className="text-right px-4 py-2 text-[11px] font-bold text-slate-400">見積</th>
-              <th className="text-right px-4 py-2 text-[11px] font-bold text-slate-400">実績</th>
+            <tr className="border-b border-slate-200">
+              <th className="text-left px-4 py-2 text-xs font-medium text-slate-500 w-[44%]">項目</th>
+              <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">見積</th>
+              <th className="text-right px-4 py-2 text-xs font-medium text-slate-500">実績</th>
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-slate-100">
-              <td className="px-4 py-2.5 font-bold text-slate-800">売上高</td>
+            <tr className="border-b border-slate-200">
+              <td className="px-4 py-2.5 text-slate-800">売上高</td>
               <td className="px-4 py-2.5 text-right">
                 <NumberCell value={f.estimatedRevenue} canEdit={canEdit} onChange={v => set('estimatedRevenue', v)} />
               </td>
@@ -148,15 +128,15 @@ export default function FinancialTab({ event, canEdit, onUpdate }: Props) {
               </td>
             </tr>
 
-            <tr className="border-b border-slate-100 bg-slate-50/60">
-              <td colSpan={3} className="px-4 py-1.5 text-[11px] font-bold text-slate-400">費用内訳</td>
+            <tr className="border-b border-slate-200 bg-slate-50">
+              <td colSpan={3} className="px-4 py-1.5 text-xs text-slate-500">費用内訳</td>
             </tr>
 
             {rows.map(row => (
-              <tr key={row.label} className="border-b border-slate-100">
-                <td className="px-4 py-2 text-slate-600">
+              <tr key={row.label} className="border-b border-slate-200">
+                <td className="px-4 py-2 text-slate-700">
                   {row.label}
-                  {row.isAuto && <span className="ml-2 text-[10px] text-slate-400">{row.autoNote}</span>}
+                  {row.isAuto && <span className="ml-2 text-xs text-slate-400">{row.autoNote}</span>}
                 </td>
                 <td className="px-4 py-2 text-right">
                   <NumberCell value={row.estVal} canEdit={canEdit} onChange={v => set(row.estKey, v)} />
@@ -172,13 +152,13 @@ export default function FinancialTab({ event, canEdit, onUpdate }: Props) {
               </tr>
             ))}
 
-            <tr className="border-b border-slate-200 bg-slate-50">
+            <tr className="border-b border-slate-300 bg-slate-50">
               <td className="px-4 py-2.5 font-bold text-slate-800">費用合計</td>
-              <td className="px-4 py-2.5 text-right font-bold text-slate-700 tabular-nums">{estCosts ? fmt(estCosts) : '—'}</td>
-              <td className="px-4 py-2.5 text-right font-bold text-slate-700 tabular-nums">{actCosts ? fmt(actCosts) : '—'}</td>
+              <td className="px-4 py-2.5 text-right font-bold text-slate-800 tabular-nums">{estCosts ? fmt(estCosts) : '—'}</td>
+              <td className="px-4 py-2.5 text-right font-bold text-slate-800 tabular-nums">{actCosts ? fmt(actCosts) : '—'}</td>
             </tr>
 
-            <tr className="border-b border-slate-100">
+            <tr className="border-b border-slate-200">
               <td className="px-4 py-2.5 font-bold text-slate-800">粗利</td>
               <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${profitColor(estProfit, estRev)}`}>
                 {estRev ? fmt(estProfit) : '—'}
@@ -189,11 +169,11 @@ export default function FinancialTab({ event, canEdit, onUpdate }: Props) {
             </tr>
 
             <tr>
-              <td className="px-4 py-2.5 font-bold text-slate-800">粗利率</td>
-              <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${profitColor(estProfit, estRev)}`}>
+              <td className="px-4 py-2.5 text-slate-700">粗利率</td>
+              <td className={`px-4 py-2.5 text-right tabular-nums ${profitColor(estProfit, estRev)}`}>
                 {estPct != null ? `${estPct}%` : '—'}
               </td>
-              <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${profitColor(actProfit, actRev)}`}>
+              <td className={`px-4 py-2.5 text-right tabular-nums ${profitColor(actProfit, actRev)}`}>
                 {actPct != null ? `${actPct}%` : '—'}
               </td>
             </tr>
@@ -201,7 +181,7 @@ export default function FinancialTab({ event, canEdit, onUpdate }: Props) {
         </table>
 
         {/* モバイル: 項目ごとの縦積み（見積 / 実績 を横並び） */}
-        <div className="sm:hidden divide-y divide-slate-100">
+        <div className="sm:hidden divide-y divide-slate-200">
           <MobileRow
             label="売上高"
             est={<NumberCell value={f.estimatedRevenue} canEdit={canEdit} onChange={v => set('estimatedRevenue', v)} />}
@@ -247,7 +227,7 @@ export default function FinancialTab({ event, canEdit, onUpdate }: Props) {
 
       {/* メモ */}
       <div>
-        <label className="text-xs font-bold text-slate-500 block mb-1.5">財務メモ</label>
+        <label className="text-xs text-slate-500 block mb-1.5">財務メモ</label>
         {canEdit ? (
           <textarea
             value={f.memo ?? ''}
@@ -255,31 +235,14 @@ export default function FinancialTab({ event, canEdit, onUpdate }: Props) {
             rows={3}
             placeholder="見積根拠・特記事項・クライアント条件など"
             style={{ fontSize: 16 }}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-slate-700 resize-none focus:outline-none focus:border-slate-500 bg-white placeholder:text-slate-300"
+            className="w-full rounded border border-slate-300 px-3 py-2.5 text-slate-700 resize-none focus:outline-none focus:border-slate-500 bg-white placeholder:text-slate-300"
           />
         ) : (
-          <p className="text-sm text-slate-600 bg-slate-50 rounded-lg px-3 py-2.5 min-h-[72px] whitespace-pre-wrap">
+          <p className="text-sm text-slate-600 bg-slate-50 rounded px-3 py-2.5 min-h-[72px] whitespace-pre-wrap">
             {f.memo || <span className="text-slate-300">メモなし</span>}
           </p>
         )}
       </div>
-    </div>
-  );
-}
-
-// ── サマリー1項目 ────────────────────────────────────────────────────────────
-
-function Stat({ label, value, sub, valueClass = 'text-slate-800' }: {
-  label: string;
-  value: string;
-  sub?: string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="rounded-lg border border-slate-200 px-3 py-2.5 bg-white">
-      <div className="text-[11px] text-slate-500 mb-1">{label}</div>
-      <div className={`text-base sm:text-lg font-bold leading-tight tabular-nums ${valueClass}`}>{value}</div>
-      {sub && <div className="text-[10px] text-slate-400 mt-0.5">{sub}</div>}
     </div>
   );
 }
@@ -294,17 +257,17 @@ function MobileRow({ label, note, est, act }: {
 }) {
   return (
     <div className="px-4 py-2.5">
-      <div className="text-xs font-bold text-slate-600">
+      <div className="text-sm text-slate-700">
         {label}
-        {note && <span className="ml-2 font-normal text-[10px] text-slate-400">{note}</span>}
+        {note && <span className="ml-2 text-xs text-slate-400">{note}</span>}
       </div>
       <div className="mt-1.5 grid grid-cols-2 gap-2">
         <div>
-          <div className="text-[10px] text-slate-400 mb-0.5">見積</div>
+          <div className="text-xs text-slate-400 mb-0.5">見積</div>
           {est}
         </div>
         <div>
-          <div className="text-[10px] text-slate-400 mb-0.5">実績</div>
+          <div className="text-xs text-slate-400 mb-0.5">実績</div>
           {act}
         </div>
       </div>
@@ -312,7 +275,7 @@ function MobileRow({ label, note, est, act }: {
   );
 }
 
-function MobileTotal({ label, est, act, estClass = 'text-slate-700', actClass = 'text-slate-700' }: {
+function MobileTotal({ label, est, act, estClass = 'text-slate-800', actClass = 'text-slate-800' }: {
   label: string;
   est: string;
   act: string;
@@ -320,15 +283,15 @@ function MobileTotal({ label, est, act, estClass = 'text-slate-700', actClass = 
   actClass?: string;
 }) {
   return (
-    <div className="px-4 py-2.5 bg-slate-50/60">
-      <div className="text-xs font-bold text-slate-700">{label}</div>
+    <div className="px-4 py-2.5 bg-slate-50">
+      <div className="text-sm font-bold text-slate-800">{label}</div>
       <div className="mt-1 grid grid-cols-2 gap-2">
         <div>
-          <div className="text-[10px] text-slate-400 mb-0.5">見積</div>
+          <div className="text-xs text-slate-400 mb-0.5">見積</div>
           <div className={`text-sm font-bold tabular-nums ${estClass}`}>{est}</div>
         </div>
         <div>
-          <div className="text-[10px] text-slate-400 mb-0.5">実績</div>
+          <div className="text-xs text-slate-400 mb-0.5">実績</div>
           <div className={`text-sm font-bold tabular-nums ${actClass}`}>{act}</div>
         </div>
       </div>
@@ -346,7 +309,7 @@ function NumberCell({ value, canEdit, onChange, dimmed }: {
 }) {
   if (!canEdit || dimmed) {
     return (
-      <div className={`text-sm tabular-nums ${dimmed ? 'text-slate-400' : 'text-slate-700 font-medium'}`}>
+      <div className={`text-sm tabular-nums ${dimmed ? 'text-slate-400' : 'text-slate-700'}`}>
         {fmt(value)}
       </div>
     );
@@ -365,7 +328,7 @@ function NumberCell({ value, canEdit, onChange, dimmed }: {
       }}
       placeholder="0"
       style={{ fontSize: 16 }}
-      className="w-full text-right rounded border border-slate-200 px-2 py-1.5 text-slate-700 tabular-nums focus:outline-none focus:border-slate-500 bg-white"
+      className="w-full text-right rounded border border-slate-300 px-2 py-1.5 text-slate-700 tabular-nums focus:outline-none focus:border-slate-500 bg-white"
     />
   );
 }
