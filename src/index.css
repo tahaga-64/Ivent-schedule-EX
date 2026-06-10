@@ -27,17 +27,18 @@
   --color-info:         #3b82f6;
   --color-info-bg:      #eff6ff;
 
-  /* EX-schedule カラートークン（全体表示の忠実再現用） */
-  --color-accent:   #2563eb;
-  --color-accent-l: #dbeafe;
-  --color-accent-m: #93c5fd;
-  --color-accent-d: #1d4ed8;
-  --color-bg:       #f4f7fc;
-  --color-text:     #1e2a3a;
-  --color-text2:    #4a5568;
-  --color-text3:    #a0aec0;
-  --color-border:   #e2e8f4;
-  --color-border2:  #c8d4ea;
+  /* EX-schedule カラートークン（埋め込みアプリを Ivent のダークテーマに統一）
+     これらのトークンは ExScheduleApp でのみ使用。ダーク背景向けの値に設定。 */
+  --color-accent:   #3b82f6;   /* アクセント青（ダーク背景でも視認性確保） */
+  --color-accent-l: #16243e;   /* 旧・淡い青背景 → ダークネイビーの面に */
+  --color-accent-m: #2563eb;   /* hover 用ボーダー */
+  --color-accent-d: #2563eb;   /* ボタン hover */
+  --color-bg:       #0c1626;   /* 入力・補助サーフェスのダーク面 */
+  --color-text:     #e7ecf3;   /* 主要テキスト（明） */
+  --color-text2:    #9fb0c6;   /* 補助テキスト */
+  --color-text3:    #6b7c93;   /* さらに淡いテキスト */
+  --color-border:   #26344c;   /* ダーク背景上の境界線 */
+  --color-border2:  #33455f;
 
   @keyframes pulse {
     0%, 100% { opacity: 1; }
