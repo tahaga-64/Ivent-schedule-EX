@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Upload, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Upload, X, Info, Save } from 'lucide-react';
 import {
   fetchMonthData,
   saveMonthDataFields,
@@ -7,6 +7,7 @@ import {
   TRAINING_LABELS,
   TRAINING_LOCATIONS,
   TYPE_LABEL,
+  TYPE_CLASS,
   getDaysInMonth,
   type StatusType,
   type MonthData,
@@ -160,6 +161,58 @@ function LocalTextarea({ value, onChange, className, placeholder, rows = 2 }: {
       onFocus={() => setFocused(true)}
       onBlur={() => { setFocused(false); if (local !== value) onChange(local); }}
     />
+  );
+}
+
+// ─── スケール式入力（EX-schedule の LocalInput を忠実移植） ──────────────────
+// 16px で描画して transform: scale で縮小し、iOS の自動ズームを防ぎつつ
+// 7〜10px 相当の極小フォントを実現する。全体表示テーブルのセル入力で使用。
+
+function ExScaledInput({ value, onChange, className, size = 10, placeholder, list }: {
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+  size?: number;
+  placeholder?: string;
+  list?: string;
+}) {
+  const [localValue, setLocalValue] = useState(value);
+  const [isFocused, setIsFocused] = useState(false);
+  useEffect(() => { if (!isFocused) setLocalValue(value); }, [value, isFocused]);
+
+  const inputFontSize = 16;
+  const scale = size / inputFontSize;
+
+  return (
+    <div className={`${className} relative flex items-center justify-center`}>
+      <input
+        value={localValue}
+        placeholder={placeholder}
+        list={list}
+        onChange={e => setLocalValue(e.target.value)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => { setIsFocused(false); if (localValue !== value) onChange(localValue); }}
+        onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+        className="absolute top-0 left-0 origin-top-left bg-transparent border-none outline-none text-center p-0 font-bold"
+        style={{
+          fontSize: `${inputFontSize}px`,
+          transform: `scale(${scale})`,
+          width: `${(1 / scale) * 100}%`,
+          height: `${(1 / scale) * 100}%`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          lineHeight: 'normal',
+        }}
+      />
+      {/* 親 div の高さ・幅を内容に合わせるための不可視プレースホルダ */}
+      <div
+        className="invisible select-none pointer-events-none whitespace-pre py-0.5 px-1 font-bold"
+        style={{ fontSize: `${size}px`, lineHeight: 'normal' }}
+      >
+        {localValue || ' '}
+      </div>
+    </div>
   );
 }
 
@@ -456,278 +509,278 @@ function MyScheduleView({
   );
 }
 
-// ─── 全員の予定 ──────────────────────────────────────────────────────────────
+// ─── 全体表示（EX-schedule の overall ビューを忠実再現） ──────────────────────
+// PC: 全機能編集可。モバイル: 閲覧専用（入力欄は出さず静的表示）。
+
+// getDow: 月曜=0 … 日曜=6（EX-schedule と同じ並び）
+function getDow(year: number, month: number, day: number): number {
+  return (new Date(year, month - 1, day).getDay() + 6) % 7;
+}
+const WD_JP = ['月', '火', '水', '木', '金', '土', '日'];
 
 function AllScheduleView({
   year, month, data, readOnly,
   onTypeChange, onDetailChange, onTeamGoalChange, onOverallMemoChange,
+  onStationChange, onLocationChange, onTimeChange,
 }: {
   year: number; month: number; data: MonthData; readOnly: boolean;
   onTypeChange: (member: string, dayIdx: number, type: StatusType) => void;
   onDetailChange: (member: string, dayIdx: number, detail: string) => void;
   onTeamGoalChange: (val: string) => void;
   onOverallMemoChange: (val: string) => void;
+  onStationChange: (member: string, val: string) => void;
+  onLocationChange: (day: number, val: string) => void;
+  onTimeChange: (day: number, val: string) => void;
 }) {
   const totalDays = getDaysInMonth(year, month);
-  const now = new Date();
-  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
-  const [editMode, setEditMode] = useState(false);
-  const [selDay, setSelDay] = useState(isCurrentMonth ? now.getDate() : 1);
-  // タップで詳細を開いているメンバー（モバイル）
-  const [openMember, setOpenMember] = useState<string | null>(null);
-  // ホバー中のセル（デスクトップ・表示モードのみ）
-  const [hover, setHover] = useState<{
-    x: number; top: number; bottom: number; member: string; di: number;
-  } | null>(null);
+  const dailyLocations = data.dailyLocations ?? {};
+  const dailyTimes = data.dailyTimes ?? {};
+  const stations = data.memberStations ?? {};
 
-  useEffect(() => {
-    setSelDay(d => Math.min(Math.max(1, d), totalDays));
-  }, [totalDays]);
+  // 「✓ 保存」表示の一時フラグ
+  const [savedFlash, setSavedFlash] = useState<string | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flash = (id: string) => {
+    setSavedFlash(id);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setSavedFlash(s => (s === id ? null : s)), 1500);
+  };
 
-  const activeCount = (di: number) =>
-    MEMBERS.reduce((n, name) => {
-      const it = data.schedule[name]?.[di];
-      return n + (it && needsDetail(it.type) ? 1 : 0);
-    }, 0);
+  const dayLabel = (type: StatusType) => TYPE_LABEL[type].split('(')[0];
 
-  // ── モバイル: 日付選択 + 当日の全員一覧（閲覧専用） ──
-  if (readOnly) {
-    const di = selDay - 1;
-    return (
-      <div className="space-y-3">
-        {data.teamGoal && (
-          <div className="border border-white/10 rounded px-3 py-2.5">
-            <div className="text-xs text-white/40 mb-0.5">今月のチーム目標</div>
-            <div className="text-sm text-white/85">{data.teamGoal}</div>
-          </div>
-        )}
-
-        <div className="flex gap-1 overflow-x-auto pb-1">
-          {Array.from({ length: totalDays }).map((_, i) => {
-            const d = i + 1;
-            const w = new Date(year, month - 1, d).getDay();
-            const sel = d === selDay;
-            const today = isCurrentMonth && d === now.getDate();
-            return (
-              <button
-                key={d}
-                onClick={() => { setSelDay(d); setOpenMember(null); }}
-                className={`flex flex-col items-center justify-center min-w-[44px] h-12 rounded border shrink-0 ${
-                  sel ? 'bg-white text-slate-900 border-white'
-                    : today ? 'border-white/40 text-white bg-white/5'
-                    : 'border-white/10 text-white/60'
-                }`}
-              >
-                <span className="text-sm tabular-nums leading-none">{d}</span>
-                <span className={`text-[10px] mt-0.5 ${
-                  sel ? 'text-slate-600' : w === 0 ? 'text-red-300/80' : w === 6 ? 'text-blue-300/80' : 'text-white/35'
-                }`}>{WEEK_JP[w]}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="flex items-center justify-between px-1">
-          <span className="text-sm font-bold text-white">
-            {month}月{selDay}日（{WEEK_JP[new Date(year, month - 1, selDay).getDay()]}）
-          </span>
-          <span className="text-xs text-white/50">稼働 {activeCount(di)}名</span>
-        </div>
-
-        <div className="border border-white/10 rounded divide-y divide-white/5">
-          {MEMBERS.map(name => {
-            const item = data.schedule[name]?.[di] ?? { type: 'rest' as StatusType, detail: '' };
-            const open = openMember === name;
-            return (
-              <div key={name}>
-                <button
-                  onClick={() => setOpenMember(open ? null : name)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left"
-                >
-                  <span className="flex-1 text-sm text-white/80 truncate">{name.replace('　', ' ')}</span>
-                  <span className={`text-sm text-right ${STATUS_COLOR[item.type]}`}>
-                    {displayText(item)}
-                  </span>
-                  <ChevronDown
-                    size={13}
-                    className={`shrink-0 text-white/30 transition-transform ${open ? 'rotate-180' : ''}`}
-                  />
-                </button>
-                {open && (
-                  <div className="px-3 pb-3">
-                    <DayDetail info={dayInfo(data, name, di)} />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {data.overallMemo && (
-          <div className="border border-white/10 rounded px-3 py-2.5">
-            <div className="text-xs text-white/40 mb-1">全体メモ / 連絡事項</div>
-            <div className="text-sm text-white/70 whitespace-pre-wrap leading-relaxed">{data.overallMemo}</div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ── デスクトップ: 月全体テーブル（表示専用 ⇄ 編集モード） ──
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <div className="flex-1 border border-white/10 rounded px-3 py-2">
-          <div className="text-xs text-white/40 mb-1">今月のチーム目標</div>
-          <LocalInput
-            className="w-full bg-transparent text-sm text-white/85 outline-none border-b border-transparent focus:border-white/30"
-            value={data.teamGoal}
-            onChange={onTeamGoalChange}
-            placeholder="今月の全体目標を入力..."
-          />
+    <div className="bg-white rounded-xl shadow-sm p-3 sm:p-5 border border-border text-text">
+      {/* ヘッダー: 全体稼働状況 + チーム目標 */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 mb-4">
+        <div className="flex items-center gap-2 text-sm font-bold text-text shrink-0">
+          <div className="w-1 h-4 bg-accent rounded-full" />
+          全体稼働状況 ({year}年{month}月)
         </div>
-        <button
-          onClick={() => { setEditMode(v => !v); setHover(null); }}
-          className={`h-9 px-4 rounded border text-sm shrink-0 ${
-            editMode
-              ? 'bg-white text-slate-900 border-white font-bold'
-              : 'border-white/20 text-white/70 hover:text-white hover:border-white/40'
-          }`}
-        >
-          {editMode ? '編集を終了' : '編集'}
-        </button>
+        <div className="flex items-center gap-2 sm:flex-grow sm:max-w-md">
+          {readOnly ? (
+            <div className="w-full px-3 py-2 rounded-lg border border-accent/20 bg-accent-l/30 text-xs font-bold text-text min-h-[36px] flex items-center">
+              {data.teamGoal || <span className="text-text3 font-normal">今月のチーム目標は未設定です</span>}
+            </div>
+          ) : (
+            <>
+              <LocalInput
+                className="w-full px-3 py-2 rounded-lg border border-accent/20 bg-accent-l/30 focus:bg-white outline-none text-xs font-bold text-text"
+                value={data.teamGoal}
+                onChange={(val) => { onTeamGoalChange(val); flash('team-goal'); }}
+                placeholder="今月の全体目標を入力..."
+              />
+              {savedFlash === 'team-goal' && (
+                <span className="text-[10px] text-green-600 font-bold whitespace-nowrap">✓ 保存</span>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="border border-white/10 rounded overflow-hidden">
-        <div className="overflow-auto max-h-[65vh]" onScroll={() => setHover(null)}>
-          <table className="border-collapse text-xs" style={{ minWidth: `${120 + totalDays * (editMode ? 88 : 56)}px` }}>
-            <thead className="sticky top-0 z-20">
-              <tr className="bg-slate-900">
-                <th className="sticky left-0 z-30 bg-slate-900 px-3 py-2 text-left border-b border-r border-white/10 font-normal text-white/40">
-                  名前
-                </th>
-                {Array.from({ length: totalDays }).map((_, i) => {
-                  const day = i + 1;
-                  const dow = new Date(year, month - 1, day).getDay();
-                  const isToday = isCurrentMonth && day === now.getDate();
-                  return (
-                    <th key={day} className={`px-1 py-1.5 text-center border-b border-white/10 font-normal ${isToday ? 'bg-white/10' : ''}`}>
-                      <div className={dow === 0 ? 'text-red-300' : dow === 6 ? 'text-blue-300' : 'text-white/60'}>{day}</div>
-                      <div className={`text-[10px] ${dow === 0 ? 'text-red-300/60' : dow === 6 ? 'text-blue-300/60' : 'text-white/30'}`}>
-                        {WEEK_JP[dow]}
-                      </div>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="sticky left-0 z-10 bg-slate-900 px-3 py-1.5 border-r border-b border-white/10 text-white/40">
-                  稼働人数
+      {/* スケジュールテーブル */}
+      <div className="overflow-auto max-h-[calc(100vh-260px)] sm:max-h-[700px] -mx-3 px-3 sm:-mx-5 sm:px-5 relative border-b border-border">
+        <table className="w-full text-[9px] border-separate border-spacing-0 min-w-[max-content]">
+          <thead className="relative z-30">
+            <tr className="bg-accent-l text-accent">
+              <th className="p-1 border border-border font-bold sticky left-0 top-0 bg-accent-l z-50 min-w-[48px] text-[8px] text-left leading-tight">
+                人 / 累計
+              </th>
+              {Array.from({ length: totalDays }).map((_, i) => {
+                const day = i + 1;
+                const dow = getDow(year, month, day);
+                const isSat = dow === 5;
+                const isSun = dow === 6;
+                return (
+                  <th key={day} className={`p-0.5 border border-border font-bold text-center min-w-[42px] text-[8px] sticky top-0 z-30 ${
+                    isSun ? 'text-red-600 bg-red-50' : isSat ? 'text-blue-600 bg-blue-50' : 'bg-accent-l'
+                  }`}>
+                    {day}({WD_JP[dow]})
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {/* 場所 (固定表示) */}
+            <tr className="bg-orange-50/30">
+              <td className="p-1 border border-border sticky left-0 bg-orange-50 z-20 font-bold text-orange-800 text-[8px]">
+                場所 (固定表示)
+              </td>
+              {Array.from({ length: totalDays }).map((_, i) => (
+                <td key={i} className="p-0.5 border border-border min-w-[42px]">
+                  {readOnly ? (
+                    <div className="h-5 flex items-center justify-center text-center font-bold text-orange-700 text-[7.5px] truncate px-0.5">
+                      {dailyLocations[i + 1] || ''}
+                    </div>
+                  ) : (
+                    <ExScaledInput
+                      className="w-full px-0.5 py-0.5 rounded border border-orange-200 outline-none focus:border-orange-500 bg-white/50 focus:bg-white h-5 text-orange-700"
+                      size={7.5}
+                      value={dailyLocations[i + 1] || ''}
+                      onChange={(val) => onLocationChange(i + 1, val)}
+                      placeholder="場所"
+                    />
+                  )}
                 </td>
-                {Array.from({ length: totalDays }).map((_, i) => {
-                  const c = activeCount(i);
-                  return (
-                    <td key={i} className="px-1 py-1.5 text-center border-b border-white/10 text-white/70 tabular-nums">
-                      {c > 0 ? c : ''}
-                    </td>
-                  );
-                })}
-              </tr>
+              ))}
+            </tr>
 
-              {MEMBERS.map(name => (
-                <tr key={name}>
-                  <td className="sticky left-0 z-10 bg-slate-900 px-3 py-1.5 border-r border-b border-white/5 text-white/75 whitespace-nowrap">
-                    {name.replace('　', ' ')}
+            {/* 時間 (固定表示) */}
+            <tr className="bg-blue-50/30">
+              <td className="p-1 border border-border sticky left-0 bg-blue-50 z-20 font-bold text-blue-800 text-[8px]">
+                時間 (固定表示)
+              </td>
+              {Array.from({ length: totalDays }).map((_, i) => (
+                <td key={i} className="p-0.5 border border-border min-w-[42px]">
+                  {readOnly ? (
+                    <div className="h-5 flex items-center justify-center text-center font-bold text-blue-700 text-[7.5px] truncate px-0.5">
+                      {dailyTimes[i + 1] || ''}
+                    </div>
+                  ) : (
+                    <ExScaledInput
+                      className="w-full px-0.5 py-0.5 rounded border border-blue-200 outline-none focus:border-blue-500 bg-white/50 focus:bg-white h-5 text-blue-700"
+                      size={7.5}
+                      value={dailyTimes[i + 1] || ''}
+                      onChange={(val) => onTimeChange(i + 1, val)}
+                      placeholder="時間"
+                    />
+                  )}
+                </td>
+              ))}
+            </tr>
+
+            {/* 稼働人数 (合計) */}
+            <tr className="bg-bg/50">
+              <td className="p-1 border border-border sticky left-0 bg-bg z-20 font-bold text-text text-[8px]">
+                稼働人数 (合計)
+              </td>
+              {Array.from({ length: totalDays }).map((_, i) => {
+                let count = 0;
+                MEMBERS.forEach(name => {
+                  const item = data.schedule[name]?.[i];
+                  if (item && needsDetail(item.type)) count++;
+                });
+                return (
+                  <td key={i} className="p-0.5 border border-border text-center font-bold text-text text-[8px] min-w-[42px]">
+                    {count}人
+                  </td>
+                );
+              })}
+            </tr>
+
+            {/* メンバー行 */}
+            {MEMBERS.map(name => {
+              const schedule = data.schedule[name] || [];
+              const normalCount = schedule.filter(s => s.type === 'normal').length;
+              const requestCount = schedule.filter(s => s.type === 'request').length;
+              return (
+                <tr key={name} className="hover:bg-bg/40 transition-colors">
+                  <td className="p-0.5 border border-border sticky left-0 bg-white z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center justify-between gap-0.5">
+                        <div className="font-bold text-accent text-[7.5px] truncate max-w-[32px]">{name.replace('　', '')}</div>
+                        <div className="flex flex-col text-[6px] font-bold leading-tight shrink-0">
+                          <span className="text-gray-400">公{normalCount}</span>
+                          <span className="text-pink-400">希{requestCount}</span>
+                        </div>
+                      </div>
+                      {readOnly ? (
+                        <div className="h-2.5 flex items-center text-[6.5px] text-text2 truncate px-0.5">
+                          {stations[name] || ''}
+                        </div>
+                      ) : (
+                        <ExScaledInput
+                          className="w-full px-0.5 py-0 rounded border border-accent/10 outline-none focus:border-accent bg-white/50 h-2.5 text-text"
+                          size={6.5}
+                          value={stations[name] || ''}
+                          onChange={(val) => onStationChange(name, val)}
+                          placeholder="駅"
+                        />
+                      )}
+                    </div>
                   </td>
                   {Array.from({ length: totalDays }).map((_, di) => {
                     const item = data.schedule[name]?.[di] ?? { type: 'rest' as StatusType, detail: '' };
-                    const dow = new Date(year, month - 1, di + 1).getDay();
-                    const isToday = isCurrentMonth && (di + 1) === now.getDate();
-                    const bg = isToday ? 'bg-white/8' : dow === 0 ? 'bg-red-500/5' : dow === 6 ? 'bg-blue-500/5' : '';
-
                     return (
-                      <td key={di} className={`border-b border-white/5 align-top ${bg} ${editMode ? 'px-1 py-1' : 'px-1.5 py-1.5'}`}>
-                        {editMode ? (
-                          <div className="flex flex-col gap-1" style={{ width: 80 }}>
-                            <select
-                              value={item.type}
-                              onChange={e => onTypeChange(name, di, e.target.value as StatusType)}
-                              className="w-full h-7 rounded border border-white/15 bg-slate-800 text-white text-[11px] px-0.5 outline-none"
-                            >
-                              {(Object.keys(TYPE_LABEL) as StatusType[]).map(t => (
-                                <option key={t} value={t}>{TYPE_LABEL[t].replace('(〇)', '').replace('(◎)', '')}</option>
-                              ))}
-                            </select>
-                            {needsDetail(item.type) && (
-                              <LocalInput
-                                className="w-full h-7 px-1 rounded border border-white/10 bg-white/5 text-white/80 outline-none focus:border-white/40"
-                                value={item.detail}
-                                onChange={v => onDetailChange(name, di, v)}
-                                placeholder="詳細"
-                                list="schedule-suggestions"
-                              />
+                      <td key={di} className="p-0.5 border border-border min-w-[42px]">
+                        {readOnly ? (
+                          <div className="flex flex-col gap-0.5 items-center">
+                            <span className={`w-full text-center rounded-full text-[8px] font-bold px-0.5 py-0.5 ${TYPE_CLASS[item.type]}`}>
+                              {dayLabel(item.type)}
+                            </span>
+                            {item.detail && needsDetail(item.type) && (
+                              <span className="w-full text-center text-[7.5px] text-text2 truncate">{item.detail}</span>
                             )}
                           </div>
                         ) : (
-                          <div
-                            className={`text-center whitespace-nowrap overflow-hidden text-ellipsis ${STATUS_COLOR[item.type]}`}
-                            style={{ maxWidth: 72 }}
-                            onMouseEnter={e => {
-                              const r = e.currentTarget.getBoundingClientRect();
-                              setHover({ x: r.left + r.width / 2, top: r.top, bottom: r.bottom, member: name, di });
-                            }}
-                            onMouseLeave={() => setHover(null)}
-                          >
-                            {displayText(item)}
+                          <div className="flex flex-col gap-0.5 min-w-full w-max text-center justify-center mx-auto">
+                            <select
+                              className={`w-full px-0.5 py-0.5 rounded-full text-[8px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[item.type]}`}
+                              value={item.type}
+                              onChange={(e) => onTypeChange(name, di, e.target.value as StatusType)}
+                            >
+                              {(Object.keys(TYPE_LABEL) as StatusType[]).map(t => (
+                                <option key={t} value={t}>{dayLabel(t)}</option>
+                              ))}
+                            </select>
+                            <ExScaledInput
+                              className="min-w-full w-max px-0.5 py-0.5 rounded border border-border outline-none focus:border-accent bg-white/50 focus:bg-white h-4 text-text2"
+                              size={7.5}
+                              value={item.detail || ''}
+                              onChange={(val) => onDetailChange(name, di, val)}
+                              placeholder="..."
+                              list="schedule-suggestions"
+                            />
                           </div>
                         )}
                       </td>
                     );
                   })}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
-      {/* ホバー詳細（fixed 配置で overflow にクリップされない） */}
-      {!editMode && hover && (() => {
-        const info = dayInfo(data, hover.member, hover.di);
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        const left = Math.min(Math.max(hover.x, 140), vw - 140);
-        const showBelow = hover.bottom + 170 < vh;
-        return (
-          <div
-            className="fixed z-[150] w-64 -translate-x-1/2 rounded border border-white/20 bg-slate-900 px-3 py-2.5 text-xs shadow-xl pointer-events-none"
-            style={showBelow ? { left, top: hover.bottom + 6 } : { left, bottom: vh - hover.top + 6 }}
-          >
-            <div className="flex items-baseline justify-between gap-2 mb-1.5">
-              <span className="font-bold text-white truncate">{hover.member.replace('　', ' ')}</span>
-              <span className="shrink-0 text-white/45 tabular-nums">
-                {month}月{hover.di + 1}日（{WEEK_JP[new Date(year, month - 1, hover.di + 1).getDay()]}）
-              </span>
-            </div>
-            <DayDetail info={info} />
+      {/* 全体メモ / 連絡事項 */}
+      <div className="mt-6 bg-accent-l/20 rounded-xl p-4 sm:p-5 border border-accent/10">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-accent">
+            <Info size={14} />
+            全体メモ / 連絡事項
           </div>
-        );
-      })()}
-
-      <div className="border border-white/10 rounded px-3 py-2.5">
-        <div className="text-xs text-white/40 mb-1.5">全体メモ / 連絡事項</div>
-        <LocalTextarea
-          className="w-full bg-transparent text-sm text-white/75 outline-none resize-none leading-relaxed min-h-[72px]"
-          value={data.overallMemo ?? ''}
-          onChange={onOverallMemoChange}
-          placeholder="全体に向けた連絡事項や月間の特記事項を入力してください..."
-          rows={3}
-        />
+          {!readOnly && (
+            <button
+              onClick={() => { onOverallMemoChange(data.overallMemo ?? ''); flash('overall-memo'); }}
+              className="bg-accent text-white px-4 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 hover:bg-accent-d transition-colors"
+            >
+              <Save size={12} />
+              メモを保存
+            </button>
+          )}
+        </div>
+        {readOnly ? (
+          <div className="w-full border border-accent/20 rounded-xl p-4 text-xs bg-white min-h-[120px] leading-relaxed font-bold text-text whitespace-pre-wrap">
+            {data.overallMemo || <span className="text-text3 font-normal">連絡事項はありません</span>}
+          </div>
+        ) : (
+          <LocalTextarea
+            className="w-full border border-accent/20 rounded-xl p-4 text-xs bg-white focus:border-accent outline-none min-h-[150px] leading-relaxed font-bold text-text"
+            value={data.overallMemo ?? ''}
+            onChange={onOverallMemoChange}
+            placeholder="全体に向けた連絡事項や、月間の特記事項を入力してください..."
+            rows={5}
+          />
+        )}
+        {savedFlash === 'overall-memo' && (
+          <div className="mt-2 text-right text-[10px] text-green-600 font-bold">
+            ✓ 全体メモを保存しました
+          </div>
+        )}
       </div>
 
-      <ScheduleSuggestions trainingLabels={data.trainingLabels} />
+      {!readOnly && <ScheduleSuggestions trainingLabels={data.trainingLabels} />}
     </div>
   );
 }
@@ -766,10 +819,11 @@ export default function ScheduleView() {
     // schedule / memos などのマップは深くマージし、別メンバーへの
     // 連続編集が互いを上書きしないようにする。
     const pending = pendingRef.current;
+    const mergeKeys = ['schedule', 'memos', 'dones', 'memberStations', 'dailyLocations', 'dailyTimes'];
     for (const [key, val] of Object.entries(updates)) {
       const prevVal = pending[key];
       if (
-        (key === 'schedule' || key === 'memos' || key === 'dones') &&
+        mergeKeys.includes(key) &&
         val && typeof val === 'object' && !Array.isArray(val) &&
         prevVal && typeof prevVal === 'object' && !Array.isArray(prevVal)
       ) {
@@ -837,6 +891,24 @@ export default function ScheduleView() {
     if (readOnly) return;
     setData(prev => prev ? { ...prev, overallMemo: val } : prev);
     persistChanges({ overallMemo: val });
+  }, [persistChanges, readOnly]);
+
+  const handleStationChange = useCallback((member: string, val: string) => {
+    if (readOnly) return;
+    setData(prev => prev ? { ...prev, memberStations: { ...(prev.memberStations ?? {}), [member]: val } } : prev);
+    persistChanges({ memberStations: { [member]: val } });
+  }, [persistChanges, readOnly]);
+
+  const handleLocationChange = useCallback((day: number, val: string) => {
+    if (readOnly) return;
+    setData(prev => prev ? { ...prev, dailyLocations: { ...(prev.dailyLocations ?? {}), [day]: val } } : prev);
+    persistChanges({ dailyLocations: { [day]: val } });
+  }, [persistChanges, readOnly]);
+
+  const handleTimeChange = useCallback((day: number, val: string) => {
+    if (readOnly) return;
+    setData(prev => prev ? { ...prev, dailyTimes: { ...(prev.dailyTimes ?? {}), [day]: val } } : prev);
+    persistChanges({ dailyTimes: { [day]: val } });
   }, [persistChanges, readOnly]);
 
   const handleBulkImport = useCallback((importedData: Record<string, string[]>) => {
@@ -952,7 +1024,7 @@ export default function ScheduleView() {
         <div className="flex gap-5 border-b border-white/10 -mb-3">
           {([
             { id: 'my', label: '自分の予定' },
-            { id: 'all', label: '全員の予定' },
+            { id: 'all', label: '全体表示' },
           ] as const).map(tab => (
             <button
               key={tab.id}
@@ -997,6 +1069,9 @@ export default function ScheduleView() {
             onDetailChange={handleDetailChange}
             onTeamGoalChange={handleTeamGoalChange}
             onOverallMemoChange={handleOverallMemoChange}
+            onStationChange={handleStationChange}
+            onLocationChange={handleLocationChange}
+            onTimeChange={handleTimeChange}
           />
         )}
       </div>
