@@ -120,6 +120,9 @@ export interface MonthData {
   trainingLabels?: Record<string, string>;
   trainingLocations?: Record<string, string>;
   memberStations?: Record<string, string>;
+  // 全体表示の「場所(固定表示)」「時間(固定表示)」行（日番号→値）
+  dailyLocations?: Record<number, string>;
+  dailyTimes?: Record<number, string>;
 }
 
 // 後方互換性のため維持
@@ -291,6 +294,8 @@ export async function fetchMonthData(year: number, month: number): Promise<Month
       trainingLabels: ((raw.trainingLabels ?? (isAfterApril2026 ? {} : TRAINING_LABELS)) as Record<string, string>),
       trainingLocations: ((raw.trainingLocations ?? (isAfterApril2026 ? {} : TRAINING_LOCATIONS)) as Record<string, string>),
       memberStations: ((raw.memberStations ?? {}) as Record<string, string>),
+      dailyLocations: ((raw.dailyLocations ?? {}) as Record<number, string>),
+      dailyTimes: ((raw.dailyTimes ?? {}) as Record<number, string>),
     };
   } catch {
     return null;

@@ -27,6 +27,18 @@
   --color-info:         #3b82f6;
   --color-info-bg:      #eff6ff;
 
+  /* EX-schedule カラートークン（全体表示の忠実再現用） */
+  --color-accent:   #2563eb;
+  --color-accent-l: #dbeafe;
+  --color-accent-m: #93c5fd;
+  --color-accent-d: #1d4ed8;
+  --color-bg:       #f4f7fc;
+  --color-text:     #1e2a3a;
+  --color-text2:    #4a5568;
+  --color-text3:    #a0aec0;
+  --color-border:   #e2e8f4;
+  --color-border2:  #c8d4ea;
+
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
