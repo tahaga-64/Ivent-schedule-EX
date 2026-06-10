@@ -5,11 +5,10 @@
 
 import React, { useState, useEffect, useMemo, Component, ErrorInfo, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Calendar, 
-  CheckCircle2, 
-  Plus, 
-  Trash2, 
+import {
+  Calendar,
+  Plus,
+  Trash2,
   Star,
   ChevronRight,
   Info,
@@ -17,7 +16,6 @@ import {
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
   AlertCircle,
-  Upload,
   Share2,
   X,
 } from 'lucide-react';
@@ -343,105 +341,6 @@ const TrainingInfo = ({
   );
 };
 
-const BulkImportModal = ({ isOpen, onClose, onImport }: { isOpen: boolean, onClose: () => void, onImport: (data: Record<string, string[]>) => void }) => {
-  const [text, setText] = useState('');
-
-  const handleImport = () => {
-    if (!text.trim()) return;
-    
-    const lines = text.trim().split('\n');
-    const result: Record<string, string[]> = {};
-    
-    const normalizeName = (n: string) => n.replace(/[\s　]+/g, '').trim();
-    const normalizedMembers = MEMBERS.map(normalizeName);
-    
-    // Simple TSV/CSV parser
-    // Expected format: Name \t Day1 \t Day2 ...
-    lines.forEach(line => {
-      const parts = line.split('\t');
-      if (parts.length > 1) {
-        const name = parts[0].trim();
-        const normName = normalizeName(name);
-        const memberIndex = normalizedMembers.indexOf(normName);
-        
-        if (memberIndex !== -1) {
-          const schedule = parts.slice(1).map(p => p.trim());
-          result[MEMBERS[memberIndex]] = schedule;
-        }
-      }
-    });
-
-    if (Object.keys(result).length === 0) {
-      alert('有効なメンバー名が見つかりませんでした。スプレッドシートから名前を含めてコピーしてください。');
-      return;
-    }
-
-    onImport(result);
-    setText('');
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-slate-900/95 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
-      >
-        <div className="p-6 border-b border-border flex items-center justify-between bg-accent text-white">
-          <div>
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <Upload size={24} />
-              一括インポート
-            </h2>
-            <p className="text-xs opacity-80 mt-1">スプレッドシートからコピーしたデータを貼り付けてください。</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <X size={24} />
-          </button>
-        </div>
-        
-        <div className="p-6 space-y-4 overflow-y-auto">
-          <div className="bg-[#0f1d33] border border-blue-400/30 rounded-xl p-4 text-xs text-blue-200 leading-relaxed">
-            <p className="font-bold mb-1">貼り付け方法:</p>
-            <ol className="list-decimal list-inside space-y-1">
-              <li>Googleスプレッドシートを開きます。</li>
-              <li>名前の列から日付の列まで、必要な範囲を選択してコピー（Ctrl+C）します。</li>
-              <li>下のテキストエリアに貼り付け（Ctrl+V）ます。</li>
-              <li>「インポート実行」をクリックします。</li>
-            </ol>
-          </div>
-
-          <textarea 
-            className="w-full h-64 border border-border rounded-xl p-4 text-xs font-mono bg-bg focus:bg-white/20 focus:border-accent outline-none resize-none"
-            style={{ fontSize: '16px' }}
-            placeholder="ここに貼り付けてください...&#10;例:&#10;加藤 あかり	研修1	〇	研修2...&#10;青木 大芽	〇	研修1	〇..."
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-        </div>
-
-        <div className="p-6 border-t border-border bg-bg flex justify-end gap-3">
-          <button 
-            onClick={onClose}
-            className="px-6 py-2.5 rounded-xl text-sm font-bold text-text2 hover:bg-slate-900/95 transition-all"
-          >
-            キャンセル
-          </button>
-          <button 
-            onClick={handleImport}
-            className="px-8 py-2.5 rounded-xl text-sm font-bold bg-accent text-white hover:bg-accent-d shadow-lg shadow-accent/20 transition-all flex items-center gap-2"
-          >
-            <CheckCircle2 size={18} />
-            インポート実行
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
 
 const MemberTabs = ({ members, current, onSelect }: { members: string[], current: string, onSelect: (n: string) => void }) => (
   <div className="bg-slate-900/95 rounded-xl shadow-sm mb-4 overflow-hidden border border-border">
@@ -474,8 +373,6 @@ export default function AppWrapper() {
 function App() {
   const [activeTab, setActiveTab] = useState<'schedule' | 'overall'>('schedule');
   const [currentSchedMember, setCurrentSchedMember] = useState(MEMBERS[0]);
-  const [hideDone, setHideDone] = useState(false);
-  const [isImportOpen, setIsImportOpen] = useState(false);
   
   // Initialize from current real date to ensure the app opens with the latest current month always
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
@@ -853,19 +750,6 @@ function App() {
     saveData({ [`schedule.${member}`]: finalSched });
   };
 
-  const handleResetMonth = () => {
-    if (!window.confirm(`${currentYear}年${currentMonth + 1}月のスケジュールを全て空欄にリセットしますか？`)) return;
-    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
-    const blankSched: Record<string, { type: StatusType, detail: string }[]> = {};
-    for (const member of MEMBERS) {
-      blankSched[member] = Array(daysInMonth).fill(null).map(() => ({ type: 'rest', detail: '' }));
-    }
-    updateCurrentMonthData({ 
-      schedule: blankSched,
-      trainingLabels: {},
-      trainingLocations: {}
-    });
-  };
 
   const handleRestoreInitial = () => {
     if (currentYear !== 2026 || currentMonth !== 3) return;
@@ -892,26 +776,6 @@ function App() {
     });
   };
 
-  const handleBulkImport = (importedData: Record<string, string[]>) => {
-    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
-    const newSched = { ...currentMonthData.schedule };
-    
-    Object.keys(importedData).forEach(member => {
-      const rawData = importedData[member];
-      const processed = rawData.map(s => ({ type: getType(s), detail: s }));
-      
-      // Ensure correct length
-      if (processed.length < daysInMonth) {
-        const extra = Array(daysInMonth - processed.length).fill(null).map(() => ({ type: 'rest' as StatusType, detail: '' }));
-        newSched[member] = [...processed, ...extra];
-      } else {
-        newSched[member] = processed.slice(0, daysInMonth);
-      }
-    });
-
-    updateCurrentMonthData({ schedule: newSched });
-    triggerSaveOk('bulk-import');
-  };
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -924,11 +788,6 @@ function App() {
     updateCurrentMonthData({ memos: newMemos });
   };
 
-  const handleDoneChange = (member: string, day: number, checked: boolean) => {
-    const newDones = { ...currentMonthData.dones };
-    newDones[member] = { ...(newDones[member] || {}), [day]: checked };
-    updateCurrentMonthData({ dones: newDones });
-  };
 
   const handleTeamGoalSave = () => {
     updateCurrentMonthData({ teamGoal: currentMonthData.teamGoal });
@@ -1066,18 +925,8 @@ function App() {
       </AnimatePresence>
 
       {/* Header */}
-      <header className="bg-slate-900/95 border-b border-border sticky top-0 z-50 shadow-sm">
+      <header className="bg-slate-900/95 border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg shadow-accent/20">
-              <Calendar size={24} />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight">EX事業部</h1>
-              <p className="text-[10px] text-text2 font-medium uppercase tracking-widest">Schedule Management</p>
-            </div>
-          </div>
-
           {/* Month Selector */}
           <div className="flex items-center gap-2 bg-bg rounded-lg p-1 border border-border">
             <button 
@@ -1125,7 +974,7 @@ function App() {
       </header>
 
       {/* Navigation */}
-      <nav className="bg-slate-900/95 border-b border-border px-4 flex overflow-x-auto shadow-sm sticky top-16 z-40 scrollbar-hide">
+      <nav className="bg-slate-900/95 border-b border-border px-4 flex overflow-x-auto shadow-sm scrollbar-hide">
         <div className="max-w-7xl mx-auto w-full flex">
           {[
             { id: 'schedule', label: 'スケジュール', icon: Calendar },
@@ -1178,35 +1027,12 @@ function App() {
                 </div>
               </div>
               
-              <div className="bg-slate-900/95 rounded-xl shadow-sm p-4 md:p-5 border border-border overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-text">{currentYear}年{currentMonth + 1}月</span>
-                    <button 
-                      onClick={() => setHideDone(!hideDone)}
-                      className={`px-3 py-1 rounded-md text-xs transition-all border ${
-                        hideDone 
-                          ? 'bg-accent border-accent text-white' 
-                          : 'bg-bg border-border2 text-text2'
-                      }`}
-                    >
-                      完了済みを非表示
-                    </button>
-                    <button 
-                      onClick={() => setIsImportOpen(true)}
-                      className="px-3 py-1 rounded-md text-xs transition-all border bg-[#0f241c] border-emerald-200 text-emerald-600 hover:bg-emerald-100 flex items-center gap-1"
-                    >
-                      <Upload size={12} />
-                      一括インポート
-                    </button>
-                    <button 
-                      onClick={handleResetMonth}
-                      className="px-3 py-1 rounded-md text-xs transition-all border bg-[#27151a] border-red-200 text-red-600 hover:bg-red-100"
-                    >
-                      この月をリセット
-                    </button>
+                    <span className="text-sm font-bold text-white">{currentYear}年{currentMonth + 1}月</span>
                     {currentYear === 2026 && currentMonth === 3 && (
-                      <button 
+                      <button
                         onClick={handleRestoreInitial}
                         className="px-3 py-1 rounded-md text-xs transition-all border bg-[#0f1d33] border-blue-400/40 text-blue-200 hover:bg-blue-500/20"
                       >
@@ -1214,14 +1040,14 @@ function App() {
                       </button>
                     )}
                   </div>
-                  <div className="text-[10px] text-text3 flex items-center gap-1">
+                  <div className="text-[11px] text-text2 flex items-center gap-1">
                     <ChevronRight size={12} className="animate-pulse" />
                     横スクロールで全体表示
                   </div>
                 </div>
 
                 {/* Scrollable Calendar Container */}
-                <div className="overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0">
+                <div className="overflow-x-auto pb-2 -mx-0">
                   <div className="min-w-[700px]">
                     {/* Calendar Grid Header */}
                     <div className="grid grid-cols-7 gap-1 md:gap-2 mb-1">
@@ -1248,28 +1074,25 @@ function App() {
                         const item = currentMonthData.schedule[currentSchedMember]?.[i] || { type: 'rest', detail: '' };
                         const type = item.type;
                         const detail = item.detail;
-                        const isDone = currentMonthData.dones[currentSchedMember]?.[day] || false;
                         const isSat = dow === 5;
                         const isSun = dow === 6;
 
-                        if (isDone && hideDone) return null;
-
                         return (
-                          <div 
+                          <div
                             key={day}
-                            className={`border border-border rounded-lg p-1.5 md:p-2 min-h-[100px] md:min-h-[130px] transition-all relative flex flex-col ${
-                              isDone ? 'opacity-50' : 'bg-slate-900/95'
-                            } ${isSun ? 'bg-[#27151a]' : isSat ? 'bg-[#0f1d33]' : ''}`}
+                            className={`border border-border rounded-lg p-1.5 md:p-2 min-h-[100px] md:min-h-[130px] transition-all relative flex flex-col bg-slate-900/95 ${
+                              isSun ? 'bg-[#27151a]' : isSat ? 'bg-[#0f1d33]' : ''
+                            }`}
                           >
-                            <span className={`font-mono text-xs font-bold mb-1 ${
-                              isSun ? 'text-red-600' : isSat ? 'text-blue-600' : 'text-accent'
+                            <span className={`font-mono text-sm font-black mb-1.5 ${
+                              isSun ? 'text-red-400' : isSat ? 'text-blue-400' : 'text-white'
                             }`}>
                               {day}
                             </span>
-                            
+
                             <div className="flex flex-col gap-1 mb-1">
                               <select
-                                className={`w-full px-1 py-0.5 rounded-full text-[9px] md:text-[10px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[type]}`}
+                                className={`w-full px-1.5 py-1 rounded-full text-[11px] md:text-xs font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[type]}`}
                                 value={type}
                                 onChange={(e) => handleScheduleTypeChange(currentSchedMember, i, e.target.value as StatusType)}
                               >
@@ -1279,8 +1102,8 @@ function App() {
                               </select>
                               {(type !== 'normal' && type !== 'request' && type !== 'rest') && (
                                 <LocalInput
-                                  className="w-full px-1.5 py-0.5 rounded border border-border text-[9px] md:text-[10px] outline-none focus:border-accent"
-                                  size={9.5}
+                                  className="w-full px-1.5 py-0.5 rounded border border-border text-[11px] md:text-xs text-white outline-none focus:border-accent bg-white/10"
+                                  size={11}
                                   value={detail}
                                   onChange={(val: string) => handleScheduleDetailChange(currentSchedMember, i, val)}
                                   placeholder="詳細..."
@@ -1290,23 +1113,13 @@ function App() {
                             </div>
 
                             <LocalTextarea
-                              className="w-full border border-border rounded p-1 text-[9px] md:text-[10px] bg-bg focus:bg-white/20 focus:border-accent outline-none resize-none flex-grow mt-1"
+                              className="w-full border border-border rounded p-1.5 text-[11px] md:text-xs text-white bg-white/5 focus:bg-white/10 focus:border-accent outline-none resize-none flex-grow mt-1 placeholder:text-white/30"
                               rows={2}
                               placeholder="メモ..."
                               value={currentMonthData.memos[currentSchedMember]?.[day] || ''}
                               onChange={(val: string) => handleMemoChange(currentSchedMember, day, val)}
                             />
 
-                            <div className="flex items-center gap-1 mt-1 text-[9px] md:text-[10px] text-text2">
-                              <input 
-                                type="checkbox" 
-                                id={`chk-${day}`}
-                                className="accent-accent w-3 h-3"
-                                checked={isDone}
-                                onChange={(e) => handleDoneChange(currentSchedMember, day, e.target.checked)}
-                              />
-                              <label htmlFor={`chk-${day}`}>完了</label>
-                            </div>
                           </div>
                         );
                       })}
@@ -1361,10 +1174,10 @@ function App() {
                 </div>
 
                 <div className="overflow-auto max-h-[calc(100vh-250px)] sm:max-h-[700px] -mx-5 px-5 relative border-b border-border">
-                  <table className="w-full text-[9px] border-separate border-spacing-0 min-w-[max-content]">
+                  <table className="w-full text-[10px] border-separate border-spacing-0 min-w-[max-content]">
                     <thead className="relative z-30">
-                      <tr className="bg-accent-l text-accent">
-                        <th className="p-1 border border-border font-bold sticky left-0 top-0 bg-accent-l z-50 min-w-[48px] text-[8px] text-left leading-tight">
+                      <tr className="bg-[#1e2d46] text-white">
+                        <th className="p-1.5 border border-border font-bold sticky left-0 top-0 bg-[#1e2d46] z-50 min-w-[56px] text-[10px] text-left leading-tight">
                           人 / 累計
                         </th>
                         {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -1373,8 +1186,8 @@ function App() {
                           const isSat = dow === 5;
                           const isSun = dow === 6;
                           return (
-                            <th key={day} className={`p-0.5 border border-border font-bold text-center min-w-[42px] min-w-max text-[8px] sticky top-0 z-30 ${
-                              isSun ? 'text-red-600 bg-[#27151a]' : isSat ? 'text-blue-600 bg-[#0f1d33]' : 'bg-accent-l'
+                            <th key={day} className={`p-0.5 border border-border font-bold text-center min-w-[44px] min-w-max text-[10px] sticky top-0 z-30 ${
+                              isSun ? 'text-red-400 bg-[#2d1a1a]' : isSat ? 'text-blue-400 bg-[#1a2440]' : 'bg-[#1e2d46] text-white'
                             }`}>
                               {day}({['月','火','水','木','金','土','日'][dow]})
                             </th>
@@ -1447,18 +1260,18 @@ function App() {
                         const requestCount = schedule.filter(s => s.type === 'request').length;
                         return (
                           <tr key={name} className="hover:bg-bg/40 transition-colors">
-                            <td className="p-0.5 border border-border sticky left-0 bg-slate-900/95 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                            <td className="p-1 border border-border sticky left-0 bg-[#0f1a2e] z-20 shadow-[2px_0_8px_-2px_rgba(0,0,0,0.4)]">
                               <div className="flex flex-col gap-0.5">
-                                <div className="flex items-center justify-between gap-0.25">
-                                  <div className="font-bold text-accent text-[7.5px] truncate max-w-[32px]">{name.replace('　', '')}</div>
-                                  <div className="flex flex-col text-[6px] font-bold leading-tight shrink-0">
-                                    <span className="text-gray-400">公{normalCount}</span>
+                                <div className="flex items-center justify-between gap-1">
+                                  <div className="font-bold text-white text-[9px] truncate max-w-[40px]">{name.replace('　', '')}</div>
+                                  <div className="flex flex-col text-[7px] font-bold leading-tight shrink-0">
+                                    <span className="text-white/50">公{normalCount}</span>
                                     <span className="text-pink-400">希{requestCount}</span>
                                   </div>
                                 </div>
                                 <LocalInput
-                                  className="w-full px-0.5 py-0 rounded border border-accent/10 text-[6.5px] outline-none focus:border-accent bg-white/10 font-normal h-2.5"
-                                  size={6.5}
+                                  className="w-full px-0.5 py-0 rounded border border-white/10 text-[7.5px] outline-none focus:border-accent bg-white/10 text-white font-normal h-3"
+                                  size={7.5}
                                   value={globalStations[name] || currentMonthData.memberStations?.[name] || ''}
                                   onChange={(val: string) => handleMemberStationChange(name, val)}
                                   placeholder="駅"
@@ -1471,7 +1284,7 @@ function App() {
                                 <td key={i} className="p-0.5 border border-border min-w-[42px] min-w-max">
                                   <div className="flex flex-col gap-0.5 min-w-full w-max text-center justify-center mx-auto">
                                     <select
-                                      className={`w-full px-0.5 py-0.5 rounded-full text-[8px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[item.type]}`}
+                                      className={`w-full px-0.5 py-0.5 rounded-full text-[9px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[item.type]}`}
                                       value={item.type}
                                       onChange={(e) => handleScheduleTypeChange(name, i, e.target.value as StatusType)}
                                     >
@@ -1480,8 +1293,8 @@ function App() {
                                       ))}
                                     </select>
                                     <LocalInput
-                                      className="min-w-full w-max px-0.5 py-0.5 rounded border border-border text-[7.5px] outline-none focus:border-accent bg-white/10 focus:bg-white/20 h-4 text-center justify-center mx-auto"
-                                      size={7.5}
+                                      className="min-w-full w-max px-0.5 py-0.5 rounded border border-white/10 text-[8px] text-white outline-none focus:border-accent bg-white/10 focus:bg-white/20 h-4 text-center justify-center mx-auto"
+                                      size={8}
                                       value={item.detail || ''}
                                       onChange={(val: string) => handleScheduleDetailChange(name, i, val)}
                                       placeholder="..."
@@ -1542,11 +1355,6 @@ function App() {
         </div>
       </footer>
 
-      <BulkImportModal 
-        isOpen={isImportOpen} 
-        onClose={() => setIsImportOpen(false)} 
-        onImport={handleBulkImport} 
-      />
     </div>
   );
 }

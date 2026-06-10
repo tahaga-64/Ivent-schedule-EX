@@ -224,9 +224,9 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
     <div className="relative min-h-screen">
       <div className="relative z-10 flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-6 pb-32 md:pb-8 w-full max-w-none">
 
-        {/* Date header — 日付 / EXロゴ / 時計 */}
-        <div className="flex items-center justify-between gap-2 text-white">
-          <div className="flex items-end gap-2 min-w-0 flex-1">
+        {/* Date header — 日付 / EXロゴ(中央) / 時計 */}
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-white">
+          <div className="flex items-end gap-2 min-w-0">
             <div className="text-6xl sm:text-7xl md:text-8xl font-black leading-none tracking-tighter tabular-nums">
               {new Date().getDate()}
             </div>
@@ -237,11 +237,15 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               <div className="text-xs sm:text-sm font-bold opacity-40">{new Date().getFullYear()}</div>
             </div>
           </div>
-          <div className="sm:hidden shrink-0"><EXBadge size={64} /></div>
-          <div className="hidden sm:block md:hidden shrink-0"><EXBadge size={80} /></div>
-          <div className="hidden md:block shrink-0"><EXBadge size={104} /></div>
-          <div className="hidden min-[400px]:block shrink-0">
-            <AnalogClock />
+          <div className="flex justify-center">
+            <div className="sm:hidden"><EXBadge size={64} /></div>
+            <div className="hidden sm:block md:hidden"><EXBadge size={80} /></div>
+            <div className="hidden md:block"><EXBadge size={104} /></div>
+          </div>
+          <div className="flex justify-end">
+            <div className="hidden min-[400px]:block shrink-0">
+              <AnalogClock />
+            </div>
           </div>
         </div>
 

@@ -75,9 +75,6 @@ export default function AppHeader({
             <Menu size={20} />
           </button>
           <EXBadge size={28} />
-          <div className="hidden sm:block">
-            <div className="font-bold text-sm text-white leading-tight">Event Manager</div>
-          </div>
           <div className="sm:hidden flex flex-col min-w-0">
             <div className="font-black text-sm text-white leading-tight truncate">{viewLabel}</div>
             {view === 'calendar' && (
@@ -87,7 +84,7 @@ export default function AppHeader({
         </div>
 
         {/* 中央: 検索バー */}
-        <div className="flex-1 min-w-0 max-w-sm md:max-w-xl xl:max-w-2xl">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-xl px-2.5 sm:px-3 py-2">
             <Search size={14} className="text-white/60 shrink-0" />
             <input
