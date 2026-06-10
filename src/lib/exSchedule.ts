@@ -1,4 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
 // EX-schedule は ivent-schedule-EX とは別の独立した Firebase プロジェクトに
@@ -27,6 +28,11 @@ const exApp =
   getApps().find(a => a.name === APP_NAME) ??
   initializeApp(EX_SCHEDULE_CONFIG, APP_NAME);
 const exDb = getFirestore(exApp, EX_SCHEDULE_DATABASE_ID);
+
+// EX-schedule アプリ（移植版 ExScheduleApp）が onSnapshot / setDoc / auth で
+// 直接利用するためにエクスポート。アプリは1つだけ初期化して共有する。
+export { exDb };
+export const exAuth = getAuth(exApp);
 
 // ─── 定数（EX-schedule constants.ts から移植） ────────────────────────────────
 

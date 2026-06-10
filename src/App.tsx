@@ -40,7 +40,8 @@ const PreparationList = lazy(() => import('./components/PreparationList'));
 const PrepEventList = lazy(() => import('./components/PrepEventList'));
 const ArchiveView = lazy(() => import('./components/ArchiveView'));
 const AlbumView = lazy(() => import('./components/AlbumView'));
-const ScheduleView = lazy(() => import('./components/ScheduleView'));
+// シフト管理ページ = EX-schedule アプリ全体を移植・埋め込み（ExScheduleApp）
+const ScheduleView = lazy(() => import('./components/ExScheduleApp'));
 const CalendarView = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.CalendarView })));
 const HoverCard = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.HoverCard })));
 const EmptyState = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.EmptyState })));
