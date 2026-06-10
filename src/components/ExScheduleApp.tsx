@@ -114,7 +114,7 @@ class ErrorBoundary extends React.Component<any, any> {
       }
       return (
         <div className="min-h-full flex items-center justify-center bg-bg p-4">
-          <div className="bg-white p-8 rounded-2xl shadow-xl border border-border max-w-md w-full text-center">
+          <div className="bg-slate-900/95 p-8 rounded-2xl shadow-xl border border-border max-w-md w-full text-center">
             <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <Info size={32} />
             </div>
@@ -249,7 +249,7 @@ const LocalTextarea = ({ value, onChange, onBlur, className, rows = 1, ...props 
 };
 
 const Legend = () => (
-  <div className="bg-white rounded-xl shadow-sm p-4 border border-border mb-4">
+  <div className="bg-slate-900/95 rounded-xl shadow-sm p-4 border border-border mb-4">
     <div className="flex items-center gap-2 text-xs font-bold text-text mb-3">
       <div className="w-1 h-4 bg-accent rounded-full" />
       凡例 (ステータス)
@@ -292,7 +292,7 @@ const TrainingInfo = ({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 border border-border mb-4">
+    <div className="bg-slate-900/95 rounded-xl shadow-sm p-4 border border-border mb-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-xs font-bold text-text">
           <div className="w-1 h-4 bg-accent rounded-full" />
@@ -314,7 +314,7 @@ const TrainingInfo = ({
               </span>
               {isEditing ? (
                 <input 
-                  className="text-xs font-bold text-text bg-white border border-border rounded px-1 w-full"
+                  className="text-xs font-bold text-text bg-slate-900/95 border border-border rounded px-1 w-full"
                   style={{ fontSize: '16px' }}
                   value={localLabels[key] || ''}
                   onChange={(e) => setLocalLabels({...localLabels, [key]: e.target.value})}
@@ -325,7 +325,7 @@ const TrainingInfo = ({
             </div>
             {isEditing ? (
               <textarea 
-                className="text-[10px] text-text2 leading-tight bg-white border border-border rounded px-1 w-full"
+                className="text-[10px] text-text2 leading-tight bg-slate-900/95 border border-border rounded px-1 w-full"
                 style={{ fontSize: '16px' }}
                 value={localLocations[key] || ''}
                 onChange={(e) => setLocalLocations({...localLocations, [key]: e.target.value})}
@@ -388,7 +388,7 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: { isOpen: boolean, onClo
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-slate-900/95 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
       >
         <div className="p-6 border-b border-border flex items-center justify-between bg-accent text-white">
           <div>
@@ -404,7 +404,7 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: { isOpen: boolean, onClo
         </div>
         
         <div className="p-6 space-y-4 overflow-y-auto">
-          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-xs text-blue-700 leading-relaxed">
+          <div className="bg-[#0f1d33] border border-blue-400/30 rounded-xl p-4 text-xs text-blue-200 leading-relaxed">
             <p className="font-bold mb-1">貼り付け方法:</p>
             <ol className="list-decimal list-inside space-y-1">
               <li>Googleスプレッドシートを開きます。</li>
@@ -415,7 +415,7 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: { isOpen: boolean, onClo
           </div>
 
           <textarea 
-            className="w-full h-64 border border-border rounded-xl p-4 text-xs font-mono bg-bg focus:bg-white focus:border-accent outline-none resize-none"
+            className="w-full h-64 border border-border rounded-xl p-4 text-xs font-mono bg-bg focus:bg-white/20 focus:border-accent outline-none resize-none"
             style={{ fontSize: '16px' }}
             placeholder="ここに貼り付けてください...&#10;例:&#10;加藤 あかり	研修1	〇	研修2...&#10;青木 大芽	〇	研修1	〇..."
             value={text}
@@ -426,7 +426,7 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: { isOpen: boolean, onClo
         <div className="p-6 border-t border-border bg-bg flex justify-end gap-3">
           <button 
             onClick={onClose}
-            className="px-6 py-2.5 rounded-xl text-sm font-bold text-text2 hover:bg-white transition-all"
+            className="px-6 py-2.5 rounded-xl text-sm font-bold text-text2 hover:bg-slate-900/95 transition-all"
           >
             キャンセル
           </button>
@@ -444,7 +444,7 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: { isOpen: boolean, onClo
 };
 
 const MemberTabs = ({ members, current, onSelect }: { members: string[], current: string, onSelect: (n: string) => void }) => (
-  <div className="bg-white rounded-xl shadow-sm mb-4 overflow-hidden border border-border">
+  <div className="bg-slate-900/95 rounded-xl shadow-sm mb-4 overflow-hidden border border-border">
     <div className="flex overflow-x-auto p-2 gap-1.5 border-b border-border scrollbar-hide">
       {members.map(name => (
         <button
@@ -1026,8 +1026,8 @@ function App() {
   if (error) {
     return (
       <div className="min-h-full flex items-center justify-center bg-bg p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl border border-red-100 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div className="bg-slate-900/95 p-8 rounded-2xl shadow-xl border border-red-100 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-[#27151a] text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <AlertCircle size={32} />
           </div>
           <h2 className="text-xl font-bold text-text mb-2">エラーが発生しました</h2>
@@ -1044,7 +1044,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-full bg-bg text-text font-sans pb-20">
+    <div className="min-h-full bg-transparent text-text font-sans pb-20">
       {/* Non-blocking Save Error Banner */}
       <AnimatePresence>
         {saveError && (
@@ -1052,7 +1052,7 @@ function App() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="bg-red-500 text-white px-4 py-2 text-xs font-bold flex items-center justify-between sticky top-0 z-[100] shadow-md"
+            className="bg-[#27151a]0 text-white px-4 py-2 text-xs font-bold flex items-center justify-between sticky top-0 z-[100] shadow-md"
           >
             <div className="flex items-center gap-2">
               <AlertCircle size={14} />
@@ -1066,7 +1066,7 @@ function App() {
       </AnimatePresence>
 
       {/* Header */}
-      <header className="bg-white border-b border-border sticky top-0 z-50 shadow-sm">
+      <header className="bg-slate-900/95 border-b border-border sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg shadow-accent/20">
@@ -1082,7 +1082,7 @@ function App() {
           <div className="flex items-center gap-2 bg-bg rounded-lg p-1 border border-border">
             <button 
               onClick={() => setCurrentMonth(prev => (prev === 0 ? 11 : prev - 1))}
-              className="p-1.5 hover:bg-white rounded-md transition-colors text-text2 hover:text-accent"
+              className="p-1.5 hover:bg-slate-900/95 rounded-md transition-colors text-text2 hover:text-accent"
             >
               <ChevronLeft size={18} />
             </button>
@@ -1091,7 +1091,7 @@ function App() {
             </span>
             <button 
               onClick={() => setCurrentMonth(prev => (prev === 11 ? 0 : prev + 1))}
-              className="p-1.5 hover:bg-white rounded-md transition-colors text-text2 hover:text-accent"
+              className="p-1.5 hover:bg-slate-900/95 rounded-md transition-colors text-text2 hover:text-accent"
             >
               <ChevronRightIcon size={18} />
             </button>
@@ -1116,8 +1116,8 @@ function App() {
                 </span>
               )}
             </button>
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 text-[10px] font-bold">
-              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-[#0f241c] text-emerald-600 rounded-lg border border-emerald-100 text-[10px] font-bold">
+              <div className="w-1.5 h-1.5 bg-[#0f241c]0 rounded-full animate-pulse" />
               パブリック編集モード
             </div>
           </div>
@@ -1125,7 +1125,7 @@ function App() {
       </header>
 
       {/* Navigation */}
-      <nav className="bg-white border-b border-border px-4 flex overflow-x-auto shadow-sm sticky top-16 z-40 scrollbar-hide">
+      <nav className="bg-slate-900/95 border-b border-border px-4 flex overflow-x-auto shadow-sm sticky top-16 z-40 scrollbar-hide">
         <div className="max-w-7xl mx-auto w-full flex">
           {[
             { id: 'schedule', label: 'スケジュール', icon: Calendar },
@@ -1178,7 +1178,7 @@ function App() {
                 </div>
               </div>
               
-              <div className="bg-white rounded-xl shadow-sm p-4 md:p-5 border border-border overflow-hidden">
+              <div className="bg-slate-900/95 rounded-xl shadow-sm p-4 md:p-5 border border-border overflow-hidden">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-bold text-text">{currentYear}年{currentMonth + 1}月</span>
@@ -1194,21 +1194,21 @@ function App() {
                     </button>
                     <button 
                       onClick={() => setIsImportOpen(true)}
-                      className="px-3 py-1 rounded-md text-xs transition-all border bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100 flex items-center gap-1"
+                      className="px-3 py-1 rounded-md text-xs transition-all border bg-[#0f241c] border-emerald-200 text-emerald-600 hover:bg-emerald-100 flex items-center gap-1"
                     >
                       <Upload size={12} />
                       一括インポート
                     </button>
                     <button 
                       onClick={handleResetMonth}
-                      className="px-3 py-1 rounded-md text-xs transition-all border bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
+                      className="px-3 py-1 rounded-md text-xs transition-all border bg-[#27151a] border-red-200 text-red-600 hover:bg-red-100"
                     >
                       この月をリセット
                     </button>
                     {currentYear === 2026 && currentMonth === 3 && (
                       <button 
                         onClick={handleRestoreInitial}
-                        className="px-3 py-1 rounded-md text-xs transition-all border bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100"
+                        className="px-3 py-1 rounded-md text-xs transition-all border bg-[#0f1d33] border-blue-400/40 text-blue-200 hover:bg-blue-500/20"
                       >
                         初期データに復元
                       </button>
@@ -1258,8 +1258,8 @@ function App() {
                           <div 
                             key={day}
                             className={`border border-border rounded-lg p-1.5 md:p-2 min-h-[100px] md:min-h-[130px] transition-all relative flex flex-col ${
-                              isDone ? 'opacity-50' : 'bg-white'
-                            } ${isSun ? 'bg-red-50/30' : isSat ? 'bg-blue-50/30' : ''}`}
+                              isDone ? 'opacity-50' : 'bg-slate-900/95'
+                            } ${isSun ? 'bg-[#27151a]' : isSat ? 'bg-[#0f1d33]' : ''}`}
                           >
                             <span className={`font-mono text-xs font-bold mb-1 ${
                               isSun ? 'text-red-600' : isSat ? 'text-blue-600' : 'text-accent'
@@ -1290,7 +1290,7 @@ function App() {
                             </div>
 
                             <LocalTextarea
-                              className="w-full border border-border rounded p-1 text-[9px] md:text-[10px] bg-bg focus:bg-white focus:border-accent outline-none resize-none flex-grow mt-1"
+                              className="w-full border border-border rounded p-1 text-[9px] md:text-[10px] bg-bg focus:bg-white/20 focus:border-accent outline-none resize-none flex-grow mt-1"
                               rows={2}
                               placeholder="メモ..."
                               value={currentMonthData.memos[currentSchedMember]?.[day] || ''}
@@ -1338,7 +1338,7 @@ function App() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-4"
             >
-              <div className="bg-white rounded-xl shadow-sm p-5 border border-border">
+              <div className="bg-slate-900/95 rounded-xl shadow-sm p-5 border border-border">
                 <div className="flex items-center justify-between gap-4 mb-4">
                   <div className="flex items-center gap-2 text-sm font-bold text-text">
                     <div className="w-1 h-4 bg-accent rounded-full" />
@@ -1347,7 +1347,7 @@ function App() {
                   <div className="flex items-center gap-2 flex-grow max-w-md">
                     <div className="relative flex-grow">
                       <LocalInput
-                        className="w-full px-3 py-2 rounded-lg border border-accent/20 bg-accent-l/30 focus:bg-white outline-none text-xs font-bold"
+                        className="w-full px-3 py-2 rounded-lg border border-accent/20 bg-accent-l/30 focus:bg-white/20 outline-none text-xs font-bold"
                         size={12}
                         value={currentMonthData.teamGoal}
                         onChange={(val: string) => updateCurrentMonthData({ teamGoal: val })}
@@ -1374,7 +1374,7 @@ function App() {
                           const isSun = dow === 6;
                           return (
                             <th key={day} className={`p-0.5 border border-border font-bold text-center min-w-[42px] min-w-max text-[8px] sticky top-0 z-30 ${
-                              isSun ? 'text-red-600 bg-red-50' : isSat ? 'text-blue-600 bg-blue-50' : 'bg-accent-l'
+                              isSun ? 'text-red-600 bg-[#27151a]' : isSat ? 'text-blue-600 bg-[#0f1d33]' : 'bg-accent-l'
                             }`}>
                               {day}({['月','火','水','木','金','土','日'][dow]})
                             </th>
@@ -1384,14 +1384,14 @@ function App() {
                     </thead>
                     <tbody>
                       {/* Row for Global Location (場所) */}
-                      <tr className="bg-orange-50/30">
-                        <td className="p-1 border border-border sticky left-0 bg-orange-50 z-20 font-bold text-orange-800 text-[8px]">
+                      <tr className="bg-[#241a10]">
+                        <td className="p-1 border border-border sticky left-0 bg-[#241a10] z-20 font-bold text-orange-300 text-[8px]">
                           場所 (固定表示)
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
                           <td key={i} className="p-0.5 border border-border min-w-[42px] min-w-max">
                             <LocalInput
-                              className="w-full px-0.5 py-0.5 rounded border border-orange-200 text-[7.5px] outline-none focus:border-orange-500 bg-white/50 focus:bg-white h-5 text-center font-bold text-orange-700"
+                              className="w-full px-0.5 py-0.5 rounded border border-orange-400/40 text-[7.5px] outline-none focus:border-orange-400 bg-white/10 focus:bg-white/20 h-5 text-center font-bold text-orange-200"
                               size={7.5}
                               value={globalLocations[i + 1] || ''}
                               onChange={(val: string) => handleGlobalLocationChange(i + 1, val)}
@@ -1402,14 +1402,14 @@ function App() {
                       </tr>
 
                       {/* Row for Global Time (時間) */}
-                      <tr className="bg-blue-50/30">
-                        <td className="p-1 border border-border sticky left-0 bg-blue-50 z-20 font-bold text-blue-800 text-[8px]">
+                      <tr className="bg-[#0f1d33]">
+                        <td className="p-1 border border-border sticky left-0 bg-[#0f1d33] z-20 font-bold text-blue-300 text-[8px]">
                           時間 (固定表示)
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
                           <td key={i} className="p-0.5 border border-border min-w-[42px] min-w-max">
                             <LocalInput
-                              className="w-full px-0.5 py-0.5 rounded border border-blue-200 text-[7.5px] outline-none focus:border-blue-500 bg-white/50 focus:bg-white h-5 text-center font-bold text-blue-700"
+                              className="w-full px-0.5 py-0.5 rounded border border-blue-400/40 text-[7.5px] outline-none focus:border-blue-400 bg-white/10 focus:bg-white/20 h-5 text-center font-bold text-blue-200"
                               size={7.5}
                               value={globalTimes[i + 1] || ''}
                               onChange={(val: string) => handleGlobalTimeChange(i + 1, val)}
@@ -1447,7 +1447,7 @@ function App() {
                         const requestCount = schedule.filter(s => s.type === 'request').length;
                         return (
                           <tr key={name} className="hover:bg-bg/40 transition-colors">
-                            <td className="p-0.5 border border-border sticky left-0 bg-white z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                            <td className="p-0.5 border border-border sticky left-0 bg-slate-900/95 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                               <div className="flex flex-col gap-0.5">
                                 <div className="flex items-center justify-between gap-0.25">
                                   <div className="font-bold text-accent text-[7.5px] truncate max-w-[32px]">{name.replace('　', '')}</div>
@@ -1457,7 +1457,7 @@ function App() {
                                   </div>
                                 </div>
                                 <LocalInput
-                                  className="w-full px-0.5 py-0 rounded border border-accent/10 text-[6.5px] outline-none focus:border-accent bg-white/50 font-normal h-2.5"
+                                  className="w-full px-0.5 py-0 rounded border border-accent/10 text-[6.5px] outline-none focus:border-accent bg-white/10 font-normal h-2.5"
                                   size={6.5}
                                   value={globalStations[name] || currentMonthData.memberStations?.[name] || ''}
                                   onChange={(val: string) => handleMemberStationChange(name, val)}
@@ -1480,7 +1480,7 @@ function App() {
                                       ))}
                                     </select>
                                     <LocalInput
-                                      className="min-w-full w-max px-0.5 py-0.5 rounded border border-border text-[7.5px] outline-none focus:border-accent bg-white/50 focus:bg-white h-4 text-center justify-center mx-auto"
+                                      className="min-w-full w-max px-0.5 py-0.5 rounded border border-border text-[7.5px] outline-none focus:border-accent bg-white/10 focus:bg-white/20 h-4 text-center justify-center mx-auto"
                                       size={7.5}
                                       value={item.detail || ''}
                                       onChange={(val: string) => handleScheduleDetailChange(name, i, val)}
@@ -1515,7 +1515,7 @@ function App() {
                     </button>
                   </div>
                   <LocalTextarea
-                    className="w-full border border-accent/20 rounded-xl p-4 text-xs bg-white focus:border-accent outline-none min-h-[150px] leading-relaxed font-bold text-text"
+                    className="w-full border border-accent/20 rounded-xl p-4 text-xs bg-slate-900/95 focus:border-accent outline-none min-h-[150px] leading-relaxed font-bold text-text"
                     placeholder="全体に向けた連絡事項や、月間の特記事項を入力してください..."
                     value={currentMonthData.overallMemo || ''}
                     onChange={(val: string) => {
@@ -1535,7 +1535,7 @@ function App() {
       </main>
 
       {/* Footer Info */}
-      <footer className="bg-white border-t border-border p-4 text-center">
+      <footer className="bg-slate-900/95 border-t border-border p-4 text-center">
         <div className="flex items-center justify-center gap-2 text-[10px] text-text3">
           <Info size={12} />
           <span>データはサーバーにリアルタイム保存されます。リンクを知っている全員が閲覧・編集可能です。</span>
