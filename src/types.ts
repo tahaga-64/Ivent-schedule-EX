@@ -43,7 +43,6 @@ export interface Event {
   assignees?: string[];
   /** 日別メンバー役割 { "YYYY-MM-DD": { "メンバー名": "役割テキスト" } } */
   dailyRoles?: Record<string, Record<string, string>>;
-  emoji?: string;
   photos?: EventPhoto[];
   status?: EventStatus;
   prepBudgetTotal?: number;

@@ -10,11 +10,11 @@ import { computePrepProgressFields, effectiveArrived } from '../lib/prepProgress
 
 // ─── 発注ステータス ──────────────────────────────────────────────────────────
 
-const ORDER_STEPS: Array<{ key: OrderStatus; label: string; emoji: string; activeCls: string; rowBg: string }> = [
-  { key: 'unordered', label: '未発注', emoji: '📋', activeCls: 'bg-white/15 text-white/60 border-white/30',        rowBg: '' },
-  { key: 'ordered',   label: '発注済', emoji: '🛒', activeCls: 'bg-amber-500/25 text-amber-300 border-amber-400/50', rowBg: 'bg-amber-500/8' },
-  { key: 'shipping',  label: '配送中', emoji: '🚚', activeCls: 'bg-blue-500/25 text-blue-300 border-blue-400/50',   rowBg: 'bg-blue-500/8' },
-  { key: 'arrived',   label: '着荷',   emoji: '✅', activeCls: 'bg-emerald-500/25 text-emerald-300 border-emerald-400/50', rowBg: 'bg-emerald-500/10' },
+const ORDER_STEPS: Array<{ key: OrderStatus; label: string; activeCls: string; rowBg: string }> = [
+  { key: 'unordered', label: '未発注', activeCls: 'bg-white/15 text-white/60 border-white/30',        rowBg: '' },
+  { key: 'ordered',   label: '発注済', activeCls: 'bg-amber-500/25 text-amber-300 border-amber-400/50', rowBg: 'bg-amber-500/8' },
+  { key: 'shipping',  label: '配送中', activeCls: 'bg-blue-500/25 text-blue-300 border-blue-400/50',   rowBg: 'bg-blue-500/8' },
+  { key: 'arrived',   label: '着荷',   activeCls: 'bg-emerald-500/25 text-emerald-300 border-emerald-400/50', rowBg: 'bg-emerald-500/10' },
 ];
 
 const PREP_BG = 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1280&q=65';
@@ -394,7 +394,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
               />
               {!item.prepared && os !== 'unordered' && (
                 <span className={`shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-full border ${step.activeCls}`}>
-                  {step.emoji} {step.label}
+                  {step.label}
                 </span>
               )}
               {item.prepared && (
@@ -837,8 +837,7 @@ function OrderStatusPicker({
                 : 'bg-transparent text-white/20 border-white/10 hover:border-white/30 hover:text-white/40'
             }`}
           >
-            <span>{step.emoji}</span>
-            {!compact && <span className="ml-0.5">{step.label}</span>}
+            <span>{step.label}</span>
           </button>
         );
       })}

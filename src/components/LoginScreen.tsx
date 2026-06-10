@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { loginWithGoogle, loginWithApple, loginWithEmail } from '../lib/firebase';
-import EXLogo from './EXLogo';
+import EXBadge from './EXBadge';
 import HelpModal from './HelpModal';
 import { HelpCircle } from 'lucide-react';
 
@@ -78,8 +78,9 @@ export default function LoginScreen() {
         className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl px-10 py-10 max-w-sm w-full text-center shadow-[0_8px_40px_rgba(0,0,0,0.45)] relative z-10"
       >
         {/* EX logo */}
-        <motion.div variants={item} className="mb-7 flex justify-center">
-          <EXLogo size="md" showSubtitle />
+        <motion.div variants={item} className="mb-7 flex flex-col items-center gap-2.5">
+          <EXBadge size={84} />
+          <p className="text-sm font-medium text-white/70 tracking-[0.2em] uppercase">Event Manager</p>
         </motion.div>
 
         {/* Title */}

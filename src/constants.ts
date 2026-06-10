@@ -39,12 +39,12 @@ export const REGION_STYLE: Record<string, any> = {
 };
 
 export const TYPE_STYLE: Record<string, any> = {
-  "水族館":      { bg:"#ecfeff", border:"#67e8f9", text:"#0e7490", icon:"🐟" },
-  "職業体験":    { bg:"#fdf2f8", border:"#f0abfc", text:"#86198f", icon:"🎓" },
-  "忍者":        { bg:"#f1f5f9", border:"#94a3b8", text:"#475569", icon:"🥷" },
-  "DJI":         { bg:"#f0f9ff", border:"#7dd3fc", text:"#0369a1", icon:"🚁" },
-  "超メタフェス":{ bg:"#faf5ff", border:"#d8b4fe", text:"#6d28d9", icon:"🎮" },
-  "ワークショップ":{ bg:"#fffbeb", border:"#fcd34d", text:"#92400e", icon:"🛠" },
+  "水族館":      { bg:"#ecfeff", border:"#67e8f9", text:"#0e7490" },
+  "職業体験":    { bg:"#fdf2f8", border:"#f0abfc", text:"#86198f" },
+  "忍者":        { bg:"#f1f5f9", border:"#94a3b8", text:"#475569" },
+  "DJI":         { bg:"#f0f9ff", border:"#7dd3fc", text:"#0369a1" },
+  "超メタフェス":{ bg:"#faf5ff", border:"#d8b4fe", text:"#6d28d9" },
+  "ワークショップ":{ bg:"#fffbeb", border:"#fcd34d", text:"#92400e" },
 };
 
 export const DAYS_JP = ["日","月","火","水","木","金","土"];

@@ -28,8 +28,8 @@ export interface AppSidebarProps {
   statusFilter: string;
   setStatusFilter: (s: string) => void;
   setMonthFilter: (m: string) => void;
-  sidebarTypes: { label: string; icon: string }[];
-  setSidebarTypes: React.Dispatch<React.SetStateAction<{ label: string; icon: string }[]>>;
+  sidebarTypes: { label: string }[];
+  setSidebarTypes: React.Dispatch<React.SetStateAction<{ label: string }[]>>;
   staffList: StaffMember[];
   staffExpanded: boolean;
   setStaffExpanded: React.Dispatch<React.SetStateAction<boolean>>;
@@ -154,8 +154,7 @@ export default function AppSidebar({
                 const trimmed = newType?.trim() ?? '';
                 if (!trimmed || trimmed.length > 50) return;
                 if (sidebarTypes.some(t => t.label === trimmed)) { alert('その種別は既に存在します'); return; }
-                const icon = prompt("絵文字アイコンを入力してください (任意):", "📋") || "📋";
-                setSidebarTypes(prev => [...prev, { label: trimmed, icon }]);
+                setSidebarTypes(prev => [...prev, { label: trimmed }]);
               }}
               className="p-1.5 hover:bg-white/10 rounded text-indigo-300 hover:text-white transition-colors"
             >
@@ -173,7 +172,6 @@ export default function AppSidebar({
                 : "text-white/80 hover:bg-white/10 active:bg-white/15 border border-transparent"}
             `}
           >
-            <span className="text-sm">📁</span>
             <span className="text-xs font-bold font-sans">すべて</span>
           </button>
           {sidebarTypes.map((type) => (
@@ -184,7 +182,6 @@ export default function AppSidebar({
                   typeFilter === type.label ? "bg-indigo-500/30 text-white border-indigo-400/30" : "text-white/80 hover:bg-white/10 active:bg-white/15 border-transparent"
                 }`}
               >
-                <span className="text-sm">{type.icon}</span>
                 <span className="text-xs font-bold font-sans">{type.label}</span>
               </button>
               {sidebarTypes.length > 1 && canEditEvent && (

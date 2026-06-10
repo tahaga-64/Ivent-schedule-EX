@@ -1,6 +1,8 @@
 import { User } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Images, Plus, Search, LogOut, HelpCircle, CalendarDays } from 'lucide-react';
+import PushNotificationButton from './PushNotificationButton';
+import EXBadge from './EXBadge';
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule";
 
@@ -72,6 +74,7 @@ export default function AppHeader({
           >
             <Menu size={20} />
           </button>
+          <EXBadge size={28} />
           <div className="hidden sm:block">
             <div className="font-bold text-sm text-white leading-tight">Event Manager</div>
           </div>
@@ -127,6 +130,7 @@ export default function AppHeader({
           )}
 
           <div className="flex items-center gap-0.5 sm:gap-1.5">
+            <PushNotificationButton user={user} />
             <button
               onClick={onShowHelp}
               className="hidden sm:flex p-1.5 rounded-lg text-white/70 hover:bg-white/15 hover:text-white transition-colors"

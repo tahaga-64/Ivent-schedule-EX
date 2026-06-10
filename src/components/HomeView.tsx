@@ -102,7 +102,6 @@ function EventCard({ ev, prog, today, onSelect }: {
   const pct = prog && prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : -1;
   const days = daysUntil(ev.start, today);
   const regionColor = rs(ev.region || '').dot;
-  const emoji = ev.emoji || ts(ev.type || '').icon;
 
   return (
     <motion.button
@@ -114,7 +113,6 @@ function EventCard({ ev, prog, today, onSelect }: {
         <div className="w-1 shrink-0" style={{ background: regionColor }} />
         <div className="flex-1 min-w-0 p-4">
           <div className="flex items-start gap-3">
-            <span className="text-2xl leading-none mt-0.5 shrink-0">{emoji}</span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                 <span className="text-base font-black text-white truncate">{ev.venue}</span>

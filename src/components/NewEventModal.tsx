@@ -6,7 +6,7 @@ import { REGIONS } from '../constants';
 interface Props {
   onClose: () => void;
   onSubmit: (draft: NewEventDraft) => void;
-  sidebarTypes: { label: string; icon: string }[];
+  sidebarTypes: { label: string }[];
 }
 
 export default function NewEventModal({ onClose, onSubmit, sidebarTypes }: Props) {
@@ -77,7 +77,7 @@ export default function NewEventModal({ onClose, onSubmit, sidebarTypes }: Props
                       : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
                   }`}
                 >
-                  <span>{t.icon}</span><span>{t.label}</span>
+                  <span>{t.label}</span>
                 </button>
               ))}
             </div>

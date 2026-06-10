@@ -135,6 +135,10 @@ function canSendNotificationType(type: string, email: string | undefined, env: E
       .filter(Boolean);
     return !!email && editors.includes(email.toLowerCase());
   }
+  // 魚リスト追加・写真追加はログイン済みユーザー全員が可（verifyFirebaseUser で認証済み）
+  if (type === 'fish_added' || type === 'photo_added') {
+    return true;
+  }
   return false;
 }
 

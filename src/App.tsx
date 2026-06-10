@@ -6,7 +6,7 @@ import { buildPrepProgressMap } from './lib/prepProgress';
 import { sendPushNotification, isPushNotificationConfigured } from './lib/pushNotifications';
 import { DATA } from './constants';
 import { Event, EventPhoto, PreparationItem, EventStatus, type StaffMember } from './types';
-import { buildMonthGridCells, type ValidationError, validateEvent } from './lib/eventHelpers';
+import { buildMonthGridCells, type ValidationError, validateEvent, fmtDateJPFull } from './lib/eventHelpers';
 import { Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
@@ -108,7 +108,6 @@ function buildCalendarDensityPreviewEvents(
     venue,
     client: "プレビュー",
     note: "",
-    emoji: "📐",
   });
   const out: Event[] = [];
   out.push(mk("2a", d1, "密度プレビュー 2件・A"), mk("2b", d1, "密度プレビュー 2件・B"));
@@ -194,14 +193,14 @@ export default function App() {
   const [hoveredEvent, setHoveredEvent] = useState<Event | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [sidebarTypes, setSidebarTypes] = useState<{label: string, icon: string}[]>(() => 
+  const [sidebarTypes, setSidebarTypes] = useState<{label: string}[]>(() =>
     safeGetItem('sidebarTypes', [
-      { label: "職業体験", icon: "🎓" },
-      { label: "水族館", icon: "🐟" },
-      { label: "忍者", icon: "🥷" },
-      { label: "DJI", icon: "🚁" },
-      { label: "超メタフェス", icon: "🎆" },
-      { label: "ワークショップ", icon: "🔨" },
+      { label: "職業体験" },
+      { label: "水族館" },
+      { label: "忍者" },
+      { label: "DJI" },
+      { label: "超メタフェス" },
+      { label: "ワークショップ" },
     ])
   );
 
@@ -544,12 +543,16 @@ export default function App() {
       setLastEditedId(selected.id);
       setIsSaving(false);
       if (user && isPushNotificationConfigured()) {
+        // 本文は「会場 / 日付 / 地域」を ' / ' で連結（空項目は除外）
+        const detailParts = [selected.venue, fmtDateJPFull(selected.start), selected.region]
+          .map(p => (p ?? '').trim())
+          .filter(Boolean);
         const isNew = pendingNewEventId !== null && selected.id === pendingNewEventId;
         if (isNew) {
           sendPushNotification({
             type: 'event_created',
-            title: '新しいイベント',
-            message: selected.venue || 'イベントが追加されました',
+            title: '新しいイベントが登録されました',
+            message: detailParts.join(' / ') || 'イベントが追加されました',
             eventId: selected.id,
           }).catch(() => {});
         }
@@ -559,10 +562,14 @@ export default function App() {
         for (const staffId of addedIds) {
           const member = staffList.find(s => s.id === staffId);
           if (member?.email) {
+            // 担当通知は会場 / 日付まで（地域は省略）
+            const memberParts = [selected.venue, fmtDateJPFull(selected.start)]
+              .map(p => (p ?? '').trim())
+              .filter(Boolean);
             sendPushNotification({
               type: 'member_added',
-              title: 'イベントに追加されました',
-              message: selected.venue || 'あなたがイベントのメンバーに追加されました',
+              title: 'イベント担当に追加されました',
+              message: memberParts.join(' / ') || 'あなたがイベントのメンバーに追加されました',
               eventId: selected.id,
               targetEmail: member.email,
             }).catch(() => {});
@@ -591,7 +598,6 @@ export default function App() {
         type: initialData.type || "その他",
         client: "",
         note: "",
-        emoji: initialData.emoji || "📅"
       };
       setSaveError(null);
       setDbEvents(prev => ({ ...prev, [id]: newEvent }));
@@ -1162,6 +1168,17 @@ VITE_FIREBASE_DATABASE_ID`}
               const newPhoto = await uploadPhoto(file);
               if (newPhoto && hasUnsavedChanges) {
                 setSelected(prev => prev ? { ...prev, photos: [...(prev.photos ?? []), newPhoto] } : prev);
+              }
+              if (newPhoto && selected && isPushNotificationConfigured()) {
+                const parts = [selected.venue, fmtDateJPFull(selected.start)]
+                  .map(p => (p ?? '').trim())
+                  .filter(Boolean);
+                sendPushNotification({
+                  type: 'photo_added',
+                  title: 'アルバムに写真が追加されました',
+                  message: parts.join(' / ') || '写真が追加されました',
+                  eventId: selected.id,
+                }).catch(() => {});
               }
               return newPhoto;
             }}

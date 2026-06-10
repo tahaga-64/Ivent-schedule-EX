@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import EXLogo from './EXLogo';
+import EXBadge from './EXBadge';
 
 export default function LoadingSplash() {
   return (
@@ -17,7 +17,10 @@ export default function LoadingSplash() {
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 flex flex-col items-center gap-10"
       >
-        <EXLogo size="lg" showSubtitle />
+        <div className="flex flex-col items-center gap-3">
+          <EXBadge size={112} />
+          <p className="text-base font-medium text-white/70 tracking-[0.2em] uppercase">Event Manager</p>
+        </div>
         <div className="w-40 h-[2px] bg-white/15 rounded-full overflow-hidden">
           <motion.div
             className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-indigo-400 to-violet-400"

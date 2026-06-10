@@ -46,7 +46,7 @@ export interface EventDetailModalProps {
   onClose: () => void;
   canEditEvent: boolean;
   canUploadPhoto: boolean;
-  sidebarTypes: { label: string; icon: string }[];
+  sidebarTypes: { label: string }[];
   staffList: StaffMember[];
   user: User | null;
   isSaving: boolean;
@@ -165,7 +165,7 @@ export default function EventDetailModal({
                         : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
                     } ${!canEditEvent ? 'cursor-default' : 'cursor-pointer'}`}
                   >
-                    <span>{t.icon}</span><span>{t.label}</span>
+                    <span>{t.label}</span>
                   </button>
                 ))}
               </div>

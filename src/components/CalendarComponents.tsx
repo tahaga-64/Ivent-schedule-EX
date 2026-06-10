@@ -57,7 +57,6 @@ export function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps
                 className="w-full backdrop-blur-sm border rounded-2xl flex items-center gap-3 text-left shadow-sm transition-all overflow-hidden hover:brightness-110 active:scale-[0.99] min-h-12"
               >
                 <div className="w-1 self-stretch rounded-l-2xl shrink-0" style={{ background: statusSty.border }} />
-                <span className="text-xl py-4 shrink-0">{ev.emoji || ts(ev.type || "").icon}</span>
                 <div className="flex-1 py-4 min-w-0">
                   <div className="font-bold text-white text-sm truncate">{ev.venue}</div>
                   <div className="text-[11px] text-white/50 mt-0.5">

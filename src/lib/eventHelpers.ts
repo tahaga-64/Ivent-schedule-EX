@@ -24,7 +24,7 @@ export function validateEvent(event: Partial<Event>): ValidationError[] {
 }
 
 export const rs = (r: string) => REGION_STYLE[r] || { bg: "#f1f5f9", text: "#334155", dot: "#94a3b8", calBg: "rgba(241, 245, 249, 0.4)", calBorder: "#cbd5e1" };
-export const ts = (t: string) => TYPE_STYLE[t] || { bg: "#f8fafc", border: "#64748b", text: "#1e293b", icon: "📋" };
+export const ts = (t: string) => TYPE_STYLE[t] || { bg: "#f8fafc", border: "#64748b", text: "#1e293b" };
 export const fmtShort = (d: string) => { if (!d) return "—"; const [, m, day] = d.split("-"); return `${parseInt(m)}/${parseInt(day)}`; };
 
 export function fmtDateJP(d: string): { month: number; day: number; dow: string; label: string } {
@@ -33,6 +33,13 @@ export function fmtDateJP(d: string): { month: number; day: number; dow: string;
   const day = date.getDate();
   const dow = DAYS_JP[date.getDay()];
   return { month, day, dow, label: `${month}月${day}日（${dow}）` };
+}
+
+/** 通知用: 2026年6月15日(日) 形式（年込み・半角括弧） */
+export function fmtDateJPFull(d: string): string {
+  if (!d) return '';
+  const date = new Date(d + 'T00:00:00');
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日(${DAYS_JP[date.getDay()]})`;
 }
 
 export function fmtDateRange(start: string, end: string): string {

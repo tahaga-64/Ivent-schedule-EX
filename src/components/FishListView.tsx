@@ -5,6 +5,8 @@ import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'fireb
 import type { Event, FishItem } from '../types';
 import { Fish, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { sendPushNotification, isPushNotificationConfigured } from '../lib/pushNotifications';
+import { fmtDateJPFull } from '../lib/eventHelpers';
 
 const FISH_BG = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=1280&q=65';
 
@@ -60,6 +62,21 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
     setError(null);
   }, []);
 
+  // 魚が追加されたら全購読端末へ通知（ログイン済みユーザー全員が編集可のため送信も全員可）
+  const notifyFishAdded = useCallback((name: string, count: number) => {
+    if (!selectedEvent || !isPushNotificationConfigured()) return;
+    const head = [selectedEvent.venue, fmtDateJPFull(selectedEvent.start)]
+      .map(p => (p ?? '').trim())
+      .filter(Boolean)
+      .join(' / ');
+    sendPushNotification({
+      type: 'fish_added',
+      title: '魚リストに追加されました',
+      message: [head, `${name} ${count}匹`].filter(Boolean).join(' ・ '),
+      eventId: selectedEvent.id,
+    }).catch(() => {});
+  }, [selectedEvent]);
+
   const saveDraft = useCallback(async (): Promise<boolean> => {
     if (!newName.trim() || !selectedEventId) {
       clearDraft();
@@ -78,6 +95,7 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
       };
       if (trimmedNote) item.note = trimmedNote;
       await setDoc(doc(db, 'events', selectedEventId, 'fishItems', id), item);
+      notifyFishAdded(item.name, item.count);
       clearDraft();
       return true;
     } catch (err) {
@@ -136,6 +154,7 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
       };
       if (trimmedNote) item.note = trimmedNote;
       await setDoc(doc(db, 'events', selectedEventId, 'fishItems', id), item);
+      notifyFishAdded(item.name, item.count);
       setNewName('');
       setNewCount(1);
       setNewNote('');

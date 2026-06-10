@@ -48,7 +48,6 @@ export function MobileTimelineView({ events, onSelect }: { events: Event[]; onSe
                 className="w-full bg-white/10 border border-white/15 rounded-2xl flex items-center gap-3 text-left active:scale-[0.99] transition-all overflow-hidden"
               >
                 <div className="w-1 self-stretch rounded-l-2xl shrink-0" style={{ background: rs(ev.region || '').dot }} />
-                <span className="text-2xl py-3.5 shrink-0">{ev.emoji || ts(ev.type || '').icon}</span>
                 <div className="flex-1 py-3.5 min-w-0">
                   <div className="font-bold text-white text-sm truncate">{ev.venue}</div>
                   <div className="text-[11px] text-white/45 mt-0.5">

@@ -130,7 +130,6 @@ export default function Sidebar({
                 : 'hover:bg-gray-50 text-gray-600'
             }`}
           >
-            <span className="text-base leading-none">{t.emoji}</span>
             <span>{t.label}</span>
           </button>
         ))}
