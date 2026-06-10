@@ -2,7 +2,6 @@ import { User } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Images, Plus, Search, LogOut, HelpCircle, CalendarDays } from 'lucide-react';
 import PushNotificationButton from './PushNotificationButton';
-import EXBadge from './EXBadge';
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule";
 
@@ -69,13 +68,12 @@ export default function AppHeader({
         <div className="flex items-center gap-2 shrink-0 min-w-0">
           <button
             onClick={onToggleSidebar}
-            className="p-2 -ml-1 rounded-xl text-white/80 hover:bg-white/15 active:bg-white/20 transition-colors"
+            className="hidden md:flex p-2 -ml-1 rounded-xl text-white/80 hover:bg-white/15 active:bg-white/20 transition-colors"
             aria-label="フィルターを開く"
           >
             <Menu size={20} />
           </button>
-          <EXBadge size={28} />
-          <div className="sm:hidden flex flex-col min-w-0">
+          <div className="md:hidden flex flex-col min-w-0">
             <div className="font-black text-sm text-white leading-tight truncate">{viewLabel}</div>
             {view === 'calendar' && (
               <div className="text-[10px] font-bold text-white/45 tabular-nums">{calYear}年{calMonth}月</div>
