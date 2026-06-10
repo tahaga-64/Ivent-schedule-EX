@@ -130,16 +130,6 @@ export default function EXLogo({ size = 'lg', showSubtitle = true }: Props) {
         }}
       />
 
-      {showSubtitle && (
-        <motion.p
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.6 }}
-          className={`${subtitleSize} font-medium mt-2 text-white/70 tracking-[0.2em] uppercase`}
-        >
-          Event Manager
-        </motion.p>
-      )}
 
       {[...Array(4)].map((_, i) => (
         <motion.div
