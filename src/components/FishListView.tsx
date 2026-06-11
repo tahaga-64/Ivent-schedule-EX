@@ -12,10 +12,8 @@ const FISH_BG = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=128
 
 interface Props {
   events: Event[];
-  /** 編集可否（魚リストは boruhirabayashi@icloud.com のみ・デスクトップ限定） */
+  /** 編集可否（魚リストはデスクトップのログイン済みユーザーのみ。スマホは閲覧専用＝canEditFishList が false） */
   canEdit: boolean;
-  /** スマホ表示か。true なら追加フォーム自体を出さず閲覧専用にする。 */
-  isMobile?: boolean;
   isActive?: boolean;
 }
 
@@ -34,7 +32,7 @@ function isEventPast(ev: Event): boolean {
   return !!endDate && endDate < today;
 }
 
-export default function FishListView({ events, canEdit, isMobile = false, isActive = true }: Props) {
+export default function FishListView({ events, canEdit, isActive = true }: Props) {
   const aquariumEvents = useMemo(
     () => events
       .filter(ev => ev.type === '水族館' && ev.status !== 'cancelled' && !isEventPast(ev))
@@ -65,7 +63,7 @@ export default function FishListView({ events, canEdit, isMobile = false, isActi
     setError(null);
   }, []);
 
-  // 魚が追加されたら全購読端末へ通知（編集者=boruhirabayashi のみが送信元）
+  // 魚が追加されたら全購読端末へ通知（ログイン済みユーザー全員が編集可のため送信も全員可）
   const notifyFishAdded = useCallback((name: string, count: number) => {
     if (!selectedEvent || !isPushNotificationConfigured()) return;
     const head = [selectedEvent.venue, fmtDateJPFull(selectedEvent.start)]
@@ -241,21 +239,7 @@ export default function FishListView({ events, canEdit, isMobile = false, isActi
                   </span>
                 </div>
 
-                {!isMobile && !canEdit && (
-                  <div className="bg-white/10 rounded-2xl p-4 border border-white/15">
-                    <div className="text-xs font-black text-white/50 uppercase tracking-widest mb-3">観賞魚を追加</div>
-                    <button
-                      type="button"
-                      disabled
-                      className="flex items-center justify-center gap-2 w-full rounded-xl bg-white/15 text-white/40 font-black text-sm py-2.5 cursor-not-allowed"
-                    >
-                      <Plus size={14} />
-                      追加
-                    </button>
-                    <p className="mt-2 text-[11px] text-amber-300/90 font-bold text-center">権限がありません（編集は担当者のみ）</p>
-                  </div>
-                )}
-                {!isMobile && canEdit && (
+                {canEdit && (
                   <div className="bg-white/10 rounded-2xl p-4 border border-cyan-400/20">
                     <div className="text-xs font-black text-cyan-300 uppercase tracking-widest mb-3">観賞魚を追加</div>
                     <div className="flex flex-col gap-2">

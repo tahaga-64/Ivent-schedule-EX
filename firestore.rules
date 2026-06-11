@@ -20,11 +20,6 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.email == 'taoki0183@gmail.com';
     }
 
-    // 魚リストの編集者（permissions.ts の FISH_LIST_EDITOR_EMAIL と一致）
-    function isFishEditor() {
-      return request.auth != null && request.auth.token.email == 'boruhirabayashi@icloud.com';
-    }
-
     function isAdminUser() {
       return isSuperAdmin()
           || (isAuthenticated()
@@ -71,10 +66,9 @@ service cloud.firestore {
       allow create, update, delete: if isEventEditor();
     }
 
-    // 魚リスト: 読み取りは全員、書き込みは boruhirabayashi のみ（permissions.ts FISH_LIST_EDITOR_EMAIL と一致）
+    // 魚リスト（ログイン済みユーザー全員が編集可。PC限定編集は UI 側 canEditFishList で制御）
     match /events/{eventId}/fishItems/{itemId} {
-      allow read: if isAuthenticated();
-      allow write: if isFishEditor();
+      allow read, write: if isAuthenticated();
     }
 
     // フロアレイアウト: 共有リンク(/?layout=ID)用に読み取りは公開。書き込みはログイン済みのみ。
