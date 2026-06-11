@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import { Event } from '../types';
-import { fmtDateJP, fmtDateRange, daysUntil } from '../lib/eventHelpers';
+import { fmtDateJP, fmtDateRange, daysUntil, countdownBg } from '../lib/eventHelpers';
 import EventPickerTable from './EventPickerTable';
 
 interface PrepEventListProps {
@@ -62,7 +62,7 @@ export default function PrepEventList({ events, onSelectEvent }: PrepEventListPr
                         className="w-full text-left bg-white/10 rounded-2xl border border-white/15 flex items-stretch overflow-hidden hover:bg-white/15 active:scale-[0.98] transition-all"
                       >
                         {/* 日付バッジ */}
-                        <div className={`flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 ${isToday ? 'bg-red-500' : isOngoing ? 'bg-emerald-500' : isSoon ? 'bg-amber-400' : 'bg-indigo-600'}`}>
+                        <div className={`flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 ${countdownBg(until, isOngoing)}`}>
                           <span className="text-[10px] font-black text-white/70 leading-none">{s.month}月</span>
                           <span className="text-xl font-black text-white leading-none mt-0.5">{s.day}</span>
                           <span className="text-[10px] font-black text-white/80 leading-none mt-0.5">{s.dow}</span>

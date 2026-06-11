@@ -64,6 +64,19 @@ export function daysUntil(start: string): number {
   return Math.round((new Date(start + 'T00:00:00').getTime() - today.getTime()) / 86400000);
 }
 
+/**
+ * イベント日までのカウントダウンに応じた背景色クラス。
+ * 当日=赤 / 開催中=緑 / 7日以内=橙 / それ以遠=藍 / 終了済み=グレー。
+ * スマホ一覧（PrepEventList の日付バッジ）と PC 準備物テーブルで共通利用。
+ */
+export function countdownBg(until: number, isOngoing: boolean, expired = false): string {
+  if (expired) return 'bg-slate-500/40';
+  if (until === 0) return 'bg-red-500';
+  if (isOngoing) return 'bg-emerald-500';
+  if (until > 0 && until <= 7) return 'bg-amber-400';
+  return 'bg-indigo-600';
+}
+
 export function statusStyle(status?: string): { label: string; bg: string; text: string; dot: string } {
   switch (status) {
     case 'in_progress': return { label: '準備中',    bg: 'bg-amber-50',   text: 'text-amber-600',  dot: '#f59e0b' };

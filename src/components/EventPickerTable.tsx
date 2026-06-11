@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronRight, Package } from 'lucide-react';
 import { Event } from '../types';
-import { fmtDateRange, normalizeRegion } from '../lib/eventHelpers';
+import { fmtDateRange, normalizeRegion, daysUntil, countdownBg } from '../lib/eventHelpers';
 
 interface EventPickerTableProps {
   events: Event[];
@@ -14,6 +14,7 @@ const fmtYen = (n: number) => '¥' + n.toLocaleString('ja-JP');
 export default function EventPickerTable({ events, onSelect, variant = 'active' }: EventPickerTableProps) {
   const isArchive = variant === 'archive';
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="hidden md:block rounded-2xl overflow-hidden w-full border border-white/15 bg-white/10">
@@ -35,6 +36,20 @@ export default function EventPickerTable({ events, onSelect, variant = 'active' 
             const allDone = hasItems && (ev.prepItemDone ?? 0) >= (ev.prepItemTotal ?? 0);
             const isHovered = hoveredId === ev.id;
 
+            // イベント日までのカウントダウンで行を色分け（スマホ一覧と同仕様）
+            const until = daysUntil(ev.start);
+            const isToday = !isArchive && until === 0;
+            const isSoon = !isArchive && until > 0 && until <= 7;
+            const isOngoing = !isArchive && until < 0 && (ev.end || ev.start) >= today;
+            const rowTint = isToday ? 'bg-red-500/12' : isOngoing ? 'bg-emerald-500/10' : isSoon ? 'bg-amber-400/10' : '';
+            const urgency = isToday
+              ? { label: '今日', cls: 'bg-red-500 text-white' }
+              : isOngoing
+              ? { label: '開催中', cls: 'bg-emerald-500 text-white' }
+              : isSoon
+              ? { label: `${until}日後`, cls: 'bg-amber-400 text-white' }
+              : null;
+
             return (
               <tr
                 key={ev.id}
@@ -42,13 +57,17 @@ export default function EventPickerTable({ events, onSelect, variant = 'active' 
                 onMouseEnter={() => setHoveredId(ev.id)}
                 onMouseLeave={() => setHoveredId(null)}
                 className={`cursor-pointer border-b border-white/5 transition-colors relative ${
-                  isArchive ? 'opacity-90 hover:opacity-100' : ''
+                  isArchive ? 'opacity-90 hover:opacity-100' : rowTint
                 } hover:bg-white/10`}
               >
                 {/* 会場 + ホバーツールチップ */}
-                <td className="px-4 py-3.5 font-bold text-white truncate max-w-[280px]">
+                <td className="px-4 py-3.5 font-bold text-white max-w-[280px]">
                   <div className="flex items-center gap-2">
+                    <span className={`shrink-0 w-1.5 h-6 rounded-full ${countdownBg(until, isOngoing, isArchive)}`} />
                     <span className="truncate">{ev.venue}</span>
+                    {urgency && (
+                      <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full ${urgency.cls}`}>{urgency.label}</span>
+                    )}
                     {/* ホバー時のコスト吹き出し */}
                     {isHovered && (
                       <div className="shrink-0 flex items-center gap-2 animate-in fade-in duration-150">

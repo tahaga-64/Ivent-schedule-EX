@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, Component, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Component, ErrorInfo, ReactNode } from 'react';
+import type { User } from 'firebase/auth';
+import { sendPushNotification, isPushNotificationConfigured } from '../lib/pushNotifications';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Calendar,
@@ -362,16 +364,18 @@ const MemberTabs = ({ members, current, onSelect }: { members: string[], current
   </div>
 );
 
-export default function AppWrapper() {
+export default function AppWrapper({ currentUser }: { currentUser?: User | null }) {
   return (
     <ErrorBoundary>
-      <App />
+      <App currentUser={currentUser ?? null} />
     </ErrorBoundary>
   );
 }
 
-function App() {
+function App({ currentUser }: { currentUser: User | null }) {
   const [activeTab, setActiveTab] = useState<'schedule' | 'overall'>('schedule');
+  // スケジュール更新通知のスロットル用（最後に通知した時刻）
+  const lastScheduleNotifyRef = useRef(0);
   const [currentSchedMember, setCurrentSchedMember] = useState(MEMBERS[0]);
   
   // Initialize from current real date to ensure the app opens with the latest current month always
@@ -673,6 +677,19 @@ function App() {
         }, { merge: true });
       }
       console.log('Saved successfully:', updates);
+      // スケジュール更新を全購読端末へ通知（更新者名つき・5分スロットルで連発防止）
+      if (isPushNotificationConfigured() && currentUser) {
+        const now = Date.now();
+        if (now - lastScheduleNotifyRef.current > 5 * 60 * 1000) {
+          lastScheduleNotifyRef.current = now;
+          const who = currentUser.displayName?.trim() || currentUser.email || '担当者';
+          sendPushNotification({
+            type: 'schedule_updated',
+            title: 'スケジュール更新',
+            message: `${who}さんがスケジュールを更新しました`,
+          }).catch(() => {});
+        }
+      }
     } catch (e: any) {
       console.error('Save failed:', e);
       handleFirestoreError(e, OperationType.WRITE, path);
@@ -911,7 +928,7 @@ function App() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="bg-[#27151a]0 text-white px-4 py-2 text-xs font-bold flex items-center justify-between sticky top-0 z-[100] shadow-md"
+            className="bg-red-900/95 text-white px-4 py-2 text-xs font-bold flex items-center justify-between sticky top-0 z-[100] shadow-md"
           >
             <div className="flex items-center gap-2">
               <AlertCircle size={14} />
@@ -965,8 +982,8 @@ function App() {
                 </span>
               )}
             </button>
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-[#0f241c] text-emerald-600 rounded-lg border border-emerald-100 text-[10px] font-bold">
-              <div className="w-1.5 h-1.5 bg-[#0f241c]0 rounded-full animate-pulse" />
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-[#0f241c] text-emerald-300 rounded-lg border border-emerald-400/30 text-[10px] font-bold">
+              <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
               パブリック編集モード
             </div>
           </div>
@@ -1076,18 +1093,21 @@ function App() {
                         const detail = item.detail;
                         const isSat = dow === 5;
                         const isSun = dow === 6;
+                        const _today = new Date();
+                        const isToday = currentYear === _today.getFullYear() && currentMonth === _today.getMonth() && day === _today.getDate();
 
                         return (
                           <div
                             key={day}
                             className={`border border-border rounded-lg p-1.5 md:p-2 min-h-[100px] md:min-h-[130px] transition-all relative flex flex-col bg-slate-900/95 ${
                               isSun ? 'bg-[#27151a]' : isSat ? 'bg-[#0f1d33]' : ''
-                            }`}
+                            } ${isToday ? 'ring-2 ring-indigo-400 ring-offset-2 ring-offset-slate-900' : ''}`}
                           >
-                            <span className={`font-mono text-sm font-black mb-1.5 ${
+                            <span className={`font-mono text-sm font-black mb-1.5 flex items-center gap-1.5 ${
                               isSun ? 'text-red-400' : isSat ? 'text-blue-400' : 'text-white'
                             }`}>
                               {day}
+                              {isToday && <span className="text-[8px] font-black bg-indigo-500 text-white px-1.5 py-0.5 rounded-full leading-none">今日</span>}
                             </span>
 
                             <div className="flex flex-col gap-1 mb-1">
