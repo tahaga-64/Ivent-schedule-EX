@@ -1015,7 +1015,7 @@ VITE_FIREBASE_DATABASE_ID`}
         <MasterItemsView canEdit={canEditPreparationList} isActive />
       )}
       {v === "fish" && (
-        <FishListView events={allEvents} canEdit={canEditFishList} isMobile={narrowViewport} isActive />
+        <FishListView events={allEvents} canEdit={canEditFishList} isActive />
       )}
       {v === "layout" && (
         <LayoutView events={allEvents} canEdit={canEditPreparationList} />
