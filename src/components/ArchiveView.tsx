@@ -43,7 +43,7 @@ export default function ArchiveView({ events, onSelectEvent }: ArchiveViewProps)
         </div>
 
         {archivedEvents.length === 0 ? (
-          <div className="bg-white/10 border border-white/20 rounded-2xl py-12 text-center text-sm text-white/40">
+          <div className="bg-slate-900/55 border border-white/20 rounded-2xl py-12 text-center text-sm text-white/40">
             アーカイブされたイベントがありません
           </div>
         ) : (
@@ -65,7 +65,7 @@ export default function ArchiveView({ events, onSelectEvent }: ArchiveViewProps)
                     <button
                       key={ev.id}
                       onClick={() => onSelectEvent(ev)}
-                      className="w-full text-left bg-white/10 rounded-2xl border border-white/15 flex items-stretch overflow-hidden hover:bg-white/15 active:scale-[0.99] transition-all group opacity-75 hover:opacity-100"
+                      className="w-full text-left bg-slate-900/55 rounded-2xl border border-white/15 flex items-stretch overflow-hidden hover:bg-white/15 active:scale-[0.99] transition-all group opacity-75 hover:opacity-100"
                     >
                       <div className="w-1 shrink-0" style={{ background: regionColor }} />
                       <div className="flex-1 min-w-0 p-4">

@@ -396,7 +396,7 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
           {(canEdit || photos.length > 0) && (
             <button
               onClick={() => setShowPhotos(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/55 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
               title="参考写真"
             >
               <ImageIcon size={11} />
@@ -417,7 +417,7 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-red-300 font-bold">削除?</span>
                 <button onClick={deleteLayout} className="px-2.5 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-black transition-colors">はい</button>
-                <button onClick={() => setConfirmDelete(false)} className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-colors">いいえ</button>
+                <button onClick={() => setConfirmDelete(false)} className="px-2.5 py-1.5 bg-slate-900/55 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-colors">いいえ</button>
               </div>
             ) : (
               <button
@@ -587,21 +587,21 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
                 </span>
                 <button
                   onClick={() => resizeItem(selectedItem.id, 1.15)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/55 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
                 >
                   <Maximize2 size={12} />
                   大きく
                 </button>
                 <button
                   onClick={() => resizeItem(selectedItem.id, 1 / 1.15)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/55 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
                 >
                   <Minimize2 size={12} />
                   小さく
                 </button>
                 <button
                   onClick={() => rotateItem(selectedItem.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/55 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
                 >
                   <RotateCw size={12} />
                   回転
@@ -753,7 +753,7 @@ function EventCard({ ev, onSelect, past }: { ev: Event; onSelect: () => void; pa
     <motion.button
       whileHover={{ y: -2 }}
       onClick={onSelect}
-      className={`w-full text-left bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl px-4 py-3.5 shadow-sm hover:shadow-md hover:bg-white/15 transition-all group flex items-center gap-3 ${past ? 'opacity-60 hover:opacity-100' : ''}`}
+      className={`w-full text-left bg-slate-900/55 backdrop-blur-sm border border-white/15 rounded-2xl px-4 py-3.5 shadow-sm hover:shadow-md hover:bg-white/15 transition-all group flex items-center gap-3 ${past ? 'opacity-60 hover:opacity-100' : ''}`}
     >
       <div className="w-9 h-9 rounded-xl bg-indigo-500/20 flex items-center justify-center shrink-0">
         <LayoutGrid size={16} className="text-indigo-300" />
@@ -833,7 +833,7 @@ export default function LayoutView({ events, canEdit }: AdminProps) {
               <>
                 <div className="flex items-center gap-2 mt-3 mb-1 px-1 md:col-span-full">
                   <span className="text-[10px] font-black text-white/40 uppercase tracking-widest shrink-0">終了したイベント</span>
-                  <div className="flex-1 h-px bg-white/10" />
+                  <div className="flex-1 h-px bg-slate-900/55" />
                 </div>
                 {past.map(ev => (
                   <EventCard key={ev.id} ev={ev} onSelect={() => runWithGuard(() => setSelectedEventId(ev.id))} past />

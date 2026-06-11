@@ -107,7 +107,7 @@ function EventCard({ ev, prog, today, onSelect }: {
     <motion.button
       onClick={() => onSelect(ev)}
       whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}
-      className="w-full text-left bg-white/10 rounded-2xl transition-all group overflow-hidden border border-white/15"
+      className="w-full text-left bg-slate-900/55 rounded-2xl transition-all group overflow-hidden border border-white/15"
     >
       <div className="flex items-stretch">
         <div className="w-1 shrink-0" style={{ background: regionColor }} />
@@ -131,7 +131,7 @@ function EventCard({ ev, prog, today, onSelect }: {
               </div>
               {pct >= 0 && (
                 <div className="flex items-center gap-2 mt-2">
-                  <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                  <div className="flex-1 h-1 bg-slate-900/55 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-indigo-400' : 'bg-amber-400'}`}
                       style={{ width: `${pct}%` }}
@@ -151,7 +151,7 @@ function EventCard({ ev, prog, today, onSelect }: {
 
 function SectionEmpty({ label }: { label: string }) {
   return (
-    <div className="bg-white/10 border border-white/20 rounded-2xl py-5 text-center text-sm text-white/40">
+    <div className="bg-slate-900/55 border border-white/20 rounded-2xl py-5 text-center text-sm text-white/40">
       {label}
     </div>
   );
@@ -253,7 +253,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={onNavigateCalendar}
-            className="bg-white/10 rounded-2xl p-3 border border-white/15 flex flex-col text-left hover:bg-white/15 transition-colors"
+            className="bg-slate-900/55 rounded-2xl p-3 border border-white/15 flex flex-col text-left hover:bg-white/15 transition-colors"
           >
             <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">今月</div>
             <div className="flex items-baseline gap-1">
@@ -265,7 +265,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             </span>
           </button>
 
-          <div className="bg-white/10 rounded-2xl p-3 border border-white/15 flex flex-col">
+          <div className="bg-slate-900/55 rounded-2xl p-3 border border-white/15 flex flex-col">
             <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">本日稼働</div>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-black text-white leading-none">
@@ -278,7 +278,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             <span className="mt-auto pt-2 text-[10px] font-bold text-white/40">出勤中</span>
           </div>
 
-          <div className="bg-white/10 rounded-2xl p-3 border border-white/15 flex flex-col">
+          <div className="bg-slate-900/55 rounded-2xl p-3 border border-white/15 flex flex-col">
             <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">次イベント</div>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-black text-white leading-none">
@@ -296,7 +296,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
         {/* 稼働内訳 — 本社/イベント/外出/公休/希望休/その他 を横並び */}
         {!staffLoading && staffBreakdown !== null && (
-          <div className="bg-white/10 rounded-2xl p-3 border border-white/15">
+          <div className="bg-slate-900/55 rounded-2xl p-3 border border-white/15">
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
               {([
                 { label: '本社',   value: staffBreakdown.office,   bg: 'bg-blue-500/25 border-blue-400/40',   text: 'text-blue-100' },
@@ -315,7 +315,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
           </div>
         )}
         {!staffLoading && staffBreakdown === null && (
-          <div className="bg-white/10 rounded-2xl p-3 border border-white/15 text-[10px] text-white/30">
+          <div className="bg-slate-900/55 rounded-2xl p-3 border border-white/15 text-[10px] text-white/30">
             稼働データを取得できませんでした
           </div>
         )}
@@ -364,21 +364,21 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
           <button
             onClick={() => setShowEventPicker(true)}
-            className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/15 active:scale-[0.98] transition-all"
+            className="flex items-center gap-3 bg-slate-900/55 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/15 active:scale-[0.98] transition-all"
           >
             準備物リスト
           </button>
 
           <button
             onClick={() => { if (canEditEvent) { onCreateEvent(); } else { setShowPermissionToast(true); } }}
-            className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/15 active:scale-[0.98] transition-all"
+            className="flex items-center gap-3 bg-slate-900/55 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/15 active:scale-[0.98] transition-all"
           >
             新規イベントを追加する
           </button>
 
           <button
             onClick={onOpenSchedule}
-            className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/15 active:scale-[0.98] transition-all"
+            className="flex items-center gap-3 bg-slate-900/55 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/15 active:scale-[0.98] transition-all"
           >
             スケジュール
           </button>
@@ -398,7 +398,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               href={svc.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between bg-white/10 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-3.5 hover:bg-white/15 active:scale-[0.98] transition-all"
+              className="flex items-center justify-between bg-slate-900/55 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-3.5 hover:bg-white/15 active:scale-[0.98] transition-all"
             >
               <div className="min-w-0">
                 <div className="font-black text-sm leading-tight">{svc.label}</div>
@@ -471,7 +471,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
                             <button
                               key={ev.id}
                               onClick={() => { setShowEventPicker(false); onSelectPrepEvent(ev); }}
-                              className="w-full text-left bg-white/10 rounded-2xl border border-white/15 flex items-stretch overflow-hidden hover:bg-white/15 active:scale-[0.98] transition-all"
+                              className="w-full text-left bg-slate-900/55 rounded-2xl border border-white/15 flex items-stretch overflow-hidden hover:bg-white/15 active:scale-[0.98] transition-all"
                             >
                               <div
                                 className="flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0"

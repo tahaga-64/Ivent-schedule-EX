@@ -224,7 +224,7 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
             {selectedEvent && (
               <div className="md:grid md:grid-cols-[minmax(260px,340px)_1fr] md:gap-6 xl:gap-8 md:items-start">
               <div className="md:sticky md:top-4 space-y-4">
-                <div className="flex items-center gap-3 bg-white/10 rounded-2xl px-4 py-3 border border-white/20">
+                <div className="flex items-center gap-3 bg-slate-900/55 rounded-2xl px-4 py-3 border border-white/20">
                   <div className="w-9 h-9 rounded-xl bg-cyan-400/30 flex items-center justify-center shrink-0">
                     <Fish size={18} className="text-cyan-300" />
                   </div>
@@ -240,7 +240,7 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
                 </div>
 
                 {canEdit && (
-                  <div className="bg-white/10 rounded-2xl p-4 border border-cyan-400/20">
+                  <div className="bg-slate-900/55 rounded-2xl p-4 border border-cyan-400/20">
                     <div className="text-xs font-black text-cyan-300 uppercase tracking-widest mb-3">観賞魚を追加</div>
                     <div className="flex flex-col gap-2">
                       <input

@@ -42,7 +42,7 @@ export function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps
         <div key={date}>
           <div className="flex items-center gap-3 mb-2">
             <span className="text-sm font-black text-white/80">{fmtGroup(date)}</span>
-            <div className="flex-1 h-px bg-white/10" />
+            <div className="flex-1 h-px bg-slate-900/55" />
             <span className="text-xs font-bold text-white/40">{evs.length}</span>
           </div>
           <div className="space-y-2">
@@ -92,7 +92,7 @@ export function MobileWeekStrip({ events }: MobileWeekStripProps) {
   const dayLabels = DAYS_JP;
 
   return (
-    <div className="flex justify-between gap-0.5 rounded-2xl border border-white/15 bg-white/10 px-1 py-2">
+    <div className="flex justify-between gap-0.5 rounded-2xl border border-white/15 bg-slate-900/55 px-1 py-2">
       {days.map((d, i) => {
         const isToday = d.toDateString() === today.toDateString();
         const hasEvent = events.some((ev) => ev.start && new Date(ev.start + 'T00:00:00').toDateString() === d.toDateString());
@@ -148,7 +148,7 @@ export function MobileMonthWeekGrid({
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
-          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-lg font-bold text-white/70 disabled:opacity-40"
+          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-slate-900/55 text-lg font-bold text-white/70 disabled:opacity-40"
           disabled={weekRowIndex <= 0}
           onClick={() => onWeekRowChange(Math.max(0, weekRowIndex - 1))}
           aria-label="前の週"
@@ -160,7 +160,7 @@ export function MobileMonthWeekGrid({
         </span>
         <button
           type="button"
-          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-lg font-bold text-white/70 disabled:opacity-40"
+          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-slate-900/55 text-lg font-bold text-white/70 disabled:opacity-40"
           disabled={weekRowIndex >= weekRowCount - 1}
           onClick={() => onWeekRowChange(Math.min(weekRowCount - 1, weekRowIndex + 1))}
           aria-label="次の週"
@@ -304,7 +304,7 @@ export function MobileDayAgendaView({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2 rounded-2xl border border-white/15 bg-white/10 px-2 py-1.5">
+      <div className="flex items-center justify-between gap-2 rounded-2xl border border-white/15 bg-slate-900/55 px-2 py-1.5">
         <button
           type="button"
           className="flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white/80 active:bg-white/10 disabled:opacity-30"
@@ -458,7 +458,7 @@ function CalendarViewInner({ events, year, month, setYear, setMonth, onSelect, o
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1">
             <button onClick={prevMonth} className="p-2 text-white/50 hover:text-white transition-colors"><ChevronLeft size={20} /></button>
-            <button onClick={setToday} className="px-4 py-1.5 bg-white/10 border border-white/15 rounded-lg text-xs font-bold text-white/80 hover:bg-white/20 transition-colors shadow-sm ml-1 mr-1">今日</button>
+            <button onClick={setToday} className="px-4 py-1.5 bg-slate-900/55 border border-white/15 rounded-lg text-xs font-bold text-white/80 hover:bg-white/20 transition-colors shadow-sm ml-1 mr-1">今日</button>
             <button onClick={nextMonth} className="p-2 text-white/50 hover:text-white transition-colors"><ChevronRight size={20} /></button>
           </div>
         </div>
@@ -569,7 +569,7 @@ function CalendarViewInner({ events, year, month, setYear, setMonth, onSelect, o
                           if (!prog || prog.total === 0) return null;
                           const pct = Math.round((prog.done / prog.total) * 100);
                           return (
-                            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/10">
+                            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-900/55">
                               <div className="h-full bg-emerald-400 transition-all" style={{ width: `${pct}%` }} />
                             </div>
                           );
@@ -662,7 +662,7 @@ export function HoverCard({ event, pos, prepStats }: {
             <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">準備物</span>
             <span className="text-[10px] font-black text-indigo-300">{pct}%</span>
           </div>
-          <div className="w-full bg-white/10 rounded-full h-1.5">
+          <div className="w-full bg-slate-900/55 rounded-full h-1.5">
             <div
               className="bg-indigo-400 h-1.5 rounded-full transition-all"
               style={{ width: `${pct}%` }}
@@ -680,7 +680,7 @@ export function HoverCard({ event, pos, prepStats }: {
 export function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-white/30">
-      <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mb-6">
+      <div className="w-20 h-20 rounded-full bg-slate-900/55 flex items-center justify-center mb-6">
         <Calendar size={32} />
       </div>
       <div className="text-sm font-bold text-white/40">イベントが見つかりません</div>

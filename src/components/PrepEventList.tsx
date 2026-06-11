@@ -59,7 +59,7 @@ export default function PrepEventList({ events, onSelectEvent }: PrepEventListPr
                       <button
                         key={ev.id}
                         onClick={() => onSelectEvent(ev)}
-                        className="w-full text-left bg-white/10 rounded-2xl border border-white/15 flex items-stretch overflow-hidden hover:bg-white/15 active:scale-[0.98] transition-all"
+                        className="w-full text-left bg-slate-900/55 rounded-2xl border border-white/15 flex items-stretch overflow-hidden hover:bg-white/15 active:scale-[0.98] transition-all"
                       >
                         {/* 日付バッジ */}
                         <div className={`flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 ${countdownBg(until, isOngoing)}`}>

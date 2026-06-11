@@ -45,7 +45,7 @@ export function MobileTimelineView({ events, onSelect }: { events: Event[]; onSe
                 key={ev.id}
                 onClick={() => onSelect(ev)}
                 title={ev.status === 'completed' ? '完了済み' : undefined}
-                className="w-full bg-white/10 border border-white/15 rounded-2xl flex items-center gap-3 text-left active:scale-[0.99] transition-all overflow-hidden"
+                className="w-full bg-slate-900/55 border border-white/15 rounded-2xl flex items-center gap-3 text-left active:scale-[0.99] transition-all overflow-hidden"
               >
                 <div className="w-1 self-stretch rounded-l-2xl shrink-0" style={{ background: rs(ev.region || '').dot }} />
                 <div className="flex-1 py-3.5 min-w-0">
@@ -77,7 +77,7 @@ export function MobileWeekStrip({ events }: { events: Event[] }) {
   });
 
   return (
-    <div className="flex justify-between gap-0.5 rounded-2xl border border-white/15 bg-white/10 px-1 py-2">
+    <div className="flex justify-between gap-0.5 rounded-2xl border border-white/15 bg-slate-900/55 px-1 py-2">
       {days.map((d, i) => {
         const isToday = d.toDateString() === today.toDateString();
         const hasEvent = events.some((ev) => ev.start && new Date(ev.start + 'T00:00:00').toDateString() === d.toDateString());
@@ -188,7 +188,7 @@ export function MobileDayAgendaView({ year, month, agendaDay, setAgendaDay, even
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2 rounded-2xl border border-white/15 bg-white/10 px-2 py-1.5">
+      <div className="flex items-center justify-between gap-2 rounded-2xl border border-white/15 bg-slate-900/55 px-2 py-1.5">
         <button type="button" className="flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white/80 active:bg-white/10 disabled:opacity-30" disabled={day <= 1} onClick={() => setAgendaDay(day - 1)} aria-label="前の日">‹</button>
         <div className="text-center">
           <div className="text-lg font-black text-white tabular-nums">{month}/{day}</div>
@@ -205,7 +205,7 @@ export function MobileDayAgendaView({ year, month, agendaDay, setAgendaDay, even
             const typeSty = ts(ev.type || '');
             const meta = buildEventOptionalCaption(ev);
             return (
-              <button key={ev.id} type="button" onClick={() => onSelect(ev)} title={ev.status === 'completed' ? '完了済み' : undefined} style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border }} className="flex min-h-12 w-full items-start gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-left active:scale-[0.99] transition-all">
+              <button key={ev.id} type="button" onClick={() => onSelect(ev)} title={ev.status === 'completed' ? '完了済み' : undefined} style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border }} className="flex min-h-12 w-full items-start gap-2 rounded-xl border border-white/15 bg-slate-900/55 px-3 py-2.5 text-left active:scale-[0.99] transition-all">
                 <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-white/20" style={{ backgroundColor: typeSty.border }} aria-hidden />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-bold text-white">{ev.venue}</span>

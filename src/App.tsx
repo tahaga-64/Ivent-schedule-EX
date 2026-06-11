@@ -1043,13 +1043,18 @@ VITE_FIREBASE_DATABASE_ID`}
 
   return (
     <div className="relative isolate flex flex-col h-dvh min-h-dvh overflow-hidden">
-      {/* 全ページ共通の背景: オフィス写真 + 濃いオーバーレイ（可読性確保） */}
+      {/* 全ページ共通の背景: オフィス写真 + オーバーレイ。
+          写真を活かすため薄め(0.62)。文字の可読性は各コンテンツのカード濃色化で確保する。
+          上下はヘッダー/ナビ帯のため少し濃いめのグラデーションでアンカーする。 */}
       <div className="absolute inset-0 -z-10 print:hidden">
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: "url('/mercury-office.webp')" }}
         />
-        <div className="absolute inset-0" style={{ background: 'rgba(7, 12, 25, 0.93)' }} />
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(180deg, rgba(7,12,25,0.78) 0%, rgba(7,12,25,0.60) 26%, rgba(7,12,25,0.60) 74%, rgba(7,12,25,0.80) 100%)' }}
+        />
       </div>
 
       {/* Header */}

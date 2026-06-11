@@ -8,7 +8,7 @@ interface MobileMonthNavProps {
 
 export default function MobileMonthNav({ year, month, onPrev, onNext, onToday }: MobileMonthNavProps) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-2xl border border-white/15 bg-white/10 px-2 py-1.5">
+    <div className="flex items-center justify-between gap-2 rounded-2xl border border-white/15 bg-slate-900/55 px-2 py-1.5">
       <button
         type="button"
         onClick={onPrev}

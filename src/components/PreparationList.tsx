@@ -327,7 +327,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
       className="relative z-10 flex flex-col h-full bg-transparent"
     >
       {!canEdit && (
-        <div className="px-6 py-2.5 bg-white/10 border-b border-white/10 text-white/60 text-[11px] font-bold text-center print:hidden">
+        <div className="px-6 py-2.5 bg-slate-900/55 border-b border-white/10 text-white/60 text-[11px] font-bold text-center print:hidden">
           閲覧のみ（準備物の編集にはログインが必要です）
         </div>
       )}
@@ -842,7 +842,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
             </button>
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-white/10 text-white/60 hover:bg-white/20 rounded-lg font-bold text-[10px] transition-colors border border-white/15"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-900/55 text-white/60 hover:bg-white/20 rounded-lg font-bold text-[10px] transition-colors border border-white/15"
               title="印刷"
             >
               <Printer size={11} />

@@ -157,7 +157,7 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
               <motion.div
                 key={item.id}
                 layout
-                className="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-4 hover:bg-white/15 transition-colors group shadow-sm"
+                className="bg-slate-900/55 backdrop-blur-sm border border-white/15 rounded-2xl p-4 hover:bg-white/15 transition-colors group shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="font-black text-sm text-white leading-snug">{item.name}</div>

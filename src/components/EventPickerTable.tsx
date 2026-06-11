@@ -17,7 +17,7 @@ export default function EventPickerTable({ events, onSelect, variant = 'active' 
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="hidden md:block rounded-2xl overflow-hidden w-full border border-white/15 bg-white/10">
+    <div className="hidden md:block rounded-2xl overflow-hidden w-full border border-white/15 bg-slate-900/55">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-white/10 bg-white/5">
