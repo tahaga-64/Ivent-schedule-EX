@@ -9,7 +9,6 @@ import { notifyPush, isPushNotificationConfigured } from '../lib/pushNotificatio
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Calendar,
-  Plus,
   Trash2,
   Star,
   ChevronRight,
@@ -264,85 +263,6 @@ const Legend = () => (
   </div>
 );
 
-const TrainingInfo = ({ 
-  title,
-  labels, 
-  locations, 
-  onChange 
-}: { 
-  title: string,
-  labels: Record<string, string>, 
-  locations: Record<string, string>,
-  onChange: (labels: Record<string, string>, locations: Record<string, string>) => void
-}) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [localLabels, setLocalLabels] = useState(labels);
-  const [localLocations, setLocalLocations] = useState(locations);
-
-  useEffect(() => {
-    if (!isEditing) {
-      setLocalLabels(labels);
-      setLocalLocations(locations);
-    }
-  }, [labels, locations, isEditing]);
-
-  const handleSave = () => {
-    onChange(localLabels, localLocations);
-    setIsEditing(false);
-  };
-
-  return (
-    <div className="bg-white rounded-xl shadow-sm p-4 border border-border mb-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-text">
-          <div className="w-1 h-4 bg-accent rounded-full" />
-          {title}
-        </div>
-        <button 
-          onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-          className="text-[10px] font-bold text-accent hover:underline flex items-center gap-1"
-        >
-          {isEditing ? <><Save size={12} /> 保存</> : <><Plus size={12} /> 編集</>}
-        </button>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {Object.keys(TRAINING_LABELS).map((key) => (
-          <div key={key} className="flex flex-col p-2 rounded-lg bg-bg border border-border">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-bold">
-                {title.includes('イベント') ? key.replace('研修', 'イベント') : key}
-              </span>
-              {isEditing ? (
-                <input 
-                  className="text-xs font-bold text-text bg-white border border-border rounded px-1 w-full"
-                  style={{ fontSize: '16px' }}
-                  value={localLabels[key] || ''}
-                  onChange={(e) => setLocalLabels({...localLabels, [key]: e.target.value})}
-                />
-              ) : (
-                <span className="text-xs font-bold text-text">{labels[key] || '未設定'}</span>
-              )}
-            </div>
-            {isEditing ? (
-              <textarea 
-                className="text-[10px] text-text2 leading-tight bg-white border border-border rounded px-1 w-full"
-                style={{ fontSize: '16px' }}
-                value={localLocations[key] || ''}
-                onChange={(e) => setLocalLocations({...localLocations, [key]: e.target.value})}
-                rows={2}
-              />
-            ) : (
-              <div className="text-[10px] text-text2 leading-tight">
-                {locations[key] || '詳細なし'}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 
 const MemberTabs = ({ members, current, myName, onSelect }: { members: string[], current: string, myName: string, onSelect: (n: string) => void }) => {
   const sorted = myName ? [myName, ...members.filter(m => m !== myName)] : members;
@@ -395,7 +315,15 @@ function App({ currentUser }: { currentUser: User | null }) {
   const [currentSchedMember, setCurrentSchedMember] = useState<string>(() => localStorage.getItem('ex_schedule_my_name') || MEMBERS[0]);
   const schedCalendarRef = useRef<HTMLDivElement>(null);
   const overallTableRef = useRef<HTMLDivElement>(null);
-  
+
+  // スマホは閲覧専用（編集はデスクトップのみ）
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   // Initialize from current real date to ensure the app opens with the latest current month always
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
@@ -1163,25 +1091,13 @@ function App({ currentUser }: { currentUser: User | null }) {
                 onSelect={setCurrentSchedMember}
               />
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-1">
-                  <Legend />
-                </div>
-                <div className="lg:col-span-2">
-                  <TrainingInfo 
-                    title={currentMonth >= 4 ? "イベントの詳細" : "研修の詳細"}
-                    labels={currentMonthData.trainingLabels || {}} 
-                    locations={currentMonthData.trainingLocations || {}}
-                    onChange={(labels, locations) => updateCurrentMonthData({ trainingLabels: labels, trainingLocations: locations })}
-                  />
-                </div>
-              </div>
+              <Legend />
               
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-bold text-slate-900">{currentYear}年{currentMonth + 1}月</span>
-                    {currentYear === 2026 && currentMonth === 3 && (
+                    {currentYear === 2026 && currentMonth === 3 && !isMobile && (
                       <button
                         onClick={handleRestoreInitial}
                         className="px-3 py-1 rounded-md text-xs transition-all border bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100"
@@ -1220,6 +1136,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                         const item = currentMonthData.schedule[currentSchedMember]?.[i] || { type: 'rest', detail: '' };
                         const type = item.type;
                         const detail = item.detail;
+                        const memo = currentMonthData.memos[currentSchedMember]?.[day] || '';
                         const isSat = dow === 5;
                         const isSun = dow === 6;
                         const _today = new Date();
@@ -1229,7 +1146,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                           <div
                             key={day}
                             data-today={isToday ? 'true' : undefined}
-                            className={`border border-border rounded p-1 min-h-[68px] transition-all relative flex flex-col bg-white ${
+                            className={`border border-border rounded p-1 min-h-[60px] md:min-h-[110px] transition-all relative flex flex-col bg-white ${
                               isSun ? 'bg-red-50' : isSat ? 'bg-blue-50' : ''
                             } ${isToday ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-white' : ''}`}
                           >
@@ -1240,36 +1157,56 @@ function App({ currentUser }: { currentUser: User | null }) {
                               {isToday && <span className="text-[7px] font-black bg-indigo-500 text-white px-1 py-0.5 rounded-full leading-none">今</span>}
                             </span>
 
-                            <div className="flex flex-col gap-0.5 mb-0.5">
-                              <select
-                                className={`w-full px-0.5 py-0.5 rounded-full text-[9px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[type]}`}
-                                value={type}
-                                onChange={(e) => handleScheduleTypeChange(currentSchedMember, i, e.target.value as StatusType)}
-                              >
-                                {Object.keys(TYPE_LABEL).map(t => (
-                                  <option key={t} value={t}>{TYPE_LABEL[t as StatusType]}</option>
-                                ))}
-                              </select>
-                              {(type !== 'normal' && type !== 'request' && type !== 'rest') && (
-                                <LocalInput
-                                  className="w-full px-0.5 py-0 rounded border border-slate-200 text-[9px] text-slate-900 outline-none focus:border-accent bg-slate-50 h-4"
-                                  size={9}
-                                  value={detail}
-                                  onChange={(val: string) => handleScheduleDetailChange(currentSchedMember, i, val)}
-                                  placeholder="詳細..."
-                                  list="status-suggestions"
+                            {isMobile ? (
+                              /* スマホ: 閲覧専用表示。テキストは折り返してセルが縦に伸びるので潰れない */
+                              <>
+                                <div className={`w-full px-0.5 py-0.5 rounded text-[10px] font-bold text-center leading-tight ${TYPE_CLASS[type]}`}>
+                                  {TYPE_LABEL[type].split('(')[0]}
+                                </div>
+                                {detail && (
+                                  <div className="text-[10px] font-bold text-slate-800 break-words leading-tight mt-0.5">
+                                    {detail}
+                                  </div>
+                                )}
+                                {memo && (
+                                  <div className="text-[10px] text-slate-600 whitespace-pre-wrap break-words leading-tight mt-0.5 border-t border-slate-200/70 pt-0.5">
+                                    {memo}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <div className="flex flex-col gap-0.5 mb-0.5">
+                                  <select
+                                    className={`w-full px-1 py-0.5 rounded-full text-[11px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[type]}`}
+                                    value={type}
+                                    onChange={(e) => handleScheduleTypeChange(currentSchedMember, i, e.target.value as StatusType)}
+                                  >
+                                    {Object.keys(TYPE_LABEL).map(t => (
+                                      <option key={t} value={t}>{TYPE_LABEL[t as StatusType]}</option>
+                                    ))}
+                                  </select>
+                                  {(type !== 'normal' && type !== 'request' && type !== 'rest') && (
+                                    <LocalInput
+                                      className="w-full px-1 py-0.5 rounded border border-slate-200 text-[11px] text-slate-900 outline-none focus:border-accent bg-slate-50"
+                                      size={11}
+                                      value={detail}
+                                      onChange={(val: string) => handleScheduleDetailChange(currentSchedMember, i, val)}
+                                      placeholder="詳細..."
+                                      list="status-suggestions"
+                                    />
+                                  )}
+                                </div>
+
+                                <LocalTextarea
+                                  className="w-full border border-slate-200 rounded p-1 text-[11px] text-slate-900 bg-slate-50 focus:bg-white focus:border-accent outline-none resize-none flex-grow placeholder:text-slate-300"
+                                  rows={2}
+                                  placeholder="メモ"
+                                  value={memo}
+                                  onChange={(val: string) => handleMemoChange(currentSchedMember, day, val)}
                                 />
-                              )}
-                            </div>
-
-                            <LocalTextarea
-                              className="w-full border border-slate-200 rounded p-0.5 text-[9px] text-slate-900 bg-slate-50 focus:bg-white focus:border-accent outline-none resize-none flex-grow placeholder:text-slate-300"
-                              rows={1}
-                              placeholder="メモ"
-                              value={currentMonthData.memos[currentSchedMember]?.[day] || ''}
-                              onChange={(val: string) => handleMemoChange(currentSchedMember, day, val)}
-                            />
-
+                              </>
+                            )}
                           </div>
                         );
                       })}
@@ -1315,6 +1252,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                         value={currentMonthData.teamGoal}
                         onChange={(val: string) => updateCurrentMonthData({ teamGoal: val })}
                         placeholder="今月の全体目標を入力..."
+                        disabled={isMobile}
                       />
                     </div>
                     {showSaveOk['team-goal'] && (
@@ -1323,7 +1261,8 @@ function App({ currentUser }: { currentUser: User | null }) {
                   </div>
                 </div>
 
-                <div ref={overallTableRef} className="overflow-x-auto relative border-b border-border">
+                {/* 縦スクロールもコンテナ内で行うことで、日付ヘッダー（sticky top-0）が下スクロールに追従する */}
+                <div ref={overallTableRef} className="overflow-auto max-h-[75vh] relative border-b border-border">
                   <table className="w-full text-[10px] border-separate border-spacing-0 min-w-[max-content]">
                     <thead className="relative z-30">
                       <tr className="bg-slate-100 text-slate-900">
@@ -1364,6 +1303,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                               value={globalLocations[i + 1] || ''}
                               onChange={(val: string) => handleGlobalLocationChange(i + 1, val)}
                               placeholder="場所"
+                              disabled={isMobile}
                             />
                           </td>
                         ))}
@@ -1382,6 +1322,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                               value={globalTimes[i + 1] || ''}
                               onChange={(val: string) => handleGlobalTimeChange(i + 1, val)}
                               placeholder="時間"
+                              disabled={isMobile}
                             />
                           </td>
                         ))}
@@ -1433,6 +1374,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                                   value={globalStations[name] || currentMonthData.memberStations?.[name] || ''}
                                   onChange={(val: string) => handleMemberStationChange(name, val)}
                                   placeholder="駅"
+                                  disabled={isMobile}
                                 />
                               </div>
                             </td>
@@ -1442,8 +1384,9 @@ function App({ currentUser }: { currentUser: User | null }) {
                                 <td key={i} className="p-[1px] border border-border min-w-[30px]">
                                   <div className="flex flex-col gap-0.5 text-center justify-center mx-auto">
                                     <select
-                                      className={`w-full px-0.5 py-0.5 rounded-full text-[9px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[item.type]}`}
+                                      className={`w-full px-0.5 py-0.5 rounded-full text-[9px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all disabled:opacity-100 ${TYPE_CLASS[item.type]}`}
                                       value={item.type}
+                                      disabled={isMobile}
                                       onChange={(e) => handleScheduleTypeChange(name, i, e.target.value as StatusType)}
                                     >
                                       {Object.keys(TYPE_LABEL).map(t => (
@@ -1456,6 +1399,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                                       value={item.detail || ''}
                                       onChange={(val: string) => handleScheduleDetailChange(name, i, val)}
                                       placeholder="..."
+                                      disabled={isMobile}
                                     />
                                   </div>
                                 </td>
@@ -1474,25 +1418,33 @@ function App({ currentUser }: { currentUser: User | null }) {
                       <Info size={14} />
                       全体メモ / 連絡事項
                     </div>
-                    <button 
-                      onClick={() => {
-                        updateCurrentMonthData({ overallMemo: currentMonthData.overallMemo });
-                        triggerSaveOk('overall-memo');
-                      }}
-                      className="bg-accent text-white px-4 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 hover:bg-accent-d transition-colors"
-                    >
-                      <Save size={12} />
-                      メモを保存
-                    </button>
+                    {!isMobile && (
+                      <button
+                        onClick={() => {
+                          updateCurrentMonthData({ overallMemo: currentMonthData.overallMemo });
+                          triggerSaveOk('overall-memo');
+                        }}
+                        className="bg-accent text-white px-4 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 hover:bg-accent-d transition-colors"
+                      >
+                        <Save size={12} />
+                        メモを保存
+                      </button>
+                    )}
                   </div>
-                  <LocalTextarea
-                    className="w-full border border-accent/20 rounded-xl p-4 text-xs bg-white focus:border-accent outline-none min-h-[150px] leading-relaxed font-bold text-text"
-                    placeholder="全体に向けた連絡事項や、月間の特記事項を入力してください..."
-                    value={currentMonthData.overallMemo || ''}
-                    onChange={(val: string) => {
-                      updateCurrentMonthData({ overallMemo: val });
-                    }}
-                  />
+                  {isMobile ? (
+                    <div className="w-full border border-accent/20 rounded-xl p-4 text-xs bg-white min-h-[80px] leading-relaxed font-bold text-text whitespace-pre-wrap break-words">
+                      {currentMonthData.overallMemo || <span className="text-slate-300 font-normal">連絡事項はありません</span>}
+                    </div>
+                  ) : (
+                    <LocalTextarea
+                      className="w-full border border-accent/20 rounded-xl p-4 text-xs bg-white focus:border-accent outline-none min-h-[150px] leading-relaxed font-bold text-text"
+                      placeholder="全体に向けた連絡事項や、月間の特記事項を入力してください..."
+                      value={currentMonthData.overallMemo || ''}
+                      onChange={(val: string) => {
+                        updateCurrentMonthData({ overallMemo: val });
+                      }}
+                    />
+                  )}
                   {showSaveOk['overall-memo'] && (
                     <div className="mt-2 text-right text-[10px] text-green-600 font-bold animate-pulse">
                       ✓ 全体メモを保存しました

@@ -1,24 +1,24 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="exE" x1="120" y1="150" x2="250" y2="370" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#67e8f9"/>
-      <stop offset="0.5" stop-color="#a5b4fc"/>
-      <stop offset="1" stop-color="#a78bfa"/>
+      <stop stop-color="#0891b2"/>
+      <stop offset="0.5" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#7c3aed"/>
     </linearGradient>
     <linearGradient id="exX" x1="270" y1="150" x2="392" y2="370" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#c4b5fd"/>
-      <stop offset="0.5" stop-color="#f0abfc"/>
-      <stop offset="1" stop-color="#818cf8"/>
+      <stop stop-color="#7c3aed"/>
+      <stop offset="0.5" stop-color="#c026d3"/>
+      <stop offset="1" stop-color="#4338ca"/>
     </linearGradient>
     <linearGradient id="exBar" x1="131" y1="0" x2="381" y2="0" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#93c5fd" stop-opacity="0"/>
-      <stop offset="0.3" stop-color="#93c5fd" stop-opacity="0.9"/>
-      <stop offset="0.7" stop-color="#c4b5fd" stop-opacity="0.9"/>
-      <stop offset="1" stop-color="#c4b5fd" stop-opacity="0"/>
+      <stop stop-color="#6366f1" stop-opacity="0"/>
+      <stop offset="0.3" stop-color="#6366f1" stop-opacity="0.9"/>
+      <stop offset="0.7" stop-color="#8b5cf6" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/>
     </linearGradient>
   </defs>
 
-  <rect width="512" height="512" rx="112" fill="#0f172a"/>
+  <rect width="512" height="512" rx="112" fill="#ffffff"/>
 
   <!-- E -->
   <g fill="url(#exE)">
