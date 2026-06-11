@@ -7,14 +7,16 @@
  * Firestore: layouts/{eventId} = { items, customItems, photos, eventName, updatedAt }
  *   rules: layouts/{layoutId} は allow read: if true; allow write: if isAuthenticated();（共有リンク用に読み取り公開）
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot, setDoc, deleteDoc, serverTimestamp, getDoc } from 'firebase/firestore';
-import { Trash2, RotateCw, Copy, Check, ChevronRight, LayoutGrid, Plus, Maximize2, Minimize2, Image as ImageIcon, X, Upload } from 'lucide-react';
+import { Trash2, RotateCw, Copy, Check, ChevronRight, LayoutGrid, Plus, Maximize2, Minimize2, Image as ImageIcon, X, Upload, Save, Box } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Event, EventPhoto } from '../types';
 import { uploadEventPhoto, deleteStoredPhoto, validateImageFile } from '../lib/photoStorage';
+
+const Layout3DViewer = lazy(() => import('./Layout3DViewer'));
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -48,16 +50,16 @@ const MAX_LAYOUT_PHOTOS = 12;
 const CATALOG: Record<string, {
   label: string; emoji: string; color: string; wPct: number; hPct: number;
 }> = {
-  round_table: { label: '丸机',           emoji: '⭕', color: '#6366f1', wPct: 8,  hPct: 9  },
-  long_table:  { label: '長机',           emoji: '▭',  color: '#7c3aed', wPct: 16, hPct: 5  },
-  fish_tank:   { label: '水槽',           emoji: '🐠', color: '#0369a1', wPct: 13, hPct: 8  },
-  sandbox:     { label: '砂場',           emoji: '🏖️', color: '#b45309', wPct: 18, hPct: 12 },
-  yoyo:        { label: 'ヨーヨー・SB',   emoji: '🎯', color: '#be123c', wPct: 14, hPct: 10 },
-  seating:     { label: '着座SP',         emoji: '💺', color: '#0f766e', wPct: 16, hPct: 10 },
-  pillar:      { label: '柱',             emoji: '⬛', color: '#475569', wPct: 4,  hPct: 6  },
-  entrance:   { label: '入口',      emoji: '🚪', color: '#16a34a', wPct: 8,  hPct: 5  },
-  prize_desk: { label: '景品お渡し', emoji: '🎁', color: '#db2777', wPct: 14, hPct: 8  },
-  partition:  { label: '仕切り',     emoji: '🟫', color: '#64748b', wPct: 22, hPct: 2  },
+  round_table: { label: '丸机',           emoji: '○',  color: '#6366f1', wPct: 8,  hPct: 9  },
+  long_table:  { label: '長机',           emoji: '▬',  color: '#7c3aed', wPct: 16, hPct: 5  },
+  fish_tank:   { label: '水槽',           emoji: '◫',  color: '#0369a1', wPct: 13, hPct: 8  },
+  sandbox:     { label: '砂場',           emoji: '□',  color: '#b45309', wPct: 18, hPct: 12 },
+  yoyo:        { label: 'ヨーヨー・SB',   emoji: '◎',  color: '#be123c', wPct: 14, hPct: 10 },
+  seating:     { label: '着座SP',         emoji: '▣',  color: '#0f766e', wPct: 16, hPct: 10 },
+  pillar:      { label: '柱',             emoji: '■',  color: '#475569', wPct: 4,  hPct: 6  },
+  entrance:    { label: '入口',           emoji: '▷',  color: '#16a34a', wPct: 8,  hPct: 5  },
+  prize_desk:  { label: '景品お渡し',     emoji: '◈',  color: '#db2777', wPct: 14, hPct: 8  },
+  partition:   { label: '仕切り',         emoji: '━',  color: '#64748b', wPct: 22, hPct: 2  },
 };
 
 function genId() { return Math.random().toString(36).slice(2, 9); }
@@ -85,6 +87,7 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
   const [showPhotos, setShowPhotos] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [show3D, setShow3D] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef<{ id: string; offX: number; offY: number } | null>(null);
@@ -144,16 +147,17 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
     }
   }
 
-  // ドラッグ等の連続操作はデバウンス保存（ページ内では自動保存、離脱時は確認ダイアログ）
+  // 変更をマークするだけ（保存ボタン押下まで Firestore に書き込まない）
   function scheduleSave() {
     if (!canEdit) return;
     setHasUnsaved(true);
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      setSaving(true);
-      await writeLayout();
-      setSaving(false);
-    }, 700);
+  }
+
+  async function handleManualSave() {
+    if (!canEdit || saving) return;
+    setSaving(true);
+    await writeLayout();
+    setSaving(false);
   }
 
   // 写真・カスタムアイテム等の単発操作は即時保存
@@ -389,10 +393,28 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
           <div className="text-sm font-black text-slate-900 truncate">{eventName || 'レイアウト'}</div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {canEdit && savedAt && !saving && (
-            <span className="text-[10px] text-emerald-600 font-bold hidden sm:block">保存済み</span>
-          )}
           {saving && <span className="text-[10px] text-amber-600 font-bold">保存中...</span>}
+          {items.length > 0 && (
+            <button
+              onClick={() => setShow3D(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-colors border border-slate-200"
+              title="3Dビューで確認"
+            >
+              <Box size={11} />
+              <span className="hidden sm:inline">3D表示</span>
+            </button>
+          )}
+          {canEdit && (
+            <button
+              onClick={handleManualSave}
+              disabled={!hasUnsaved || saving}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-colors border disabled:opacity-40 disabled:cursor-default bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
+              title="保存する"
+            >
+              <Save size={11} />
+              <span>{hasUnsaved ? '保存' : '保存済み'}</span>
+            </button>
+          )}
           {(canEdit || photos.length > 0) && (
             <button
               onClick={() => setShowPhotos(true)}
@@ -642,6 +664,38 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
           )}
         </div>
       </div>
+
+      {/* 3Dビューア（オーバーレイ） */}
+      <AnimatePresence>
+        {show3D && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 z-40 bg-slate-900 flex flex-col"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 shrink-0">
+              <div className="text-sm font-black text-white flex items-center gap-2">
+                <Box size={16} className="text-indigo-400" />
+                3Dビュー
+                <span className="text-xs text-slate-400 font-medium">ドラッグで回転 / ピンチでズーム</span>
+              </div>
+              <button
+                onClick={() => setShow3D(false)}
+                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0">
+              <Suspense fallback={<div className="flex items-center justify-center h-full text-slate-400 text-sm">読み込み中...</div>}>
+                <Layout3DViewer items={items} customItems={customItems} />
+              </Suspense>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 参考写真ギャラリー（オーバーレイ） */}
       <AnimatePresence>

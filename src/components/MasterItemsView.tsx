@@ -219,7 +219,8 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                     value={form.name}
                     onChange={e => setForm(v => ({ ...v, name: e.target.value }))}
                     onKeyDown={e => e.key === 'Enter' && handleSave()}
-                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                    style={{ fontSize: '16px' }}
                     placeholder="テーブルクロス"
                     autoFocus
                   />
@@ -231,7 +232,8 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                       type="number"
                       value={form.unitPrice}
                       onChange={e => setForm(v => ({ ...v, unitPrice: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                      className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                      style={{ fontSize: '16px' }}
                       placeholder="0"
                     />
                   </div>
@@ -241,7 +243,8 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                       type="number"
                       value={form.defaultQuantity}
                       onChange={e => setForm(v => ({ ...v, defaultQuantity: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                      className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                      style={{ fontSize: '16px' }}
                       placeholder="1"
                     />
                   </div>
@@ -251,7 +254,8 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                   <input
                     value={form.note}
                     onChange={e => setForm(v => ({ ...v, note: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                    style={{ fontSize: '16px' }}
                     placeholder="サイズ・色など"
                   />
                 </div>
@@ -260,7 +264,8 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                   <input
                     value={form.url}
                     onChange={e => setForm(v => ({ ...v, url: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                    style={{ fontSize: '16px' }}
                     placeholder="https://..."
                   />
                 </div>

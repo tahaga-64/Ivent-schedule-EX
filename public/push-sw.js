@@ -13,14 +13,14 @@ self.addEventListener('push', event => {
   };
 
   event.waitUntil((async () => {
-    await self.registration.showNotification(title, options);
-
-    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const client of clients) {
-      client.postMessage({
-        type: 'push-received',
-        payload: { title, body, data },
-      });
+    try {
+      await self.registration.showNotification(title, options);
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of clients) {
+        client.postMessage({ type: 'push-received', payload: { title, body, data } });
+      }
+    } catch (e) {
+      console.error('[push-sw] showNotification failed:', e);
     }
   })());
 });
@@ -31,13 +31,17 @@ self.addEventListener('notificationclick', event => {
   const targetUrl = eventId ? `/?event=${encodeURIComponent(eventId)}` : '/';
 
   event.waitUntil((async () => {
-    const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const client of clientList) {
-      if ('focus' in client) {
-        client.postMessage({ type: 'open-event', eventId: eventId || null });
-        return client.focus();
+    try {
+      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.postMessage({ type: 'open-event', eventId: eventId || null });
+          return client.focus();
+        }
       }
+      return self.clients.openWindow(targetUrl);
+    } catch (e) {
+      console.error('[push-sw] notificationclick failed:', e);
     }
-    return self.clients.openWindow(targetUrl);
   })());
 });
