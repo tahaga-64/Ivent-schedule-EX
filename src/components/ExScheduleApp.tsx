@@ -628,34 +628,54 @@ function App({ currentUser }: { currentUser: User | null }) {
     return () => unsubscribe();
   }, []);
 
-  // 今日の列を中央にauto-scroll
+  // 今日の列を中央にauto-scroll（モーション付き）
   useEffect(() => {
     const today = new Date();
     if (currentYear !== today.getFullYear() || currentMonth !== today.getMonth()) return;
+    if (activeTab !== 'schedule' && activeTab !== 'overall') return;
 
-    const container =
-      activeTab === 'schedule' ? schedCalendarRef.current :
-      activeTab === 'overall' ? overallTableRef.current : null;
-    if (!container) return;
+    let cancelled = false;
+    let rafId = 0;
 
-    // レイアウト確定後（描画＆Firestoreデータ反映後）にスクロール位置を計算する
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        const el = container;
-        const todayCell = el.querySelector<HTMLElement>('[data-today="true"]');
-        if (!todayCell) return;
-        // getBoundingClientRect で実測（min-w-max により列幅が可変なため固定値は使わない）
+    // スクロール位置をイージング付きで手動アニメーション（smooth指定はブラウザ差があるため使わない）
+    const animateScroll = (el: HTMLElement, target: number) => {
+      const start = el.scrollLeft;
+      const dist = target - start;
+      if (Math.abs(dist) < 2) return;
+      const duration = 700;
+      const t0 = performance.now();
+      const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+      const step = (now: number) => {
+        if (cancelled) return;
+        const p = Math.min(1, (now - t0) / duration);
+        el.scrollLeft = start + dist * ease(p);
+        if (p < 1) rafId = requestAnimationFrame(step);
+      };
+      rafId = requestAnimationFrame(step);
+    };
+
+    // タブ切替直後は ref が未設定 / テーブル未描画のことがあるため、
+    // 今日のセルが見つかりスクロール可能になるまでリトライする（最大2.5秒）
+    const startedAt = performance.now();
+    const tryScroll = () => {
+      if (cancelled) return;
+      const el = activeTab === 'schedule' ? schedCalendarRef.current : overallTableRef.current;
+      const todayCell = el?.querySelector<HTMLElement>('[data-today="true"]');
+      if (el && todayCell && el.scrollWidth > el.clientWidth + 4) {
         const cellRect = todayCell.getBoundingClientRect();
         const elRect = el.getBoundingClientRect();
-        const cellCenterInContainer = (cellRect.left - elRect.left) + el.scrollLeft + cellRect.width / 2;
-        const target = cellCenterInContainer - el.clientWidth / 2;
-        el.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
-      });
-    });
+        const cellCenter = (cellRect.left - elRect.left) + el.scrollLeft + cellRect.width / 2;
+        const target = Math.max(0, Math.min(el.scrollWidth - el.clientWidth, cellCenter - el.clientWidth / 2));
+        animateScroll(el, target);
+        return;
+      }
+      if (performance.now() - startedAt < 2500) rafId = requestAnimationFrame(tryScroll);
+    };
+    rafId = requestAnimationFrame(tryScroll);
+
     return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
+      cancelled = true;
+      cancelAnimationFrame(rafId);
     };
   }, [activeTab, currentYear, currentMonth, currentSchedMember, isLoading]);
 
