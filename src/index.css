@@ -4,19 +4,8 @@
 @theme {
   --font-sans: "Inter", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  
+
   --color-purple-accent: #4f46e5;
-  --bg-app: #ffffff;
-  --surface: #ffffff;
-  --surface-raised: #f8fafc;
-  --border: #eef2f6;
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  
-  /* Shared Radia/Glow effects */
-  --shadow-neon-purple: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-neon-blue: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-soft-depth: 0 1px 3px rgba(0, 0, 0, 0.05);
 
   --color-success:      #10b981;
   --color-success-bg:   #ecfdf5;
@@ -27,18 +16,17 @@
   --color-info:         #3b82f6;
   --color-info-bg:      #eff6ff;
 
-  /* EX-schedule カラートークン（埋め込みアプリを Ivent のダークテーマに統一）
-     これらのトークンは ExScheduleApp でのみ使用。ダーク背景向けの値に設定。 */
-  --color-accent:   #3b82f6;   /* アクセント青（ダーク背景でも視認性確保） */
-  --color-accent-l: #16243e;   /* 旧・淡い青背景 → ダークネイビーの面に */
-  --color-accent-m: #2563eb;   /* hover 用ボーダー */
-  --color-accent-d: #2563eb;   /* ボタン hover */
-  --color-bg:       #0c1626;   /* 入力・補助サーフェスのダーク面 */
-  --color-text:     #e7ecf3;   /* 主要テキスト（明） */
-  --color-text2:    #9fb0c6;   /* 補助テキスト */
-  --color-text3:    #6b7c93;   /* さらに淡いテキスト */
-  --color-border:   #26344c;   /* ダーク背景上の境界線 */
-  --color-border2:  #33455f;
+  /* EX-schedule（Ivent ライトテーマと統一） */
+  --color-accent:   #2563eb;
+  --color-accent-l: #eff6ff;
+  --color-accent-m: #3b82f6;
+  --color-accent-d: #1d4ed8;
+  --color-bg:       #f8fafc;
+  --color-text:     #0f172a;
+  --color-text2:    #475569;
+  --color-text3:    #94a3b8;
+  --color-border:   #e2e8f0;
+  --color-border2:  #cbd5e1;
 
   @keyframes pulse {
     0%, 100% { opacity: 1; }
@@ -48,27 +36,31 @@
 
 @layer base {
   :root {
-    --bg-app: #F8F9FC;
-    --surface: #FFFFFF;
-    --surface-raised: #FFFFFF;
-    --primary: #4F46E5;
-    --accent: #06B6D4;
-    --text-primary: #0F172A;
-    --text-secondary: #64748B;
-    --border: #E2E8F0;
-    --glass: rgba(255, 255, 255, 0.75);
-    --ring: rgba(79, 70, 229, 0.1);
+    --bg-app: #f4f6fa;
+    --surface: #ffffff;
+    --surface-raised: #f8fafc;
+    --primary: #4f46e5;
+    --accent: #2563eb;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --header-bg: rgba(255, 255, 255, 0.95);
+    --glass: rgba(255, 255, 255, 0.92);
+    --ring: rgba(79, 70, 229, 0.12);
+    --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
   }
 
   html {
     overflow-x: clip;
-    background: #0f172a;
+    background: var(--bg-app);
     width: 100%;
     height: 100%;
   }
 
   body, #root {
-    @apply bg-[var(--bg-app)] text-[var(--text-primary)] antialiased transition-colors duration-500 overflow-x-hidden w-full min-h-full;
+    @apply bg-[var(--bg-app)] text-[var(--text-primary)] antialiased transition-colors duration-300 overflow-x-hidden w-full min-h-full;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -79,7 +71,15 @@
 
 @layer components {
   .glass-card {
-    @apply backdrop-blur-2xl bg-[var(--glass)] border border-[var(--border)] shadow-soft-depth;
+    @apply bg-[var(--surface)] border border-[var(--border)] shadow-sm;
+  }
+
+  .app-panel {
+    @apply bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-sm;
+  }
+
+  .app-input {
+    @apply bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)] rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-400;
   }
 
   .modern-pill {
@@ -97,7 +97,6 @@
     background: white !important;
   }
 
-  /* ネスト深い DOM でも印刷エリアだけ表示（visibility 方式） */
   body * {
     visibility: hidden;
   }
@@ -197,7 +196,6 @@
   }
 }
 
-/* Custom Checkbox Animation */
 @keyframes check {
   0% { transform: scale(0); }
   100% { transform: scale(1); }
@@ -207,7 +205,6 @@
   animation: check 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* ── レイアウトビュー 横画面モバイル ─────────────────── */
 @media (orientation: landscape) and (max-width: 1023px) {
   .layout-outer {
     flex-direction: row !important;
@@ -216,7 +213,7 @@
     flex-direction: column !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
-    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-right: 1px solid var(--border) !important;
     border-bottom: none !important;
     width: 88px !important;
   }

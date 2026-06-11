@@ -115,8 +115,8 @@ export default function AppSearch({
 
   return (
     <div className="relative w-full">
-      <div className="flex items-center gap-2.5 bg-white/10 border border-white/20 rounded-xl px-3 sm:px-4 py-2.5 shadow-sm">
-        <Search size={16} className="text-white/60 shrink-0" aria-hidden />
+      <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 shadow-sm">
+        <Search size={16} className="text-slate-500 shrink-0" aria-hidden />
         <input
           ref={inputRef}
           type="search"
@@ -130,9 +130,9 @@ export default function AppSearch({
           onBlur={() => setTimeout(() => setOpen(false), 180)}
           onKeyDown={onInputKeyDown}
           placeholder="会場・クライアント・機能を検索…"
-          className="flex-1 min-w-0 bg-transparent text-sm text-white placeholder-white/40 outline-none"
+          className="flex-1 min-w-0 bg-transparent text-sm text-slate-900 placeholder-slate-400 outline-none"
         />
-        <kbd className="hidden md:inline-flex shrink-0 text-[10px] text-white/45 font-medium bg-white/10 border border-white/10 px-1.5 py-0.5 rounded">
+        <kbd className="hidden md:inline-flex shrink-0 text-[10px] text-slate-500 font-medium bg-white border border-slate-200 px-1.5 py-0.5 rounded">
           ⌘K
         </kbd>
       </div>
@@ -141,11 +141,11 @@ export default function AppSearch({
         <div
           id={listId}
           role="listbox"
-          className="absolute left-0 right-0 top-full mt-2 z-50 rounded-xl border border-white/15 bg-slate-900/98 backdrop-blur-xl shadow-2xl overflow-hidden max-h-[min(70vh,420px)] overflow-y-auto"
+          className="absolute left-0 right-0 top-full mt-2 z-50 rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden max-h-[min(70vh,420px)] overflow-y-auto"
         >
           {features.length > 0 && (
             <div>
-              <div className="px-3 pt-2.5 pb-1 text-[10px] font-black uppercase tracking-widest text-white/40 sticky top-0 bg-slate-900/98">
+              <div className="px-3 pt-2.5 pb-1 text-[10px] font-black uppercase tracking-widest text-slate-500 sticky top-0 bg-white">
                 機能へ移動
               </div>
               {features.map(f => {
@@ -161,10 +161,10 @@ export default function AppSearch({
                     onMouseEnter={() => setActiveIndex(idx)}
                     onClick={() => pick({ kind: 'feature', id: f.id, label: f.label })}
                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
-                      active ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
+                      active ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
                     }`}
                   >
-                    <span className="shrink-0 text-indigo-300">{featureIcon(f.id)}</span>
+                    <span className="shrink-0 text-indigo-600">{featureIcon(f.id)}</span>
                     <span className="text-sm font-bold">{f.label}</span>
                   </button>
                 );
@@ -173,8 +173,8 @@ export default function AppSearch({
           )}
 
           {eventResults.length > 0 && (
-            <div className={features.length > 0 ? 'border-t border-white/10' : ''}>
-              <div className="px-3 pt-2.5 pb-1 text-[10px] font-black uppercase tracking-widest text-white/40 sticky top-0 bg-slate-900/98">
+            <div className={features.length > 0 ? 'border-t border-slate-200' : ''}>
+              <div className="px-3 pt-2.5 pb-1 text-[10px] font-black uppercase tracking-widest text-slate-500 sticky top-0 bg-white">
                 イベント
               </div>
               {eventResults.map(ev => {
@@ -190,11 +190,11 @@ export default function AppSearch({
                     onMouseEnter={() => setActiveIndex(idx)}
                     onClick={() => pick({ kind: 'event', event: ev })}
                     className={`w-full flex flex-col items-start gap-0.5 px-3 py-2.5 text-left transition-colors ${
-                      active ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
+                      active ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     <span className="text-sm font-bold truncate w-full">{ev.venue}</span>
-                    <span className="text-[11px] text-white/45 truncate w-full">
+                    <span className="text-[11px] text-slate-500 truncate w-full">
                       {formatEventSearchSubtitle(ev)}
                     </span>
                   </button>
@@ -206,7 +206,7 @@ export default function AppSearch({
       )}
 
       {open && hasQuery && results.length === 0 && (
-        <div className="absolute left-0 right-0 top-full mt-2 z-50 rounded-xl border border-white/15 bg-slate-900/98 px-4 py-3 text-sm text-white/50 text-center">
+        <div className="absolute left-0 right-0 top-full mt-2 z-50 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 text-center shadow-lg">
           一致する機能・イベントがありません
         </div>
       )}

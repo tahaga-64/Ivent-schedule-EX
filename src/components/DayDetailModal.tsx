@@ -34,20 +34,20 @@ export default function DayDetailModal({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 40 }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="relative z-10 flex max-h-[85vh] flex-col overflow-hidden rounded-t-3xl border border-white/15 bg-slate-900/95 backdrop-blur-xl shadow-2xl max-md:max-h-[92dvh] max-md:rounded-b-none max-md:border-b-0 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] md:max-w-2xl lg:max-w-3xl xl:max-w-4xl md:rounded-3xl w-full"
+        className="relative z-10 flex max-h-[85vh] flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl max-md:max-h-[92dvh] max-md:rounded-b-none max-md:border-b-0 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] md:max-w-2xl lg:max-w-3xl xl:max-w-4xl md:rounded-3xl w-full"
       >
-        <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-white/20 md:hidden" aria-hidden />
-        <div className="p-5 md:p-6 border-b border-white/10 flex justify-between items-start gap-3 shrink-0">
+        <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-slate-200 md:hidden" aria-hidden />
+        <div className="p-5 md:p-6 border-b border-slate-200 flex justify-between items-start gap-3 shrink-0">
           <div>
-            <h3 className="text-lg font-black text-white tracking-tight">
+            <h3 className="text-lg font-black text-slate-900 tracking-tight">
               {year}年{month}月{day}日
             </h3>
-            <p className="text-xs font-bold text-white/50 mt-1">この日のイベント {events.length} 件</p>
+            <p className="text-xs font-bold text-slate-500 mt-1">この日のイベント {events.length} 件</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 shrink-0 flex items-center justify-center text-white/50 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+            className="w-9 h-9 shrink-0 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors"
             aria-label="閉じる"
           >
             <X size={18} />
@@ -67,18 +67,18 @@ export default function DayDetailModal({
                   borderLeftWidth: 3,
                   borderLeftColor: typeSty.border,
                 }}
-                className="flex min-h-11 w-full items-center text-left rounded-xl border border-solid border-white/15 bg-white/10 px-3 py-2 shadow-sm ring-1 ring-inset ring-white/5 overflow-hidden transition hover:border-white/25 hover:bg-white/15"
+                className="flex min-h-11 w-full items-center text-left rounded-xl border border-solid border-slate-200 bg-white px-3 py-2 shadow-sm overflow-hidden transition hover:border-slate-300 hover:bg-slate-50"
               >
                 <div className="flex min-h-0 w-full items-center gap-2.5">
                   <span
-                    className="h-2 w-2 shrink-0 rounded-full border border-white/20"
+                    className="h-2 w-2 shrink-0 rounded-full border border-slate-200"
                     style={{ backgroundColor: typeSty.border }}
                     aria-hidden
                   />
                   <span className="min-w-0 flex-1 py-0.5">
-                    <span className="font-bold text-sm text-white truncate block">{ev.venue}</span>
+                    <span className="font-bold text-sm text-slate-900 truncate block">{ev.venue}</span>
                     {optionalLine ? (
-                      <span className="text-[11px] font-medium text-white/60 truncate block mt-0.5">{optionalLine}</span>
+                      <span className="text-[11px] font-medium text-slate-500 truncate block mt-0.5">{optionalLine}</span>
                     ) : null}
                   </span>
                 </div>

@@ -44,19 +44,19 @@ function AlbumDetail({ event, onBack }: { event: Event; onBack: () => void }) {
   }
 
   return (
-    <div className="relative z-10 flex flex-col min-h-full">
+    <div className="relative z-10 flex flex-col min-h-full bg-[var(--bg-app)]">
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3.5 border-b border-white/10 bg-white/5 backdrop-blur-md">
+      <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3.5 border-b border-slate-200 bg-white">
         <button
           onClick={onBack}
-          className="p-1.5 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors"
         >
           <ChevronLeft size={20} />
         </button>
         <div className="w-1 h-5 rounded-full shrink-0" style={{ background: regionColor }} />
         <div className="min-w-0">
-          <div className="font-black text-sm text-white truncate">{event.venue}</div>
-          <div className="text-[10px] text-white/50">{fmtDate(event.start, event.end)} · {lbPhotos.length}枚</div>
+          <div className="font-black text-sm text-slate-900 truncate">{event.venue}</div>
+          <div className="text-[10px] text-slate-500">{fmtDate(event.start, event.end)} · {lbPhotos.length}枚</div>
         </div>
       </div>
 
@@ -69,7 +69,7 @@ function AlbumDetail({ event, onBack }: { event: Event; onBack: () => void }) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.03 }}
-              className="relative aspect-square overflow-hidden rounded-lg bg-white/5 group"
+              className="relative aspect-square overflow-hidden rounded-lg bg-slate-100 border border-slate-200 group"
             >
               <img
                 src={photo.thumbnailUrl || photo.url}
@@ -150,18 +150,18 @@ export default function AlbumView({ events }: Props) {
 
   // Album list
   return (
-    <div className="relative z-10 flex flex-col min-h-full">
+    <div className="relative z-10 flex flex-col min-h-full bg-[var(--bg-app)]">
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 border-b border-white/10 bg-white/5 backdrop-blur-md">
+      <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 border-b border-slate-200 bg-white">
         <div>
-          <div className="text-[10px] font-black text-white/60 uppercase tracking-widest">PHOTOS</div>
-          <h2 className="text-2xl font-black text-white">アルバム</h2>
+          <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PHOTOS</div>
+          <h2 className="text-2xl font-black text-slate-900">アルバム</h2>
         </div>
-        <div className="text-xs font-bold text-white/40">{albumEvents.length}件のアルバム</div>
+        <div className="text-xs font-bold text-slate-400">{albumEvents.length}件のアルバム</div>
       </div>
 
       {albumEvents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center flex-1 gap-3 py-20 text-white/40">
+        <div className="flex flex-col items-center justify-center flex-1 gap-3 py-20 text-slate-400">
           <Images size={40} className="opacity-40" />
           <div className="text-sm font-bold">写真がありません</div>
           <div className="text-xs">イベント詳細の「写真」タブからアップロードできます</div>
@@ -179,11 +179,11 @@ export default function AlbumView({ events }: Props) {
                 <motion.div
                   key={ev.id}
                   whileHover={{ y: -2 }}
-                  className="rounded-2xl overflow-hidden border border-white/15 bg-white/5 cursor-pointer"
+                  className="rounded-2xl overflow-hidden border border-slate-200 bg-white cursor-pointer shadow-sm hover:shadow-md transition-shadow"
                   onClick={() => setSelectedId(ev.id)}
                 >
                   {/* Cover image */}
-                  <div className="relative aspect-[4/3] bg-white/5">
+                  <div className="relative aspect-[4/3] bg-slate-100">
                     {cover ? (
                       <img
                         src={cover.thumbnailUrl || cover.url}
@@ -192,7 +192,7 @@ export default function AlbumView({ events }: Props) {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <Images size={24} className="text-white/20" />
+                        <Images size={24} className="text-slate-300" />
                       </div>
                     )}
                     {/* Photo count badge */}
@@ -221,9 +221,9 @@ export default function AlbumView({ events }: Props) {
                   <div className="px-3 py-2.5">
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: regionColor }} />
-                      <div className="font-black text-xs text-white truncate">{ev.venue}</div>
+                      <div className="font-black text-xs text-slate-900 truncate">{ev.venue}</div>
                     </div>
-                    <div className="text-[10px] text-white/45">{fmtDate(ev.start, ev.end)}</div>
+                    <div className="text-[10px] text-slate-500">{fmtDate(ev.start, ev.end)}</div>
                   </div>
                 </motion.div>
               );

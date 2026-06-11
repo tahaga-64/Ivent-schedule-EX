@@ -378,25 +378,25 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
   const presentTypes = Array.from(new Set(items.map(i => i.type)));
 
   return (
-    <div className="relative flex flex-col h-full bg-slate-900 text-white">
+    <div className="relative flex flex-col h-full bg-[var(--bg-app)] text-slate-900">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 shrink-0">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 bg-white shrink-0">
         {isPublic && (
           <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-xs">EX</div>
         )}
         <div className="flex-1 min-w-0">
-          <div className="text-[9px] font-black text-white/40 uppercase tracking-widest">FLOOR LAYOUT</div>
-          <div className="text-sm font-black text-white truncate">{eventName || 'レイアウト'}</div>
+          <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">FLOOR LAYOUT</div>
+          <div className="text-sm font-black text-slate-900 truncate">{eventName || 'レイアウト'}</div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {canEdit && savedAt && !saving && (
-            <span className="text-[10px] text-emerald-400 font-bold hidden sm:block">保存済み</span>
+            <span className="text-[10px] text-emerald-600 font-bold hidden sm:block">保存済み</span>
           )}
-          {saving && <span className="text-[10px] text-amber-400 font-bold">保存中...</span>}
+          {saving && <span className="text-[10px] text-amber-600 font-bold">保存中...</span>}
           {(canEdit || photos.length > 0) && (
             <button
               onClick={() => setShowPhotos(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-colors border border-slate-200"
               title="参考写真"
             >
               <ImageIcon size={11} />
@@ -415,9 +415,9 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
           {canEdit && !isPublic && layoutExists && (
             confirmDelete ? (
               <div className="flex items-center gap-1">
-                <span className="text-[10px] text-red-300 font-bold">削除?</span>
+                <span className="text-[10px] text-red-600 font-bold">削除?</span>
                 <button onClick={deleteLayout} className="px-2.5 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-black transition-colors">はい</button>
-                <button onClick={() => setConfirmDelete(false)} className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-colors">いいえ</button>
+                <button onClick={() => setConfirmDelete(false)} className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors">いいえ</button>
               </div>
             ) : (
               <button
@@ -436,35 +436,35 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
       <div className="layout-outer flex flex-1 min-h-0 flex-col sm:flex-row overflow-hidden">
         {/* Palette */}
         {canEdit && (
-          <div className="layout-palette shrink-0 border-b sm:border-b-0 sm:border-r border-white/10 bg-slate-800/60 p-3 flex flex-row sm:flex-col gap-2 overflow-x-auto sm:overflow-y-auto sm:w-[108px]">
-            <div className="text-[9px] font-black text-white/30 uppercase tracking-widest shrink-0 self-center sm:self-auto hidden sm:block mb-1">追加</div>
+          <div className="layout-palette shrink-0 border-b sm:border-b-0 sm:border-r border-slate-200 bg-slate-50 p-3 flex flex-row sm:flex-col gap-2 overflow-x-auto sm:overflow-y-auto sm:w-[108px]">
+            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0 self-center sm:self-auto hidden sm:block mb-1">追加</div>
             {Object.entries(CATALOG).map(([type, def]) => (
               <button
                 key={type}
                 onClick={() => addItem(type)}
-                className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border transition-all text-white shrink-0 min-w-[58px] sm:min-w-0 sm:w-full hover:bg-white/10 active:scale-95"
+                className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border transition-all text-slate-800 shrink-0 min-w-[58px] sm:min-w-0 sm:w-full hover:bg-white active:scale-95"
                 style={{ borderColor: def.color + '50', background: def.color + '18' }}
                 title={def.label + 'を追加'}
               >
                 <span className="text-base leading-none">{def.emoji}</span>
-                <span className="text-[9px] font-bold leading-tight text-center text-white/80">{def.label}</span>
+                <span className="text-[9px] font-bold leading-tight text-center text-slate-700">{def.label}</span>
               </button>
             ))}
             {customItems.map(ci => (
               <div key={ci.key} className="relative group shrink-0 min-w-[58px] sm:min-w-0 sm:w-full">
                 <button
                   onClick={() => addItem(ci.key)}
-                  className="w-full flex flex-col items-center justify-center gap-1 p-2 rounded-xl border transition-all text-white hover:bg-white/10 active:scale-95"
+                  className="w-full flex flex-col items-center justify-center gap-1 p-2 rounded-xl border transition-all text-slate-800 hover:bg-white active:scale-95"
                   style={{ borderColor: ci.color + '50', background: ci.color + '18' }}
                   title={ci.label + 'を追加'}
                 >
                   <span className="text-base leading-none">{ci.emoji}</span>
-                  <span className="text-[9px] font-bold leading-tight text-center text-white/80 truncate w-full">{ci.label}</span>
+                  <span className="text-[9px] font-bold leading-tight text-center text-slate-700 truncate w-full">{ci.label}</span>
                 </button>
                 <button
                   onClick={() => deleteCustomItem(ci.key)}
                   title={`${ci.label}（カスタム）を削除`}
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-700 text-white/70 hover:text-red-300 hover:bg-slate-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-red-600 hover:bg-red-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
                 >
                   <X size={10} />
                 </button>
@@ -473,7 +473,7 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
             <button
               onClick={addCustomItem}
               title="カスタムアイテムを追加"
-              className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border border-dashed border-white/25 text-white/70 hover:bg-white/10 hover:text-white shrink-0 min-w-[58px] sm:min-w-0 sm:w-full active:scale-95 transition-all"
+              className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:bg-white hover:text-slate-800 shrink-0 min-w-[58px] sm:min-w-0 sm:w-full active:scale-95 transition-all"
             >
               <Plus size={16} />
               <span className="text-[9px] font-bold leading-tight text-center">カスタム</span>
@@ -482,14 +482,14 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
         )}
 
         {/* Canvas wrapper */}
-        <div className="flex-1 flex flex-col min-h-0 justify-center sm:justify-start p-4 gap-3 bg-slate-900/70 overflow-auto">
+        <div className="flex-1 flex flex-col min-h-0 justify-center sm:justify-start p-4 gap-3 bg-slate-100 overflow-auto">
           {/* Canvas */}
           <div
             ref={canvasRef}
             className="relative rounded-2xl overflow-hidden w-full max-w-none shadow-2xl"
             style={{
               aspectRatio: '4/3',
-              backgroundImage: 'radial-gradient(circle, #334155 1px, transparent 1px)',
+              backgroundImage: 'radial-gradient(circle, #cbd5e1 1px, transparent 1px)',
               backgroundSize: '5% 5%',
               backgroundPosition: 'center',
               backgroundColor: '#f8fafc',
@@ -587,28 +587,28 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
                 </span>
                 <button
                   onClick={() => resizeItem(selectedItem.id, 1.15)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-colors border border-slate-200"
                 >
                   <Maximize2 size={12} />
                   大きく
                 </button>
                 <button
                   onClick={() => resizeItem(selectedItem.id, 1 / 1.15)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-colors border border-slate-200"
                 >
                   <Minimize2 size={12} />
                   小さく
                 </button>
                 <button
                   onClick={() => rotateItem(selectedItem.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors border border-white/10"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-colors border border-slate-200"
                 >
                   <RotateCw size={12} />
                   回転
                 </button>
                 <button
                   onClick={() => deleteItem(selectedItem.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/35 text-red-300 rounded-xl text-xs font-bold transition-colors border border-red-400/20"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-xl text-xs font-bold transition-colors border border-red-200"
                 >
                   <Trash2 size={12} />
                   削除
@@ -624,7 +624,7 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
                 const def = defOf(type);
                 if (!def) return null;
                 return (
-                  <div key={type} className="flex items-center gap-1.5 text-[10px] text-white/60">
+                  <div key={type} className="flex items-center gap-1.5 text-[10px] text-slate-600">
                     <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: def.color }} />
                     {def.label}
                   </div>
@@ -635,7 +635,7 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
 
           {/* モバイル(縦向き)用の操作ヒント */}
           {canEdit && (
-            <div className="sm:hidden mt-1 text-center text-[11px] text-white/45 leading-relaxed">
+            <div className="sm:hidden mt-1 text-center text-[11px] text-slate-500 leading-relaxed">
               アイテムをドラッグで移動・タップで選択<br />
               📱 横向きにすると編集エリアが広がります
             </div>
@@ -651,20 +651,20 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="absolute inset-0 z-40 bg-slate-900/95 backdrop-blur-sm flex flex-col"
+            className="absolute inset-0 z-40 bg-white flex flex-col"
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
-              <div className="text-sm font-black text-white">参考写真（{photos.length}/{MAX_LAYOUT_PHOTOS}）</div>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 shrink-0">
+              <div className="text-sm font-black text-slate-900">参考写真（{photos.length}/{MAX_LAYOUT_PHOTOS}）</div>
               <button
                 onClick={() => { setShowPhotos(false); setPhotoError(null); }}
-                className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {canEdit && photos.length < MAX_LAYOUT_PHOTOS && (
-                <label className={`flex items-center justify-center gap-2 w-full py-4 rounded-2xl border-2 border-dashed border-white/20 text-white/70 text-sm font-bold cursor-pointer hover:border-indigo-400 hover:text-white hover:bg-white/5 transition-colors ${uploading ? 'opacity-60 pointer-events-none' : ''}`}>
+                <label className={`flex items-center justify-center gap-2 w-full py-4 rounded-2xl border-2 border-dashed border-slate-200 text-slate-500 text-sm font-bold cursor-pointer hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors ${uploading ? 'opacity-60 pointer-events-none' : ''}`}>
                   <input
                     type="file"
                     accept="image/*"
@@ -676,17 +676,17 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
                 </label>
               )}
               {photoError && (
-                <p className="text-xs text-red-300 font-bold text-center">{photoError}</p>
+                <p className="text-xs text-red-600 font-bold text-center">{photoError}</p>
               )}
               {photos.length === 0 ? (
-                <div className="text-center py-16 text-white/40">
+                <div className="text-center py-16 text-slate-400">
                   <ImageIcon size={32} className="mx-auto mb-3 opacity-50" />
                   <div className="text-sm">{canEdit ? '会場図や現地写真を追加できます' : '写真はまだありません'}</div>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {photos.map(p => (
-                    <div key={p.id} className="relative group rounded-xl overflow-hidden border border-white/10 bg-slate-800">
+                    <div key={p.id} className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
                       <a href={p.url} target="_blank" rel="noopener noreferrer">
                         <img src={p.thumbnailUrl || p.url} alt={p.caption || ''} className="w-full h-32 object-cover" loading="lazy" />
                       </a>
@@ -724,7 +724,7 @@ export function LayoutPublicView({ eventId }: { eventId: string }) {
   }, [eventId]);
 
   return (
-    <div className="h-screen flex flex-col bg-slate-900">
+    <div className="h-screen flex flex-col bg-[var(--bg-app)]">
       <LayoutCanvas eventId={eventId} eventName={eventName} canEdit isPublic />
     </div>
   );
@@ -753,16 +753,16 @@ function EventCard({ ev, onSelect, past }: { ev: Event; onSelect: () => void; pa
     <motion.button
       whileHover={{ y: -2 }}
       onClick={onSelect}
-      className={`w-full text-left bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl px-4 py-3.5 shadow-sm hover:shadow-md hover:bg-white/15 transition-all group flex items-center gap-3 ${past ? 'opacity-60 hover:opacity-100' : ''}`}
+      className={`w-full text-left bg-white border border-slate-200 rounded-2xl px-4 py-3.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all group flex items-center gap-3 ${past ? 'opacity-60 hover:opacity-100' : ''}`}
     >
-      <div className="w-9 h-9 rounded-xl bg-indigo-500/20 flex items-center justify-center shrink-0">
-        <LayoutGrid size={16} className="text-indigo-300" />
+      <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+        <LayoutGrid size={16} className="text-indigo-600" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-black text-white truncate">{ev.venue}</div>
-        {sub && <div className="text-xs text-white/50 mt-0.5 truncate">{sub}</div>}
+        <div className="text-sm font-black text-slate-900 truncate">{ev.venue}</div>
+        {sub && <div className="text-xs text-slate-500 mt-0.5 truncate">{sub}</div>}
       </div>
-      <ChevronRight size={14} className="text-white/30 group-hover:text-indigo-300 shrink-0 transition-colors" />
+      <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-600 shrink-0 transition-colors" />
     </motion.button>
   );
 }
@@ -788,10 +788,10 @@ export default function LayoutView({ events, canEdit }: AdminProps) {
       <div className="relative flex flex-col" style={{ height: '100%' }}>
           <div className="relative z-10 flex flex-col" style={{ height: '100%' }}>
           {/* Back button */}
-          <div className="flex items-center gap-2 px-4 py-3 shrink-0 border-b border-white/10">
+          <div className="flex items-center gap-2 px-4 py-3 shrink-0 border-b border-slate-200 bg-white">
             <button
               onClick={() => runWithGuard(() => setSelectedEventId(null))}
-              className="flex items-center gap-1.5 text-white/60 hover:text-white text-xs font-bold transition-colors"
+              className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 text-xs font-bold transition-colors"
             >
               <ChevronRight size={14} className="rotate-180" />
               イベント一覧
@@ -810,17 +810,17 @@ export default function LayoutView({ events, canEdit }: AdminProps) {
   }
 
   return (
-    <div className="relative flex flex-col min-h-full">
+    <div className="relative flex flex-col min-h-full bg-[var(--bg-app)]">
 
       <div className="relative z-10 px-4 md:px-6 lg:px-8 py-6 pb-32 md:pb-8 w-full max-w-none">
         <div className="mb-6">
-          <div className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1">LAYOUT PLANNER</div>
-          <h2 className="text-2xl font-black text-white">レイアウト</h2>
-          <p className="text-xs text-white/50 mt-1">クライアントと共有できるフロアプランを作成します</p>
+          <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">LAYOUT PLANNER</div>
+          <h2 className="text-2xl font-black text-slate-900">レイアウト</h2>
+          <p className="text-xs text-slate-500 mt-1">クライアントと共有できるフロアプランを作成します</p>
         </div>
 
         {active.length === 0 ? (
-          <div className="text-center py-16 text-white/40">
+          <div className="text-center py-16 text-slate-400">
             <LayoutGrid size={32} className="mx-auto mb-3 opacity-40" />
             <div className="text-sm">イベントがありません</div>
           </div>
@@ -832,8 +832,8 @@ export default function LayoutView({ events, canEdit }: AdminProps) {
             {past.length > 0 && (
               <>
                 <div className="flex items-center gap-2 mt-3 mb-1 px-1 md:col-span-full">
-                  <span className="text-[10px] font-black text-white/40 uppercase tracking-widest shrink-0">終了したイベント</span>
-                  <div className="flex-1 h-px bg-white/10" />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">終了したイベント</span>
+                  <div className="flex-1 h-px bg-slate-200" />
                 </div>
                 {past.map(ev => (
                   <EventCard key={ev.id} ev={ev} onSelect={() => runWithGuard(() => setSelectedEventId(ev.id))} past />

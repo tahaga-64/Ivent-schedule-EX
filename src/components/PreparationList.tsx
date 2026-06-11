@@ -12,29 +12,28 @@ import { ARRIVAL_DESTINATIONS } from '../constants';
 // ─── 発注ステータス ──────────────────────────────────────────────────────────
 
 const ORDER_STEPS: Array<{ key: OrderStatus; label: string; activeCls: string; rowBg: string }> = [
-  { key: 'unordered', label: '未発注', activeCls: 'bg-white/20 text-white/80 border-white/35', rowBg: '' },
-  { key: 'ordered',   label: '発注済', activeCls: 'bg-amber-500/30 text-amber-200 border-amber-400/60', rowBg: 'bg-amber-500/18' },
-  { key: 'shipping',  label: '配送中', activeCls: 'bg-blue-500/30 text-blue-200 border-blue-400/60', rowBg: 'bg-blue-500/18' },
-  { key: 'arrived',   label: '着荷',   activeCls: 'bg-emerald-500/30 text-emerald-200 border-emerald-400/60', rowBg: 'bg-emerald-500/18' },
+  { key: 'unordered', label: '未発注', activeCls: 'bg-slate-100 text-slate-700 border-slate-300', rowBg: '' },
+  { key: 'ordered',   label: '発注済', activeCls: 'bg-amber-50 text-amber-800 border-amber-200', rowBg: 'bg-amber-50/60' },
+  { key: 'shipping',  label: '配送中', activeCls: 'bg-blue-50 text-blue-800 border-blue-200', rowBg: 'bg-blue-50/60' },
+  { key: 'arrived',   label: '着荷',   activeCls: 'bg-emerald-50 text-emerald-800 border-emerald-200', rowBg: 'bg-emerald-50/60' },
 ];
 
-const PREP_BG = 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1280&q=65';
-const PREP_LABEL = 'text-[11px] font-black uppercase tracking-widest mb-1.5 text-white/70';
-const PREP_INPUT = 'bg-slate-900/50 rounded-lg px-3 outline-none focus:ring-2 focus:ring-indigo-400/50 text-white/95 read-only:cursor-default';
+const PREP_LABEL = 'text-[11px] font-black uppercase tracking-widest mb-1.5 text-slate-500';
+const PREP_INPUT = 'bg-white border border-slate-200 rounded-lg px-3 outline-none focus:ring-2 focus:ring-indigo-400/50 text-slate-900 read-only:cursor-default';
 const PREP_MONEY_INPUT = `${PREP_INPUT} py-3 text-base font-mono`;
-const PREP_PANEL = 'bg-slate-950/88 backdrop-blur-md border-white/25 shadow-lg';
+const PREP_PANEL = 'bg-white border border-slate-200 shadow-sm';
 
 function prepRowBorderClass(item: PreparationItem): string {
   if (item.prepared) return 'border-l-indigo-500';
-  if (effectiveArrived(item)) return 'border-l-emerald-400';
+  if (effectiveArrived(item)) return 'border-l-emerald-500';
   const os = item.orderStatus ?? 'unordered';
-  if (os === 'shipping') return 'border-l-blue-400';
-  if (os === 'ordered') return 'border-l-amber-400';
-  return 'border-l-white/15';
+  if (os === 'shipping') return 'border-l-blue-500';
+  if (os === 'ordered') return 'border-l-amber-500';
+  return 'border-l-slate-200';
 }
 
 function prepItemCardClass(item: PreparationItem): string {
-  const base = `${PREP_PANEL} border-white/25`;
+  const base = PREP_PANEL;
   if (item.prepared) return `${base} opacity-80`;
   return base;
 }
@@ -312,15 +311,13 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
 
   return (
     <>
-    <div className="fixed lg:absolute inset-0 bg-cover bg-center print:hidden" style={{ backgroundImage: `url('${PREP_BG}')` }} />
-    <div className="fixed lg:absolute inset-0 print:hidden" style={{ background: "linear-gradient(to bottom, rgba(15,23,42,0.72) 0%, rgba(15,23,42,0.90) 100%)" }} />
     <div
       id="prep-print-area"
       data-print-title={`${event.venue}　準備物リスト　${event.start}〜${event.end}`}
-      className="relative z-10 flex flex-col h-full bg-transparent"
+      className="relative z-10 flex flex-col h-full bg-[var(--bg-app)]"
     >
       {!canEdit && (
-        <div className="px-6 py-2.5 bg-white/10 border-b border-white/10 text-white/60 text-[11px] font-bold text-center print:hidden">
+        <div className="px-6 py-2.5 bg-slate-100 border-b border-slate-200 text-slate-500 text-[11px] font-bold text-center print:hidden">
           閲覧のみ（準備物の編集にはログインが必要です）
         </div>
       )}
@@ -328,7 +325,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
         <div
           role="alert"
           onClick={() => { setSaveError(null); setExportError(null); }}
-          className="px-6 py-3 bg-red-500/20 border-b border-red-400/30 text-red-200 text-xs font-bold flex items-center gap-2 cursor-pointer print:hidden"
+          className="px-6 py-3 bg-red-50 border-b border-red-200 text-red-800 text-xs font-bold flex items-center gap-2 cursor-pointer print:hidden"
         >
           <span>⚠️</span>
           <span className="flex-1">{saveError ?? exportError}</span>
@@ -340,13 +337,13 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
         <div className="flex items-center gap-3">
           <button
             onClick={() => runWithGuard(onBack)}
-            className="p-2 hover:bg-white/10 rounded-xl transition-colors text-white/70"
+            className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500"
           >
             <ArrowLeft size={20} />
           </button>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-black text-white leading-tight">{event.venue}</h2>
+              <h2 className="text-lg font-black text-slate-900 leading-tight">{event.venue}</h2>
               {(() => {
                 const filled = items.filter(i => !isEmptyItem(i)).length;
                 if (filled === 0) return null;
@@ -354,24 +351,24 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                 return (
                   <span className={`text-[11px] font-black px-2 py-0.5 rounded-full border ${
                     allDone
-                      ? 'bg-emerald-500/25 text-emerald-300 border-emerald-400/40'
-                      : 'bg-indigo-500/20 text-indigo-300 border-indigo-400/30'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-indigo-50 text-indigo-800 border-indigo-200'
                   }`}>
                     {totals.done}/{filled}件完了
                   </span>
                 );
               })()}
             </div>
-            <span className="text-[11px] text-white/50 font-mono">{event.start} → {event.end}</span>
+            <span className="text-[11px] text-slate-500 font-mono">{event.start} → {event.end}</span>
           </div>
         </div>
         {canEdit && (
           <div className="flex items-center gap-2 shrink-0">
             {hasChanges && !isSaving && !saveError && (
-              <span className="text-[11px] font-bold text-amber-300 whitespace-nowrap hidden sm:inline">未保存</span>
+              <span className="text-[11px] font-bold text-amber-600 whitespace-nowrap hidden sm:inline">未保存</span>
             )}
             {lastSavedAt !== null && !hasChanges && !isSaving && !saveError && (
-              <span className="text-[11px] font-bold text-white/40 whitespace-nowrap hidden sm:inline">保存済</span>
+              <span className="text-[11px] font-bold text-slate-400 whitespace-nowrap hidden sm:inline">保存済</span>
             )}
             <button
               type="button"
@@ -389,9 +386,9 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
       {/* 準備物リスト（画面：カード形式・横スクロールなし） */}
       <div className="print:hidden flex-1 overflow-y-auto p-3 md:p-6 space-y-3">
         {!canEdit && items.filter(i => !isEmptyItem(i)).length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-slate-300">
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
             <ClipboardList size={36} className="mb-3" />
-            <p className="text-sm font-bold text-slate-400">準備物が登録されていません</p>
+            <p className="text-sm font-bold text-slate-500">準備物が登録されていません</p>
           </div>
         )}
         {items.filter(item => canEdit || !isEmptyItem(item)).map((item, idx) => {
@@ -404,14 +401,14 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
           >
             {/* Row 1: # + 品名 + badges + delete */}
             <div className="flex items-center gap-2 px-3 md:px-4 pt-3 pb-2">
-              <span className="text-[11px] text-white/60 font-mono w-5 shrink-0">{idx + 1}</span>
+              <span className="text-[11px] text-slate-500 font-mono w-5 shrink-0">{idx + 1}</span>
               <input
                 type="text"
                 readOnly={!canEdit}
                 value={item.name}
                 onChange={e => updateItem(item.id, { name: e.target.value })}
                 placeholder="アイテム名..."
-                className={`flex-1 text-base font-black ${PREP_INPUT} placeholder:text-white/40 ${item.prepared ? 'line-through text-white/50' : 'text-white'}`}
+                className={`flex-1 text-base font-black ${PREP_INPUT} placeholder:text-slate-400 ${item.prepared ? 'line-through text-slate-400' : 'text-slate-900'}`}
               />
               {!item.prepared && os !== 'unordered' && (
                 <span className={`shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-full border ${step.activeCls}`}>
@@ -419,21 +416,21 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                 </span>
               )}
               {item.prepared && (
-                <span className="shrink-0 text-[10px] font-black text-indigo-200 bg-indigo-500/30 px-1.5 py-0.5 rounded-full border border-indigo-400/40">✓ 完了</span>
+                <span className="shrink-0 text-[10px] font-black text-indigo-800 bg-indigo-50 px-1.5 py-0.5 rounded-full border border-indigo-200">✓ 完了</span>
               )}
               <button
                 type="button"
                 onClick={() => removeItem(item.id)}
                 disabled={items.length <= 1 || !canEdit}
                 className={`p-1 shrink-0 transition-colors ${
-                  items.length <= 1 ? 'opacity-0 pointer-events-none' : !canEdit ? 'opacity-30 cursor-not-allowed' : 'text-white/30 hover:text-red-400'
+                  items.length <= 1 ? 'opacity-0 pointer-events-none' : !canEdit ? 'opacity-30 cursor-not-allowed' : 'text-slate-300 hover:text-red-500'
                 }`}
               >
                 <Trash2 size={14} />
               </button>
             </div>
             {/* 到着予定日 / 到着先 / 発注状況 / 準備完了 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-3 md:px-4 py-3 border-t border-white/15">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-3 md:px-4 py-3 border-t border-slate-200">
               <div>
                 <div className={PREP_LABEL}>到着予定日</div>
                 <input
@@ -441,7 +438,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                   readOnly={!canEdit}
                   value={item.arrivalDate ?? ''}
                   onChange={e => updateItem(item.id, { arrivalDate: e.target.value })}
-                  className={`w-full text-sm font-mono ${PREP_INPUT} py-2.5 [color-scheme:dark]`}
+                  className={`w-full text-sm font-mono ${PREP_INPUT} py-2.5`}
                 />
               </div>
               <div>
@@ -450,7 +447,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                   disabled={!canEdit}
                   value={item.arrivalDestination ?? ''}
                   onChange={e => updateItem(item.id, { arrivalDestination: e.target.value as '新宿' | '長南' | '' })}
-                  className={`w-full text-sm font-bold ${PREP_INPUT} py-2.5 disabled:opacity-60 [color-scheme:dark]`}
+                  className={`w-full text-sm font-bold ${PREP_INPUT} py-2.5 disabled:opacity-60`}
                 >
                   <option value="">—</option>
                   {ARRIVAL_DESTINATIONS.map(d => (
@@ -473,7 +470,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
               </div>
             </div>
             {/* 数量 / 単価 / 金額 / 配送料 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-3 md:px-4 py-3 border-t border-white/15 bg-white/[0.03]">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-3 md:px-4 py-3 border-t border-slate-200 bg-slate-50">
               <div>
                 <div className={PREP_LABEL}>数量</div>
                 <input
@@ -487,7 +484,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
               <div>
                 <div className={PREP_LABEL}>単価</div>
                 <div className="flex items-center gap-1">
-                  <span className="text-sm text-white/50 shrink-0">¥</span>
+                  <span className="text-sm text-slate-500 shrink-0">¥</span>
                   <input
                     type="number"
                     readOnly={!canEdit}
@@ -506,25 +503,25 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
               <div>
                 <div className={PREP_LABEL}>配送料</div>
                 <div className="flex items-center gap-1">
-                  <span className="text-sm text-white/50 shrink-0">¥</span>
+                  <span className="text-sm text-slate-500 shrink-0">¥</span>
                   <input
                     type="number"
                     readOnly={!canEdit}
                     value={item.shippingFee || ''}
                     onChange={e => updateItem(item.id, { shippingFee: parseInt(e.target.value) || 0 })}
                     placeholder="0"
-                    className={`w-full min-w-0 ${PREP_MONEY_INPUT} placeholder:text-white/30`}
+                    className={`w-full min-w-0 ${PREP_MONEY_INPUT} placeholder:text-slate-400`}
                   />
                 </div>
               </div>
             </div>
             {/* Row 5: 備考 (shown if has content or canEdit) */}
             {(item.note || canEdit) && (
-              <div className="border-t border-white/15 px-3 md:px-4 py-3">
+              <div className="border-t border-slate-200 px-3 md:px-4 py-3">
                 <div className={PREP_LABEL}>備考</div>
                 <PreparationNoteField value={item.note || ''} readOnly={!canEdit} onChange={note => updateItem(item.id, { note })} />
                 {item.noteUpdatedAt && (
-                  <p className="text-[10px] text-white/30 mt-0.5 leading-tight">
+                  <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
                     {[item.noteUpdatedByName || item.noteUpdatedByEmail, formatNoteDate(item.noteUpdatedAt)].filter(Boolean).join(' · ')}
                   </p>
                 )}
@@ -532,7 +529,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
             )}
             {/* Row 6: URL (shown if has content or canEdit) */}
             {(item.url || canEdit) && (
-              <div className="border-t border-white/15 px-3 md:px-4 py-3">
+              <div className="border-t border-slate-200 px-3 md:px-4 py-3">
                 <div className={PREP_LABEL}>URL</div>
                 {canEdit ? (
                   <div className="flex items-center gap-1.5">
@@ -541,10 +538,10 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                       value={item.url || ''}
                       onChange={e => updateItem(item.id, { url: e.target.value })}
                       placeholder="https://..."
-                      className={`flex-1 text-sm min-w-0 placeholder:text-white/30 ${PREP_INPUT} py-2.5`}
+                      className={`flex-1 text-sm min-w-0 placeholder:text-slate-400 ${PREP_INPUT} py-2.5`}
                     />
                     {item.url && (
-                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-white/60 hover:text-white">
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-slate-500 hover:text-indigo-600">
                         <ExternalLink size={14} />
                       </a>
                     )}
@@ -554,7 +551,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-white/70 underline underline-offset-2 break-all"
+                    className="text-sm text-indigo-600 underline underline-offset-2 break-all"
                   >
                     {item.url}
                   </a>
@@ -568,7 +565,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
           <button
             type="button"
             onClick={addItem}
-            className="w-full py-4 bg-white/5 border-2 border-dashed border-white/20 hover:border-indigo-400/50 text-white/30 hover:text-indigo-300 text-xs font-black uppercase tracking-widest rounded-2xl transition-colors flex items-center justify-center gap-2"
+            className="w-full py-4 bg-slate-50 border-2 border-dashed border-slate-200 hover:border-indigo-400 text-slate-400 hover:text-indigo-600 text-xs font-black uppercase tracking-widest rounded-2xl transition-colors flex items-center justify-center gap-2"
           >
             <Plus size={14} /> 新しい項目を追加
           </button>
@@ -619,49 +616,49 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-3 shrink-0 bg-slate-950/90 border-t border-white/20 print:bg-white print:border-slate-200 print:px-0 print:py-3">
+      <div className="px-5 py-3 shrink-0 bg-white border-t border-slate-200 print:bg-white print:border-slate-200 print:px-0 print:py-3">
         <div className="flex items-start gap-4 sm:gap-6 flex-wrap">
           {/* SUBTOTAL */}
           <div>
-            <div className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-0.5 print:text-slate-500">商品計</div>
-            <div className="text-base font-black text-white font-mono print:text-slate-900">¥{totals.subtotal.toLocaleString()}</div>
+            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-0.5">商品計</div>
+            <div className="text-base font-black text-slate-900 font-mono">¥{totals.subtotal.toLocaleString()}</div>
           </div>
           {/* SHIPPING */}
           <div>
-            <div className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-0.5 print:text-slate-500">配送料</div>
-            <div className="text-base font-black text-white font-mono print:text-slate-900">¥{totals.shipping.toLocaleString()}</div>
+            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-0.5">配送料</div>
+            <div className="text-base font-black text-slate-900 font-mono">¥{totals.shipping.toLocaleString()}</div>
           </div>
           {/* TOTAL */}
           <div>
-            <div className="text-[10px] font-black text-indigo-200/80 uppercase tracking-widest mb-0.5 print:text-slate-500">総支払</div>
-            <div className="text-lg font-black text-indigo-100 font-mono print:text-slate-900">¥{totals.total.toLocaleString()}</div>
+            <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-0.5">総支払</div>
+            <div className="text-lg font-black text-indigo-700 font-mono">¥{totals.total.toLocaleString()}</div>
           </div>
           {/* PROGRESS */}
           <div className="flex-1 min-w-[160px] prep-print-hide">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">進捗</span>
-              <span className="text-xs font-black text-indigo-200">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">進捗</span>
+              <span className="text-xs font-black text-indigo-600">
                 {items.filter(i => !isEmptyItem(i)).length > 0
                   ? Math.round((totals.done / items.filter(i => !isEmptyItem(i)).length) * 100)
                   : 0}%
               </span>
             </div>
-            <div className="w-full bg-white/20 rounded-full h-2 mb-1.5">
+            <div className="w-full bg-slate-200 rounded-full h-2 mb-1.5">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${items.filter(i => !isEmptyItem(i)).length > 0 ? (totals.done / items.filter(i => !isEmptyItem(i)).length) * 100 : 0}%` }}
-                className="bg-indigo-400 h-2 rounded-full"
+                className="bg-indigo-500 h-2 rounded-full"
               />
             </div>
             <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-              {totals.unorderedCount > 0 && <span className="text-[11px] font-black text-white/55">📋 {totals.unorderedCount}</span>}
-              {totals.orderedCount > 0 && <span className="text-[11px] font-black text-amber-200">🛒 {totals.orderedCount}</span>}
-              {totals.shippingCount > 0 && <span className="text-[11px] font-black text-blue-200">🚚 {totals.shippingCount}</span>}
-              {totals.arrived > 0 && <span className="text-[11px] font-black text-emerald-200">✅ {totals.arrived}</span>}
-              <span className="text-white/30">·</span>
-              <span className="text-[11px] font-black text-indigo-200">✓ {totals.prepared}</span>
-              <span className="text-white/30">·</span>
-              <span className="text-xs font-black text-white/90">{items.filter(i => !isEmptyItem(i)).length}件</span>
+              {totals.unorderedCount > 0 && <span className="text-[11px] font-black text-slate-600">📋 {totals.unorderedCount}</span>}
+              {totals.orderedCount > 0 && <span className="text-[11px] font-black text-amber-700">🛒 {totals.orderedCount}</span>}
+              {totals.shippingCount > 0 && <span className="text-[11px] font-black text-blue-700">🚚 {totals.shippingCount}</span>}
+              {totals.arrived > 0 && <span className="text-[11px] font-black text-emerald-700">✅ {totals.arrived}</span>}
+              <span className="text-slate-300">·</span>
+              <span className="text-[11px] font-black text-indigo-600">✓ {totals.prepared}</span>
+              <span className="text-slate-300">·</span>
+              <span className="text-xs font-black text-slate-900">{items.filter(i => !isEmptyItem(i)).length}件</span>
             </div>
           </div>
           {/* 保存 / Excel / 印刷 */}
@@ -680,7 +677,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
             <button
               onClick={onExportExcel}
               disabled={isExporting}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-white/10 text-white/60 hover:bg-white/20 rounded-lg font-bold text-[10px] transition-colors border border-white/15 disabled:opacity-50"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-lg font-bold text-[10px] transition-colors border border-slate-200 disabled:opacity-50"
               title="Excelファイルとしてダウンロード"
             >
               <FileSpreadsheet size={11} />
@@ -688,7 +685,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
             </button>
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-white/10 text-white/60 hover:bg-white/20 rounded-lg font-bold text-[10px] transition-colors border border-white/15"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-lg font-bold text-[10px] transition-colors border border-slate-200"
               title="印刷"
             >
               <Printer size={11} />
@@ -732,7 +729,7 @@ function OrderStatusPicker({
             } font-black ${
               isActive
                 ? step.activeCls
-                : 'bg-transparent text-white/50 border-white/20 hover:border-white/35 hover:text-white/70'
+                : 'bg-transparent text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
             }`}
           >
             <span>{step.label}</span>
@@ -745,7 +742,7 @@ function OrderStatusPicker({
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => onChange('ordered')}
-          className="ml-1 text-[10px] font-black text-amber-300 hover:text-amber-200 border border-amber-400/40 rounded px-2 py-0.5 whitespace-nowrap bg-amber-500/10 transition-colors"
+          className="ml-1 text-[10px] font-black text-amber-800 hover:text-amber-900 border border-amber-200 rounded px-2 py-0.5 whitespace-nowrap bg-amber-50 transition-colors"
         >
           発注する →
         </a>
@@ -776,7 +773,7 @@ function PreparationNoteField({ value, onChange, readOnly, desktop }: { value: s
         onChange(e.target.value);
       }}
       placeholder="..."
-      className={`w-full px-3 py-2.5 text-sm text-white/90 break-words placeholder:text-white/30 ${PREP_INPUT}`}
+      className={`w-full px-3 py-2.5 text-sm text-slate-900 break-words placeholder:text-slate-400 ${PREP_INPUT}`}
       style={{ resize: 'none', overflowX: 'hidden', minHeight: desktop ? '52px' : '38px' }}
     />
   );
@@ -795,8 +792,8 @@ function Checkbox({ checked, onChange, disabled, color = 'indigo' }: { checked: 
       onClick={onChange}
       disabled={disabled}
       className={`w-7 h-7 rounded border-2 flex items-center justify-center mx-auto transition-all ${
-        checked ? activeClass : `border-white/40 bg-slate-900/40 ${hoverClass}`
-      } disabled:opacity-40 disabled:pointer-events-none disabled:hover:border-white/40`}
+        checked ? activeClass : `border-slate-300 bg-white ${hoverClass}`
+      } disabled:opacity-40 disabled:pointer-events-none disabled:hover:border-slate-300`}
     >
       {checked && (
         <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">

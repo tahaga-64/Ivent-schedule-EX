@@ -16,18 +16,18 @@ export default function EventPickerTable({ events, onSelect, variant = 'active' 
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   return (
-    <div className="hidden md:block rounded-2xl overflow-hidden w-full border border-white/15 bg-white/10">
+    <div className="hidden md:block rounded-2xl overflow-hidden w-full border border-slate-200 bg-white shadow-sm">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-white/10 bg-white/5">
-            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white/50">会場</th>
-            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white/50">期間</th>
+          <tr className="border-b border-slate-200 bg-slate-50">
+            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">会場</th>
+            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">期間</th>
             {!isArchive && (
-              <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white/50 whitespace-nowrap">開始まで</th>
+              <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">開始まで</th>
             )}
-            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white/50 hidden lg:table-cell">本部</th>
-            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white/50 hidden xl:table-cell">種別</th>
-            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white/50 hidden xl:table-cell">クライアント</th>
+            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hidden lg:table-cell">本部</th>
+            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hidden xl:table-cell">種別</th>
+            <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hidden xl:table-cell">クライアント</th>
             <th className="w-10" />
           </tr>
         </thead>
@@ -45,11 +45,11 @@ export default function EventPickerTable({ events, onSelect, variant = 'active' 
                 onClick={() => onSelect(ev)}
                 onMouseEnter={() => setHoveredId(ev.id)}
                 onMouseLeave={() => setHoveredId(null)}
-                className={`cursor-pointer border-b border-white/5 transition-colors relative ${
-                  isArchive ? 'opacity-90 hover:opacity-100 hover:bg-white/10' : urgency?.rowBg ?? ''
+                className={`cursor-pointer border-b border-slate-100 transition-colors relative ${
+                  isArchive ? 'opacity-90 hover:opacity-100 hover:bg-slate-50' : urgency?.rowBg ?? 'hover:bg-slate-50'
                 }`}
               >
-                <td className="px-4 py-3.5 font-bold text-white max-w-[280px]">
+                <td className="px-4 py-3.5 font-bold text-slate-900 max-w-[280px]">
                   <div className="flex items-center gap-2">
                     {urgency && (
                       <span className={`shrink-0 w-1.5 h-6 rounded-full ${urgency.dateBadgeCls}`} />
@@ -57,10 +57,10 @@ export default function EventPickerTable({ events, onSelect, variant = 'active' 
                     <span className="truncate">{ev.venue}</span>
                     {isHovered && (
                       <div className="shrink-0 flex items-center gap-2 animate-in fade-in duration-150">
-                        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-black border backdrop-blur-sm shadow-lg ${
+                        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-black border shadow-lg ${
                           hasBudget
-                            ? 'bg-indigo-950/90 border-indigo-400/40 text-indigo-200'
-                            : 'bg-white/10 border-white/15 text-white/40'
+                            ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                            : 'bg-slate-50 border-slate-200 text-slate-500'
                         }`}>
                           <Package size={10} className="shrink-0" />
                           {hasBudget ? (
@@ -71,8 +71,8 @@ export default function EventPickerTable({ events, onSelect, variant = 'active' 
                           {hasItems && (
                             <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-black ${
                               allDone
-                                ? 'bg-emerald-500/30 text-emerald-300'
-                                : 'bg-white/10 text-white/50'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-slate-100 text-slate-600'
                             }`}>
                               {ev.prepItemDone ?? 0}/{ev.prepItemTotal}件
                             </span>
@@ -82,7 +82,7 @@ export default function EventPickerTable({ events, onSelect, variant = 'active' 
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-3.5 text-xs text-white/50 whitespace-nowrap">{fmtDateRange(ev.start, ev.end)}</td>
+                <td className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">{fmtDateRange(ev.start, ev.end)}</td>
                 {!isArchive && urgency && (
                   <td className="px-4 py-3.5 whitespace-nowrap">
                     <span className={`text-[11px] font-black px-2.5 py-1 rounded-full border ${urgency.badgeCls}`}>
@@ -90,10 +90,10 @@ export default function EventPickerTable({ events, onSelect, variant = 'active' 
                     </span>
                   </td>
                 )}
-                <td className="px-4 py-3.5 text-xs text-white/60 hidden lg:table-cell">{normalizeRegion(ev.region) || '—'}</td>
-                <td className="px-4 py-3.5 text-xs text-white/60 hidden xl:table-cell">{ev.type || '—'}</td>
-                <td className="px-4 py-3.5 text-xs text-white/40 hidden xl:table-cell truncate max-w-[200px]">{ev.client || '—'}</td>
-                <td className="px-2 py-3.5 text-white/30">
+                <td className="px-4 py-3.5 text-xs text-slate-600 hidden lg:table-cell">{normalizeRegion(ev.region) || '—'}</td>
+                <td className="px-4 py-3.5 text-xs text-slate-600 hidden xl:table-cell">{ev.type || '—'}</td>
+                <td className="px-4 py-3.5 text-xs text-slate-400 hidden xl:table-cell truncate max-w-[200px]">{ev.client || '—'}</td>
+                <td className="px-2 py-3.5 text-slate-400">
                   <ChevronRight size={16} />
                 </td>
               </tr>

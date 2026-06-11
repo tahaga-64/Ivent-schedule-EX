@@ -111,7 +111,7 @@ export default function EventDetailModal({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
       />
       <motion.div
         initial={{ opacity: 0, y: 40 }}

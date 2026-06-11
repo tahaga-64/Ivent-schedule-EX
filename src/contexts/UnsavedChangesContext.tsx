@@ -184,20 +184,20 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 24, scale: 0.98 }}
                 transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                className="relative w-full sm:max-w-md bg-slate-900/95 backdrop-blur-xl border border-white/15 rounded-2xl sm:rounded-3xl shadow-2xl p-6 z-10"
+                className="relative w-full sm:max-w-md bg-white border border-slate-200 rounded-2xl sm:rounded-3xl shadow-2xl p-6 z-10"
                 role="dialog"
                 aria-labelledby="unsaved-dialog-title"
                 aria-modal="true"
               >
                 <div className="flex items-start gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
-                    <AlertTriangle size={20} className="text-amber-300" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                    <AlertTriangle size={20} className="text-amber-600" />
                   </div>
                   <div>
-                    <h2 id="unsaved-dialog-title" className="text-base font-black text-white">
+                    <h2 id="unsaved-dialog-title" className="text-base font-black text-slate-900">
                       保存しますか？
                     </h2>
-                    <p className="text-sm text-white/60 mt-1 leading-relaxed">
+                    <p className="text-sm text-slate-600 mt-1 leading-relaxed">
                       編集中の内容が保存されていません。ページを移動する前に保存するか確認してください。
                     </p>
                   </div>
@@ -207,7 +207,7 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
                     type="button"
                     onClick={closeModal}
                     disabled={saving}
-                    className="px-4 py-2.5 rounded-xl border border-white/15 text-sm font-bold text-white/70 hover:bg-white/10 transition-colors disabled:opacity-50"
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
                   >
                     キャンセル
                   </button>
@@ -215,7 +215,7 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
                     type="button"
                     onClick={handleDiscardAndContinue}
                     disabled={saving}
-                    className="px-4 py-2.5 rounded-xl border border-white/15 text-sm font-bold text-white/80 hover:bg-white/10 transition-colors disabled:opacity-50"
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
                   >
                     保存しない
                   </button>

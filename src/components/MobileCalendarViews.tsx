@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import { Event } from '../types';
 import { DAYS_JP } from '../constants';
 import {
-  rs, ts,
+  ts,
   buildEventOptionalCaption, eventCoversDate, buildMonthGridCells,
   fmtShort,
 } from '../lib/eventHelpers';
@@ -31,34 +31,37 @@ export function MobileTimelineView({ events, onSelect }: { events: Event[]; onSe
   }, [events]);
 
   return (
-    <div className="space-y-5 pb-2">
+    <div className="space-y-6 pb-2">
       {grouped.map(([date, evs]) => (
         <div key={date}>
-          <div className="flex items-center gap-3 mb-2.5">
-            <span className="text-sm font-black text-white">{fmtGroup(date)}</span>
-            <div className="flex-1 h-px bg-white/15" />
-            <span className="text-xs font-bold text-white/40 tabular-nums">{evs.length}件</span>
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-black text-slate-800">{fmtGroup(date)}</span>
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-xs font-bold text-slate-400 tabular-nums">{evs.length}</span>
           </div>
           <div className="space-y-2">
-            {evs.map((ev) => (
+            {evs.map((ev) => {
+              const typeSty = ts(ev.type || '');
+              return (
               <button
                 key={ev.id}
                 onClick={() => onSelect(ev)}
                 title={ev.status === 'completed' ? '完了済み' : undefined}
-                className="w-full bg-white/10 border border-white/15 rounded-2xl flex items-center gap-3 text-left active:scale-[0.99] transition-all overflow-hidden"
+                style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border }}
+                className="w-full border border-slate-200 bg-white rounded-2xl flex items-center gap-3 text-left shadow-sm transition-all overflow-hidden hover:bg-slate-50 active:scale-[0.99] min-h-12"
               >
-                <div className="w-1 self-stretch rounded-l-2xl shrink-0" style={{ background: rs(ev.region || '').dot }} />
-                <div className="flex-1 py-3.5 min-w-0">
-                  <div className="font-bold text-white text-sm truncate">{ev.venue}</div>
-                  <div className="text-[11px] text-white/45 mt-0.5">
+                <div className="flex-1 py-4 min-w-0 px-3">
+                  <div className="font-bold text-slate-900 text-sm truncate">{ev.venue}</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
                     {ev.type || 'その他'}
                   </div>
                 </div>
                 {ev.end && ev.end !== ev.start && (
-                  <span className="text-[11px] text-white/40 font-bold pr-3 shrink-0">→{fmtShort(ev.end)}</span>
+                  <span className="text-[11px] text-slate-400 font-bold pr-4 shrink-0">→{fmtShort(ev.end)}</span>
                 )}
               </button>
-            ))}
+            );
+            })}
           </div>
         </div>
       ))}
@@ -77,21 +80,21 @@ export function MobileWeekStrip({ events }: { events: Event[] }) {
   });
 
   return (
-    <div className="flex justify-between gap-0.5 rounded-2xl border border-white/15 bg-white/10 px-1 py-2">
+    <div className="flex justify-between gap-0.5 rounded-2xl border border-slate-200 bg-white px-1 py-2 shadow-sm">
       {days.map((d, i) => {
         const isToday = d.toDateString() === today.toDateString();
         const hasEvent = events.some((ev) => ev.start && new Date(ev.start + 'T00:00:00').toDateString() === d.toDateString());
         return (
           <div key={i} className="flex flex-1 flex-col items-center gap-1 min-w-0">
-            <span className={`text-[10px] font-bold ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-white/40'}`}>
+            <span className={`text-[10px] font-bold ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-slate-400'}`}>
               {DAYS_JP[i]}
             </span>
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black transition-all ${
-              isToday ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/40' : 'text-white/80'
+              isToday ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200/60' : 'text-slate-700'
             }`}>
               {d.getDate()}
             </div>
-            <div className={`w-1.5 h-1.5 rounded-full ${hasEvent ? (isToday ? 'bg-white' : 'bg-indigo-400') : 'bg-transparent'}`} />
+            <div className={`w-1.5 h-1.5 rounded-full ${hasEvent ? (isToday ? 'bg-indigo-600' : 'bg-indigo-400') : 'bg-transparent'}`} />
           </div>
         );
       })}
@@ -188,34 +191,34 @@ export function MobileDayAgendaView({ year, month, agendaDay, setAgendaDay, even
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2 rounded-2xl border border-white/15 bg-white/10 px-2 py-1.5">
-        <button type="button" className="flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white/80 active:bg-white/10 disabled:opacity-30" disabled={day <= 1} onClick={() => setAgendaDay(day - 1)} aria-label="前の日">‹</button>
+      <div className="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-2 py-1.5 shadow-sm">
+        <button type="button" className="flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-slate-600 active:bg-slate-100 disabled:opacity-30" disabled={day <= 1} onClick={() => setAgendaDay(day - 1)} aria-label="前の日">‹</button>
         <div className="text-center">
-          <div className="text-lg font-black text-white tabular-nums">{month}/{day}</div>
-          <div className="text-xs font-bold text-white/50">{dow}曜日</div>
+          <div className="text-lg font-black text-slate-900 tabular-nums">{month}/{day}</div>
+          <div className="text-xs font-bold text-slate-500">{dow}曜日</div>
         </div>
-        <button type="button" className="flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white/80 active:bg-white/10 disabled:opacity-30" disabled={day >= dim} onClick={() => setAgendaDay(day + 1)} aria-label="次の日">›</button>
+        <button type="button" className="flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-slate-600 active:bg-slate-100 disabled:opacity-30" disabled={day >= dim} onClick={() => setAgendaDay(day + 1)} aria-label="次の日">›</button>
       </div>
 
       {dayEvents.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-white/20 py-10 text-center text-sm font-bold text-white/40">この日のイベントはありません</div>
+        <div className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-sm font-bold text-slate-400">この日のイベントはありません</div>
       ) : (
         <div className="space-y-2">
           {visible.map((ev) => {
             const typeSty = ts(ev.type || '');
             const meta = buildEventOptionalCaption(ev);
             return (
-              <button key={ev.id} type="button" onClick={() => onSelect(ev)} title={ev.status === 'completed' ? '完了済み' : undefined} style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border }} className="flex min-h-12 w-full items-start gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-left active:scale-[0.99] transition-all">
-                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-white/20" style={{ backgroundColor: typeSty.border }} aria-hidden />
+              <button key={ev.id} type="button" onClick={() => onSelect(ev)} title={ev.status === 'completed' ? '完了済み' : undefined} style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border }} className="flex min-h-12 w-full items-start gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left shadow-sm active:scale-[0.99] transition-all hover:bg-slate-50">
+                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-slate-200" style={{ backgroundColor: typeSty.border }} aria-hidden />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-bold text-white">{ev.venue}</span>
-                  {meta && <span className="mt-0.5 block truncate text-xs font-medium text-white/50">{meta}</span>}
+                  <span className="block truncate font-bold text-slate-900">{ev.venue}</span>
+                  {meta && <span className="mt-0.5 block truncate text-xs font-medium text-slate-500">{meta}</span>}
                 </span>
               </button>
             );
           })}
           {hiddenCount > 0 && (
-            <button type="button" onClick={() => onOpenDayDetail({ year, month, day, events: dayEvents })} className="flex min-h-12 w-full items-center justify-center rounded-xl border border-white/20 bg-white/15 text-sm font-bold text-white active:scale-[0.99] transition-all">ほか +{hiddenCount}件</button>
+            <button type="button" onClick={() => onOpenDayDetail({ year, month, day, events: dayEvents })} className="flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-slate-200 text-sm font-bold text-slate-800 shadow-sm">ほか +{hiddenCount}件</button>
           )}
         </div>
       )}
@@ -224,12 +227,12 @@ export function MobileDayAgendaView({ year, month, agendaDay, setAgendaDay, even
         <button
           type="button"
           disabled={!canEdit}
-          className={`flex min-h-12 w-full items-center justify-center rounded-xl border border-dashed text-sm font-bold transition-colors ${canEdit ? 'border-indigo-400/40 bg-indigo-500/15 text-indigo-200 active:scale-[0.99]' : 'border-white/10 bg-white/5 text-white/30 cursor-not-allowed'}`}
+          className={`flex min-h-11 w-full items-center justify-center rounded-xl border border-dashed text-sm font-bold transition-colors ${canEdit ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'}`}
           onClick={() => canEdit && onCreateEvent({ start: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` })}
         >
           この日にイベントを追加
         </button>
-        {!canEdit && <p className="text-center text-[11px] text-white/35">※ モバイルではイベント作成はできません</p>}
+        {!canEdit && <p className="text-center text-[11px] text-slate-400">※ 権限がありません</p>}
       </div>
     </div>
   );

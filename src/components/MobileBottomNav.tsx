@@ -49,11 +49,8 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
   return (
     <>
       <nav
-        className="fixed bottom-0 left-0 right-0 border-t border-white/15 z-20 md:hidden"
-        style={{
-          background: 'linear-gradient(to bottom, rgba(15,23,42,0.75) 0%, rgba(15,23,42,0.97) 100%)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-        }}
+        className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white/95 backdrop-blur-md z-20 md:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex items-stretch justify-around px-1">
           {PRIMARY_TABS.map(tab => {
@@ -63,7 +60,7 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
                 key={tab.id}
                 onClick={() => handleTab(tab.id)}
                 className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[3.25rem] py-2 text-[10px] font-bold transition-colors active:scale-95 ${
-                  active ? 'text-white' : 'text-white/45'
+                  active ? 'text-indigo-600' : 'text-slate-500'
                 }`}
               >
                 {tab.icon}
@@ -71,7 +68,7 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
                 {active && (
                   <motion.div
                     layoutId="nav-indicator"
-                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-indigo-400"
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-indigo-500"
                     transition={{ type: 'spring', stiffness: 400, damping: 35 }}
                   />
                 )}
@@ -86,14 +83,14 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
           {moreOpen && (
             <>
               <motion.div
-                className="fixed inset-0 z-40 bg-black/55 backdrop-blur-sm md:hidden"
+                className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setMoreOpen(false)}
               />
               <motion.div
-                className="fixed inset-x-0 bottom-0 z-50 md:hidden flex flex-col overflow-hidden rounded-t-3xl border-t border-white/15 bg-slate-900/98 backdrop-blur-xl"
+                className="fixed inset-x-0 bottom-0 z-50 md:hidden flex flex-col overflow-hidden rounded-t-3xl border-t border-slate-200 bg-white shadow-2xl"
                 style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
                 initial={{ y: '100%' }}
                 animate={{ y: 0 }}
@@ -101,14 +98,14 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
                 transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
               >
                 <div className="flex justify-center pt-3 pb-1 shrink-0">
-                  <div className="w-9 h-1 rounded-full bg-white/20" />
+                  <div className="w-9 h-1 rounded-full bg-slate-300" />
                 </div>
                 <div className="flex items-center justify-between px-5 py-2 shrink-0">
-                  <h2 className="text-sm font-black text-white">メニュー</h2>
+                  <h2 className="text-sm font-black text-slate-900">メニュー</h2>
                   <button
                     type="button"
                     onClick={() => setMoreOpen(false)}
-                    className="p-2 rounded-xl text-white/50 hover:bg-white/10 transition-colors"
+                    className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors"
                     aria-label="閉じる"
                   >
                     <X size={18} />
@@ -122,16 +119,16 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
                       onClick={() => handleMoreSelect(item.id)}
                       className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-left transition-all active:scale-[0.98] ${
                         view === item.id
-                          ? 'bg-indigo-600/30 border border-indigo-400/40'
-                          : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                          ? 'bg-indigo-50 border border-indigo-200'
+                          : 'bg-slate-50 border border-slate-200 hover:bg-slate-100'
                       }`}
                     >
-                      <span className={`shrink-0 ${view === item.id ? 'text-indigo-300' : 'text-white/60'}`}>
+                      <span className={`shrink-0 ${view === item.id ? 'text-indigo-600' : 'text-slate-500'}`}>
                         {item.icon}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-black text-white">{item.label}</span>
-                        <span className="block text-[11px] text-white/45 mt-0.5">{item.sub}</span>
+                        <span className="block text-sm font-black text-slate-900">{item.label}</span>
+                        <span className="block text-[11px] text-slate-500 mt-0.5">{item.sub}</span>
                       </span>
                     </button>
                   ))}

@@ -114,7 +114,7 @@ class ErrorBoundary extends React.Component<any, any> {
       }
       return (
         <div className="min-h-full flex items-center justify-center bg-bg p-4">
-          <div className="bg-slate-900/95 p-8 rounded-2xl shadow-xl border border-border max-w-md w-full text-center">
+          <div className="bg-white p-8 rounded-2xl shadow-xl border border-border max-w-md w-full text-center">
             <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <Info size={32} />
             </div>
@@ -249,7 +249,7 @@ const LocalTextarea = ({ value, onChange, onBlur, className, rows = 1, ...props 
 };
 
 const Legend = () => (
-  <div className="bg-slate-900/95 rounded-xl shadow-sm p-4 border border-border mb-4">
+  <div className="bg-white rounded-xl shadow-sm p-4 border border-border mb-4">
     <div className="flex items-center gap-2 text-xs font-bold text-text mb-3">
       <div className="w-1 h-4 bg-accent rounded-full" />
       凡例 (ステータス)
@@ -292,7 +292,7 @@ const TrainingInfo = ({
   };
 
   return (
-    <div className="bg-slate-900/95 rounded-xl shadow-sm p-4 border border-border mb-4">
+    <div className="bg-white rounded-xl shadow-sm p-4 border border-border mb-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-xs font-bold text-text">
           <div className="w-1 h-4 bg-accent rounded-full" />
@@ -314,7 +314,7 @@ const TrainingInfo = ({
               </span>
               {isEditing ? (
                 <input 
-                  className="text-xs font-bold text-text bg-slate-900/95 border border-border rounded px-1 w-full"
+                  className="text-xs font-bold text-text bg-white border border-border rounded px-1 w-full"
                   style={{ fontSize: '16px' }}
                   value={localLabels[key] || ''}
                   onChange={(e) => setLocalLabels({...localLabels, [key]: e.target.value})}
@@ -325,7 +325,7 @@ const TrainingInfo = ({
             </div>
             {isEditing ? (
               <textarea 
-                className="text-[10px] text-text2 leading-tight bg-slate-900/95 border border-border rounded px-1 w-full"
+                className="text-[10px] text-text2 leading-tight bg-white border border-border rounded px-1 w-full"
                 style={{ fontSize: '16px' }}
                 value={localLocations[key] || ''}
                 onChange={(e) => setLocalLocations({...localLocations, [key]: e.target.value})}
@@ -345,7 +345,7 @@ const TrainingInfo = ({
 
 
 const MemberTabs = ({ members, current, onSelect }: { members: string[], current: string, onSelect: (n: string) => void }) => (
-  <div className="bg-slate-900/95 rounded-xl shadow-sm mb-4 overflow-hidden border border-border">
+  <div className="bg-white rounded-xl shadow-sm mb-4 overflow-hidden border border-border">
     <div className="flex overflow-x-auto p-2 gap-1.5 border-b border-border scrollbar-hide">
       {members.map(name => (
         <button
@@ -902,8 +902,8 @@ function App({ currentUser }: { currentUser: User | null }) {
   if (error) {
     return (
       <div className="min-h-full flex items-center justify-center bg-bg p-4">
-        <div className="bg-slate-900/95 p-8 rounded-2xl shadow-xl border border-red-100 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-[#27151a] text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div className="bg-white p-8 rounded-2xl shadow-xl border border-red-100 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <AlertCircle size={32} />
           </div>
           <h2 className="text-xl font-bold text-text mb-2">エラーが発生しました</h2>
@@ -928,7 +928,7 @@ function App({ currentUser }: { currentUser: User | null }) {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="bg-red-900/95 text-white px-4 py-2 text-xs font-bold flex items-center justify-between sticky top-0 z-[100] shadow-md"
+            className="bg-red-50 text-red-800 border-b border-red-200 px-4 py-2 text-xs font-bold flex items-center justify-between sticky top-0 z-[100] shadow-sm"
           >
             <div className="flex items-center gap-2">
               <AlertCircle size={14} />
@@ -942,13 +942,13 @@ function App({ currentUser }: { currentUser: User | null }) {
       </AnimatePresence>
 
       {/* Header */}
-      <header className="bg-slate-900/95 border-b border-border shadow-sm">
+      <header className="bg-white border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           {/* Month Selector */}
           <div className="flex items-center gap-2 bg-bg rounded-lg p-1 border border-border">
             <button 
               onClick={() => setCurrentMonth(prev => (prev === 0 ? 11 : prev - 1))}
-              className="p-1.5 hover:bg-slate-900/95 rounded-md transition-colors text-text2 hover:text-accent"
+              className="p-1.5 hover:bg-slate-100 rounded-md transition-colors text-text2 hover:text-accent"
             >
               <ChevronLeft size={18} />
             </button>
@@ -957,7 +957,7 @@ function App({ currentUser }: { currentUser: User | null }) {
             </span>
             <button 
               onClick={() => setCurrentMonth(prev => (prev === 11 ? 0 : prev + 1))}
-              className="p-1.5 hover:bg-slate-900/95 rounded-md transition-colors text-text2 hover:text-accent"
+              className="p-1.5 hover:bg-slate-100 rounded-md transition-colors text-text2 hover:text-accent"
             >
               <ChevronRightIcon size={18} />
             </button>
@@ -977,12 +977,12 @@ function App({ currentUser }: { currentUser: User | null }) {
             >
               <Share2 size={20} />
               {showSaveOk['share'] && (
-                <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap">
+                <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap">
                   コピーしました
                 </span>
               )}
             </button>
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-[#0f241c] text-emerald-300 rounded-lg border border-emerald-400/30 text-[10px] font-bold">
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-200 text-[10px] font-bold">
               <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
               パブリック編集モード
             </div>
@@ -991,7 +991,7 @@ function App({ currentUser }: { currentUser: User | null }) {
       </header>
 
       {/* Navigation */}
-      <nav className="bg-slate-900/95 border-b border-border px-4 flex overflow-x-auto shadow-sm scrollbar-hide">
+      <nav className="bg-white border-b border-border px-4 flex overflow-x-auto shadow-sm scrollbar-hide">
         <div className="max-w-7xl mx-auto w-full flex">
           {[
             { id: 'schedule', label: 'スケジュール', icon: Calendar },
@@ -1047,11 +1047,11 @@ function App({ currentUser }: { currentUser: User | null }) {
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-white">{currentYear}年{currentMonth + 1}月</span>
+                    <span className="text-sm font-bold text-slate-900">{currentYear}年{currentMonth + 1}月</span>
                     {currentYear === 2026 && currentMonth === 3 && (
                       <button
                         onClick={handleRestoreInitial}
-                        className="px-3 py-1 rounded-md text-xs transition-all border bg-[#0f1d33] border-blue-400/40 text-blue-200 hover:bg-blue-500/20"
+                        className="px-3 py-1 rounded-md text-xs transition-all border bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100"
                       >
                         初期データに復元
                       </button>
@@ -1099,12 +1099,12 @@ function App({ currentUser }: { currentUser: User | null }) {
                         return (
                           <div
                             key={day}
-                            className={`border border-border rounded-lg p-1.5 md:p-2 min-h-[100px] md:min-h-[130px] transition-all relative flex flex-col bg-slate-900/95 ${
-                              isSun ? 'bg-[#27151a]' : isSat ? 'bg-[#0f1d33]' : ''
-                            } ${isToday ? 'ring-2 ring-indigo-400 ring-offset-2 ring-offset-slate-900' : ''}`}
+                            className={`border border-border rounded-lg p-1.5 md:p-2 min-h-[100px] md:min-h-[130px] transition-all relative flex flex-col bg-white ${
+                              isSun ? 'bg-red-50' : isSat ? 'bg-blue-50' : ''
+                            } ${isToday ? 'ring-2 ring-indigo-400 ring-offset-2 ring-offset-white' : ''}`}
                           >
                             <span className={`font-mono text-sm font-black mb-1.5 flex items-center gap-1.5 ${
-                              isSun ? 'text-red-400' : isSat ? 'text-blue-400' : 'text-white'
+                              isSun ? 'text-red-600' : isSat ? 'text-blue-600' : 'text-slate-900'
                             }`}>
                               {day}
                               {isToday && <span className="text-[8px] font-black bg-indigo-500 text-white px-1.5 py-0.5 rounded-full leading-none">今日</span>}
@@ -1122,7 +1122,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                               </select>
                               {(type !== 'normal' && type !== 'request' && type !== 'rest') && (
                                 <LocalInput
-                                  className="w-full px-1.5 py-0.5 rounded border border-border text-[11px] md:text-xs text-white outline-none focus:border-accent bg-white/10"
+                                  className="w-full px-1.5 py-0.5 rounded border border-slate-200 text-[11px] md:text-xs text-slate-900 outline-none focus:border-accent bg-slate-50"
                                   size={11}
                                   value={detail}
                                   onChange={(val: string) => handleScheduleDetailChange(currentSchedMember, i, val)}
@@ -1133,7 +1133,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                             </div>
 
                             <LocalTextarea
-                              className="w-full border border-border rounded p-1.5 text-[11px] md:text-xs text-white bg-white/5 focus:bg-white/10 focus:border-accent outline-none resize-none flex-grow mt-1 placeholder:text-white/30"
+                              className="w-full border border-slate-200 rounded p-1.5 text-[11px] md:text-xs text-slate-900 bg-slate-50 focus:bg-white focus:border-accent outline-none resize-none flex-grow mt-1 placeholder:text-slate-400"
                               rows={2}
                               placeholder="メモ..."
                               value={currentMonthData.memos[currentSchedMember]?.[day] || ''}
@@ -1171,7 +1171,7 @@ function App({ currentUser }: { currentUser: User | null }) {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-4"
             >
-              <div className="bg-slate-900/95 rounded-xl shadow-sm p-5 border border-border">
+              <div className="bg-white rounded-xl shadow-sm p-5 border border-border">
                 <div className="flex items-center justify-between gap-4 mb-4">
                   <div className="flex items-center gap-2 text-sm font-bold text-text">
                     <div className="w-1 h-4 bg-accent rounded-full" />
@@ -1180,7 +1180,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                   <div className="flex items-center gap-2 flex-grow max-w-md">
                     <div className="relative flex-grow">
                       <LocalInput
-                        className="w-full px-3 py-2 rounded-lg border border-accent/20 bg-accent-l/30 focus:bg-white/20 outline-none text-xs font-bold"
+                        className="w-full px-3 py-2 rounded-lg border border-accent/20 bg-accent-l/30 focus:bg-white outline-none text-xs font-bold text-slate-900"
                         size={12}
                         value={currentMonthData.teamGoal}
                         onChange={(val: string) => updateCurrentMonthData({ teamGoal: val })}
@@ -1196,8 +1196,8 @@ function App({ currentUser }: { currentUser: User | null }) {
                 <div className="overflow-x-auto relative border-b border-border">
                   <table className="w-full text-[10px] border-separate border-spacing-0 min-w-[max-content]">
                     <thead className="relative z-30">
-                      <tr className="bg-[#1e2d46] text-white">
-                        <th className="p-1.5 border border-border font-bold sticky left-0 top-0 bg-[#1e2d46] z-50 min-w-[56px] text-[10px] text-left leading-tight">
+                      <tr className="bg-slate-100 text-slate-900">
+                        <th className="p-1.5 border border-border font-bold sticky left-0 top-0 bg-slate-100 z-50 min-w-[56px] text-[10px] text-left leading-tight">
                           人 / 累計
                         </th>
                         {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -1207,7 +1207,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                           const isSun = dow === 6;
                           return (
                             <th key={day} className={`p-0.5 border border-border font-bold text-center min-w-[44px] min-w-max text-[10px] sticky top-0 z-30 ${
-                              isSun ? 'text-red-400 bg-[#2d1a1a]' : isSat ? 'text-blue-400 bg-[#1a2440]' : 'bg-[#1e2d46] text-white'
+                              isSun ? 'text-red-600 bg-red-50' : isSat ? 'text-blue-600 bg-blue-50' : 'bg-slate-100 text-slate-900'
                             }`}>
                               {day}({['月','火','水','木','金','土','日'][dow]})
                             </th>
@@ -1217,14 +1217,14 @@ function App({ currentUser }: { currentUser: User | null }) {
                     </thead>
                     <tbody>
                       {/* Row for Global Location (場所) */}
-                      <tr className="bg-[#241a10]">
-                        <td className="p-1 border border-border sticky left-0 bg-[#241a10] z-20 font-bold text-orange-300 text-[8px]">
+                      <tr className="bg-amber-50">
+                        <td className="p-1 border border-border sticky left-0 bg-amber-50 z-20 font-bold text-orange-800 text-[8px]">
                           場所 (固定表示)
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
                           <td key={i} className="p-0.5 border border-border min-w-[42px] min-w-max">
                             <LocalInput
-                              className="w-full px-0.5 py-0.5 rounded border border-orange-400/40 text-[7.5px] outline-none focus:border-orange-400 bg-white/10 focus:bg-white/20 h-5 text-center font-bold text-orange-200"
+                              className="w-full px-0.5 py-0.5 rounded border border-orange-200 text-[7.5px] outline-none focus:border-orange-400 bg-white focus:bg-white h-5 text-center font-bold text-orange-800"
                               size={7.5}
                               value={globalLocations[i + 1] || ''}
                               onChange={(val: string) => handleGlobalLocationChange(i + 1, val)}
@@ -1235,14 +1235,14 @@ function App({ currentUser }: { currentUser: User | null }) {
                       </tr>
 
                       {/* Row for Global Time (時間) */}
-                      <tr className="bg-[#0f1d33]">
-                        <td className="p-1 border border-border sticky left-0 bg-[#0f1d33] z-20 font-bold text-blue-300 text-[8px]">
+                      <tr className="bg-blue-50">
+                        <td className="p-1 border border-border sticky left-0 bg-blue-50 z-20 font-bold text-blue-800 text-[8px]">
                           時間 (固定表示)
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
                           <td key={i} className="p-0.5 border border-border min-w-[42px] min-w-max">
                             <LocalInput
-                              className="w-full px-0.5 py-0.5 rounded border border-blue-400/40 text-[7.5px] outline-none focus:border-blue-400 bg-white/10 focus:bg-white/20 h-5 text-center font-bold text-blue-200"
+                              className="w-full px-0.5 py-0.5 rounded border border-blue-200 text-[7.5px] outline-none focus:border-blue-400 bg-white focus:bg-white h-5 text-center font-bold text-blue-800"
                               size={7.5}
                               value={globalTimes[i + 1] || ''}
                               onChange={(val: string) => handleGlobalTimeChange(i + 1, val)}
@@ -1280,17 +1280,17 @@ function App({ currentUser }: { currentUser: User | null }) {
                         const requestCount = schedule.filter(s => s.type === 'request').length;
                         return (
                           <tr key={name} className="hover:bg-bg/40 transition-colors">
-                            <td className="p-1 border border-border sticky left-0 bg-[#0f1a2e] z-20 shadow-[2px_0_8px_-2px_rgba(0,0,0,0.4)]">
+                            <td className="p-1 border border-border sticky left-0 bg-white z-20 shadow-[2px_0_8px_-2px_rgba(0,0,0,0.08)]">
                               <div className="flex flex-col gap-0.5">
                                 <div className="flex items-center justify-between gap-1">
-                                  <div className="font-bold text-white text-[9px] truncate max-w-[40px]">{name.replace('　', '')}</div>
+                                  <div className="font-bold text-slate-900 text-[9px] truncate max-w-[40px]">{name.replace('　', '')}</div>
                                   <div className="flex flex-col text-[7px] font-bold leading-tight shrink-0">
-                                    <span className="text-white/50">公{normalCount}</span>
-                                    <span className="text-pink-400">希{requestCount}</span>
+                                    <span className="text-slate-500">公{normalCount}</span>
+                                    <span className="text-pink-600">希{requestCount}</span>
                                   </div>
                                 </div>
                                 <LocalInput
-                                  className="w-full px-0.5 py-0 rounded border border-white/10 text-[7.5px] outline-none focus:border-accent bg-white/10 text-white font-normal h-3"
+                                  className="w-full px-0.5 py-0 rounded border border-slate-200 text-[7.5px] outline-none focus:border-accent bg-slate-50 text-slate-900 font-normal h-3"
                                   size={7.5}
                                   value={globalStations[name] || currentMonthData.memberStations?.[name] || ''}
                                   onChange={(val: string) => handleMemberStationChange(name, val)}
@@ -1313,7 +1313,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                                       ))}
                                     </select>
                                     <LocalInput
-                                      className="min-w-full w-max px-0.5 py-0.5 rounded border border-white/10 text-[8px] text-white outline-none focus:border-accent bg-white/10 focus:bg-white/20 h-4 text-center justify-center mx-auto"
+                                      className="min-w-full w-max px-0.5 py-0.5 rounded border border-slate-200 text-[8px] text-slate-900 outline-none focus:border-accent bg-slate-50 focus:bg-white h-4 text-center justify-center mx-auto"
                                       size={8}
                                       value={item.detail || ''}
                                       onChange={(val: string) => handleScheduleDetailChange(name, i, val)}
@@ -1348,7 +1348,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                     </button>
                   </div>
                   <LocalTextarea
-                    className="w-full border border-accent/20 rounded-xl p-4 text-xs bg-slate-900/95 focus:border-accent outline-none min-h-[150px] leading-relaxed font-bold text-text"
+                    className="w-full border border-accent/20 rounded-xl p-4 text-xs bg-white focus:border-accent outline-none min-h-[150px] leading-relaxed font-bold text-text"
                     placeholder="全体に向けた連絡事項や、月間の特記事項を入力してください..."
                     value={currentMonthData.overallMemo || ''}
                     onChange={(val: string) => {
@@ -1368,7 +1368,7 @@ function App({ currentUser }: { currentUser: User | null }) {
       </main>
 
       {/* Footer Info */}
-      <footer className="bg-slate-900/95 border-t border-border p-4 text-center">
+      <footer className="bg-white border-t border-border p-4 text-center">
         <div className="flex items-center justify-center gap-2 text-[10px] text-text3">
           <Info size={12} />
           <span>データはサーバーにリアルタイム保存されます。リンクを知っている全員が閲覧・編集可能です。</span>

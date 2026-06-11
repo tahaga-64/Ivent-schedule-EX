@@ -59,32 +59,22 @@ export default function LoginScreen() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background: MERCURY office photo */}
-      <div
-        className="absolute inset-0 bg-cover bg-center scale-105"
-        style={{
-          backgroundImage: "image-set(url('/mercury-office.webp') type('image/webp'), url('/mercury-office.jpg') type('image/jpeg'))",
-        }}
-      />
-      {/* Dark overlay for readability */}
-      <div className="absolute inset-0 bg-black/55" />
-
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-slate-100">
       {/* Card */}
       <motion.div
         variants={container}
         initial="hidden"
         animate="visible"
-        className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl px-10 py-10 max-w-sm w-full text-center shadow-[0_8px_40px_rgba(0,0,0,0.45)] relative z-10"
+        className="bg-white border border-slate-200 rounded-3xl px-10 py-10 max-w-sm w-full text-center shadow-lg relative z-10"
       >
         {/* EX logo */}
         <motion.div variants={item} className="mb-7 flex flex-col items-center gap-2.5">
           <EXBadge size={84} />
-          <p className="text-sm font-medium text-white/70 tracking-[0.2em] uppercase">Event Manager</p>
+          <p className="text-sm font-medium text-slate-500 tracking-[0.2em] uppercase">Event Manager</p>
         </motion.div>
 
         {/* Title */}
-        <motion.p variants={item} className="text-2xl font-black text-white mb-8 tracking-tight">
+        <motion.p variants={item} className="text-2xl font-black text-slate-900 mb-8 tracking-tight">
           EX事業部 イベント管理システム
         </motion.p>
 
@@ -119,9 +109,9 @@ export default function LoginScreen() {
 
           {/* Divider */}
           <div className="flex items-center gap-3 my-1">
-            <div className="flex-1 h-px bg-white/20" />
-            <span className="text-[11px] text-white/40 font-medium">または</span>
-            <div className="flex-1 h-px bg-white/20" />
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-[11px] text-slate-400 font-medium">または</span>
+            <div className="flex-1 h-px bg-slate-200" />
           </div>
 
           {/* Email login toggle */}
@@ -129,7 +119,7 @@ export default function LoginScreen() {
             type="button"
             onClick={() => { setShowEmailForm(v => !v); setEmailError(null); }}
             disabled={loading !== null}
-            className="w-full py-3.5 bg-white/10 text-white/80 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-white/20 active:scale-[0.98] transition-all disabled:opacity-60 border border-white/20"
+            className="w-full py-3.5 bg-slate-50 text-slate-700 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-100 active:scale-[0.98] transition-all disabled:opacity-60 border border-slate-200"
           >
             <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2}>
               <rect x="2" y="4" width="20" height="16" rx="2" />
@@ -156,7 +146,7 @@ export default function LoginScreen() {
                   onChange={e => setEmail(e.target.value)}
                   required
                   autoComplete="email"
-                  className="w-full px-4 py-3 rounded-xl bg-white/15 border border-white/25 text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/60 transition-colors"
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-colors"
                 />
                 <input
                   type="password"
@@ -165,15 +155,15 @@ export default function LoginScreen() {
                   onChange={e => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
-                  className="w-full px-4 py-3 rounded-xl bg-white/15 border border-white/25 text-white placeholder-white/40 text-sm focus:outline-none focus:border-white/60 transition-colors"
+                  className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-colors"
                 />
                 {emailError && (
-                  <p className="text-[11px] text-red-300 text-left px-1">{emailError}</p>
+                  <p className="text-[11px] text-red-600 text-left px-1">{emailError}</p>
                 )}
                 <button
                   type="submit"
                   disabled={loading !== null}
-                  className="w-full py-3 bg-indigo-500 text-white rounded-xl font-bold text-sm hover:bg-indigo-400 active:scale-[0.98] transition-all disabled:opacity-60 shadow-lg mt-1"
+                  className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:opacity-60 shadow-sm mt-1"
                 >
                   {loading === 'email' ? 'ログイン中...' : 'ログイン'}
                 </button>
@@ -183,14 +173,14 @@ export default function LoginScreen() {
         </motion.div>
 
         {/* Footer note */}
-        <motion.p variants={item} className="text-[11px] text-white/40 mt-6">
+        <motion.p variants={item} className="text-[11px] text-slate-400 mt-6">
           許可されたアカウントのみアクセス可能です
         </motion.p>
         <motion.button
           variants={item}
           type="button"
           onClick={() => setShowHelp(true)}
-          className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-bold text-white/70 hover:text-white underline underline-offset-2 transition-colors"
+          className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 underline underline-offset-2 transition-colors"
         >
           <HelpCircle size={13} />
           使い方ガイドを見る

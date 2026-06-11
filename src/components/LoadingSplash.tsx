@@ -3,14 +3,7 @@ import EXBadge from './EXBadge';
 
 export default function LoadingSplash() {
   return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden">
-      <div
-        className="absolute inset-0 bg-cover bg-center scale-105"
-        style={{
-          backgroundImage: "image-set(url('/mercury-office.webp') type('image/webp'), url('/mercury-office.jpg') type('image/jpeg'))",
-        }}
-      />
-      <div className="absolute inset-0 bg-black/60" />
+    <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden bg-slate-100">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -19,11 +12,11 @@ export default function LoadingSplash() {
       >
         <div className="flex flex-col items-center gap-3">
           <EXBadge size={112} />
-          <p className="text-base font-medium text-white/70 tracking-[0.2em] uppercase">Event Manager</p>
+          <p className="text-base font-medium text-slate-500 tracking-[0.2em] uppercase">Event Manager</p>
         </div>
-        <div className="w-40 h-[2px] bg-white/15 rounded-full overflow-hidden">
+        <div className="w-40 h-[2px] bg-slate-200 rounded-full overflow-hidden">
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-indigo-400 to-violet-400"
+            className="h-full rounded-full bg-gradient-to-r from-cyan-500 via-indigo-500 to-violet-500"
             initial={{ x: '-100%' }}
             animate={{ x: '120%' }}
             transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.2 }}

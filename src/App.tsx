@@ -946,7 +946,7 @@ VITE_FIREBASE_DATABASE_ID`}
                 setMobileAgendaDay(d.getDate());
               }}
             />
-            <div className="flex gap-1 rounded-xl bg-white/10 border border-white/15 p-1" role="tablist" aria-label="カレンダー表示の切替">
+            <div className="flex gap-1 rounded-xl bg-slate-100 border border-slate-200 p-1" role="tablist" aria-label="カレンダー表示の切替">
               {(
                 [
                   ["list", "一覧"],
@@ -968,7 +968,7 @@ VITE_FIREBASE_DATABASE_ID`}
                     }
                   }}
                   className={`min-h-9 flex-1 rounded-lg text-xs font-black transition-colors ${
-                    calendarMobileLayout === id ? "bg-white text-indigo-700 shadow-sm" : "text-white/50"
+                    calendarMobileLayout === id ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500"
                   }`}
                 >
                   {label}
@@ -1044,15 +1044,7 @@ VITE_FIREBASE_DATABASE_ID`}
   );
 
   return (
-    <div className="relative isolate flex flex-col h-dvh min-h-dvh overflow-hidden">
-      {/* 全ページ共通の背景: オフィス写真 + 濃いオーバーレイ（可読性確保） */}
-      <div className="absolute inset-0 -z-10 print:hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url('/mercury-office.webp')" }}
-        />
-        <div className="absolute inset-0" style={{ background: 'rgba(7, 12, 25, 0.93)' }} />
-      </div>
+    <div className="relative isolate flex flex-col h-dvh min-h-dvh overflow-hidden bg-[var(--bg-app)]">
 
       {/* Header */}
       <AppHeader

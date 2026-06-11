@@ -8,8 +8,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { sendPushNotification, isPushNotificationConfigured } from '../lib/pushNotifications';
 import { fmtDateJPFull } from '../lib/eventHelpers';
 
-const FISH_BG = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=1280&q=65';
-
 interface Props {
   events: Event[];
   /** 編集可否（魚リストはデスクトップのログイン済みユーザーのみ。スマホは閲覧専用＝canEditFishList が false） */
@@ -188,30 +186,30 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
   }
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen bg-[var(--bg-app)]">
       <div className="relative z-10 w-full max-w-none px-4 md:px-6 lg:px-8 py-6 pb-28 md:pb-8">
 
         {aquariumEvents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 gap-3 text-white/60">
+          <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-500">
             <Fish size={40} strokeWidth={1.5} />
             <p className="text-sm font-medium">水族館イベントがありません</p>
           </div>
         ) : (
           <>
             <div className="mb-6">
-              <div className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-1">AQUARIUM</div>
-              <h2 className="text-2xl font-black text-white">魚リスト</h2>
+              <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">AQUARIUM</div>
+              <h2 className="text-2xl font-black text-slate-900">魚リスト</h2>
             </div>
 
             {/* イベント選択 */}
             <div className="mb-6">
-              <label className="block text-xs font-black text-white/70 uppercase tracking-widest mb-2">
+              <label className="block text-xs font-black text-slate-600 uppercase tracking-widest mb-2">
                 水族館イベントを選択
               </label>
               <select
                 value={selectedEventId}
                 onChange={e => runWithGuard(() => setSelectedEventId(e.target.value))}
-                className="w-full rounded-xl border border-white/20 bg-white/15 px-3 py-2.5 text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
               >
                 {aquariumEvents.map(ev => (
                   <option key={ev.id} value={ev.id} className="text-slate-800 bg-white">
@@ -224,24 +222,24 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
             {selectedEvent && (
               <div className="md:grid md:grid-cols-[minmax(260px,340px)_1fr] md:gap-6 xl:gap-8 md:items-start">
               <div className="md:sticky md:top-4 space-y-4">
-                <div className="flex items-center gap-3 bg-white/10 rounded-2xl px-4 py-3 border border-white/20">
-                  <div className="w-9 h-9 rounded-xl bg-cyan-400/30 flex items-center justify-center shrink-0">
-                    <Fish size={18} className="text-cyan-300" />
+                <div className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 border border-slate-200 shadow-sm">
+                  <div className="w-9 h-9 rounded-xl bg-cyan-50 flex items-center justify-center shrink-0">
+                    <Fish size={18} className="text-cyan-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-black text-white text-sm truncate">{selectedEvent.venue}</div>
-                    <div className="text-xs text-white/60 truncate">
+                    <div className="font-black text-slate-900 text-sm truncate">{selectedEvent.venue}</div>
+                    <div className="text-xs text-slate-500 truncate">
                       {selectedEvent.start ? fmtDateRange(selectedEvent.start, selectedEvent.end || selectedEvent.start) : '日程未定'}
                     </div>
                   </div>
-                  <span className="ml-auto shrink-0 text-xs font-black text-cyan-300 bg-cyan-900/40 px-3 py-1 rounded-full border border-cyan-400/30">
+                  <span className="ml-auto shrink-0 text-xs font-black text-cyan-800 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200">
                     {fishItems.length}種
                   </span>
                 </div>
 
                 {canEdit && (
-                  <div className="bg-white/10 rounded-2xl p-4 border border-cyan-400/20">
-                    <div className="text-xs font-black text-cyan-300 uppercase tracking-widest mb-3">観賞魚を追加</div>
+                  <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                    <div className="text-xs font-black text-cyan-700 uppercase tracking-widest mb-3">観賞魚を追加</div>
                     <div className="flex flex-col gap-2">
                       <input
                         type="text"
@@ -249,7 +247,7 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
                         value={newName}
                         onChange={e => { setNewName(e.target.value); setError(null); }}
                         onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                        className="w-full rounded-xl border border-white/20 bg-white/15 text-white placeholder-white/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                        className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
                       />
                       <div className="flex gap-2 overflow-hidden">
                         <input
@@ -257,22 +255,22 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
                           min={0}
                           value={newCount}
                           onChange={e => setNewCount(Number(e.target.value))}
-                          className="w-24 shrink-0 rounded-xl border border-white/20 bg-white/15 text-white placeholder-white/40 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                          className="w-24 shrink-0 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
                         />
-                        <span className="flex items-center text-sm text-white/60 shrink-0">匹</span>
+                        <span className="flex items-center text-sm text-slate-500 shrink-0">匹</span>
                         <input
                           type="text"
                           placeholder="メモ（任意）"
                           value={newNote}
                           onChange={e => setNewNote(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                          className="flex-1 min-w-0 rounded-xl border border-white/20 bg-white/15 text-white placeholder-white/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                          className="flex-1 min-w-0 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
                         />
                       </div>
                       <button
                         onClick={handleAdd}
                         disabled={!newName.trim() || saving}
-                        className="flex items-center justify-center gap-2 w-full rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:bg-white/20 disabled:text-white/40 text-white font-black text-sm py-2.5 transition-colors"
+                        className="flex items-center justify-center gap-2 w-full rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-100 disabled:text-slate-400 text-white font-black text-sm py-2.5 transition-colors"
                       >
                         <Plus size={14} />
                         {saving ? '追加中...' : '追加'}
@@ -284,7 +282,7 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
 
               <div className="min-w-0">
                 {error && (
-                  <div className="mb-3 bg-red-500/20 border border-red-400/30 rounded-xl px-4 py-2 text-xs text-red-200 font-bold">
+                  <div className="mb-3 bg-red-50 border border-red-200 rounded-xl px-4 py-2 text-xs text-red-800 font-bold">
                     {error}
                   </div>
                 )}
@@ -325,7 +323,7 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
                     ))}
                   </AnimatePresence>
                   {fishItems.length === 0 && (
-                    <div className="text-center py-10 text-white/40 text-sm bg-white/5 rounded-2xl border border-white/10">
+                    <div className="text-center py-10 text-slate-400 text-sm bg-slate-50 rounded-2xl border border-slate-200">
                       観賞魚を追加してください
                     </div>
                   )}
