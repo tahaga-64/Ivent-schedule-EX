@@ -8,6 +8,7 @@ import { sendPushNotification, isPushNotificationConfigured } from './lib/pushNo
 import { DATA } from './constants';
 import { Event, EventPhoto, PreparationItem, EventStatus, type StaffMember } from './types';
 import { buildMonthGridCells, type ValidationError, validateEvent, fmtDateJPFull, normalizeRegion } from './lib/eventHelpers';
+import { eventMatchesQuery } from './lib/appSearch';
 import { applyEventSnapshotChanges } from './lib/firestoreSnapshot';
 import { Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -409,7 +410,7 @@ export default function App() {
   const prepProgressMap = useMemo(() => buildPrepProgressMap(allEvents), [allEvents]);
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchQuery.trim();
     let filtered = allEvents.filter(d => {
       if (regionFilter !== "すべて" && normalizeRegion(d.region) !== regionFilter) return false;
       if (typeFilter !== "すべて" && d.type !== typeFilter) return false;
@@ -417,7 +418,7 @@ export default function App() {
         const m = parseInt(monthFilter);
         if (getMonth(d.start) !== m && getMonth(d.end) !== m) return false;
       }
-      if (q && !d.venue.toLowerCase().includes(q) && !(d.client || "").toLowerCase().includes(q)) return false;
+      if (q && !eventMatchesQuery(d, q)) return false;
       return true;
     });
     if (statusFilter !== 'all') {
@@ -1060,10 +1061,12 @@ VITE_FIREBASE_DATABASE_ID`}
         calYear={calYear}
         calMonth={calMonth}
         searchQuery={searchQuery}
+        events={allEvents}
         narrowViewport={narrowViewport}
         onToggleSidebar={() => setSideOpen(v => !v)}
         onSetView={navigateToView}
         onSearchChange={setSearchQuery}
+        onSelectEvent={handleEventSelect}
         onCreateEvent={() => handleCreateEvent()}
         onShowHelp={() => setShowHelp(true)}
       />
