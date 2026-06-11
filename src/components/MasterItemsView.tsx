@@ -21,9 +21,6 @@ interface Props {
 
 const EMPTY_FORM = { name: '', unitPrice: '', defaultQuantity: '1', note: '', url: '' };
 
-// 倉庫の背景画像（Unsplash）
-const WAREHOUSE_BG = 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=1280&q=65';
-
 export default function MasterItemsView({ canEdit, isActive = true }: Props) {
   const [items, setItems] = useState<MasterItem[]>([]);
   const [editing, setEditing] = useState<MasterItem | null>(null);
@@ -124,13 +121,13 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
   }
 
   return (
-    <div className="relative flex flex-col min-h-full">
+    <div className="relative flex flex-col min-h-full bg-[var(--bg-app)]">
 
       {/* Sticky header */}
-      <div className="relative z-10 flex items-center justify-between px-4 py-4 border-b border-white/10 bg-white/5 backdrop-blur-md sticky top-0">
+      <div className="relative z-10 flex items-center justify-between px-4 py-4 border-b border-slate-200 bg-white sticky top-0">
         <div>
-          <div className="text-[10px] font-black text-white/60 uppercase tracking-widest">MASTER</div>
-          <h2 className="text-2xl font-black text-white">備品マスター</h2>
+          <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">MASTER</div>
+          <h2 className="text-2xl font-black text-slate-900">備品マスター</h2>
         </div>
         {canEdit && (
           <button
@@ -146,10 +143,10 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
       {/* List */}
       <div className="relative z-10 flex-1 overflow-y-auto p-4 pb-24">
         {items.length === 0 ? (
-          <div className="text-center py-16 text-white/60">
+          <div className="text-center py-16 text-slate-500">
             <Package size={32} className="mx-auto mb-3 opacity-50" />
             <div className="text-sm">マスターアイテムがありません</div>
-            {canEdit && <div className="text-xs mt-1 opacity-70">「追加」から登録してください</div>}
+            {canEdit && <div className="text-xs mt-1 text-slate-400">「追加」から登録してください</div>}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-5xl mx-auto">
@@ -157,38 +154,38 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
               <motion.div
                 key={item.id}
                 layout
-                className="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-4 hover:bg-white/15 transition-colors group shadow-sm"
+                className="bg-white border border-slate-200 rounded-2xl p-4 hover:border-slate-300 transition-colors group shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="font-black text-sm text-white leading-snug">{item.name}</div>
+                  <div className="font-black text-sm text-slate-900 leading-snug">{item.name}</div>
                   {canEdit && (
                     <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
                       <button
                         onClick={() => openEdit(item)}
-                        className="p-2 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors"
+                        className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
                       >
                         <Pencil size={14} />
                       </button>
                       <button
                         onClick={() => handleDelete(item)}
-                        className="p-2 rounded-lg hover:bg-red-500/20 text-white/40 hover:text-red-300 transition-colors"
+                        className="p-2 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
                       >
                         <Trash2 size={14} />
                       </button>
                     </div>
                   )}
                 </div>
-                <div className="text-xs text-white/50 mb-1">
+                <div className="text-xs text-slate-500 mb-1">
                   ¥{item.unitPrice.toLocaleString()} · デフォルト {item.defaultQuantity}個
                 </div>
-                {item.note && <div className="text-xs text-white/40 mb-1">{item.note}</div>}
+                {item.note && <div className="text-xs text-slate-400 mb-1">{item.note}</div>}
                 {item.url && (
                   <a
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={e => e.stopPropagation()}
-                    className="text-[10px] text-indigo-300 flex items-center gap-0.5 hover:underline mt-1"
+                    className="text-[10px] text-indigo-600 flex items-center gap-0.5 hover:underline mt-1"
                   >
                     <ExternalLink size={10} />
                     リンクを開く
@@ -204,7 +201,7 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
       <AnimatePresence>
         {showForm && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => runWithGuard(closeForm)} />
+            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => runWithGuard(closeForm)} />
             <motion.div
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
@@ -222,7 +219,7 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                     value={form.name}
                     onChange={e => setForm(v => ({ ...v, name: e.target.value }))}
                     onKeyDown={e => e.key === 'Enter' && handleSave()}
-                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-transparent text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
                     placeholder="テーブルクロス"
                     autoFocus
                   />
@@ -234,7 +231,7 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                       type="number"
                       value={form.unitPrice}
                       onChange={e => setForm(v => ({ ...v, unitPrice: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-transparent text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                      className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
                       placeholder="0"
                     />
                   </div>
@@ -244,7 +241,7 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                       type="number"
                       value={form.defaultQuantity}
                       onChange={e => setForm(v => ({ ...v, defaultQuantity: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-transparent text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                      className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
                       placeholder="1"
                     />
                   </div>
@@ -254,7 +251,7 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                   <input
                     value={form.note}
                     onChange={e => setForm(v => ({ ...v, note: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-transparent text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
                     placeholder="サイズ・色など"
                   />
                 </div>
@@ -263,7 +260,7 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                   <input
                     value={form.url}
                     onChange={e => setForm(v => ({ ...v, url: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-transparent text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white text-sm outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
                     placeholder="https://..."
                   />
                 </div>
@@ -271,7 +268,7 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
               <div className="flex gap-2 mt-5">
                 <button
                   onClick={() => runWithGuard(closeForm)}
-                  className="flex-1 py-2.5 rounded-xl border border-[var(--border)] text-sm font-bold text-[var(--text-secondary)] hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border border-[var(--border)] text-sm font-bold text-[var(--text-secondary)] hover:bg-slate-50 transition-colors"
                 >
                   キャンセル
                 </button>

@@ -79,24 +79,24 @@ export function prepEventUrgency(start: string, end: string): {
     const label = isOngoing ? '開催中' : until === 0 ? '今日' : `あと${until}日`;
     return {
       daysLabel: label,
-      rowBg: 'bg-red-500/15 hover:bg-red-500/20',
-      badgeCls: 'bg-red-500/30 text-red-100 border-red-400/40',
-      dateBadgeCls: 'bg-red-500/80',
+      rowBg: 'bg-red-50 hover:bg-red-100',
+      badgeCls: 'bg-red-50 text-red-800 border-red-200',
+      dateBadgeCls: 'bg-red-500 text-white',
     };
   }
   if (until > 3 && until <= 7) {
     return {
       daysLabel: `あと${until}日`,
-      rowBg: 'bg-amber-500/15 hover:bg-amber-500/20',
-      badgeCls: 'bg-amber-500/30 text-amber-100 border-amber-400/40',
-      dateBadgeCls: 'bg-amber-500/80',
+      rowBg: 'bg-amber-50 hover:bg-amber-100',
+      badgeCls: 'bg-amber-50 text-amber-800 border-amber-200',
+      dateBadgeCls: 'bg-amber-500 text-white',
     };
   }
   return {
     daysLabel: `あと${until}日`,
-    rowBg: 'bg-blue-500/15 hover:bg-blue-500/20',
-    badgeCls: 'bg-blue-500/30 text-blue-100 border-blue-400/40',
-    dateBadgeCls: 'bg-blue-600/80',
+    rowBg: 'bg-blue-50 hover:bg-blue-100',
+    badgeCls: 'bg-blue-50 text-blue-800 border-blue-200',
+    dateBadgeCls: 'bg-blue-600 text-white',
   };
 }
 

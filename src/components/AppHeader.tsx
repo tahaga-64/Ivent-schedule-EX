@@ -64,11 +64,8 @@ export default function AppHeader({
 
   return (
     <header
-      className="sticky top-0 z-30 border-b border-white/15 backdrop-blur-md"
-      style={{
-        paddingTop: 'env(safe-area-inset-top)',
-        background: 'linear-gradient(to bottom, rgba(15,23,42,0.85) 0%, rgba(15,23,42,0.65) 100%)',
-      }}
+      className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-md"
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div className="px-3 sm:px-4 pt-2 pb-2.5 space-y-2">
         {/* 行1: ナビ・タイトル・アクション（検索バーと分離して重なり防止） */}
@@ -76,15 +73,15 @@ export default function AppHeader({
           <div className="flex items-center gap-2 shrink-0 min-w-0">
             <button
               onClick={onToggleSidebar}
-              className="hidden md:flex p-2 -ml-1 rounded-xl text-white/80 hover:bg-white/15 active:bg-white/20 transition-colors"
+              className="hidden md:flex p-2 -ml-1 rounded-xl text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
               aria-label="フィルターを開く"
             >
               <Menu size={20} />
             </button>
             <div className="md:hidden flex flex-col min-w-0 max-w-[40vw]">
-              <div className="font-black text-sm text-white leading-tight truncate">{viewLabel}</div>
+              <div className="font-black text-sm text-slate-900 leading-tight truncate">{viewLabel}</div>
               {view === 'calendar' && (
-                <div className="text-[10px] font-bold text-white/45 tabular-nums">{calYear}年{calMonth}月</div>
+                <div className="text-[10px] font-bold text-slate-500 tabular-nums">{calYear}年{calMonth}月</div>
               )}
             </div>
           </div>
@@ -97,7 +94,7 @@ export default function AppHeader({
                 title={v.label}
                 className={`
                   flex items-center gap-1.5 px-2 xl:px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 whitespace-nowrap
-                  ${view === v.id ? 'bg-white/25 text-white shadow-sm border border-white/20' : 'text-white/50 hover:text-white/80 hover:bg-white/10'}
+                  ${view === v.id ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-200' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}
                 `}
               >
                 {v.icon}
@@ -119,21 +116,21 @@ export default function AppHeader({
             <PushNotificationButton user={user} />
             <button
               onClick={onShowHelp}
-              className="hidden sm:flex p-1.5 rounded-lg text-white/70 hover:bg-white/15 hover:text-white transition-colors"
+              className="hidden sm:flex p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
               title="使い方"
             >
               <HelpCircle size={16} />
             </button>
             {user.photoURL ? (
-              <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-white/50 hidden sm:block" />
+              <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-slate-200 hidden sm:block" />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-amber-200 hidden sm:flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white/50">
+              <div className="w-8 h-8 rounded-full bg-amber-200 hidden sm:flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-slate-200">
                 {user.displayName?.[0] || 'U'}
               </div>
             )}
             <button
               onClick={() => auth.signOut()}
-              className="p-2 rounded-xl text-white/70 hover:bg-white/15 hover:text-red-300 active:bg-white/20 transition-colors"
+              className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-red-600 active:bg-slate-200 transition-colors"
               title="ログアウト"
               aria-label="ログアウト"
             >

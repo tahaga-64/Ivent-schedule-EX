@@ -15,17 +15,17 @@ export default function SavingIndicator({ isSaving, saveError, onDismissError }:
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
-          className="fixed bottom-24 md:bottom-10 right-4 md:right-10 z-[100] flex items-center gap-3 bg-zinc-900 dark:bg-amber-500 text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
+          className="fixed bottom-24 md:bottom-10 right-4 md:right-10 z-[100] flex items-center gap-3 bg-[var(--surface)] text-[var(--text-primary)] px-5 py-3 rounded-2xl shadow-2xl border border-[var(--border)] pointer-events-none"
         >
           <div className="relative flex items-center justify-center">
             <motion.div
               animate={{ scale: [1, 1.5, 1], opacity: [1, 0, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
-              className="absolute w-2 h-2 bg-white rounded-full blur-[2px]"
+              className="absolute w-2 h-2 bg-indigo-500 rounded-full blur-[2px]"
             />
-            <div className="relative w-1.5 h-1.5 bg-white rounded-full" />
+            <div className="relative w-1.5 h-1.5 bg-indigo-600 rounded-full" />
           </div>
-          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Cloud Syncing...</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-secondary)]">Cloud Syncing...</span>
         </motion.div>
       )}
       {saveError && (

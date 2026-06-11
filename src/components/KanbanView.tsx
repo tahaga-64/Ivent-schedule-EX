@@ -5,11 +5,11 @@ import type { Event, EventStatus } from '../types';
 interface ColumnDef { status: string; label: string; dot: string; headerBg: string; headerText: string; cardBorder: string; badgeBg: string; badgeText: string }
 
 const COLUMNS: ColumnDef[] = [
-  { status: 'scheduled',   label: '予定',    dot: '#94a3b8', headerBg: 'rgba(148,163,184,0.12)', headerText: '#cbd5e1', cardBorder: 'rgba(148,163,184,0.30)', badgeBg: 'rgba(148,163,184,0.18)', badgeText: '#94a3b8' },
-  { status: 'in_progress', label: '準備中',  dot: '#f59e0b', headerBg: 'rgba(245,158,11,0.12)',  headerText: '#fcd34d', cardBorder: 'rgba(245,158,11,0.35)',  badgeBg: 'rgba(245,158,11,0.18)',  badgeText: '#fbbf24' },
-  { status: 'waiting',     label: '入荷待ち',dot: '#3b82f6', headerBg: 'rgba(59,130,246,0.12)',  headerText: '#93c5fd', cardBorder: 'rgba(59,130,246,0.35)',  badgeBg: 'rgba(59,130,246,0.18)',  badgeText: '#60a5fa' },
-  { status: 'ready',       label: '準備完了',dot: '#10b981', headerBg: 'rgba(16,185,129,0.12)',  headerText: '#6ee7b7', cardBorder: 'rgba(16,185,129,0.35)',  badgeBg: 'rgba(16,185,129,0.18)',  badgeText: '#34d399' },
-  { status: 'completed',   label: '完了',    dot: '#f97316', headerBg: 'rgba(249,115,22,0.12)',  headerText: '#fdba74', cardBorder: 'rgba(249,115,22,0.35)',  badgeBg: 'rgba(249,115,22,0.18)',  badgeText: '#fb923c' },
+  { status: 'scheduled',   label: '予定',    dot: '#94a3b8', headerBg: 'rgba(148,163,184,0.15)', headerText: '#475569', cardBorder: 'rgba(148,163,184,0.35)', badgeBg: 'rgba(148,163,184,0.20)', badgeText: '#64748b' },
+  { status: 'in_progress', label: '準備中',  dot: '#f59e0b', headerBg: 'rgba(245,158,11,0.12)',  headerText: '#b45309', cardBorder: 'rgba(245,158,11,0.35)',  badgeBg: 'rgba(245,158,11,0.18)',  badgeText: '#d97706' },
+  { status: 'waiting',     label: '入荷待ち',dot: '#3b82f6', headerBg: 'rgba(59,130,246,0.10)',  headerText: '#1d4ed8', cardBorder: 'rgba(59,130,246,0.30)',  badgeBg: 'rgba(59,130,246,0.15)',  badgeText: '#2563eb' },
+  { status: 'ready',       label: '準備完了',dot: '#10b981', headerBg: 'rgba(16,185,129,0.10)',  headerText: '#047857', cardBorder: 'rgba(16,185,129,0.30)',  badgeBg: 'rgba(16,185,129,0.15)',  badgeText: '#059669' },
+  { status: 'completed',   label: '完了',    dot: '#f97316', headerBg: 'rgba(249,115,22,0.10)',  headerText: '#c2410c', cardBorder: 'rgba(249,115,22,0.30)',  badgeBg: 'rgba(249,115,22,0.15)',  badgeText: '#ea580c' },
 ];
 
 interface Props {
@@ -74,12 +74,12 @@ export default function KanbanView({ events, prepProgressMap, onSelectEvent, onU
                   <motion.div
                     key={ev.id}
                     layout
-                    className="bg-[var(--surface)] rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow"
+                    className="bg-white rounded-xl p-3 shadow-sm border border-slate-200 hover:shadow-md transition-shadow"
                     style={{ border: `1px solid ${col.cardBorder}`, borderLeftWidth: 3 }}
                   >
                     <button onClick={() => onSelectEvent(ev)} className="w-full text-left">
-                      <div className="text-xs font-black text-[var(--text-primary)] leading-snug mb-1">{ev.venue}</div>
-                      <div className="text-[10px] text-[var(--text-secondary)] mb-2">
+                      <div className="text-xs font-black text-slate-900 leading-snug mb-1">{ev.venue}</div>
+                      <div className="text-[10px] text-slate-500 mb-2">
                         {fmtDate(ev.start)}{ev.end && ev.end !== ev.start ? `→${fmtDate(ev.end)}` : ''}
                         {ev.client ? ` · ${ev.client}` : ''}
                       </div>
@@ -94,7 +94,7 @@ export default function KanbanView({ events, prepProgressMap, onSelectEvent, onU
                     </button>
 
                     {canEdit && (
-                      <div className="flex justify-between items-center mt-1.5 pt-1.5 border-t border-[var(--border)]">
+                      <div className="flex justify-between items-center mt-1.5 pt-1.5 border-t border-slate-200">
                         {prevCol ? (
                           <button
                             onClick={() => onUpdateStatus(ev.id, prevCol.status as EventStatus)}

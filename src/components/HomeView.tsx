@@ -41,13 +41,13 @@ function AnalogClock() {
     <div className="flex flex-col items-end shrink-0 select-none">
       <div
         ref={hmRef}
-        className="text-5xl sm:text-6xl md:text-7xl xl:text-8xl font-black text-white leading-none tracking-tighter tabular-nums"
+        className="text-5xl sm:text-6xl md:text-7xl xl:text-8xl font-black text-slate-900 leading-none tracking-tighter tabular-nums"
       >
         --:--
       </div>
       <div
         ref={secRef}
-        className="text-xl sm:text-2xl md:text-3xl xl:text-4xl font-black text-white/50 leading-none tracking-tighter tabular-nums mt-1 md:mt-1.5"
+        className="text-xl sm:text-2xl md:text-3xl xl:text-4xl font-black text-slate-400 leading-none tracking-tighter tabular-nums mt-1 md:mt-1.5"
       >
         --
       </div>
@@ -61,12 +61,12 @@ function effectivePast(ev: Event, today: string): boolean {
 }
 
 function statusPill(status: string | undefined, isPast: boolean): { label: string; cls: string } | null {
-  if (isPast || status === 'completed') return { label: '完了', cls: 'bg-slate-500/20 border border-slate-400/30 text-slate-300' };
+  if (isPast || status === 'completed') return { label: '完了', cls: 'bg-slate-100 border border-slate-200 text-slate-600' };
   switch (status) {
-    case 'in_progress': return { label: '準備中',    cls: 'bg-amber-500/20 border border-amber-400/30 text-amber-300' };
-    case 'waiting':     return { label: '入荷待ち',  cls: 'bg-sky-500/20 border border-sky-400/30 text-sky-300' };
-    case 'ready':       return { label: '準備完了',  cls: 'bg-indigo-500/20 border border-indigo-400/30 text-indigo-300' };
-    case 'cancelled':   return { label: 'キャンセル',cls: 'bg-red-500/20 border border-red-400/30 text-red-300' };
+    case 'in_progress': return { label: '準備中',    cls: 'bg-amber-50 border border-amber-200 text-amber-800' };
+    case 'waiting':     return { label: '入荷待ち',  cls: 'bg-blue-50 border border-blue-200 text-blue-800' };
+    case 'ready':       return { label: '準備完了',  cls: 'bg-indigo-50 border border-indigo-200 text-indigo-800' };
+    case 'cancelled':   return { label: 'キャンセル',cls: 'bg-red-50 border border-red-200 text-red-800' };
     default:            return null;
   }
 }
@@ -106,8 +106,8 @@ function EventCard({ ev, prog, today, onSelect }: {
   return (
     <motion.button
       onClick={() => onSelect(ev)}
-      whileHover={{ y: -2, boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}
-      className="w-full text-left bg-white/10 rounded-2xl transition-all group overflow-hidden border border-white/15"
+      whileHover={{ y: -2, boxShadow: '0 8px 24px rgba(0,0,0,0.10)' }}
+      className="w-full text-left bg-white rounded-2xl transition-all group overflow-hidden border border-slate-200 shadow-sm hover:shadow-md"
     >
       <div className="flex items-stretch">
         <div className="w-1 shrink-0" style={{ background: regionColor }} />
@@ -115,7 +115,7 @@ function EventCard({ ev, prog, today, onSelect }: {
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                <span className="text-base font-black text-white truncate">{ev.venue}</span>
+                <span className="text-base font-black text-slate-900 truncate">{ev.venue}</span>
                 {st && (
                   <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black ${st.cls}`}>{st.label}</span>
                 )}
@@ -126,22 +126,22 @@ function EventCard({ ev, prog, today, onSelect }: {
                   <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/80 text-white">{days}日後</span>
                 )}
               </div>
-              <div className="text-xs text-white/50 font-mono">
+              <div className="text-xs text-slate-500 font-mono">
                 {ev.type || ''}
               </div>
               {pct >= 0 && (
                 <div className="flex items-center gap-2 mt-2">
-                  <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                  <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-indigo-400' : 'bg-amber-400'}`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <span className="text-[10px] text-white/40 font-mono shrink-0">{prog!.done}/{prog!.total}</span>
+                  <span className="text-[10px] text-slate-400 font-mono shrink-0">{prog!.done}/{prog!.total}</span>
                 </div>
               )}
             </div>
-            <ChevronRight size={15} className="text-white/30 group-hover:text-white/70 shrink-0 mt-1 transition-colors" />
+            <ChevronRight size={15} className="text-slate-300 group-hover:text-slate-600 shrink-0 mt-1 transition-colors" />
           </div>
         </div>
       </div>
@@ -151,7 +151,7 @@ function EventCard({ ev, prog, today, onSelect }: {
 
 function SectionEmpty({ label }: { label: string }) {
   return (
-    <div className="bg-white/10 border border-white/20 rounded-2xl py-5 text-center text-sm text-white/40">
+    <div className="bg-white border border-slate-200 rounded-2xl py-5 text-center text-sm text-slate-400 shadow-sm">
       {label}
     </div>
   );
@@ -225,16 +225,16 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
       <div className="relative z-10 flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-6 pb-32 md:pb-8 w-full max-w-none">
 
         {/* Date header — 日付 / EXロゴ(中央) / 時計 */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-white">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-slate-900">
           <div className="flex items-end gap-2 min-w-0">
             <div className="text-6xl sm:text-7xl md:text-8xl font-black leading-none tracking-tighter tabular-nums">
               {new Date().getDate()}
             </div>
             <div className="pb-1 flex flex-col gap-0.5 min-w-0">
-              <div className="text-sm sm:text-xl font-black opacity-90 leading-tight truncate">
+              <div className="text-sm sm:text-xl font-black text-slate-800 leading-tight truncate">
                 {new Date().toLocaleDateString('ja-JP', { month: 'long', weekday: 'long' })}
               </div>
-              <div className="text-xs sm:text-sm font-bold opacity-40">{new Date().getFullYear()}</div>
+              <div className="text-xs sm:text-sm font-bold text-slate-400">{new Date().getFullYear()}</div>
             </div>
           </div>
           <div className="flex justify-center">
@@ -253,42 +253,42 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={onNavigateCalendar}
-            className="bg-white/10 rounded-2xl p-3 border border-white/15 flex flex-col text-left hover:bg-white/15 transition-colors"
+            className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm flex flex-col text-left hover:bg-slate-50 transition-colors"
           >
-            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">今月</div>
+            <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">今月</div>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-black text-white leading-none">{stats.thisMonthCount}</span>
-              <span className="text-xs font-bold text-white/50">件</span>
+              <span className="text-3xl font-black text-slate-900 leading-none">{stats.thisMonthCount}</span>
+              <span className="text-xs font-bold text-slate-500">件</span>
             </div>
-            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[10px] font-black text-indigo-300">
+            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[10px] font-black text-indigo-600">
               詳しく <ArrowRight size={10} />
             </span>
           </button>
 
-          <div className="bg-white/10 rounded-2xl p-3 border border-white/15 flex flex-col">
-            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">本日稼働</div>
+          <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm flex flex-col">
+            <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">本日稼働</div>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-black text-white leading-none">
+              <span className="text-3xl font-black text-slate-900 leading-none">
                 {staffLoading ? '…' : staffBreakdown !== null ? staffBreakdown.total : '—'}
               </span>
               {!staffLoading && staffBreakdown !== null && (
-                <span className="text-xs font-bold text-white/50">人</span>
+                <span className="text-xs font-bold text-slate-500">人</span>
               )}
             </div>
-            <span className="mt-auto pt-2 text-[10px] font-bold text-white/40">出勤中</span>
+            <span className="mt-auto pt-2 text-[10px] font-bold text-slate-400">出勤中</span>
           </div>
 
-          <div className="bg-white/10 rounded-2xl p-3 border border-white/15 flex flex-col">
-            <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">次イベント</div>
+          <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm flex flex-col">
+            <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">次イベント</div>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-black text-white leading-none">
+              <span className="text-3xl font-black text-slate-900 leading-none">
                 {stats.daysToNext === null ? '—' : stats.daysToNext === 0 ? '今日' : stats.daysToNext}
               </span>
               {stats.daysToNext !== null && stats.daysToNext > 0 && (
-                <span className="text-xs font-bold text-white/50">日後</span>
+                <span className="text-xs font-bold text-slate-500">日後</span>
               )}
             </div>
-            <span className="mt-auto pt-2 text-[10px] font-bold text-white/40 truncate">
+            <span className="mt-auto pt-2 text-[10px] font-bold text-slate-400 truncate">
               {stats.nextVenue || '予定なし'}
             </span>
           </div>
@@ -296,26 +296,26 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
         {/* 稼働内訳 — 本社/イベント/外出/公休/希望休/その他 を横並び */}
         {!staffLoading && staffBreakdown !== null && (
-          <div className="bg-white/10 rounded-2xl p-3 border border-white/15">
+          <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm">
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
               {([
-                { label: '本社',   value: staffBreakdown.office,   bg: 'bg-blue-500/25 border-blue-400/40',   text: 'text-blue-100' },
-                { label: 'イベント', value: staffBreakdown.event,    bg: 'bg-emerald-500/25 border-emerald-400/40', text: 'text-emerald-100' },
-                { label: '外出',   value: staffBreakdown.dispatch, bg: 'bg-amber-500/25 border-amber-400/40', text: 'text-amber-100' },
-                { label: '公休',   value: staffBreakdown.rest,     bg: 'bg-violet-500/25 border-violet-400/40', text: 'text-violet-100' },
-                { label: '希望休', value: staffBreakdown.request,  bg: 'bg-pink-500/25 border-pink-400/40',   text: 'text-pink-100' },
-                { label: 'その他', value: staffBreakdown.other,    bg: 'bg-slate-500/25 border-slate-400/40', text: 'text-slate-200' },
+                { label: '本社',   value: staffBreakdown.office,   bg: 'bg-blue-50 border-blue-200',   text: 'text-blue-800' },
+                { label: 'イベント', value: staffBreakdown.event,    bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-800' },
+                { label: '外出',   value: staffBreakdown.dispatch, bg: 'bg-amber-50 border-amber-200', text: 'text-amber-800' },
+                { label: '公休',   value: staffBreakdown.rest,     bg: 'bg-violet-50 border-violet-200', text: 'text-violet-800' },
+                { label: '希望休', value: staffBreakdown.request,  bg: 'bg-pink-50 border-pink-200',   text: 'text-pink-800' },
+                { label: 'その他', value: staffBreakdown.other,    bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700' },
               ] as const).map(({ label, value, bg, text }) => (
                 <div key={label} className={`text-center rounded-lg py-1.5 border ${bg}`}>
                   <div className={`font-black leading-none text-lg ${text}`}>{value}</div>
-                  <div className="text-[9px] text-white/70 mt-0.5 font-bold">{label}</div>
+                  <div className="text-[9px] text-slate-600 mt-0.5 font-bold">{label}</div>
                 </div>
               ))}
             </div>
           </div>
         )}
         {!staffLoading && staffBreakdown === null && (
-          <div className="bg-white/10 rounded-2xl p-3 border border-white/15 text-[10px] text-white/30">
+          <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm text-[10px] text-slate-400">
             稼働データを取得できませんでした
           </div>
         )}
@@ -324,8 +324,8 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         {/* 本日のイベント */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-0.5 h-4 bg-white/40 rounded-full shrink-0" />
-            <div className="text-[11px] font-black text-white/70 uppercase tracking-widest">本日のイベント</div>
+            <div className="w-0.5 h-4 bg-slate-300 rounded-full shrink-0" />
+            <div className="text-[11px] font-black text-slate-600 uppercase tracking-widest">本日のイベント</div>
             {todayEvents.length > 0 && (
               <span className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[10px] font-black text-white">{todayEvents.length}</span>
             )}
@@ -343,8 +343,8 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         {/* 来週のイベント */}
         <div className="mt-5 md:mt-0">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-0.5 h-4 bg-white/40 rounded-full shrink-0" />
-            <div className="text-[11px] font-black text-white/70 uppercase tracking-widest">来週のイベント</div>
+            <div className="w-0.5 h-4 bg-slate-300 rounded-full shrink-0" />
+            <div className="text-[11px] font-black text-slate-600 uppercase tracking-widest">来週のイベント</div>
           </div>
           {upcomingWeek.length === 0
             ? <SectionEmpty label="来週のイベントはありません" />
@@ -360,25 +360,25 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         <div className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
         {/* クイックアクション */}
         <div className="mt-2 flex flex-col gap-2">
-          <div className="text-[11px] font-black text-white/70 uppercase tracking-widest mb-1">クイックアクション</div>
+          <div className="text-[11px] font-black text-slate-600 uppercase tracking-widest mb-1">クイックアクション</div>
 
           <button
             onClick={() => setShowEventPicker(true)}
-            className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/15 active:scale-[0.98] transition-all"
+            className="flex items-center gap-3 bg-white border border-slate-200 shadow-sm text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:bg-slate-50 active:scale-[0.98] transition-all"
           >
             準備物リスト
           </button>
 
           <button
             onClick={() => { if (canEditEvent) { onCreateEvent(); } else { setShowPermissionToast(true); } }}
-            className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/15 active:scale-[0.98] transition-all"
+            className="flex items-center gap-3 bg-white border border-slate-200 shadow-sm text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:bg-slate-50 active:scale-[0.98] transition-all"
           >
             新規イベントを追加する
           </button>
 
           <button
             onClick={onOpenSchedule}
-            className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/15 active:scale-[0.98] transition-all"
+            className="flex items-center gap-3 bg-white border border-slate-200 shadow-sm text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:bg-slate-50 active:scale-[0.98] transition-all"
           >
             スケジュール
           </button>
@@ -387,7 +387,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
         {/* マーキュリー サービス */}
         <div className="mt-2 flex flex-col gap-2">
-          <div className="text-[11px] font-black text-white/70 uppercase tracking-widest mb-1">マーキュリー サービス</div>
+          <div className="text-[11px] font-black text-slate-600 uppercase tracking-widest mb-1">マーキュリー サービス</div>
           {([
             { label: 'TranChat',           sub: '社内連絡ツール', href: 'https://tranchat1.mercury-group.co.jp/chat2_fed/public/index.html' },
             { label: 'Chronus',            sub: '退勤システム',   href: 'https://chronus.mercury-group.co.jp/index.html' },
@@ -398,13 +398,13 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               href={svc.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between bg-white/10 backdrop-blur-sm border border-white/15 text-white rounded-2xl px-5 py-3.5 hover:bg-white/15 active:scale-[0.98] transition-all"
+              className="flex items-center justify-between bg-white border border-slate-200 shadow-sm text-slate-900 rounded-2xl px-5 py-3.5 hover:bg-slate-50 active:scale-[0.98] transition-all"
             >
               <div className="min-w-0">
                 <div className="font-black text-sm leading-tight">{svc.label}</div>
-                <div className="text-[11px] text-white/50 font-medium">{svc.sub}</div>
+                <div className="text-[11px] text-slate-500 font-medium">{svc.sub}</div>
               </div>
-              <ExternalLink size={14} className="text-white/40 shrink-0 ml-3" />
+              <ExternalLink size={14} className="text-slate-400 shrink-0 ml-3" />
             </a>
           ))}
         </div>
@@ -424,34 +424,34 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               onClick={() => setShowEventPicker(false)}
             />
             <motion.div
-              className="fixed inset-x-0 bottom-0 z-50 bg-slate-900/95 backdrop-blur-xl rounded-t-3xl max-h-[80dvh] flex flex-col overflow-hidden border-t border-white/10"
+              className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl max-h-[80dvh] flex flex-col overflow-hidden border-t border-slate-200 shadow-2xl"
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
               <div className="flex justify-center pt-3 pb-1 shrink-0">
-                <div className="w-9 h-1 bg-white/20 rounded-full" />
+                <div className="w-9 h-1 bg-slate-200 rounded-full" />
               </div>
-              <div className="flex items-center justify-between px-5 pt-2 pb-3 shrink-0 border-b border-white/10">
+              <div className="flex items-center justify-between px-5 pt-2 pb-3 shrink-0 border-b border-slate-200">
                 <div>
-                  <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">準備物リスト</div>
-                  <h2 className="text-base font-black text-white">どのイベントに追加しますか？</h2>
+                  <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-0.5">準備物リスト</div>
+                  <h2 className="text-base font-black text-slate-900">どのイベントに追加しますか？</h2>
                 </div>
                 <button
                   onClick={() => setShowEventPicker(false)}
-                  className="p-2 rounded-xl hover:bg-white/10 transition-colors text-white/50"
+                  className="p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-500"
                 >
                   <X size={18} />
                 </button>
               </div>
               <div className="overflow-y-auto px-4 pt-3 pb-10 space-y-4">
                 {pickerEvents.length === 0 ? (
-                  <div className="py-12 text-center text-sm text-white/40">進行中のイベントがありません</div>
+                  <div className="py-12 text-center text-sm text-slate-400">進行中のイベントがありません</div>
                 ) : (
                   pickerGroups.map(({ month, events: evs }) => (
                     <div key={month}>
-                      <div className="text-[11px] font-black text-white/40 uppercase tracking-widest px-1 mb-2">{month}</div>
+                      <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest px-1 mb-2">{month}</div>
                       <div className="flex flex-col gap-2">
                         {evs.map(ev => {
                           const s = fmtDateJP(ev.start);
@@ -471,7 +471,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
                             <button
                               key={ev.id}
                               onClick={() => { setShowEventPicker(false); onSelectPrepEvent(ev); }}
-                              className="w-full text-left bg-white/10 rounded-2xl border border-white/15 flex items-stretch overflow-hidden hover:bg-white/15 active:scale-[0.98] transition-all"
+                              className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-sm flex items-stretch overflow-hidden hover:bg-slate-50 active:scale-[0.98] transition-all"
                             >
                               <div
                                 className="flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0"
@@ -483,15 +483,15 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
                               </div>
                               <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
                                 <div className="flex items-center gap-2 mb-0.5">
-                                  <span className="font-bold text-white text-sm truncate">{ev.venue}</span>
+                                  <span className="font-bold text-slate-900 text-sm truncate">{ev.venue}</span>
                                   {urgencyBadge && (
                                     <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full ${urgencyBadge.cls}`}>{urgencyBadge.label}</span>
                                   )}
                                 </div>
-                                <div className="text-xs text-white/50 truncate">{fmtDateRange(ev.start, ev.end)}</div>
+                                <div className="text-xs text-slate-500 truncate">{fmtDateRange(ev.start, ev.end)}</div>
                               </div>
                               <div className="flex items-center pr-3">
-                                <ChevronRight size={16} className="text-white/30 shrink-0" />
+                                <ChevronRight size={16} className="text-slate-400 shrink-0" />
                               </div>
                             </button>
                           );
@@ -518,7 +518,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.18 }}
           >
-            <div className="bg-slate-900 text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-xl">
+            <div className="bg-white border border-slate-200 text-slate-900 text-sm font-bold px-5 py-3 rounded-2xl shadow-xl">
               権限がありません
             </div>
           </motion.div>

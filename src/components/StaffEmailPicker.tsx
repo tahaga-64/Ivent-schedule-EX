@@ -38,35 +38,35 @@ export default function StaffEmailPicker({ staff, knownUsers, onSave, onClose }:
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-slate-900 border border-white/15 shadow-2xl overflow-hidden"
+        className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
-          <h2 className="text-sm font-black text-white truncate">「{staff.name}」のメール連携</h2>
-          <button onClick={onClose} className="p-2 rounded-xl text-white/50 hover:bg-white/10 transition-colors" aria-label="閉じる">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+          <h2 className="text-sm font-black text-slate-900 truncate">「{staff.name}」のメール連携</h2>
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition-colors" aria-label="閉じる">
             <X size={18} />
           </button>
         </div>
 
         <div className="px-5 py-4 space-y-4">
           <div>
-            <div className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1.5">ログイン済みユーザーから選択</div>
-            <div className="flex items-center gap-2 bg-white/10 border border-white/15 rounded-xl px-3 py-2 mb-2">
-              <Search size={14} className="text-white/50 shrink-0" />
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">ログイン済みユーザーから選択</div>
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 mb-2">
+              <Search size={14} className="text-slate-400 shrink-0" />
               <input
                 value={filter}
                 onChange={e => setFilter(e.target.value)}
                 placeholder="名前・メールで絞り込み"
-                className="flex-1 bg-transparent text-xs text-white placeholder-white/40 outline-none min-w-0"
+                className="flex-1 bg-transparent text-xs text-slate-900 placeholder-slate-400 outline-none min-w-0"
               />
             </div>
             <div className="max-h-52 overflow-y-auto space-y-1">
               {list.length === 0 && (
-                <div className="text-xs text-white/40 py-3 text-center">
+                <div className="text-xs text-slate-400 py-3 text-center">
                   該当ユーザーなし（各自が一度ログインすると表示されます）
                 </div>
               )}
@@ -75,38 +75,38 @@ export default function StaffEmailPicker({ staff, knownUsers, onSave, onClose }:
                   key={u.email}
                   type="button"
                   onClick={() => onSave(u.email)}
-                  className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left bg-white/5 hover:bg-indigo-600/25 border border-white/10 transition-colors"
+                  className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left bg-slate-50 hover:bg-indigo-50 border border-slate-200 transition-colors"
                 >
-                  <div className="w-7 h-7 rounded-full bg-indigo-500/30 flex items-center justify-center text-indigo-200 font-bold text-xs shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs shrink-0">
                     {(u.displayName || u.email)[0]}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-bold text-white truncate">{u.displayName || '（名前未設定）'}</div>
-                    <div className="text-[11px] text-white/45 truncate">{u.email}</div>
+                    <div className="text-xs font-bold text-slate-900 truncate">{u.displayName || '（名前未設定）'}</div>
+                    <div className="text-[11px] text-slate-500 truncate">{u.email}</div>
                   </div>
-                  {staff.email === u.email && <Check size={14} className="text-emerald-400 shrink-0" />}
+                  {staff.email === u.email && <Check size={14} className="text-emerald-600 shrink-0" />}
                 </button>
               ))}
             </div>
           </div>
 
           <div>
-            <div className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1.5">または手入力</div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">または手入力</div>
             <input
               value={manual}
               onChange={e => setManual(e.target.value)}
               placeholder="example@gmail.com"
-              className="w-full rounded-xl border border-white/15 bg-white/10 text-white placeholder-white/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+              className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
             />
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2 px-5 py-3 border-t border-white/10">
-          <button onClick={() => onSave('')} className="text-xs font-bold text-red-300/80 hover:text-red-300 transition-colors">
+        <div className="flex items-center justify-between gap-2 px-5 py-3 border-t border-slate-200">
+          <button onClick={() => onSave('')} className="text-xs font-bold text-red-600 hover:text-red-700 transition-colors">
             連携を解除
           </button>
           <div className="flex gap-2">
-            <button onClick={onClose} className="px-3 py-2 rounded-xl text-xs font-bold text-white/60 hover:bg-white/10 transition-colors">
+            <button onClick={onClose} className="px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors">
               キャンセル
             </button>
             <button onClick={() => onSave(manual.trim())} className="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">

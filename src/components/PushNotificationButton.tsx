@@ -51,16 +51,16 @@ export default function PushNotificationButton({ user }: { user: User }) {
     <div className="relative">
       <button
         onClick={() => { setOpen(o => !o); setError(null); }}
-        className="relative p-2 rounded-xl text-white/70 hover:bg-white/15 hover:text-white transition-colors"
+        className="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
         title="プッシュ通知"
         aria-label="プッシュ通知の設定"
       >
         <Icon size={16} />
         {status === 'granted' && (
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400" />
+          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500" />
         )}
         {status === 'default' && (
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-400" />
+          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-500" />
         )}
       </button>
 
@@ -68,38 +68,38 @@ export default function PushNotificationButton({ user }: { user: User }) {
         <>
           {/* 外側クリックで閉じる */}
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-2 w-72 z-50 rounded-2xl border border-white/15 bg-slate-900/95 backdrop-blur-xl shadow-2xl p-4 text-left">
+          <div className="absolute right-0 mt-2 w-72 z-50 rounded-2xl border border-slate-200 bg-white shadow-xl p-4 text-left">
             <div className="flex items-center gap-2 mb-2">
-              <Bell size={15} className="text-white/80" />
-              <h3 className="text-sm font-bold text-white">プッシュ通知</h3>
+              <Bell size={15} className="text-slate-700" />
+              <h3 className="text-sm font-bold text-slate-900">プッシュ通知</h3>
             </div>
 
             {status === 'granted' ? (
               <>
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-300 mb-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 mb-2">
                   <Check size={14} /> この端末で有効です
                 </div>
-                <p className="text-xs text-white/55 leading-relaxed mb-3">
+                <p className="text-xs text-slate-500 leading-relaxed mb-3">
                   イベントの追加や、自分が担当に追加されたときに通知が届きます。
                 </p>
                 <button
                   onClick={handleEnable}
                   disabled={busy}
-                  className="w-full h-9 rounded-xl border border-white/15 text-white/70 hover:bg-white/10 text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full h-9 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {busy && <Loader2 size={14} className="animate-spin" />}
                   この端末を再登録
                 </button>
               </>
             ) : status === 'denied' ? (
-              <p className="text-xs text-white/60 leading-relaxed">
+              <p className="text-xs text-slate-500 leading-relaxed">
                 ブラウザでこのサイトの通知が
-                <strong className="text-white/85">ブロック</strong>
+                <strong className="text-slate-800">ブロック</strong>
                 されています。アドレスバーのサイト設定から通知を「許可」に変更し、ページを再読み込みしてください。
               </p>
             ) : (
               <>
-                <p className="text-xs text-white/55 leading-relaxed mb-3">
+                <p className="text-xs text-slate-500 leading-relaxed mb-3">
                   イベントの追加や、自分が担当に追加されたときにこの端末へ通知を届けます。
                 </p>
                 <button
@@ -113,9 +113,9 @@ export default function PushNotificationButton({ user }: { user: User }) {
               </>
             )}
 
-            {error && <p className="mt-2 text-[11px] text-red-300 leading-snug">{error}</p>}
+            {error && <p className="mt-2 text-[11px] text-red-600 leading-snug">{error}</p>}
 
-            <p className="mt-3 text-[10px] text-white/35 leading-snug">
+            <p className="mt-3 text-[10px] text-slate-400 leading-snug">
               iPhone はホーム画面に追加したアプリから開くと有効化できます（iOS 16.4 以降）。
             </p>
           </div>
