@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronRight, Package } from 'lucide-react';
 import { Event } from '../types';
-import { fmtDateRange } from '../lib/eventHelpers';
+import { fmtDateRange, normalizeRegion } from '../lib/eventHelpers';
 
 interface EventPickerTableProps {
   events: Event[];
@@ -78,7 +78,7 @@ export default function EventPickerTable({ events, onSelect, variant = 'active' 
                   </div>
                 </td>
                 <td className="px-4 py-3.5 text-xs text-white/50 whitespace-nowrap">{fmtDateRange(ev.start, ev.end)}</td>
-                <td className="px-4 py-3.5 text-xs text-white/60 hidden lg:table-cell">{ev.region || '—'}</td>
+                <td className="px-4 py-3.5 text-xs text-white/60 hidden lg:table-cell">{normalizeRegion(ev.region) || '—'}</td>
                 <td className="px-4 py-3.5 text-xs text-white/60 hidden xl:table-cell">{ev.type || '—'}</td>
                 <td className="px-4 py-3.5 text-xs text-white/40 hidden xl:table-cell truncate max-w-[200px]">{ev.client || '—'}</td>
                 <td className="px-2 py-3.5 text-white/30">

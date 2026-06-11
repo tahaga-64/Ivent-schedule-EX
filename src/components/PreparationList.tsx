@@ -7,6 +7,7 @@ import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer, Fi
 import { motion } from 'motion/react';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import { computePrepProgressFields, effectiveArrived } from '../lib/prepProgress';
+import { ARRIVAL_DESTINATIONS, ARRIVAL_DEST_STYLE } from '../constants';
 
 // ─── 発注ステータス ──────────────────────────────────────────────────────────
 
@@ -39,6 +40,7 @@ function createEmptyItem(order: number): PreparationItem {
     prepared: false,
     note: '',
     url: '',
+    arrivalDestination: '',
     order,
   };
 }
@@ -95,6 +97,7 @@ async function handleExportExcel(event: Event, items: PreparationItem[]): Promis
     const rows = filled.map((item, idx) => ({
       '#': idx + 1,
       '到着予定日': item.arrivalDate ?? '',
+      '到着先': item.arrivalDestination ?? '',
       '発注状況': ORDER_STEPS.find(s => s.key === (item.orderStatus ?? 'unordered'))?.label ?? '未発注',
       '準備完了': item.prepared ? '✓' : '',
       '品名': item.name,
@@ -109,7 +112,7 @@ async function handleExportExcel(event: Event, items: PreparationItem[]): Promis
 
     const ws = XLSX.utils.json_to_sheet(rows);
     ws['!cols'] = [
-      { wch: 4 }, { wch: 14 }, { wch: 6 }, { wch: 8 },
+      { wch: 4 }, { wch: 14 }, { wch: 8 }, { wch: 6 }, { wch: 8 },
       { wch: 30 }, { wch: 6 }, { wch: 10 }, { wch: 12 },
       { wch: 10 }, { wch: 30 }, { wch: 40 },
     ];
@@ -441,8 +444,8 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                 <div className="text-sm font-black text-indigo-300 font-mono">¥{(item.amount || 0).toLocaleString()}</div>
               </div>
             </div>
-            {/* Row 3: 到着予定日 / 準備完了 */}
-            <div className="grid grid-cols-2 border-t border-white/15">
+            {/* Row 3: 到着予定日 / 到着先 / 準備完了 */}
+            <div className="grid grid-cols-3 border-t border-white/15">
               <div className="px-3 py-2 border-r border-white/15">
                 <div className="text-[9px] font-black text-orange-300 uppercase tracking-widest mb-1">到着予定日</div>
                 <input
@@ -452,6 +455,21 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                   onChange={e => updateItem(item.id, { arrivalDate: e.target.value })}
                   className="w-full text-xs font-mono text-white/80 bg-transparent outline-none read-only:cursor-default [color-scheme:dark]"
                 />
+              </div>
+              <div className="px-3 py-2 border-r border-white/15" style={{ background: item.arrivalDestination ? ARRIVAL_DEST_STYLE[item.arrivalDestination]?.bg : undefined }}>
+                <div className="text-[9px] font-black text-cyan-300 uppercase tracking-widest mb-1">到着先</div>
+                <select
+                  disabled={!canEdit}
+                  value={item.arrivalDestination ?? ''}
+                  onChange={e => updateItem(item.id, { arrivalDestination: e.target.value as '新宿' | '長南' | '' })}
+                  className="w-full text-xs font-bold bg-transparent outline-none disabled:opacity-60 [color-scheme:dark]"
+                  style={{ color: item.arrivalDestination ? ARRIVAL_DEST_STYLE[item.arrivalDestination]?.dot : undefined }}
+                >
+                  <option value="">—</option>
+                  {ARRIVAL_DESTINATIONS.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
               </div>
               <div className="px-3 py-2 flex flex-col items-center">
                 <div className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-1.5">準備完了</div>
@@ -553,11 +571,12 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
         {(canEdit || items.filter(i => !isEmptyItem(i)).length > 0) && (
         <div className="bg-white/15 border border-white/20 rounded-2xl overflow-hidden shadow-sm print:border-0 print:shadow-none print:rounded-none">
           <div className="overflow-x-auto print:overflow-visible">
-            <table className="w-full border-collapse text-sm print:text-[9pt] print:min-w-0" style={{ minWidth: '1200px' }}>
+            <table className="w-full border-collapse text-sm print:text-[9pt] print:min-w-0" style={{ minWidth: '1280px' }}>
               <thead>
                 <tr className="bg-white/10 border-b border-white/15">
                   <th className="w-10 px-3 py-3 text-[10px] font-black text-white/40 uppercase tracking-widest text-center border-r border-white/10">#</th>
                   <th className="w-32 px-3 py-3 text-[10px] font-black text-orange-300 uppercase tracking-widest text-center border-r border-white/10 bg-orange-500/10 whitespace-nowrap">到着予定日</th>
+                  <th className="w-24 px-3 py-3 text-[10px] font-black text-cyan-300 uppercase tracking-widest text-center border-r border-white/10 bg-cyan-500/10 whitespace-nowrap">到着先</th>
                   <th className="px-3 py-3 text-[10px] font-black text-amber-300 uppercase tracking-widest text-center border-r border-white/10 bg-amber-500/8 whitespace-nowrap" style={{ minWidth: '200px' }}>発注状況</th>
                   <th className="w-20 px-3 py-3 text-[10px] font-black text-indigo-300 uppercase tracking-widest text-center border-r border-white/10 bg-indigo-500/10 whitespace-nowrap">準備完了</th>
                   <th className="px-4 py-3 text-[10px] font-black text-white/60 uppercase tracking-widest text-left border-r border-white/10" style={{ minWidth: '200px' }}>品名</th>
@@ -592,6 +611,23 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                         onChange={e => updateItem(item.id, { arrivalDate: e.target.value })}
                         className="w-full text-xs font-mono text-white/80 bg-transparent outline-none read-only:cursor-default text-center [color-scheme:dark]"
                       />
+                    </td>
+                    <td
+                      className="px-2 py-2 text-center border-r border-white/10 bg-cyan-500/10"
+                      style={{ background: item.arrivalDestination ? ARRIVAL_DEST_STYLE[item.arrivalDestination]?.bg : undefined }}
+                    >
+                      <select
+                        disabled={!canEdit}
+                        value={item.arrivalDestination ?? ''}
+                        onChange={e => updateItem(item.id, { arrivalDestination: e.target.value as '新宿' | '長南' | '' })}
+                        className="w-full text-xs font-bold bg-transparent outline-none text-center disabled:opacity-60 [color-scheme:dark]"
+                        style={{ color: item.arrivalDestination ? ARRIVAL_DEST_STYLE[item.arrivalDestination]?.dot : undefined }}
+                      >
+                        <option value="">—</option>
+                        {ARRIVAL_DESTINATIONS.map(d => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
                     </td>
                     <td className={`px-3 py-2 border-r border-white/10 transition-colors ${rowStep.rowBg}`}>
                       <div className="print:hidden flex justify-center">

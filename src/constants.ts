@@ -26,16 +26,26 @@ export const DATA = [
   { id: "25", start: "2026-06-27", end: "2026-06-28", region: "近畿", dept: "", type: "ワークショップ", venue: "エディオン販路（高槻宮田/豊中/EXPOCITY/くずは）", client: "KDDI×ビッグローブ", note: "" },
 ];
 
-export const REGIONS = ['東北', '関東', '中部', '近畿', '中国', '四国', '九州'] as const;
+export const REGIONS = ['東日本', '中日本', '西日本', '南日本'] as const;
 
-export const REGION_STYLE: Record<string, any> = {
-  "東北": { bg:"#dbeafe", text:"#1d4ed8", dot:"#3b82f6", calBg:"#eff6ff", calBorder:"#93c5fd" },
-  "関東": { bg:"#e0e7ff", text:"#3730a3", dot:"#6366f1", calBg:"#eef2ff", calBorder:"#a5b4fc" },
-  "中部": { bg:"#d1fae5", text:"#065f46", dot:"#10b981", calBg:"#f0fdf4", calBorder:"#6ee7b7" },
-  "近畿": { bg:"#ede9fe", text:"#5b21b6", dot:"#8b5cf6", calBg:"#f5f3ff", calBorder:"#c4b5fd" },
-  "中国": { bg:"#fce7f3", text:"#9d174d", dot:"#ec4899", calBg:"#fdf2f8", calBorder:"#f9a8d4" },
-  "四国": { bg:"#ffedd5", text:"#9a3412", dot:"#f97316", calBg:"#fff7ed", calBorder:"#fdba74" },
-  "九州": { bg:"#fef9c3", text:"#854d0e", dot:"#eab308", calBg:"#fefce8", calBorder:"#fde047" },
+export const REGION_STYLE: Record<string, { bg: string; text: string; dot: string; calBg: string; calBorder: string }> = {
+  "東日本": { bg: "#dbeafe", text: "#1d4ed8", dot: "#3b82f6", calBg: "#eff6ff", calBorder: "#93c5fd" },
+  "中日本": { bg: "#fee2e2", text: "#b91c1c", dot: "#ef4444", calBg: "#fef2f2", calBorder: "#fca5a5" },
+  "西日本": { bg: "#dcfce7", text: "#15803d", dot: "#22c55e", calBg: "#f0fdf4", calBorder: "#86efac" },
+  "南日本": { bg: "#fef9c3", text: "#854d0e", dot: "#eab308", calBg: "#fefce8", calBorder: "#fde047" },
+};
+
+/** 旧 region 値 → 新4区分（表示・フィルター用） */
+export const LEGACY_REGION_MAP: Record<string, string> = {
+  "北海道": "東日本",
+  "東北": "東日本",
+  "関東": "東日本",
+  "中部": "中日本",
+  "近畿": "西日本",
+  "中国": "西日本",
+  "四国": "西日本",
+  "九州": "南日本",
+  "沖縄": "南日本",
 };
 
 export const TYPE_STYLE: Record<string, any> = {
@@ -49,15 +59,9 @@ export const TYPE_STYLE: Record<string, any> = {
 
 export const DAYS_JP = ["日","月","火","水","木","金","土"];
 
-export const DEPT_OPTIONS = ["北海道", "東北", "関東", "中部", "近畿", "四国", "九州", "沖縄"] as const;
+export const ARRIVAL_DESTINATIONS = ['新宿', '長南'] as const;
 
-export const DEPT_TO_REGION: Record<string, string> = {
-  "北海道": "東日本",
-  "東北":   "東日本",
-  "関東":   "東日本",
-  "中部":   "中日本",
-  "近畿":   "西日本",
-  "四国":   "西日本",
-  "九州":   "南日本",
-  "沖縄":   "南日本",
+export const ARRIVAL_DEST_STYLE: Record<string, { dot: string; bg: string }> = {
+  "新宿": { dot: "#06b6d4", bg: "rgba(6,182,212,0.15)" },
+  "長南": { dot: "#a855f7", bg: "rgba(168,85,247,0.15)" },
 };

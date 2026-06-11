@@ -67,6 +67,8 @@ export interface PreparationItem {
   arrived: boolean;
   prepared: boolean;
   arrivalDate?: string;
+  /** 到着先（新宿 / 長南） */
+  arrivalDestination?: '新宿' | '長南' | '';
   note: string;
   noteUpdatedByName?: string | null;
   noteUpdatedByEmail?: string | null;

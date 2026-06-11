@@ -6,7 +6,8 @@ import { buildPrepProgressMap } from './lib/prepProgress';
 import { sendPushNotification, isPushNotificationConfigured } from './lib/pushNotifications';
 import { DATA } from './constants';
 import { Event, EventPhoto, PreparationItem, EventStatus, type StaffMember } from './types';
-import { buildMonthGridCells, type ValidationError, validateEvent, fmtDateJPFull } from './lib/eventHelpers';
+import { buildMonthGridCells, type ValidationError, validateEvent, fmtDateJPFull, normalizeRegion } from './lib/eventHelpers';
+import { applyEventSnapshotChanges } from './lib/firestoreSnapshot';
 import { Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LoginScreen from './components/LoginScreen';
@@ -26,7 +27,6 @@ import SavingIndicator from './components/SavingIndicator';
 import MobileBottomNav from './components/MobileBottomNav';
 import MobileMonthNav from './components/MobileMonthNav';
 import MigrationBanner from './components/MigrationBanner';
-import LoadingBar from './components/LoadingBar';
 import LoadingSplash from './components/LoadingSplash';
 import ViewLoadingFallback from './components/ViewLoadingFallback';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from './contexts/UnsavedChangesContext';
@@ -94,7 +94,7 @@ function buildCalendarDensityPreviewEvents(
   }
   // d0: 同一週の「0件」比較用セル（この日にはプレビューイベントを追加しない）
   void d0;
-  const region = regionFilter !== "すべて" ? regionFilter : "関東";
+  const region = regionFilter !== "すべて" ? regionFilter : "東日本";
   const type = typeFilter !== "すべて" ? typeFilter : "その他";
   const pad = (n: number) => String(n).padStart(2, "0");
   const iso = (day: number) => `${year}-${pad(month)}-${pad(day)}`;
@@ -132,14 +132,9 @@ export default function App() {
     const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout', 'album', 'schedule'];
     return valid.includes(saved as ViewMode) ? saved as ViewMode : 'home';
   });
-  const [viewLoading, setViewLoading] = useState(false);
-  const viewLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { runWithGuard } = useUnsavedChanges();
 
   const applySetView = useCallback((v: ViewMode) => {
-    setViewLoading(true);
-    if (viewLoadTimerRef.current) clearTimeout(viewLoadTimerRef.current);
-    viewLoadTimerRef.current = setTimeout(() => setViewLoading(false), 400);
     setView(v);
   }, []);
 
@@ -281,11 +276,7 @@ export default function App() {
   // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "events"), (snapshot) => {
-      const data: Record<string, Event> = {};
-      snapshot.forEach(doc => {
-        data[doc.id] = { id: doc.id, ...doc.data() } as Event;
-      });
-      setDbEvents(data);
+      setDbEvents(prev => applyEventSnapshotChanges(prev, snapshot) ?? prev);
     });
     return () => unsubscribe();
   }, []);
@@ -403,7 +394,7 @@ export default function App() {
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     let filtered = allEvents.filter(d => {
-      if (regionFilter !== "すべて" && d.region !== regionFilter) return false;
+      if (regionFilter !== "すべて" && normalizeRegion(d.region) !== regionFilter) return false;
       if (typeFilter !== "すべて" && d.type !== typeFilter) return false;
       if (monthFilter !== "すべて") {
         const m = parseInt(monthFilter);
@@ -458,7 +449,10 @@ export default function App() {
     const byStatus: Record<string, number> = { "scheduled": 0, "completed": 0, "cancelled": 0 };
 
     activeEvents.forEach(d => {
-      if (d.region) byRegion[d.region] = (byRegion[d.region] || 0) + 1;
+      if (d.region) {
+        const key = normalizeRegion(d.region);
+        byRegion[key] = (byRegion[key] || 0) + 1;
+      }
       if (d.type) byType[d.type] = (byType[d.type] || 0) + 1;
     });
 
@@ -544,7 +538,7 @@ export default function App() {
       setIsSaving(false);
       if (user && isPushNotificationConfigured()) {
         // 本文は「会場 / 日付 / 地域」を ' / ' で連結（空項目は除外）
-        const detailParts = [selected.venue, fmtDateJPFull(selected.start), selected.region]
+        const detailParts = [selected.venue, fmtDateJPFull(selected.start), normalizeRegion(selected.region)]
           .map(p => (p ?? '').trim())
           .filter(Boolean);
         const isNew = pendingNewEventId !== null && selected.id === pendingNewEventId;
@@ -1037,9 +1031,6 @@ VITE_FIREBASE_DATABASE_ID`}
         <div className="absolute inset-0" style={{ background: 'rgba(7, 12, 25, 0.93)' }} />
       </div>
 
-      {/* ページ切替ローディングバー */}
-      <LoadingBar visible={viewLoading} />
-
       {/* Header */}
       <AppHeader
         user={user}
@@ -1102,14 +1093,14 @@ VITE_FIREBASE_DATABASE_ID`}
           <div className="flex-1 relative overflow-hidden">
             <AnimatePresence mode="wait">
               <motion.div
-                key={view + regionFilter + typeFilter + monthFilter + (prepEvent?.id ?? '')}
+                key={view === 'prep' || view === 'archive' ? `${view}-${prepEvent?.id ?? 'list'}` : view}
                 className={`absolute inset-0 overflow-y-auto w-full max-w-none overscroll-contain ${
                   isMobile ? 'p-3 sm:p-4 pb-[calc(3.75rem+env(safe-area-inset-bottom))]' : 'p-4 md:p-6 lg:p-8 pb-20 md:pb-8'
                 }`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.15, ease: 'easeInOut' }}
+                transition={{ duration: 0.1, ease: 'easeOut' }}
               >
                 <Suspense fallback={<ViewLoadingFallback />}>
                   {renderView(view)}

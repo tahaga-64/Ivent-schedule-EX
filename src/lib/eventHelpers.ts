@@ -1,4 +1,4 @@
-import { REGION_STYLE, TYPE_STYLE, DAYS_JP } from '../constants';
+import { REGION_STYLE, TYPE_STYLE, DAYS_JP, REGIONS, LEGACY_REGION_MAP } from '../constants';
 import { Event } from '../types';
 
 export interface ValidationError {
@@ -23,7 +23,16 @@ export function validateEvent(event: Partial<Event>): ValidationError[] {
   return errors;
 }
 
-export const rs = (r: string) => REGION_STYLE[r] || { bg: "#f1f5f9", text: "#334155", dot: "#94a3b8", calBg: "rgba(241, 245, 249, 0.4)", calBorder: "#cbd5e1" };
+export function normalizeRegion(region: string): string {
+  if (!region) return '';
+  if ((REGIONS as readonly string[]).includes(region)) return region;
+  return LEGACY_REGION_MAP[region] ?? region;
+}
+
+export const rs = (r: string) => {
+  const key = normalizeRegion(r);
+  return REGION_STYLE[key] || { bg: "#f1f5f9", text: "#334155", dot: "#94a3b8", calBg: "rgba(241, 245, 249, 0.4)", calBorder: "#cbd5e1" };
+};
 export const ts = (t: string) => TYPE_STYLE[t] || { bg: "#f8fafc", border: "#64748b", text: "#1e293b" };
 export const fmtShort = (d: string) => { if (!d) return "—"; const [, m, day] = d.split("-"); return `${parseInt(m)}/${parseInt(day)}`; };
 
@@ -107,6 +116,34 @@ export function buildEventOptionalCaption(ev: Event, opts?: { includeDates?: boo
     else parts.push(fmtShort(ev.start));
   }
   return parts.join(" · ");
+}
+
+/** 月内の日付 → イベント一覧（カレンダー用・1回の走査で構築） */
+export function buildEventsByDayMap(events: Event[], year: number, month: number): Map<number, Event[]> {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const map = new Map<number, Event[]>();
+  for (let d = 1; d <= daysInMonth; d++) {
+    map.set(d, []);
+  }
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd = new Date(year, month - 1, daysInMonth);
+  monthEnd.setHours(23, 59, 59, 999);
+
+  for (const ev of events) {
+    if (!ev.start) continue;
+    const start = new Date(ev.start + 'T00:00:00');
+    const end = ev.end ? new Date(ev.end + 'T00:00:00') : start;
+    if (end < monthStart || start > monthEnd) continue;
+
+    const from = start < monthStart ? monthStart : start;
+    const to = end > monthEnd ? monthEnd : end;
+    const cur = new Date(from);
+    while (cur <= to) {
+      map.get(cur.getDate())!.push(ev);
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+  return map;
 }
 
 export function eventCoversDate(ev: Event, y: number, m: number, day: number): boolean {

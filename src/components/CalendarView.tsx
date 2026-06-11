@@ -2,7 +2,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Calendar } from 'lucide-react';
 import { Event } from '../types';
 import {
-  ts, rs,
+  ts, rs, normalizeRegion,
   buildEventOptionalCaption, eventCoversDate, buildMonthGridCells,
 } from '../lib/eventHelpers';
 
@@ -212,7 +212,7 @@ export function HoverCard({ event, pos, prepStats }: {
       <div className="space-y-1.5 text-xs text-slate-700">
         <div className="flex gap-2">
           <span className="w-2 h-2 rounded-full mt-1 shrink-0 ring-1 ring-slate-900/10" style={{ background: rs(event.region || '').dot }} />
-          <span>{event.region}</span>
+          <span>{normalizeRegion(event.region)}</span>
         </div>
         <div className="font-mono text-slate-500">
           {event.start}{event.end && event.end !== event.start ? ` → ${event.end}` : ''}

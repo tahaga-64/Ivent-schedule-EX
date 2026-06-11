@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { Plus, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { DAYS_JP } from '../constants';
 import { Event } from '../types';
-import { rs, ts, fmtShort, buildEventOptionalCaption, eventCoversDate, buildMonthGridCells, calStatusStyle } from '../lib/eventHelpers';
+import { rs, ts, fmtShort, buildEventOptionalCaption, buildMonthGridCells, buildEventsByDayMap, calStatusStyle, normalizeRegion } from '../lib/eventHelpers';
 
 const MAX_EVENTS_IN_DAY_CELL = 3;
 const MAX_EVENTS_IN_DAY_CELL_NARROW = 2;
@@ -54,7 +54,7 @@ export function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps
                 onClick={() => onSelect(ev)}
                 title={ev.status === 'completed' ? '完了済み' : undefined}
                 style={{ backgroundColor: statusSty.bg, borderColor: statusSty.border }}
-                className="w-full backdrop-blur-sm border rounded-2xl flex items-center gap-3 text-left shadow-sm transition-all overflow-hidden hover:brightness-110 active:scale-[0.99] min-h-12"
+                className="w-full border rounded-2xl flex items-center gap-3 text-left shadow-sm transition-all overflow-hidden hover:brightness-110 active:scale-[0.99] min-h-12"
               >
                 <div className="w-1 self-stretch rounded-l-2xl shrink-0" style={{ background: statusSty.border }} />
                 <div className="flex-1 py-4 min-w-0">
@@ -138,6 +138,10 @@ export function MobileMonthWeekGrid({
   const weekRowCount = cells.length / 7;
   const weekSlice = cells.slice(weekRowIndex * 7, weekRowIndex * 7 + 7);
   const today = new Date();
+  const eventsByDay = useMemo(
+    () => buildEventsByDayMap(events, year, month),
+    [events, year, month]
+  );
 
   return (
     <div className="space-y-3">
@@ -174,7 +178,7 @@ export function MobileMonthWeekGrid({
             today.getFullYear() === year &&
             today.getMonth() === month - 1 &&
             today.getDate() === cell.day;
-          const dayEvents = cell.current ? events.filter((ev) => eventCoversDate(ev, year, month, cell.day)) : [];
+          const dayEvents = cell.current ? (eventsByDay.get(cell.day) ?? []) : [];
           const maxN = MAX_EVENTS_IN_DAY_CELL_NARROW;
           const visible = dayEvents.slice(0, maxN);
           const hiddenCount = Math.max(0, dayEvents.length - maxN);
@@ -226,7 +230,7 @@ export function MobileMonthWeekGrid({
                         {ev.venue}
                       </span>
                       <span className="w-full truncate text-[9px] leading-tight text-white/50">
-                        {ev.region}{ev.type ? `・${ev.type}` : ''}
+                        {normalizeRegion(ev.region)}{ev.type ? `・${ev.type}` : ''}
                       </span>
                     </button>
                   );
@@ -288,7 +292,11 @@ export function MobileDayAgendaView({
 }: MobileDayAgendaViewProps) {
   const dim = new Date(year, month, 0).getDate();
   const day = Math.min(Math.max(1, agendaDay), dim);
-  const dayEvents = events.filter((ev) => eventCoversDate(ev, year, month, day));
+  const eventsByDay = useMemo(
+    () => buildEventsByDayMap(events, year, month),
+    [events, year, month]
+  );
+  const dayEvents = eventsByDay.get(day) ?? [];
   const dow = DAYS_JP[new Date(year, month - 1, day).getDay()];
   const maxN = MAX_EVENTS_IN_DAY_CELL_NARROW;
   const visible = dayEvents.slice(0, maxN);
@@ -413,8 +421,12 @@ interface CalendarViewProps {
   prepProgressMap?: Record<string, { total: number; done: number }>;
 }
 
-export function CalendarView({ events, year, month, setYear, setMonth, onSelect, onHover, onHoverEnd, onCreateEvent, onOpenDayDetail, narrowViewport, densityPreview, prepProgressMap = {} }: CalendarViewProps) {
+function CalendarViewInner({ events, year, month, setYear, setMonth, onSelect, onHover, onHoverEnd, onCreateEvent, onOpenDayDetail, narrowViewport, densityPreview, prepProgressMap = {} }: CalendarViewProps) {
   const cells = buildMonthGridCells(year, month);
+  const eventsByDay = useMemo(
+    () => buildEventsByDayMap(events, year, month),
+    [events, year, month]
+  );
 
   const maxEventsInCell = narrowViewport ? MAX_EVENTS_IN_DAY_CELL_NARROW : MAX_EVENTS_IN_DAY_CELL;
   const eventRowMinHeight = narrowViewport ? CAL_EVENT_ROW_MIN_HEIGHT_TOUCH : CAL_DAY_CELL_EVENT_ROW_MIN_HEIGHT;
@@ -468,7 +480,7 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
           const isSun = idx % 7 === 0;
           const isSatCal = idx % 7 === 6;
           const isToday = cell.current && today.getFullYear() === year && today.getMonth() === month - 1 && today.getDate() === cell.day;
-          const dayEvents = cell.current ? events.filter((ev) => eventCoversDate(ev, year, month, cell.day)) : [];
+          const dayEvents = cell.current ? (eventsByDay.get(cell.day) ?? []) : [];
           const visibleEvents = dayEvents.slice(0, maxEventsInCell);
           const hiddenCount = Math.max(0, dayEvents.length - maxEventsInCell);
 
@@ -606,6 +618,8 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
   );
 }
 
+export const CalendarView = memo(CalendarViewInner);
+
 export function HoverCard({ event, pos, prepStats }: {
   event: Event;
   pos: { x: number; y: number };
@@ -617,7 +631,7 @@ export function HoverCard({ event, pos, prepStats }: {
 
   return (
     <div
-      className="fixed z-[200] w-60 bg-slate-900/90 backdrop-blur-md border border-white/15 rounded-2xl shadow-2xl p-4 pointer-events-none hidden md:block"
+      className="fixed z-[200] w-60 bg-slate-900/95 border border-white/15 rounded-2xl shadow-2xl p-4 pointer-events-none hidden md:block"
       style={{ left, top }}
     >
       <div className="flex items-start gap-2 mb-3">
@@ -634,7 +648,7 @@ export function HoverCard({ event, pos, prepStats }: {
       <div className="space-y-1.5 text-xs text-white/70">
         <div className="flex gap-2">
           <span className="w-2 h-2 rounded-full mt-1 shrink-0 ring-1 ring-white/15" style={{ background: rs(event.region || '').dot }} />
-          <span>{event.region}</span>
+          <span>{normalizeRegion(event.region)}</span>
         </div>
         <div className="font-mono text-white/50">
           {event.start}{event.end && event.end !== event.start ? ` → ${event.end}` : ''}
