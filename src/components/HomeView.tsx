@@ -231,8 +231,11 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               {new Date().getDate()}
             </div>
             <div className="pb-1 flex flex-col gap-0.5 min-w-0">
-              <div className="text-sm sm:text-xl font-black text-slate-800 leading-tight truncate">
-                {new Date().toLocaleDateString('ja-JP', { month: 'long', weekday: 'long' })}
+              <div className="text-sm sm:text-xl font-black text-slate-800 leading-tight">
+                {new Date().toLocaleDateString('ja-JP', { month: 'long' })}
+              </div>
+              <div className="text-xs font-bold text-slate-500 leading-tight">
+                {new Date().toLocaleDateString('ja-JP', { weekday: 'long' })}
               </div>
               <div className="text-xs sm:text-sm font-bold text-slate-400">{new Date().getFullYear()}</div>
             </div>
