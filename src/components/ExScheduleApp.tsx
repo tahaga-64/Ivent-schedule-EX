@@ -632,22 +632,32 @@ function App({ currentUser }: { currentUser: User | null }) {
   useEffect(() => {
     const today = new Date();
     if (currentYear !== today.getFullYear() || currentMonth !== today.getMonth()) return;
-    const todayDay = today.getDate();
-    const todayDow = getDow(today.getFullYear(), today.getMonth(), todayDay); // 0=Mon
 
-    if (activeTab === 'schedule' && schedCalendarRef.current) {
-      const el = schedCalendarRef.current;
-      // min-w-[700px] / 7 cols ≈ 100px per col
-      const colWidth = Math.max(el.scrollWidth, 700) / 7;
-      el.scrollLeft = todayDow * colWidth + colWidth / 2 - el.clientWidth / 2;
-    }
-    if (activeTab === 'overall' && overallTableRef.current) {
-      const el = overallTableRef.current;
-      const nameCol = 64;
-      const dayCol = 52;
-      el.scrollLeft = nameCol + (todayDay - 1) * dayCol + dayCol / 2 - el.clientWidth / 2;
-    }
-  }, [activeTab, currentYear, currentMonth]);
+    const container =
+      activeTab === 'schedule' ? schedCalendarRef.current :
+      activeTab === 'overall' ? overallTableRef.current : null;
+    if (!container) return;
+
+    // レイアウト確定後（描画＆Firestoreデータ反映後）にスクロール位置を計算する
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const el = container;
+        const todayCell = el.querySelector<HTMLElement>('[data-today="true"]');
+        if (!todayCell) return;
+        // getBoundingClientRect で実測（min-w-max により列幅が可変なため固定値は使わない）
+        const cellRect = todayCell.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        const cellCenterInContainer = (cellRect.left - elRect.left) + el.scrollLeft + cellRect.width / 2;
+        const target = cellCenterInContainer - el.clientWidth / 2;
+        el.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [activeTab, currentYear, currentMonth, currentSchedMember, isLoading]);
 
   const saveData = async (updates: Record<string, any>) => {
     if (!monthKey || monthKey.includes('NaN')) {
@@ -1165,6 +1175,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                         return (
                           <div
                             key={day}
+                            data-today={isToday ? 'true' : undefined}
                             className={`border border-border rounded-lg p-1.5 md:p-2 min-h-[100px] md:min-h-[130px] transition-all relative flex flex-col bg-white ${
                               isSun ? 'bg-red-50' : isSat ? 'bg-blue-50' : ''
                             } ${isToday ? 'ring-2 ring-indigo-400 ring-offset-2 ring-offset-white' : ''}`}
@@ -1271,8 +1282,12 @@ function App({ currentUser }: { currentUser: User | null }) {
                           const dow = getDow(currentYear, currentMonth, day);
                           const isSat = dow === 5;
                           const isSun = dow === 6;
+                          const _t = new Date();
+                          const isToday = currentYear === _t.getFullYear() && currentMonth === _t.getMonth() && day === _t.getDate();
                           return (
-                            <th key={day} className={`p-0.5 border border-border font-bold text-center min-w-[52px] min-w-max text-xs sticky top-0 z-30 ${
+                            <th key={day} data-today={isToday ? 'true' : undefined} className={`p-0.5 border font-bold text-center min-w-[52px] min-w-max text-xs sticky top-0 z-30 ${
+                              isToday ? 'border-indigo-400 ring-1 ring-indigo-400' : 'border-border'
+                            } ${
                               isSun ? 'text-red-600 bg-red-50' : isSat ? 'text-blue-600 bg-blue-50' : 'bg-slate-100 text-slate-900'
                             }`}>
                               {day}({['月','火','水','木','金','土','日'][dow]})
