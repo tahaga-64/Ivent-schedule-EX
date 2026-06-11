@@ -688,6 +688,34 @@ function App({ currentUser }: { currentUser: User | null }) {
     };
   }, [activeTab, currentYear, currentMonth, currentSchedMember, isLoading]);
 
+  // 全体表示で自分の名前行を縦方向に中央へ auto-scroll
+  useEffect(() => {
+    if (activeTab !== 'overall' || !myName) return;
+
+    let cancelled = false;
+    let rafId = 0;
+    const startedAt = performance.now();
+
+    const tryScrollToMyRow = () => {
+      if (cancelled) return;
+      const el = overallTableRef.current;
+      const myRow = el
+        ? Array.from(el.querySelectorAll<HTMLElement>('[data-member]')).find(r => r.dataset.member === myName)
+        : null;
+      if (myRow) {
+        myRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      if (performance.now() - startedAt < 2500) rafId = requestAnimationFrame(tryScrollToMyRow);
+    };
+    rafId = requestAnimationFrame(tryScrollToMyRow);
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+    };
+  }, [activeTab, myName, currentYear, currentMonth, isLoading]);
+
   const saveData = async (updates: Record<string, any>) => {
     if (!monthKey || monthKey.includes('NaN')) {
       console.error('Invalid monthKey for saving:', monthKey);
@@ -1162,19 +1190,15 @@ function App({ currentUser }: { currentUser: User | null }) {
                       </button>
                     )}
                   </div>
-                  <div className="text-[11px] text-text2 flex items-center gap-1">
-                    <ChevronRight size={12} className="animate-pulse" />
-                    横スクロールで全体表示
-                  </div>
                 </div>
 
-                {/* Scrollable Calendar Container */}
-                <div ref={schedCalendarRef} className="overflow-x-auto pb-2 -mx-0">
-                  <div className="min-w-[700px]">
+                {/* Calendar Container — no forced min-width so it fits on one screen */}
+                <div ref={schedCalendarRef} className="overflow-x-auto pb-1">
+                  <div>
                     {/* Calendar Grid Header */}
-                    <div className="grid grid-cols-7 gap-1 md:gap-2 mb-1">
+                    <div className="grid grid-cols-7 gap-0.5 mb-0.5">
                       {['月', '火', '水', '木', '金', '土', '日'].map((day, i) => (
-                        <div key={day} className={`text-center text-[11px] font-bold py-1 font-mono ${
+                        <div key={day} className={`text-center text-[10px] font-bold py-0.5 font-mono ${
                           i === 5 ? 'text-blue-600' : i === 6 ? 'text-red-600' : 'text-text2'
                         }`}>
                           {day}
@@ -1183,10 +1207,10 @@ function App({ currentUser }: { currentUser: User | null }) {
                     </div>
 
                     {/* Calendar Grid Body */}
-                    <div className="grid grid-cols-7 gap-1 md:gap-2">
+                    <div className="grid grid-cols-7 gap-0.5">
                       {/* Offset cells */}
                       {Array.from({ length: startOffset }).map((_, i) => (
-                        <div key={`offset-${i}`} className="min-h-[100px] md:min-h-[130px]" />
+                        <div key={`offset-${i}`} className="min-h-[68px]" />
                       ))}
 
                       {/* Day cells */}
@@ -1205,20 +1229,20 @@ function App({ currentUser }: { currentUser: User | null }) {
                           <div
                             key={day}
                             data-today={isToday ? 'true' : undefined}
-                            className={`border border-border rounded-lg p-1.5 md:p-2 min-h-[100px] md:min-h-[130px] transition-all relative flex flex-col bg-white ${
+                            className={`border border-border rounded p-1 min-h-[68px] transition-all relative flex flex-col bg-white ${
                               isSun ? 'bg-red-50' : isSat ? 'bg-blue-50' : ''
-                            } ${isToday ? 'ring-2 ring-indigo-400 ring-offset-2 ring-offset-white' : ''}`}
+                            } ${isToday ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-white' : ''}`}
                           >
-                            <span className={`font-mono text-sm font-black mb-1.5 flex items-center gap-1.5 ${
+                            <span className={`font-mono text-[11px] font-black mb-0.5 flex items-center gap-1 ${
                               isSun ? 'text-red-600' : isSat ? 'text-blue-600' : 'text-slate-900'
                             }`}>
                               {day}
-                              {isToday && <span className="text-[8px] font-black bg-indigo-500 text-white px-1.5 py-0.5 rounded-full leading-none">今日</span>}
+                              {isToday && <span className="text-[7px] font-black bg-indigo-500 text-white px-1 py-0.5 rounded-full leading-none">今</span>}
                             </span>
 
-                            <div className="flex flex-col gap-1 mb-1">
+                            <div className="flex flex-col gap-0.5 mb-0.5">
                               <select
-                                className={`w-full px-1.5 py-1 rounded-full text-[11px] md:text-xs font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[type]}`}
+                                className={`w-full px-0.5 py-0.5 rounded-full text-[9px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[type]}`}
                                 value={type}
                                 onChange={(e) => handleScheduleTypeChange(currentSchedMember, i, e.target.value as StatusType)}
                               >
@@ -1228,8 +1252,8 @@ function App({ currentUser }: { currentUser: User | null }) {
                               </select>
                               {(type !== 'normal' && type !== 'request' && type !== 'rest') && (
                                 <LocalInput
-                                  className="w-full px-1.5 py-0.5 rounded border border-slate-200 text-[11px] md:text-xs text-slate-900 outline-none focus:border-accent bg-slate-50"
-                                  size={11}
+                                  className="w-full px-0.5 py-0 rounded border border-slate-200 text-[9px] text-slate-900 outline-none focus:border-accent bg-slate-50 h-4"
+                                  size={9}
                                   value={detail}
                                   onChange={(val: string) => handleScheduleDetailChange(currentSchedMember, i, val)}
                                   placeholder="詳細..."
@@ -1239,9 +1263,9 @@ function App({ currentUser }: { currentUser: User | null }) {
                             </div>
 
                             <LocalTextarea
-                              className="w-full border border-slate-200 rounded p-1.5 text-[11px] md:text-xs text-slate-900 bg-slate-50 focus:bg-white focus:border-accent outline-none resize-none flex-grow mt-1 placeholder:text-slate-400"
-                              rows={2}
-                              placeholder="メモ..."
+                              className="w-full border border-slate-200 rounded p-0.5 text-[9px] text-slate-900 bg-slate-50 focus:bg-white focus:border-accent outline-none resize-none flex-grow placeholder:text-slate-300"
+                              rows={1}
+                              placeholder="メモ"
                               value={currentMonthData.memos[currentSchedMember]?.[day] || ''}
                               onChange={(val: string) => handleMemoChange(currentSchedMember, day, val)}
                             />
@@ -1391,12 +1415,11 @@ function App({ currentUser }: { currentUser: User | null }) {
                         const normalCount = schedule.filter(s => s.type === 'normal').length;
                         const requestCount = schedule.filter(s => s.type === 'request').length;
                         return (
-                          <tr key={name} className={`transition-colors ${isMe ? 'bg-indigo-50 hover:bg-indigo-100/60' : 'hover:bg-bg/40'}`}>
-                            <td className={`p-1 border border-border sticky left-0 z-20 shadow-[2px_0_8px_-2px_rgba(0,0,0,0.08)] ${isMe ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : 'bg-white'}`}>
+                          <tr key={name} data-member={name} className={`transition-colors ${isMe ? 'bg-indigo-100 hover:bg-indigo-200/60' : 'hover:bg-bg/40'}`}>
+                            <td className={`p-1 border border-border sticky left-0 z-20 shadow-[2px_0_8px_-2px_rgba(0,0,0,0.08)] ${isMe ? 'bg-indigo-100 border-l-2 border-l-indigo-500' : 'bg-white'}`}>
                               <div className="flex flex-col gap-0.5">
                                 <div className="flex items-center justify-between gap-1">
                                   <div className={`font-bold text-[10px] truncate max-w-[40px] ${isMe ? 'text-indigo-700' : 'text-slate-900'}`}>
-                                    {isMe && <span className="text-yellow-500 mr-0.5">★</span>}
                                     {name.replace('　', '')}
                                   </div>
                                   <div className="flex flex-col text-[8px] font-bold leading-tight shrink-0">
