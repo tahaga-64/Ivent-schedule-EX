@@ -301,14 +301,26 @@ export default function EventDetailModal({
                   onChange={e => onUpdate(selected.id, { nearestStation: e.target.value || undefined })}
                 />
                 {selected.nearestStation && (
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selected.nearestStation)}&destination_place_id=`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 text-[10px] font-bold text-indigo-500 hover:text-indigo-700 whitespace-nowrap"
-                  >
-                    地図で見る
-                  </a>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <a
+                      href={`https://jorudan.co.jp/norikae/cgi/nori.cgi?eki2=${encodeURIComponent(selected.nearestStation)}&Rf=0`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-600 hover:bg-blue-100 transition-colors whitespace-nowrap"
+                      title="乗換案内 Web版"
+                    >
+                      🚃 Web
+                    </a>
+                    <a
+                      href="https://apps.apple.com/app/id291676451"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 hover:bg-slate-100 transition-colors whitespace-nowrap"
+                      title="乗換案内アプリ（App Store）"
+                    >
+                      📱 App
+                    </a>
+                  </div>
                 )}
               </div>
             </div>

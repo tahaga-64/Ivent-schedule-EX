@@ -3,14 +3,13 @@ import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedC
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import type { Event, FishItem } from '../types';
-import { Fish, Plus, Trash2, Waves, ChevronDown } from 'lucide-react';
+import { Fish, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { notifyPush, isPushNotificationConfigured } from '../lib/pushNotifications';
 import { fmtDateJPFull } from '../lib/eventHelpers';
 
 interface Props {
   events: Event[];
-  /** 編集可否（魚リストはデスクトップのログイン済みユーザーのみ。スマホは閲覧専用＝canEditFishList が false） */
   canEdit: boolean;
   isActive?: boolean;
 }
@@ -189,57 +188,25 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
 
   return (
     <div className="relative min-h-screen bg-[var(--bg-app)]">
-
-      {/* ヘッダー：水族館グラデーション */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-cyan-600 via-teal-600 to-blue-700 px-4 md:px-6 lg:px-8 pt-8 pb-16">
-        <div className="absolute inset-0 opacity-10">
-          <Waves size={300} className="absolute -bottom-12 -right-8 text-white" strokeWidth={0.5} />
-        </div>
-        <div className="relative z-10">
-          <div className="text-[10px] font-black text-cyan-200 uppercase tracking-[0.2em] mb-1">AQUARIUM</div>
-          <h2 className="text-3xl font-black text-white leading-tight">魚リスト</h2>
-          {selectedEvent && (
-            <div className="mt-2 flex items-center gap-2 text-cyan-100">
-              <Fish size={14} />
-              <span className="text-sm font-bold">{selectedEvent.venue}</span>
-              {selectedEvent.start && (
-                <span className="text-xs text-cyan-200">
-                  {fmtDateRange(selectedEvent.start, selectedEvent.end || selectedEvent.start)}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* 合計バッジ */}
-        {selectedEvent && fishItems.length > 0 && (
-          <div className="absolute top-6 right-4 md:right-6 flex flex-col items-end gap-1">
-            <div className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-2xl px-4 py-2 text-center">
-              <div className="text-2xl font-black text-white tabular-nums leading-none">{totalFishCount}</div>
-              <div className="text-[10px] font-bold text-cyan-100">匹</div>
-            </div>
-            <div className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl px-3 py-1 text-center">
-              <div className="text-sm font-black text-white tabular-nums leading-none">{fishItems.length}</div>
-              <div className="text-[9px] font-bold text-cyan-100">種類</div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="relative z-10 -mt-8 w-full max-w-none px-4 md:px-6 lg:px-8 pb-28 md:pb-8">
+      <div className="relative z-10 w-full max-w-none px-4 md:px-6 lg:px-8 py-6 pb-28 md:pb-8">
 
         {aquariumEvents.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center justify-center h-48 gap-3 text-slate-400">
-            <Fish size={36} strokeWidth={1.5} />
+          <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-500">
+            <Fish size={40} strokeWidth={1.5} />
             <p className="text-sm font-medium">水族館イベントがありません</p>
           </div>
         ) : (
           <>
+            <div className="mb-6">
+              <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">AQUARIUM</div>
+              <h2 className="text-2xl font-black text-slate-900">魚リスト</h2>
+            </div>
+
             {/* イベント選択 */}
-            <div className="mb-5 bg-white rounded-2xl shadow-sm border border-slate-200 p-1">
+            <div className="mb-6">
               {aquariumEvents.length === 1 ? (
-                <div className="px-4 py-3 flex items-center gap-2">
-                  <Fish size={15} className="text-cyan-500 shrink-0" />
+                <div className="flex items-center gap-2 px-4 py-3 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                  <Fish size={15} className="text-slate-400 shrink-0" />
                   <span className="text-sm font-black text-slate-900">{aquariumEvents[0].venue}</span>
                   {aquariumEvents[0].start && (
                     <span className="ml-auto text-xs text-slate-400 shrink-0">
@@ -248,185 +215,172 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
                   )}
                 </div>
               ) : (
-                <div className="flex gap-1 overflow-x-auto p-2 scrollbar-hide">
-                  {aquariumEvents.map(ev => (
-                    <button
-                      key={ev.id}
-                      onClick={() => runWithGuard(() => setSelectedEventId(ev.id))}
-                      className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                        selectedEventId === ev.id
-                          ? 'bg-cyan-600 text-white shadow-sm'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      <Fish size={12} />
-                      <span>{ev.venue}</span>
-                      {ev.start && (
-                        <span className={`text-[10px] ${selectedEventId === ev.id ? 'text-cyan-200' : 'text-slate-400'}`}>
-                          {fmtDateRange(ev.start, ev.end || ev.start)}
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-1">
+                  <div className="flex gap-1 overflow-x-auto p-1 scrollbar-hide">
+                    {aquariumEvents.map(ev => (
+                      <button
+                        key={ev.id}
+                        onClick={() => runWithGuard(() => setSelectedEventId(ev.id))}
+                        className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                          selectedEventId === ev.id
+                            ? 'bg-slate-900 text-white shadow-sm'
+                            : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        <Fish size={12} />
+                        <span>{ev.venue}</span>
+                        {ev.start && (
+                          <span className={`text-[10px] ${selectedEventId === ev.id ? 'text-slate-300' : 'text-slate-400'}`}>
+                            {fmtDateRange(ev.start, ev.end || ev.start)}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
             {selectedEvent && (
-              <div className="md:grid md:grid-cols-[minmax(260px,320px)_1fr] md:gap-6 xl:gap-8 md:items-start">
-
-                {/* 左カラム：入力フォーム */}
-                <div className="md:sticky md:top-4 space-y-3 mb-5 md:mb-0">
-                  {canEdit && (
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                      <div className="px-4 pt-4 pb-2">
-                        <div className="text-[10px] font-black text-cyan-700 uppercase tracking-widest mb-3">
-                          観賞魚を追加
-                        </div>
-                        <div className="flex flex-col gap-2.5">
-                          <input
-                            type="text"
-                            placeholder="魚の名前（例：ネオンテトラ）"
-                            value={newName}
-                            onChange={e => { setNewName(e.target.value); setError(null); }}
-                            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:bg-white transition-colors"
-                          />
-                          <div className="flex gap-2">
-                            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-cyan-400 focus-within:border-transparent transition-all">
-                              <input
-                                type="number"
-                                min={0}
-                                value={newCount}
-                                onChange={e => setNewCount(Number(e.target.value))}
-                                className="w-14 text-center bg-transparent text-sm font-black text-slate-900 focus:outline-none tabular-nums"
-                              />
-                              <span className="text-xs text-slate-500 shrink-0">匹</span>
-                            </div>
-                            <input
-                              type="text"
-                              placeholder="メモ（任意）"
-                              value={newNote}
-                              onChange={e => setNewNote(e.target.value)}
-                              onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                              className="flex-1 min-w-0 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:bg-white transition-colors"
-                            />
-                          </div>
+              <div className="md:grid md:grid-cols-[minmax(260px,340px)_1fr] md:gap-6 xl:gap-8 md:items-start">
+                <div className="md:sticky md:top-4 space-y-4">
+                  {/* 合計バッジ */}
+                  {fishItems.length > 0 && (
+                    <div className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 border border-slate-200 shadow-sm">
+                      <div className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center shrink-0">
+                        <Fish size={18} className="text-slate-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-black text-slate-900 text-sm truncate">{selectedEvent.venue}</div>
+                        <div className="text-xs text-slate-500">
+                          {selectedEvent.start ? fmtDateRange(selectedEvent.start, selectedEvent.end || selectedEvent.start) : '日程未定'}
                         </div>
                       </div>
-                      <div className="p-3 pt-2">
-                        <button
-                          onClick={handleAdd}
-                          disabled={!newName.trim() || saving}
-                          className="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 disabled:from-slate-100 disabled:to-slate-100 disabled:text-slate-400 text-white font-black text-sm py-2.5 transition-all shadow-sm disabled:shadow-none"
-                        >
-                          <Plus size={14} strokeWidth={3} />
-                          {saving ? '追加中...' : '追加する'}
-                        </button>
-                      </div>
+                      <span className="ml-auto shrink-0 text-xs font-black text-slate-700 bg-slate-100 px-3 py-1 rounded-full">
+                        {fishItems.length}種 / {totalFishCount}匹
+                      </span>
                     </div>
                   )}
 
-                  {/* 合計サマリー（モバイル用） */}
-                  {fishItems.length > 0 && (
-                    <div className="md:hidden bg-white rounded-2xl border border-slate-200 shadow-sm px-4 py-3 flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center">
-                        <Fish size={16} className="text-cyan-600" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-xs text-slate-500 font-medium">登録済み</div>
-                        <div className="font-black text-slate-900 text-sm">{fishItems.length}種 / {totalFishCount}匹</div>
+                  {canEdit && (
+                    <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                      <div className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">観賞魚を追加</div>
+                      <div className="flex flex-col gap-2">
+                        <input
+                          type="text"
+                          placeholder="魚の名前（例：ネオンテトラ）"
+                          value={newName}
+                          onChange={e => { setNewName(e.target.value); setError(null); }}
+                          onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                          className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                        />
+                        <div className="flex gap-2 overflow-hidden">
+                          <input
+                            type="number"
+                            min={0}
+                            value={newCount}
+                            onChange={e => setNewCount(Number(e.target.value))}
+                            className="w-24 shrink-0 rounded-xl border border-slate-200 bg-white text-slate-900 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-slate-300"
+                          />
+                          <span className="flex items-center text-sm text-slate-500 shrink-0">匹</span>
+                          <input
+                            type="text"
+                            placeholder="メモ（任意）"
+                            value={newNote}
+                            onChange={e => setNewNote(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                            className="flex-1 min-w-0 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                          />
+                        </div>
+                        <button
+                          onClick={handleAdd}
+                          disabled={!newName.trim() || saving}
+                          className="flex items-center justify-center gap-2 w-full rounded-xl bg-slate-900 hover:bg-slate-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-black text-sm py-2.5 transition-colors"
+                        >
+                          <Plus size={14} />
+                          {saving ? '追加中...' : '追加'}
+                        </button>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* 右カラム：魚リスト */}
-                <div className="min-w-0">
+                <div className="min-w-0 mt-4 md:mt-0">
                   {error && (
                     <div className="mb-3 bg-red-50 border border-red-200 rounded-xl px-4 py-2 text-xs text-red-800 font-bold">
                       {error}
                     </div>
                   )}
 
+                  {fishItems.length > 0 && (
+                    <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5">
+                      <span className="text-xs font-black uppercase tracking-widest text-slate-500">登録一覧</span>
+                      <span className="text-sm font-black text-slate-800 tabular-nums">
+                        {fishItems.length}種 / 合計 {totalFishCount}匹
+                      </span>
+                    </div>
+                  )}
+
                   {fishItems.length === 0 ? (
-                    <div className="bg-white rounded-2xl border border-dashed border-slate-200 py-16 text-center">
-                      <Fish size={32} className="mx-auto mb-3 text-slate-300" strokeWidth={1.5} />
-                      <div className="text-sm font-bold text-slate-400">観賞魚が登録されていません</div>
-                      {canEdit && <div className="text-xs mt-1 text-slate-300">フォームから追加してください</div>}
+                    <div className="text-center py-16 text-slate-500">
+                      <Fish size={32} className="mx-auto mb-3 opacity-50" />
+                      <div className="text-sm">観賞魚が登録されていません</div>
+                      {canEdit && <div className="text-xs mt-1 text-slate-400">左のフォームから追加してください</div>}
                     </div>
                   ) : (
-                    <>
-                      {/* PC用 合計ヘッダー */}
-                      <div className="hidden md:flex items-center justify-between gap-3 mb-4">
-                        <span className="text-xs font-black uppercase tracking-widest text-slate-400">登録一覧</span>
-                        <span className="text-xs font-black text-slate-500 tabular-nums bg-slate-100 rounded-full px-3 py-1">
-                          {fishItems.length}種 / 合計 {totalFishCount}匹
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                        <AnimatePresence initial={false}>
-                          {fishItems.map((item, index) => (
-                            <motion.div
-                              key={item.id}
-                              layout
-                              initial={{ opacity: 0, scale: 0.9 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.9 }}
-                              transition={{ duration: 0.15 }}
-                              className="bg-white border border-slate-200 rounded-2xl p-3.5 hover:border-cyan-200 hover:shadow-sm transition-all group relative overflow-hidden"
-                            >
-                              {/* 通し番号 */}
-                              <div className="absolute top-2.5 left-3 text-[10px] font-black text-slate-300 tabular-nums">
-                                #{index + 1}
-                              </div>
-
-                              {/* 削除ボタン */}
-                              {canEdit && (
-                                <button
-                                  onClick={() => handleDelete(item.id)}
-                                  aria-label={`${item.name}を削除`}
-                                  className="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
+                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <AnimatePresence initial={false}>
+                        {fishItems.map((item, index) => (
+                          <motion.div
+                            key={item.id}
+                            layout
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.15 }}
+                            className="bg-white border border-slate-200 rounded-2xl p-4 hover:border-slate-300 transition-colors group shadow-sm relative"
+                          >
+                            <div className="absolute top-2.5 left-3 text-[10px] font-black text-slate-300 tabular-nums">
+                              #{index + 1}
+                            </div>
+                            {canEdit && (
+                              <button
+                                onClick={() => handleDelete(item.id)}
+                                aria-label={`${item.name}を削除`}
+                                className="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                            <div className="mt-3 mb-2">
+                              <div className="font-black text-sm text-slate-900 leading-snug pr-4">{item.name}</div>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {canEdit ? (
+                                <>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={item.count}
+                                    onChange={e => handleCountChange(item, Number(e.target.value))}
+                                    aria-label={`${item.name}の匹数`}
+                                    className="w-16 text-center rounded-lg border border-slate-200 px-2 py-1 text-xs font-black tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                                  />
+                                  <span className="text-xs text-slate-500">匹</span>
+                                </>
+                              ) : (
+                                <span className="font-bold tabular-nums text-sm text-slate-900">{item.count}<span className="text-xs text-slate-500 ml-0.5">匹</span></span>
                               )}
-
-                              <div className="mt-3 mb-2">
-                                <div className="font-black text-sm text-slate-900 leading-snug pr-4">{item.name}</div>
+                            </div>
+                            {item.note && (
+                              <div className="mt-2 text-xs text-slate-400 bg-slate-50 rounded-lg px-2 py-1 leading-snug">
+                                {item.note}
                               </div>
-
-                              <div className="flex items-center gap-1.5">
-                                {canEdit ? (
-                                  <div className="flex items-center gap-1 bg-cyan-50 border border-cyan-100 rounded-lg px-2 py-1 focus-within:ring-2 focus-within:ring-cyan-300 transition-all">
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      value={item.count}
-                                      onChange={e => handleCountChange(item, Number(e.target.value))}
-                                      aria-label={`${item.name}の匹数`}
-                                      className="w-10 text-center bg-transparent text-sm font-black tabular-nums text-cyan-800 focus:outline-none"
-                                    />
-                                    <span className="text-xs text-cyan-600 font-bold">匹</span>
-                                  </div>
-                                ) : (
-                                  <span className="bg-cyan-50 border border-cyan-100 text-cyan-800 font-black text-sm tabular-nums px-2.5 py-1 rounded-lg">
-                                    {item.count}<span className="text-xs font-bold ml-0.5">匹</span>
-                                  </span>
-                                )}
-                              </div>
-
-                              {item.note && (
-                                <div className="mt-2 text-xs text-slate-400 bg-slate-50 rounded-lg px-2 py-1 leading-snug">
-                                  {item.note}
-                                </div>
-                              )}
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-                      </div>
-                    </>
+                            )}
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </div>
                   )}
                 </div>
               </div>
