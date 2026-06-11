@@ -3,7 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2026-05-18"
 
 kv_namespaces = [
-  { binding = "PUSH_SUBSCRIPTIONS", id = "REPLACE_WITH_KV_NAMESPACE_ID" }
+  { binding = "PUSH_SUBSCRIPTIONS", id = "e414458876c7455e89680ec4fa847afe" }
 ]
 
 [vars]
@@ -11,4 +11,4 @@ FIREBASE_PROJECT_ID = "ivent-schedule-ex"
 VAPID_SUBJECT = "mailto:taoki0183@gmail.com"
 EDITOR_EMAILS = "taoki0183@gmail.com,haruhito3901@gmail.com,m.takada.kp@gmail.com"
 ALLOWED_ORIGINS = "http://localhost:3000,https://ivent-schedule-ex.vercel.app,https://ivent-schedule-ex.web.app,https://ivent-schedule-ex.firebaseapp.com"
-WEB_PUSH_PUBLIC_KEY = "BJl8USscMJjqSnBJH-6lZiHz9ZOv2Iu9aU_pu-rm_7sptMwKnopQ4E1w_YNUmG_G-R4-v6glw6TfmTbkGlnVWDg"
+WEB_PUSH_PUBLIC_KEY = "BMZYiQ9iKjpXpUi_8PfTddgeV5hNjTWRbA2NIL1dACiROUwsEBjpVlsAzG44PIvI2yM810XB6JVvVAdOTOnVKw8"
