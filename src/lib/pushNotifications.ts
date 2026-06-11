@@ -215,7 +215,7 @@ export async function sendPushNotification(payload: PushNotificationPayload): Pr
 export function notifyPush(payload: PushNotificationPayload): void {
   if (!isPushNotificationConfigured()) return;
   sendPushNotification(payload).catch((e) => {
-    console.warn('Push send failed:', e);
+    console.warn(`[Push] 送信失敗 (${payload.type}):`, e instanceof Error ? e.message : e);
   });
 }
 

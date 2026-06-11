@@ -1,8 +1,15 @@
 {
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|push-sw\\.js|manifest\\.webmanifest|favicon\\.svg|icon|apple-touch-icon|mercury-).*)", "destination": "/index.html" }
   ],
   "headers": [
+    {
+      "source": "/push-sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
     {
       "source": "/index.html",
       "headers": [

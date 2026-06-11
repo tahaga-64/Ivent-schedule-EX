@@ -5,18 +5,16 @@ import { EVENT_EDITOR_EMAILS } from '../lib/permissions';
 describe('push worker permission rules', () => {
   const editors = [...EVENT_EDITOR_EMAILS];
 
-  it('event_created / event_updated / event_deleted / member_added は編集者のみ', () => {
-    for (const type of ['event_created', 'event_updated', 'event_deleted', 'member_added'] as const) {
-      expect(canSendPushNotificationType(type, editors[0], editors)).toBe(true);
-      expect(canSendPushNotificationType(type, 'other@example.com', editors)).toBe(false);
-      expect(canSendPushNotificationType(type, undefined, editors)).toBe(false);
-    }
+  it('member_added は編集者のみ', () => {
+    expect(canSendPushNotificationType('member_added', editors[0], editors)).toBe(true);
+    expect(canSendPushNotificationType('member_added', 'other@example.com', editors)).toBe(false);
+    expect(canSendPushNotificationType('member_added', undefined, editors)).toBe(false);
   });
 
-  it('fish_added / photo_added / schedule_updated / prep_updated はログイン済み全員が送信可', () => {
-    for (const type of ['fish_added', 'photo_added', 'schedule_updated', 'prep_updated'] as const) {
+  it('event_created 等は認証済みユーザー全員が送信可（匿名 PWA 含む）', () => {
+    for (const type of ['event_created', 'event_updated', 'event_deleted', 'fish_added', 'photo_added', 'schedule_updated', 'prep_updated'] as const) {
+      expect(canSendPushNotificationType(type, undefined, editors)).toBe(true);
       expect(canSendPushNotificationType(type, 'anyone@example.com', editors)).toBe(true);
-      expect(canSendPushNotificationType(type, editors[0], editors)).toBe(true);
     }
   });
 
