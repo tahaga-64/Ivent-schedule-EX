@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import { Event } from '../types';
-import { fmtDateJP, fmtDateRange, daysUntil, countdownBg } from '../lib/eventHelpers';
+import { fmtDateJP, fmtDateRange, prepEventUrgency } from '../lib/eventHelpers';
 import EventPickerTable from './EventPickerTable';
 
 interface PrepEventListProps {
@@ -14,7 +14,6 @@ export default function PrepEventList({ events, onSelectEvent }: PrepEventListPr
     .filter(ev => ev.end >= today)
     .sort((a, b) => a.start.localeCompare(b.start));
 
-  // 月ごとにグループ化
   const monthGroups: { month: string; events: Event[] }[] = [];
   for (const ev of activeEvents) {
     const [y, m] = ev.start.split('-');
@@ -44,36 +43,24 @@ export default function PrepEventList({ events, onSelectEvent }: PrepEventListPr
                 <div className="flex flex-col gap-2">
                   {evs.map(ev => {
                     const s = fmtDateJP(ev.start);
-                    const until = daysUntil(ev.start);
-                    const isToday = until === 0;
-                    const isSoon = until > 0 && until <= 7;
-                    const isOngoing = until < 0 && ev.end >= today;
-                    const urgencyBadge = isToday
-                      ? { label: '今日', cls: 'bg-red-500 text-white' }
-                      : isOngoing
-                      ? { label: '開催中', cls: 'bg-emerald-500 text-white' }
-                      : isSoon
-                      ? { label: `${until}日後`, cls: 'bg-amber-400 text-white' }
-                      : null;
+                    const urgency = prepEventUrgency(ev.start, ev.end);
                     return (
                       <button
                         key={ev.id}
                         onClick={() => onSelectEvent(ev)}
-                        className="w-full text-left bg-white/10 rounded-2xl border border-white/15 flex items-stretch overflow-hidden hover:bg-white/15 active:scale-[0.98] transition-all"
+                        className={`w-full text-left rounded-2xl border border-white/15 flex items-stretch overflow-hidden active:scale-[0.98] transition-all ${urgency.rowBg}`}
                       >
-                        {/* 日付バッジ */}
-                        <div className={`flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 ${countdownBg(until, isOngoing)}`}>
+                        <div className={`flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0 ${urgency.dateBadgeCls}`}>
                           <span className="text-[10px] font-black text-white/70 leading-none">{s.month}月</span>
                           <span className="text-xl font-black text-white leading-none mt-0.5">{s.day}</span>
                           <span className="text-[10px] font-black text-white/80 leading-none mt-0.5">{s.dow}</span>
                         </div>
-                        {/* コンテンツ */}
                         <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
                           <div className="flex items-center gap-2 mb-0.5">
                             <span className="font-bold text-white text-sm truncate">{ev.venue}</span>
-                            {urgencyBadge && (
-                              <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full ${urgencyBadge.cls}`}>{urgencyBadge.label}</span>
-                            )}
+                            <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full border ${urgency.badgeCls}`}>
+                              {urgency.daysLabel}
+                            </span>
                           </div>
                           <div className="flex items-center gap-2 flex-wrap mt-0.5">
                             <span className="text-xs text-white/50 truncate">{fmtDateRange(ev.start, ev.end)}</span>
@@ -81,7 +68,7 @@ export default function PrepEventList({ events, onSelectEvent }: PrepEventListPr
                               <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full border ${
                                 (ev.prepItemDone ?? 0) >= (ev.prepItemTotal ?? 0)
                                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
-                                  : 'bg-indigo-500/20 text-indigo-300 border-indigo-400/30'
+                                  : 'bg-white/10 text-white/70 border-white/20'
                               }`}>
                                 {ev.prepItemDone ?? 0}/{ev.prepItemTotal}件完了
                               </span>
