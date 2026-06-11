@@ -1,46 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { User } from 'firebase/auth';
 import { Bell, BellRing, BellOff } from 'lucide-react';
-import {
-  enablePushNotifications,
-  getPushNotificationStatus,
-  isPushNotificationConfigured,
-  type PushNotificationStatus,
-} from '../lib/pushNotifications';
+import { usePushSetup } from '../hooks/usePushSetup';
 import PushNotificationPanel from './PushNotificationPanel';
 
 export default function PushNotificationButton({ user }: { user: User }) {
-  const configured = isPushNotificationConfigured();
-  const [status, setStatus] = useState<PushNotificationStatus | null>(null);
+  const { configured, state, busy, error, enable, setError } = usePushSetup(user);
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!configured) return;
-    let alive = true;
-    getPushNotificationStatus().then(s => { if (alive) setStatus(s); });
-    return () => { alive = false; };
-  }, [configured]);
+  if (!configured || state === null || state === 'unsupported') return null;
 
-  const handleEnable = useCallback(async () => {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await enablePushNotifications(user);
-      setStatus('granted');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '通知の有効化に失敗しました。');
-      setStatus(await getPushNotificationStatus());
-    } finally {
-      setBusy(false);
-    }
-  }, [busy, user]);
-
-  if (!configured || status === null || status === 'unsupported') return null;
-
-  const Icon = status === 'granted' ? BellRing : status === 'denied' ? BellOff : Bell;
+  const Icon = state === 'subscribed' ? BellRing : state === 'denied' ? BellOff : Bell;
+  const dotClass =
+    state === 'subscribed' ? 'bg-emerald-500' :
+    state === 'permission_only' || state === 'prompt' || state === 'needs_pwa' ? 'bg-amber-500' :
+    null;
 
   return (
     <div className="relative">
@@ -51,11 +25,8 @@ export default function PushNotificationButton({ user }: { user: User }) {
         aria-label="プッシュ通知の設定"
       >
         <Icon size={16} />
-        {status === 'granted' && (
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500" />
-        )}
-        {status === 'default' && (
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-500" />
+        {dotClass && (
+          <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${dotClass}`} />
         )}
       </button>
 
@@ -64,10 +35,10 @@ export default function PushNotificationButton({ user }: { user: User }) {
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] z-50 rounded-2xl border border-slate-200 bg-white shadow-xl p-4">
             <PushNotificationPanel
-              status={status}
+              state={state}
               busy={busy}
               error={error}
-              onEnable={handleEnable}
+              onEnable={enable}
             />
           </div>
         </>

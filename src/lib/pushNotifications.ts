@@ -11,6 +11,15 @@ export type PushNotificationStatus =
   | 'granted'
   | 'denied';
 
+/** ブラウザ許可 + Push 購読の実際の状態 */
+export type PushSetupState =
+  | 'unsupported'
+  | 'needs_pwa'
+  | 'denied'
+  | 'prompt'
+  | 'permission_only'
+  | 'subscribed';
+
 export type PushNotificationPayload = {
   type: string;
   title: string;
@@ -48,51 +57,7 @@ async function getAuthHeader(user: User): Promise<HeadersInit> {
   return { Authorization: `Bearer ${token}` };
 }
 
-/** PWA / モバイル向け：ログイン直後に SW を登録（購読は別途 opt-in） */
-export async function registerPushServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-  if (!isPushNotificationConfigured() || !('serviceWorker' in navigator)) return null;
-  try {
-    return await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
-  } catch {
-    return null;
-  }
-}
-
-export async function getPushNotificationStatus(): Promise<PushNotificationStatus> {
-  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-    return 'unsupported';
-  }
-  return Notification.permission;
-}
-
-export async function enablePushNotifications(user: User): Promise<PushSubscription> {
-  assertPushConfig();
-  if (needsPwaInstallForPush()) {
-    throw new Error('iPhoneでは「ホーム画面に追加」したアプリから開いてから通知を有効にしてください。');
-  }
-
-  const status = await getPushNotificationStatus();
-  if (status === 'unsupported') {
-    throw new Error('このブラウザはPush通知に対応していません。');
-  }
-
-  const permission = status === 'granted' ? 'granted' : await Notification.requestPermission();
-  if (permission !== 'granted') {
-    throw new Error('ブラウザの通知許可が必要です。');
-  }
-
-  const registration = await registerPushServiceWorker();
-  if (!registration) {
-    throw new Error('Service Worker の登録に失敗しました。');
-  }
-
-  await navigator.serviceWorker.ready;
-  const existingSubscription = await registration.pushManager.getSubscription();
-  const subscription = existingSubscription || await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(WEB_PUSH_PUBLIC_KEY),
-  });
-
+async function postSubscriptionToWorker(user: User, subscription: PushSubscription): Promise<void> {
   const response = await fetch(`${PUSH_WORKER_URL}/subscribe`, {
     method: 'POST',
     headers: {
@@ -106,10 +71,126 @@ export async function enablePushNotifications(user: User): Promise<PushSubscript
   });
 
   if (!response.ok) {
-    throw new Error('Push通知の登録に失敗しました。');
+    let message = 'Push通知の登録に失敗しました。';
+    try {
+      const body = await response.json() as { error?: string };
+      if (body.error) message = body.error;
+    } catch { /* ignore */ }
+    throw new Error(message);
+  }
+}
+
+/** PWA / モバイル向け：ログイン直後に SW を登録（購読は別途 opt-in） */
+export async function registerPushServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  if (!isPushNotificationConfigured() || !('serviceWorker' in navigator)) return null;
+  try {
+    return await navigator.serviceWorker.register('/push-sw.js', { scope: '/', updateViaCache: 'none' });
+  } catch {
+    return null;
+  }
+}
+
+export async function getPushNotificationStatus(): Promise<PushNotificationStatus> {
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return 'unsupported';
+  }
+  return Notification.permission;
+}
+
+/** 通知許可と端末の Push 購読をまとめて判定 */
+export async function getPushSetupState(): Promise<PushSetupState> {
+  if (!isPushNotificationConfigured()) return 'unsupported';
+  if (needsPwaInstallForPush()) return 'needs_pwa';
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return 'unsupported';
+  }
+  if (Notification.permission === 'denied') return 'denied';
+  if (Notification.permission === 'default') return 'prompt';
+
+  const registration = await registerPushServiceWorker();
+  if (!registration) return 'permission_only';
+  await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+  return subscription ? 'subscribed' : 'permission_only';
+}
+
+/** 許可済み前提で SW 購読 + Worker 登録（失敗時は1回だけ再購読） */
+export async function ensurePushSubscription(user: User): Promise<PushSubscription> {
+  assertPushConfig();
+  if (needsPwaInstallForPush()) {
+    throw new Error('iPhoneでは「ホーム画面に追加」したアプリから開いてから通知を有効にしてください。');
+  }
+  if (Notification.permission !== 'granted') {
+    throw new Error('ブラウザの通知許可が必要です。');
   }
 
-  return subscription;
+  const registration = await registerPushServiceWorker();
+  if (!registration) {
+    throw new Error('Service Worker の登録に失敗しました。');
+  }
+  await navigator.serviceWorker.ready;
+
+  const subscribeFresh = async () => registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(WEB_PUSH_PUBLIC_KEY),
+  });
+
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    subscription = await subscribeFresh();
+  }
+
+  try {
+    await postSubscriptionToWorker(user, subscription);
+    return subscription;
+  } catch {
+    try {
+      await subscription.unsubscribe();
+    } catch { /* ignore */ }
+    subscription = await subscribeFresh();
+    await postSubscriptionToWorker(user, subscription);
+    return subscription;
+  }
+}
+
+export async function enablePushNotifications(user: User): Promise<PushSubscription> {
+  assertPushConfig();
+  const status = await getPushNotificationStatus();
+  if (status === 'unsupported') {
+    throw new Error('このブラウザはPush通知に対応していません。');
+  }
+
+  const permission = status === 'granted' ? 'granted' : await Notification.requestPermission();
+  if (permission !== 'granted') {
+    throw new Error('ブラウザの通知許可が必要です。');
+  }
+
+  return ensurePushSubscription(user);
+}
+
+/** 許可済みなら Worker へサイレント再登録（モバイル起動時など） */
+export async function syncPushSubscriptionIfGranted(user: User): Promise<boolean> {
+  if (!isPushNotificationConfigured() || needsPwaInstallForPush()) return false;
+  if (Notification.permission !== 'granted') return false;
+  const state = await getPushSetupState();
+  if (state === 'subscribed') {
+    try {
+      const registration = await registerPushServiceWorker();
+      const sub = await registration?.pushManager.getSubscription();
+      if (sub) {
+        await postSubscriptionToWorker(user, sub);
+        return true;
+      }
+    } catch { /* fall through to full ensure */ }
+  }
+  if (state !== 'permission_only' && state !== 'subscribed') return false;
+  try {
+    await ensurePushSubscription(user);
+    return true;
+  } catch (e) {
+    console.warn('Push subscription sync failed:', e);
+    return false;
+  }
 }
 
 export async function sendPushNotification(payload: PushNotificationPayload): Promise<void> {
@@ -131,13 +212,13 @@ export async function sendPushNotification(payload: PushNotificationPayload): Pr
   }
 }
 
-/** 設定済みなら送信（失敗は握りつぶす） */
 export function notifyPush(payload: PushNotificationPayload): void {
   if (!isPushNotificationConfigured()) return;
-  sendPushNotification(payload).catch(() => {});
+  sendPushNotification(payload).catch((e) => {
+    console.warn('Push send failed:', e);
+  });
 }
 
-/** SW からの postMessage（フォアグラウンド表示用） */
 export async function listenForForegroundPushMessages(
   onMessage: (msg: ForegroundPushMessage) => void
 ): Promise<() => void> {
