@@ -1,10 +1,33 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Geist+Mono:wght@100..900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  
+  /* ══ タイポグラフィ：ビジュアル言語の核 ══
+     body  : 欧文 Hanken Grotesk / 和文 Zen Kaku Gothic New（端正で個性ある日本語ゴシック）
+     display: 欧文 Bricolage Grotesque（特徴的な見出し）/ 和文は Zen Kaku にフォールバック
+     mono  : Geist Mono（数値・表データ）
+     ※ 旧 Inter + Noto Sans JP（汎用的）から刷新 */
+  --font-sans: "Hanken Grotesk", "Zen Kaku Gothic New", "Noto Sans JP", "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "Zen Kaku Gothic New", "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ══ ダークグラス・サーフェス体系（写真背景に重ねる面。bg-surface / text-ink-2 等で使用可） ══ */
+  --color-surface:        rgba(15, 23, 42, 0.55);   /* 標準カード（= 既存 bg-slate-900/55 と一致） */
+  --color-surface-strong: rgba(12, 18, 33, 0.74);   /* 強調・ヘッダ・モーダル面 */
+  --color-surface-soft:   rgba(15, 23, 42, 0.34);   /* 入力・補助面 */
+  --color-hairline:       rgba(255, 255, 255, 0.12);/* 境界線 */
+  /* テキスト階調（白の不透明度で統一） */
+  --color-ink:            rgba(255, 255, 255, 0.96);
+  --color-ink-2:          rgba(255, 255, 255, 0.64);
+  --color-ink-3:          rgba(255, 255, 255, 0.42);
+  /* ブランド・アクセント（既存 indigo を体系化） */
+  --color-brand:          #6366f1;
+  --color-brand-strong:   #4f46e5;
+  --color-brand-soft:     rgba(99, 102, 241, 0.18);
+  /* 形状トークン */
+  --radius-card:          1.15rem;
+  --shadow-card:          0 10px 34px -12px rgba(0, 0, 0, 0.55);
+
   --color-purple-accent: #4f46e5;
   --bg-app: #ffffff;
   --surface: #ffffff;
@@ -70,6 +93,14 @@
   body, #root {
     @apply bg-[var(--bg-app)] text-[var(--text-primary)] antialiased transition-colors duration-500 overflow-x-hidden w-full min-h-full;
     -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* 見出しはディスプレイ書体＋和文の字面詰め（palt）で「設計された」印象に */
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-feature-settings: "palt";
+    letter-spacing: -0.015em;
   }
 
   button, a, [role="button"] {
@@ -84,6 +115,16 @@
 
   .modern-pill {
     @apply px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase items-center flex gap-1.5 transition-all;
+  }
+
+  /* 標準のダークグラス・カード。背景写真の上で白文字が読めるサーフェス。 */
+  .surface-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
   }
 }
 
