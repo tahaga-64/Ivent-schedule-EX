@@ -349,22 +349,31 @@ const MemberTabs = ({ members, current, myName, onSelect }: { members: string[],
   return (
     <div className="bg-white rounded-xl shadow-sm mb-4 overflow-hidden border border-border">
       <div className="flex overflow-x-auto p-2 gap-1.5 border-b border-border scrollbar-hide">
-        {sorted.map(name => (
-          <button
-            key={name}
-            onClick={() => onSelect(name)}
-            className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-all duration-200 border flex items-center gap-1 ${
-              name === current
-                ? 'bg-accent border-accent text-white font-black'
-                : name === myName
-                  ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-bold'
-                  : 'bg-bg border-border2 text-text2 hover:border-accent-m hover:text-accent hover:bg-accent-l'
-            }`}
-          >
-            {name === myName && <span className="text-[10px]">★</span>}
-            {name.replace('　', '')}
-          </button>
-        ))}
+        {sorted.map(name => {
+          const isMe = name === myName;
+          const isCurrent = name === current;
+          const isMeAndCurrent = isMe && isCurrent;
+          return (
+            <button
+              key={name}
+              onClick={() => onSelect(name)}
+              className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-all duration-200 border flex items-center gap-1 ${
+                isMeAndCurrent
+                  ? 'bg-gradient-to-r from-indigo-500 to-violet-500 border-transparent text-white font-black shadow-md shadow-indigo-200 ring-2 ring-yellow-300 ring-offset-1 scale-105'
+                  : isCurrent
+                    ? 'bg-accent border-accent text-white font-black'
+                    : isMe
+                      ? 'bg-indigo-50 border-indigo-400 text-indigo-700 font-bold shadow-sm shadow-indigo-100'
+                      : 'bg-bg border-border2 text-text2 hover:border-accent-m hover:text-accent hover:bg-accent-l'
+              }`}
+            >
+              {isMe && (
+                <span className={`${isCurrent ? 'text-yellow-300 text-xs' : 'text-yellow-500 text-[10px]'}`}>★</span>
+              )}
+              {name.replace('　', '')}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -628,34 +637,54 @@ function App({ currentUser }: { currentUser: User | null }) {
     return () => unsubscribe();
   }, []);
 
-  // 今日の列を中央にauto-scroll
+  // 今日の列を中央にauto-scroll（モーション付き）
   useEffect(() => {
     const today = new Date();
     if (currentYear !== today.getFullYear() || currentMonth !== today.getMonth()) return;
+    if (activeTab !== 'schedule' && activeTab !== 'overall') return;
 
-    const container =
-      activeTab === 'schedule' ? schedCalendarRef.current :
-      activeTab === 'overall' ? overallTableRef.current : null;
-    if (!container) return;
+    let cancelled = false;
+    let rafId = 0;
 
-    // レイアウト確定後（描画＆Firestoreデータ反映後）にスクロール位置を計算する
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        const el = container;
-        const todayCell = el.querySelector<HTMLElement>('[data-today="true"]');
-        if (!todayCell) return;
-        // getBoundingClientRect で実測（min-w-max により列幅が可変なため固定値は使わない）
+    // スクロール位置をイージング付きで手動アニメーション（smooth指定はブラウザ差があるため使わない）
+    const animateScroll = (el: HTMLElement, target: number) => {
+      const start = el.scrollLeft;
+      const dist = target - start;
+      if (Math.abs(dist) < 2) return;
+      const duration = 700;
+      const t0 = performance.now();
+      const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+      const step = (now: number) => {
+        if (cancelled) return;
+        const p = Math.min(1, (now - t0) / duration);
+        el.scrollLeft = start + dist * ease(p);
+        if (p < 1) rafId = requestAnimationFrame(step);
+      };
+      rafId = requestAnimationFrame(step);
+    };
+
+    // タブ切替直後は ref が未設定 / テーブル未描画のことがあるため、
+    // 今日のセルが見つかりスクロール可能になるまでリトライする（最大2.5秒）
+    const startedAt = performance.now();
+    const tryScroll = () => {
+      if (cancelled) return;
+      const el = activeTab === 'schedule' ? schedCalendarRef.current : overallTableRef.current;
+      const todayCell = el?.querySelector<HTMLElement>('[data-today="true"]');
+      if (el && todayCell && el.scrollWidth > el.clientWidth + 4) {
         const cellRect = todayCell.getBoundingClientRect();
         const elRect = el.getBoundingClientRect();
-        const cellCenterInContainer = (cellRect.left - elRect.left) + el.scrollLeft + cellRect.width / 2;
-        const target = cellCenterInContainer - el.clientWidth / 2;
-        el.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
-      });
-    });
+        const cellCenter = (cellRect.left - elRect.left) + el.scrollLeft + cellRect.width / 2;
+        const target = Math.max(0, Math.min(el.scrollWidth - el.clientWidth, cellCenter - el.clientWidth / 2));
+        animateScroll(el, target);
+        return;
+      }
+      if (performance.now() - startedAt < 2500) rafId = requestAnimationFrame(tryScroll);
+    };
+    rafId = requestAnimationFrame(tryScroll);
+
     return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
+      cancelled = true;
+      cancelAnimationFrame(rafId);
     };
   }, [activeTab, currentYear, currentMonth, currentSchedMember, isLoading]);
 
@@ -1271,10 +1300,10 @@ function App({ currentUser }: { currentUser: User | null }) {
                 </div>
 
                 <div ref={overallTableRef} className="overflow-x-auto relative border-b border-border">
-                  <table className="w-full text-xs border-separate border-spacing-0 min-w-[max-content]">
+                  <table className="w-full text-[10px] border-separate border-spacing-0 min-w-[max-content]">
                     <thead className="relative z-30">
                       <tr className="bg-slate-100 text-slate-900">
-                        <th className="p-1.5 border border-border font-bold sticky left-0 top-0 bg-slate-100 z-50 min-w-[64px] text-xs text-left leading-tight">
+                        <th className="p-1 border border-border font-bold sticky left-0 top-0 bg-slate-100 z-50 min-w-[52px] text-[10px] text-left leading-tight">
                           人 / 累計
                         </th>
                         {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -1285,12 +1314,13 @@ function App({ currentUser }: { currentUser: User | null }) {
                           const _t = new Date();
                           const isToday = currentYear === _t.getFullYear() && currentMonth === _t.getMonth() && day === _t.getDate();
                           return (
-                            <th key={day} data-today={isToday ? 'true' : undefined} className={`p-0.5 border font-bold text-center min-w-[52px] min-w-max text-xs sticky top-0 z-30 ${
+                            <th key={day} data-today={isToday ? 'true' : undefined} className={`p-0.5 border font-bold text-center min-w-[30px] text-[10px] sticky top-0 z-30 ${
                               isToday ? 'border-indigo-400 ring-1 ring-indigo-400' : 'border-border'
                             } ${
                               isSun ? 'text-red-600 bg-red-50' : isSat ? 'text-blue-600 bg-blue-50' : 'bg-slate-100 text-slate-900'
                             }`}>
-                              {day}({['月','火','水','木','金','土','日'][dow]})
+                              <span className="block font-mono leading-none">{day}</span>
+                              <span className="block text-[8px] leading-none opacity-80">{['月','火','水','木','金','土','日'][dow]}</span>
                             </th>
                           );
                         })}
@@ -1299,14 +1329,14 @@ function App({ currentUser }: { currentUser: User | null }) {
                     <tbody>
                       {/* Row for Global Location (場所) */}
                       <tr className="bg-amber-50">
-                        <td className="p-1 border border-border sticky left-0 bg-amber-50 z-20 font-bold text-orange-800 text-[10px]">
-                          場所 (固定表示)
+                        <td className="p-1 border border-border sticky left-0 bg-amber-50 z-20 font-bold text-orange-800 text-[9px] leading-tight">
+                          場所
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
-                          <td key={i} className="p-0.5 border border-border min-w-[50px] min-w-max">
+                          <td key={i} className="p-0.5 border border-border min-w-[30px]">
                             <LocalInput
-                              className="w-full px-0.5 py-0.5 rounded border border-orange-200 text-[10px] outline-none focus:border-orange-400 bg-white focus:bg-white h-6 text-center font-bold text-orange-800"
-                              size={10}
+                              className="w-full px-0.5 py-0 rounded border border-orange-200 text-[9px] outline-none focus:border-orange-400 bg-white focus:bg-white h-5 text-center font-bold text-orange-800"
+                              size={8}
                               value={globalLocations[i + 1] || ''}
                               onChange={(val: string) => handleGlobalLocationChange(i + 1, val)}
                               placeholder="場所"
@@ -1317,14 +1347,14 @@ function App({ currentUser }: { currentUser: User | null }) {
 
                       {/* Row for Global Time (時間) */}
                       <tr className="bg-blue-50">
-                        <td className="p-1 border border-border sticky left-0 bg-blue-50 z-20 font-bold text-blue-800 text-[10px]">
-                          時間 (固定表示)
+                        <td className="p-1 border border-border sticky left-0 bg-blue-50 z-20 font-bold text-blue-800 text-[9px] leading-tight">
+                          時間
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
-                          <td key={i} className="p-0.5 border border-border min-w-[50px] min-w-max">
+                          <td key={i} className="p-0.5 border border-border min-w-[30px]">
                             <LocalInput
-                              className="w-full px-0.5 py-0.5 rounded border border-blue-200 text-[10px] outline-none focus:border-blue-400 bg-white focus:bg-white h-6 text-center font-bold text-blue-800"
-                              size={10}
+                              className="w-full px-0.5 py-0 rounded border border-blue-200 text-[9px] outline-none focus:border-blue-400 bg-white focus:bg-white h-5 text-center font-bold text-blue-800"
+                              size={8}
                               value={globalTimes[i + 1] || ''}
                               onChange={(val: string) => handleGlobalTimeChange(i + 1, val)}
                               placeholder="時間"
@@ -1335,8 +1365,8 @@ function App({ currentUser }: { currentUser: User | null }) {
 
                       {/* Row for workingCount (稼働数) */}
                       <tr className="bg-bg/50">
-                        <td className="p-1 border border-border sticky left-0 bg-bg z-20 font-bold text-text text-[10px]">
-                          稼働人数 (合計)
+                        <td className="p-1 border border-border sticky left-0 bg-bg z-20 font-bold text-text text-[9px] leading-tight">
+                          稼働人数
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => {
                           let count = 0;
@@ -1347,7 +1377,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                             }
                           });
                           return (
-                            <td key={i} className="p-0.5 border border-border text-center font-bold text-text text-[11px] min-w-[50px] min-w-max">
+                            <td key={i} className="p-0.5 border border-border text-center font-bold text-text text-[9px] min-w-[30px]">
                               {count}人
                             </td>
                           );
@@ -1356,23 +1386,27 @@ function App({ currentUser }: { currentUser: User | null }) {
 
                       {/* Staff rows */}
                       {MEMBERS.map(name => {
+                        const isMe = name === myName;
                         const schedule = currentMonthData.schedule[name] || [];
                         const normalCount = schedule.filter(s => s.type === 'normal').length;
                         const requestCount = schedule.filter(s => s.type === 'request').length;
                         return (
-                          <tr key={name} className="hover:bg-bg/40 transition-colors">
-                            <td className="p-1 border border-border sticky left-0 bg-white z-20 shadow-[2px_0_8px_-2px_rgba(0,0,0,0.08)]">
+                          <tr key={name} className={`transition-colors ${isMe ? 'bg-indigo-50 hover:bg-indigo-100/60' : 'hover:bg-bg/40'}`}>
+                            <td className={`p-1 border border-border sticky left-0 z-20 shadow-[2px_0_8px_-2px_rgba(0,0,0,0.08)] ${isMe ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : 'bg-white'}`}>
                               <div className="flex flex-col gap-0.5">
                                 <div className="flex items-center justify-between gap-1">
-                                  <div className="font-bold text-slate-900 text-[11px] truncate max-w-[48px]">{name.replace('　', '')}</div>
-                                  <div className="flex flex-col text-[9px] font-bold leading-tight shrink-0">
+                                  <div className={`font-bold text-[10px] truncate max-w-[40px] ${isMe ? 'text-indigo-700' : 'text-slate-900'}`}>
+                                    {isMe && <span className="text-yellow-500 mr-0.5">★</span>}
+                                    {name.replace('　', '')}
+                                  </div>
+                                  <div className="flex flex-col text-[8px] font-bold leading-tight shrink-0">
                                     <span className="text-slate-500">公{normalCount}</span>
                                     <span className="text-pink-600">希{requestCount}</span>
                                   </div>
                                 </div>
                                 <LocalInput
-                                  className="w-full px-0.5 py-0 rounded border border-slate-200 text-[9px] outline-none focus:border-accent bg-slate-50 text-slate-900 font-normal h-4"
-                                  size={9}
+                                  className="w-full px-0.5 py-0 rounded border border-slate-200 text-[8px] outline-none focus:border-accent bg-slate-50 text-slate-900 font-normal h-4"
+                                  size={8}
                                   value={globalStations[name] || currentMonthData.memberStations?.[name] || ''}
                                   onChange={(val: string) => handleMemberStationChange(name, val)}
                                   placeholder="駅"
@@ -1382,10 +1416,10 @@ function App({ currentUser }: { currentUser: User | null }) {
                             {Array.from({ length: daysInMonth }).map((_, i) => {
                               const item = currentMonthData.schedule[name]?.[i] || { type: 'rest', detail: '' };
                               return (
-                                <td key={i} className="p-0.5 border border-border min-w-[50px] min-w-max">
-                                  <div className="flex flex-col gap-0.5 min-w-full w-max text-center justify-center mx-auto">
+                                <td key={i} className="p-[1px] border border-border min-w-[30px]">
+                                  <div className="flex flex-col gap-0.5 text-center justify-center mx-auto">
                                     <select
-                                      className={`w-full px-0.5 py-1 rounded-full text-[11px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[item.type]}`}
+                                      className={`w-full px-0.5 py-0.5 rounded-full text-[9px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[item.type]}`}
                                       value={item.type}
                                       onChange={(e) => handleScheduleTypeChange(name, i, e.target.value as StatusType)}
                                     >
@@ -1394,8 +1428,8 @@ function App({ currentUser }: { currentUser: User | null }) {
                                       ))}
                                     </select>
                                     <LocalInput
-                                      className="min-w-full w-max px-0.5 py-0.5 rounded border border-slate-200 text-[10px] text-slate-900 outline-none focus:border-accent bg-slate-50 focus:bg-white h-5 text-center justify-center mx-auto"
-                                      size={10}
+                                      className="w-full px-0.5 py-0 rounded border border-slate-200 text-[9px] text-slate-900 outline-none focus:border-accent bg-slate-50 focus:bg-white h-4 text-center mx-auto"
+                                      size={9}
                                       value={item.detail || ''}
                                       onChange={(val: string) => handleScheduleDetailChange(name, i, val)}
                                       placeholder="..."

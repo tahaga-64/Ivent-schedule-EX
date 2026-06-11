@@ -53,6 +53,7 @@ const CATALOG: Record<string, {
   round_table: { label: '丸机',           emoji: '○',  color: '#6366f1', wPct: 8,  hPct: 9  },
   long_table:  { label: '長机',           emoji: '▬',  color: '#7c3aed', wPct: 16, hPct: 5  },
   fish_tank:   { label: '水槽',           emoji: '◫',  color: '#0369a1', wPct: 13, hPct: 8  },
+  touch_tank:  { label: '体験水槽',       emoji: '◰',  color: '#0891b2', wPct: 14, hPct: 9  },
   sandbox:     { label: '砂場',           emoji: '□',  color: '#b45309', wPct: 18, hPct: 12 },
   yoyo:        { label: 'ヨーヨー・SB',   emoji: '◎',  color: '#be123c', wPct: 14, hPct: 10 },
   seating:     { label: '着座SP',         emoji: '▣',  color: '#0f766e', wPct: 16, hPct: 10 },
