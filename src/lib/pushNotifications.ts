@@ -1,5 +1,6 @@
 import { User } from 'firebase/auth';
 import { auth } from './firebase';
+import { needsPwaInstallForPush } from './pushDeviceSupport';
 
 const PUSH_WORKER_URL = import.meta.env.VITE_PUSH_WORKER_URL?.replace(/\/$/, '') || '';
 const WEB_PUSH_PUBLIC_KEY = import.meta.env.VITE_WEB_PUSH_PUBLIC_KEY || '';
@@ -16,6 +17,12 @@ export type PushNotificationPayload = {
   message: string;
   eventId?: string;
   targetEmail?: string;
+  data?: Record<string, unknown>;
+};
+
+export type ForegroundPushMessage = {
+  title: string;
+  body: string;
   data?: Record<string, unknown>;
 };
 
@@ -41,6 +48,16 @@ async function getAuthHeader(user: User): Promise<HeadersInit> {
   return { Authorization: `Bearer ${token}` };
 }
 
+/** PWA / モバイル向け：ログイン直後に SW を登録（購読は別途 opt-in） */
+export async function registerPushServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  if (!isPushNotificationConfigured() || !('serviceWorker' in navigator)) return null;
+  try {
+    return await navigator.serviceWorker.register('/push-sw.js', { scope: '/' });
+  } catch {
+    return null;
+  }
+}
+
 export async function getPushNotificationStatus(): Promise<PushNotificationStatus> {
   if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
     return 'unsupported';
@@ -50,6 +67,10 @@ export async function getPushNotificationStatus(): Promise<PushNotificationStatu
 
 export async function enablePushNotifications(user: User): Promise<PushSubscription> {
   assertPushConfig();
+  if (needsPwaInstallForPush()) {
+    throw new Error('iPhoneでは「ホーム画面に追加」したアプリから開いてから通知を有効にしてください。');
+  }
+
   const status = await getPushNotificationStatus();
   if (status === 'unsupported') {
     throw new Error('このブラウザはPush通知に対応していません。');
@@ -60,7 +81,12 @@ export async function enablePushNotifications(user: User): Promise<PushSubscript
     throw new Error('ブラウザの通知許可が必要です。');
   }
 
-  const registration = await navigator.serviceWorker.register('/push-sw.js');
+  const registration = await registerPushServiceWorker();
+  if (!registration) {
+    throw new Error('Service Worker の登録に失敗しました。');
+  }
+
+  await navigator.serviceWorker.ready;
   const existingSubscription = await registration.pushManager.getSubscription();
   const subscription = existingSubscription || await registration.pushManager.subscribe({
     userVisibleOnly: true,
@@ -105,6 +131,25 @@ export async function sendPushNotification(payload: PushNotificationPayload): Pr
   }
 }
 
-export async function listenForForegroundPushMessages(): Promise<() => void> {
-  return () => {};
+/** 設定済みなら送信（失敗は握りつぶす） */
+export function notifyPush(payload: PushNotificationPayload): void {
+  if (!isPushNotificationConfigured()) return;
+  sendPushNotification(payload).catch(() => {});
+}
+
+/** SW からの postMessage（フォアグラウンド表示用） */
+export async function listenForForegroundPushMessages(
+  onMessage: (msg: ForegroundPushMessage) => void
+): Promise<() => void> {
+  if (!('serviceWorker' in navigator)) return () => {};
+
+  const handler = (event: MessageEvent) => {
+    if (event.data?.type !== 'push-received') return;
+    const payload = event.data.payload as ForegroundPushMessage | undefined;
+    if (!payload?.title) return;
+    onMessage(payload);
+  };
+
+  navigator.serviceWorker.addEventListener('message', handler);
+  return () => navigator.serviceWorker.removeEventListener('message', handler);
 }

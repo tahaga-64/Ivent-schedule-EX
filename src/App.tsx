@@ -1,10 +1,16 @@
 import { useState, useMemo, useEffect, useCallback, useRef, Suspense, type MouseEvent as ReactMouseEvent } from 'react';
 import { lazyWithRetry } from './lib/lazyWithRetry';
-import { db, auth, loginWithGoogle, firebaseConfigError } from './lib/firebase';
+import { db, auth, ensureAnonymousAuth, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
 import { buildPrepProgressMap } from './lib/prepProgress';
-import { sendPushNotification, isPushNotificationConfigured } from './lib/pushNotifications';
+import {
+  notifyPush,
+  registerPushServiceWorker,
+  listenForForegroundPushMessages,
+  isPushNotificationConfigured,
+} from './lib/pushNotifications';
+import MobilePushBanner from './components/MobilePushBanner';
 import { DATA } from './constants';
 import { Event, EventPhoto, PreparationItem, EventStatus, type StaffMember } from './types';
 import { buildMonthGridCells, type ValidationError, validateEvent, fmtDateJPFull, normalizeRegion } from './lib/eventHelpers';
@@ -12,16 +18,12 @@ import { eventMatchesQuery } from './lib/appSearch';
 import { applyEventSnapshotChanges } from './lib/firestoreSnapshot';
 import { Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import LoginScreen from './components/LoginScreen';
-import ProfileSetupScreen from './components/ProfileSetupScreen';
-import AccessDeniedScreen from './components/AccessDeniedScreen';
 import { usePhotos } from './hooks/usePhotos';
 import { useRoles } from './hooks/useRoles';
 import {
   canEditPreparationList as computeCanEditPreparationList,
   canEditFishList as computeCanEditFishList,
 } from './lib/permissions';
-import { checkUserAllowed } from './lib/allowedUsers';
 import HelpModal from './components/HelpModal';
 import StaffEmailPicker from './components/StaffEmailPicker';
 import AppSidebar from './components/AppSidebar';
@@ -70,6 +72,9 @@ function safeGetItem<T>(key: string, fallback: T): T {
 
 
 const getMonth = (d: string) => { if (!d) return null; return parseInt(d.split("-")[1]); };
+
+/** ローディングスプラッシュの最低表示時間（ms） */
+const SPLASH_MIN_MS = 3000;
 
 /** 開発用: 同一週の連続4日にイベント0/2/4/6件の見え比べ用データ（?calPreview=density） */
 function buildCalendarDensityPreviewEvents(
@@ -129,8 +134,12 @@ function buildCalendarDensityPreviewEvents(
 
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
-  const [accessDenied, setAccessDenied] = useState(false);
-  const [needsNameSetup, setNeedsNameSetup] = useState(false);
+  const [splashMinElapsed, setSplashMinElapsed] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSplashMinElapsed(true), SPLASH_MIN_MS);
+    return () => clearTimeout(t);
+  }, []);
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
     const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout', 'album', 'schedule'];
@@ -219,28 +228,63 @@ export default function App() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // Auth state
+  // Push: SW 登録・通知タップでイベントを開く
   useEffect(() => {
+    if (!user) return;
+    registerPushServiceWorker();
+
+    const openEventFromMessage = (eventId: string | null | undefined) => {
+      if (!eventId) return;
+      const ev = dbEvents[eventId];
+      if (ev) runWithGuard(() => setSelected(ev));
+    };
+
+    const swHandler = (event: MessageEvent) => {
+      if (event.data?.type === 'open-event') {
+        openEventFromMessage(event.data.eventId);
+      }
+    };
+    navigator.serviceWorker?.addEventListener('message', swHandler);
+
+    let stopForeground = () => {};
+    // SW が OS 通知を表示。フォアグラウンドでは postMessage を受け取るだけ（自動遷移はしない）
+    listenForForegroundPushMessages(() => {}).then(unsub => { stopForeground = unsub; });
+
+    return () => {
+      navigator.serviceWorker?.removeEventListener('message', swHandler);
+      stopForeground();
+    };
+  }, [user, dbEvents, runWithGuard]);
+
+  // 通知 deep link: /?event=<id>
+  useEffect(() => {
+    const eventId = new URLSearchParams(window.location.search).get('event');
+    if (!eventId) return;
+    const ev = dbEvents[eventId];
+    if (!ev) return;
+    setSelected(ev);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('event');
+    const next = url.pathname + (url.search || '') + url.hash;
+    window.history.replaceState({}, '', next);
+  }, [dbEvents]);
+
+  // 匿名認証で全員アクセス可（編集者メール等の役割判定は permissions / useRoles のまま）
+  useEffect(() => {
+    let cancelled = false;
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      if (cancelled) return;
       if (!u) {
-        setUser(null);
-        setNeedsNameSetup(false);
+        try {
+          await ensureAnonymousAuth();
+        } catch (e) {
+          console.error('Anonymous sign-in failed:', e);
+          if (!cancelled) setUser(null);
+        }
         return;
       }
-
-      const allowed = await checkUserAllowed(u).catch(() => false);
-      if (!allowed) {
-        setAccessDenied(true);
-        await auth.signOut();
-        return;
-      }
-
-      setAccessDenied(false);
       setUser(u);
-      if (!u.displayName?.trim()) {
-        setNeedsNameSetup(true);
-      } else {
-        setNeedsNameSetup(false);
+      if (!u.isAnonymous && u.displayName?.trim()) {
         setDoc(doc(db, 'userProfiles', u.uid), {
           uid: u.uid,
           email: u.email,
@@ -249,7 +293,10 @@ export default function App() {
         }, { merge: true }).catch(() => {});
       }
     });
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   // スタッフリスト購読
@@ -541,7 +588,8 @@ export default function App() {
         dailyRoles: localDailyRoles,
         ...(latestPhotos !== undefined ? { photos: latestPhotos } : {}),
       };
-      if (pendingNewEventId !== null && selected.id === pendingNewEventId) {
+      const isNewEvent = pendingNewEventId !== null && selected.id === pendingNewEventId;
+      if (isNewEvent) {
         await setDoc(doc(db, 'events', selected.id), eventToSave);
         setPendingNewEventId(null);
       } else {
@@ -559,14 +607,21 @@ export default function App() {
         const detailParts = [selected.venue, fmtDateJPFull(selected.start), normalizeRegion(selected.region)]
           .map(p => (p ?? '').trim())
           .filter(Boolean);
-        const isNew = pendingNewEventId !== null && selected.id === pendingNewEventId;
-        if (isNew) {
-          sendPushNotification({
+        const summary = detailParts.join(' / ') || selected.venue || 'イベント';
+        if (isNewEvent) {
+          notifyPush({
             type: 'event_created',
             title: '新しいイベントが登録されました',
-            message: detailParts.join(' / ') || 'イベントが追加されました',
+            message: summary,
             eventId: selected.id,
-          }).catch(() => {});
+          });
+        } else {
+          notifyPush({
+            type: 'event_updated',
+            title: 'イベントが更新されました',
+            message: summary,
+            eventId: selected.id,
+          });
         }
         const oldAssignees = dbEvents[selected.id]?.assignees ?? [];
         const newAssignees = selected.assignees ?? [];
@@ -574,17 +629,16 @@ export default function App() {
         for (const staffId of addedIds) {
           const member = staffList.find(s => s.id === staffId);
           if (member?.email) {
-            // 担当通知は会場 / 日付まで（地域は省略）
             const memberParts = [selected.venue, fmtDateJPFull(selected.start)]
               .map(p => (p ?? '').trim())
               .filter(Boolean);
-            sendPushNotification({
+            notifyPush({
               type: 'member_added',
               title: 'イベント担当に追加されました',
               message: memberParts.join(' / ') || 'あなたがイベントのメンバーに追加されました',
               eventId: selected.id,
               targetEmail: member.email,
-            }).catch(() => {});
+            });
           }
         }
       }
@@ -651,6 +705,11 @@ export default function App() {
       const prepPath = `events/${eventId}/preparationItems`;
       const prepSnapshot = await getDocs(collection(db, prepPath));
       await Promise.all(prepSnapshot.docs.map(d => deleteDoc(d.ref)));
+      notifyPush({
+        type: 'event_deleted',
+        title: 'イベントが削除されました',
+        message: deletedVenue,
+      });
     } catch (error) {
       console.error('Delete error:', error);
       setDbEvents(prev => ({ ...prev, [eventId]: eventSnapshot }));
@@ -889,22 +948,22 @@ VITE_FIREBASE_DATABASE_ID`}
       <LayoutPublicView eventId={publicLayoutId} />
     </Suspense>
   );
-  if (accessDenied) return (
-    <AccessDeniedScreen
-      email={auth.currentUser?.email ?? null}
-      onRetry={() => setAccessDenied(false)}
-    />
-  );
-  if (user === undefined) return <LoadingSplash />;
-  if (!user) return <LoginScreen />;
-  if (needsNameSetup) return (
-    <ProfileSetupScreen
-      user={user}
-      onComplete={() => {
-        setNeedsNameSetup(false);
-      }}
-    />
-  );
+  if (user === undefined || !splashMinElapsed) return <LoadingSplash />;
+  if (!user) {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center bg-slate-100 px-6 text-center">
+        <p className="text-slate-700 font-bold mb-2">接続できませんでした</p>
+        <p className="text-sm text-slate-500 mb-4">ページを再読み込みしてください。</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold"
+        >
+          再読み込み
+        </button>
+      </div>
+    );
+  }
 
   const renderView = (v: ViewMode) => (
     <>
@@ -1186,16 +1245,16 @@ VITE_FIREBASE_DATABASE_ID`}
               if (newPhoto && hasUnsavedChanges) {
                 setSelected(prev => prev ? { ...prev, photos: [...(prev.photos ?? []), newPhoto] } : prev);
               }
-              if (newPhoto && selected && isPushNotificationConfigured()) {
+              if (newPhoto && selected) {
                 const parts = [selected.venue, fmtDateJPFull(selected.start)]
                   .map(p => (p ?? '').trim())
                   .filter(Boolean);
-                sendPushNotification({
+                notifyPush({
                   type: 'photo_added',
                   title: 'アルバムに写真が追加されました',
                   message: parts.join(' / ') || '写真が追加されました',
                   eventId: selected.id,
-                }).catch(() => {});
+                });
               }
               return newPhoto;
             }}
@@ -1217,6 +1276,7 @@ VITE_FIREBASE_DATABASE_ID`}
             isNewEvent={pendingNewEventId !== null && selected?.id === pendingNewEventId}
             onCancelNew={handleCancelNewEvent}
             onDuplicate={handleDuplicateEvent}
+            hideFinancialTab={isMobile}
           />
           </Suspense>
         )}
@@ -1240,6 +1300,8 @@ VITE_FIREBASE_DATABASE_ID`}
           <Plus size={24} />
         </button>
       )}
+
+      {isMobile && <MobilePushBanner user={user} />}
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav

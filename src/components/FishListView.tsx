@@ -5,7 +5,7 @@ import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'fireb
 import type { Event, FishItem } from '../types';
 import { Fish, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { sendPushNotification, isPushNotificationConfigured } from '../lib/pushNotifications';
+import { notifyPush, isPushNotificationConfigured } from '../lib/pushNotifications';
 import { fmtDateJPFull } from '../lib/eventHelpers';
 
 interface Props {
@@ -68,12 +68,12 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
       .map(p => (p ?? '').trim())
       .filter(Boolean)
       .join(' / ');
-    sendPushNotification({
+    notifyPush({
       type: 'fish_added',
       title: '魚リストに追加されました',
       message: [head, `${name} ${count}匹`].filter(Boolean).join(' ・ '),
       eventId: selectedEvent.id,
-    }).catch(() => {});
+    });
   }, [selectedEvent]);
 
   const saveDraft = useCallback(async (): Promise<boolean> => {

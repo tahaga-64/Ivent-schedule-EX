@@ -8,6 +8,7 @@ import { motion } from 'motion/react';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import { computePrepProgressFields, effectiveArrived } from '../lib/prepProgress';
 import { ARRIVAL_DESTINATIONS } from '../constants';
+import { notifyPush } from '../lib/pushNotifications';
 
 // ─── 発注ステータス ──────────────────────────────────────────────────────────
 
@@ -168,6 +169,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
   const editVersionRef = useRef(0);
   const savedItemsRef = useRef<PreparationItem[]>([]);
   const deletedIdsRef = useRef<string[]>([]);
+  const lastPrepNotifyRef = useRef(0);
   const { runWithGuard, showSaveToast } = useUnsavedChanges();
 
   useEffect(() => {
@@ -218,6 +220,18 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
         savedItemsRef.current = toSave;
       }
       setLastSavedAt(Date.now());
+      const now = Date.now();
+      if (now - lastPrepNotifyRef.current > 5 * 60 * 1000) {
+        lastPrepNotifyRef.current = now;
+        const done = progress.prepItemDone;
+        const total = progress.prepItemTotal;
+        notifyPush({
+          type: 'prep_updated',
+          title: '準備物リストが更新されました',
+          message: total > 0 ? `${event.venue}（準備完了 ${done}/${total}）` : event.venue,
+          eventId: event.id,
+        });
+      }
       return true;
     } catch (error) {
       console.error('PreparationList save error:', error);
@@ -226,7 +240,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
     } finally {
       setIsSaving(false);
     }
-  }, [canEdit, event.id]);
+  }, [canEdit, event.id, event.venue]);
 
   const discardChanges = useCallback(() => {
     deletedIdsRef.current = [];

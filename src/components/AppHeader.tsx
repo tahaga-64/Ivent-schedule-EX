@@ -1,6 +1,5 @@
 import { User } from 'firebase/auth';
-import { auth } from '../lib/firebase';
-import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Images, Plus, LogOut, HelpCircle, CalendarDays } from 'lucide-react';
+import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Images, Plus, HelpCircle, CalendarDays } from 'lucide-react';
 import PushNotificationButton from './PushNotificationButton';
 import AppSearch from './AppSearch';
 import { Event } from '../types';
@@ -121,21 +120,15 @@ export default function AppHeader({
             >
               <HelpCircle size={16} />
             </button>
-            {user.photoURL ? (
-              <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-slate-200 hidden sm:block" />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-amber-200 hidden sm:flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-slate-200">
-                {user.displayName?.[0] || 'U'}
-              </div>
+            {!user.isAnonymous && (
+              user.photoURL ? (
+                <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-slate-200 hidden sm:block" />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-amber-200 hidden sm:flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-slate-200">
+                  {user.displayName?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
+                </div>
+              )
             )}
-            <button
-              onClick={() => auth.signOut()}
-              className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-red-600 active:bg-slate-200 transition-colors"
-              title="ログアウト"
-              aria-label="ログアウト"
-            >
-              <LogOut size={16} />
-            </button>
           </div>
         </div>
 

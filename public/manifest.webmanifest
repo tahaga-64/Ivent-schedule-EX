@@ -2,6 +2,7 @@
   "name": "EX事業部 イベント管理システム",
   "short_name": "Ivent Manager",
   "description": "EX事業部のイベント日程・準備物・担当者・写真を一元管理する社内向けアプリ",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

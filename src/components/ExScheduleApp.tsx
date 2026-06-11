@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, Component, ErrorInfo, ReactNode } from 'react';
 import type { User } from 'firebase/auth';
-import { sendPushNotification, isPushNotificationConfigured } from '../lib/pushNotifications';
+import { notifyPush, isPushNotificationConfigured } from '../lib/pushNotifications';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Calendar,
@@ -683,11 +683,11 @@ function App({ currentUser }: { currentUser: User | null }) {
         if (now - lastScheduleNotifyRef.current > 5 * 60 * 1000) {
           lastScheduleNotifyRef.current = now;
           const who = currentUser.displayName?.trim() || currentUser.email || '担当者';
-          sendPushNotification({
+          notifyPush({
             type: 'schedule_updated',
             title: 'スケジュール更新',
             message: `${who}さんがスケジュールを更新しました`,
-          }).catch(() => {});
+          });
         }
       }
     } catch (e: any) {

@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from 'react';
 import { X, Save, Trash2, ClipboardList, Copy, MapPin, Navigation } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
@@ -70,6 +71,8 @@ export interface EventDetailModalProps {
   isNewEvent?: boolean;
   onCancelNew?: () => void;
   onDuplicate?: () => void;
+  /** true のとき財務タブを非表示（モバイル向け） */
+  hideFinancialTab?: boolean;
 }
 
 // ── コンポーネント ─────────────────────────────────────────────────────────
@@ -103,7 +106,25 @@ export default function EventDetailModal({
   isNewEvent,
   onCancelNew,
   onDuplicate,
+  hideFinancialTab = false,
 }: EventDetailModalProps) {
+  const modalTabs = useMemo(() => {
+    const tabs: { id: ModalTab; label: string }[] = [
+      { id: 'detail', label: '詳細' },
+      { id: 'photos', label: `写真${selected.photos?.length ? ` (${selected.photos.length})` : ''}` },
+    ];
+    if (!hideFinancialTab) {
+      tabs.push({ id: 'financial', label: '💰 財務' });
+    }
+    return tabs;
+  }, [hideFinancialTab, selected.photos?.length]);
+
+  useEffect(() => {
+    if (hideFinancialTab && modalTab === 'financial') {
+      setModalTab('detail');
+    }
+  }, [hideFinancialTab, modalTab, setModalTab]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4">
       <motion.div
@@ -192,13 +213,7 @@ export default function EventDetailModal({
 
           {/* タブ切替 */}
           <div className="flex bg-slate-100 rounded-xl p-1 mb-5">
-            {(
-              [
-                { id: 'detail', label: '詳細' },
-                { id: 'photos', label: `写真${selected.photos?.length ? ` (${selected.photos.length})` : ''}` },
-                { id: 'financial', label: '💰 財務' },
-              ] as { id: ModalTab; label: string }[]
-            ).map(t => (
+            {modalTabs.map(t => (
               <button
                 key={t.id}
                 onClick={() => setModalTab(t.id)}
@@ -210,7 +225,7 @@ export default function EventDetailModal({
           </div>
 
           {/* 財務タブ */}
-          {modalTab === 'financial' && (
+          {!hideFinancialTab && modalTab === 'financial' && (
             <FinancialTab
               event={selected}
               canEdit={canEditEvent}

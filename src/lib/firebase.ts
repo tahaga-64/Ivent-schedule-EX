@@ -1,5 +1,5 @@
 import { initializeApp, FirebaseApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithEmailAndPassword, Auth } from "firebase/auth";
+import { getAuth, signInAnonymously, Auth } from "firebase/auth";
 import { getFirestore, doc, getDocFromServer, Firestore } from "firebase/firestore";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
@@ -58,17 +58,11 @@ export const analytics = !firebaseConfigError
   ? isSupported().then(ok => ok ? getAnalytics(app) : null)
   : Promise.resolve(null);
 
-const googleProvider = new GoogleAuthProvider();
-
-const appleProvider = new OAuthProvider('apple.com');
-appleProvider.addScope('email');
-appleProvider.addScope('name');
-appleProvider.setCustomParameters({ locale: 'ja' });
-
-export const loginWithGoogle = () => signInWithPopup(auth, googleProvider);
-export const loginWithApple = () => signInWithPopup(auth, appleProvider);
-export const loginWithEmail = (email: string, password: string) => signInWithEmailAndPassword(auth, email, password);
-export const logout = () => auth.signOut();
+/** ログイン画面なしで Firestore にアクセスするための匿名サインイン */
+export async function ensureAnonymousAuth(): Promise<void> {
+  if (auth.currentUser) return;
+  await signInAnonymously(auth);
+}
 
 // Connection test (only when configured)
 if (!firebaseConfigError) {

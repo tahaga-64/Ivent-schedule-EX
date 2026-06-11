@@ -128,15 +128,17 @@ async function handleSend(request: Request, env: Env): Promise<Response> {
 }
 
 function canSendNotificationType(type: string, email: string | undefined, env: Env): boolean {
-  if (type === 'event_created' || type === 'member_added') {
-    const editors = (env.EDITOR_EMAILS || '')
-      .split(',')
-      .map(value => value.trim().toLowerCase())
-      .filter(Boolean);
-    return !!email && editors.includes(email.toLowerCase());
+  const editors = (env.EDITOR_EMAILS || '')
+    .split(',')
+    .map(value => value.trim().toLowerCase())
+    .filter(Boolean);
+  const isEditor = !!email && editors.includes(email.toLowerCase());
+
+  if (type === 'event_created' || type === 'member_added' || type === 'event_updated' || type === 'event_deleted') {
+    return isEditor;
   }
-  // 魚リスト追加・写真追加・スケジュール更新はログイン済みユーザー全員が可（verifyFirebaseUser で認証済み）
-  if (type === 'fish_added' || type === 'photo_added' || type === 'schedule_updated') {
+  // 魚リスト・写真・スケジュール・準備物はログイン済みユーザー全員が可（verifyFirebaseUser で認証済み）
+  if (type === 'fish_added' || type === 'photo_added' || type === 'schedule_updated' || type === 'prep_updated') {
     return true;
   }
   return false;

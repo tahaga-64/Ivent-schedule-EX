@@ -12,7 +12,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "worker:deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy-push-worker.ps1",
+    "worker:dev": "npx wrangler dev --config workers/push/wrangler.toml"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

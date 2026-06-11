@@ -92,7 +92,7 @@ EX事業部ではイベントの日程・準備物の管理をスプレッドシ
 | テスト | Vitest + Testing Library（23 ケース）|
 | ホスティング | Vercel（`main` ブランチ自動デプロイ）|
 
-> ℹ️ プッシュ通知（FCM）は現状**未実装**です（`VITE_FIREBASE_VAPID_KEY` は不要）。
+> ℹ️ プッシュ通知は Cloudflare Worker + Web Push 方式です（`VITE_PUSH_WORKER_URL` / `VITE_WEB_PUSH_PUBLIC_KEY`）。セットアップは [`docs/free-push-notifications.md`](docs/free-push-notifications.md) を参照。
 
 ---
 

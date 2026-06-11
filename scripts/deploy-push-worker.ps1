@@ -76,6 +76,6 @@ if (Test-Path $EnvLocal) {
   }
   $envLines = $filtered + $envLines
 }
-Set-Content -Path $EnvLocal -Value ($envLines -join "`n")
+Set-Content -Path $EnvLocal -Value (($envLines -join "`r`n") + "`r`n") -Encoding utf8
 Write-Host "Wrote $EnvLocal"
 Write-Host "Next: npm run build; firebase deploy --only firestore:rules,hosting"
