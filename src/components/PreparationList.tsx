@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useLayoutEffect, useCallback, type ReactNode } from 'react';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { User } from 'firebase/auth';
@@ -12,13 +12,40 @@ import { ARRIVAL_DESTINATIONS, ARRIVAL_DEST_STYLE } from '../constants';
 // ─── 発注ステータス ──────────────────────────────────────────────────────────
 
 const ORDER_STEPS: Array<{ key: OrderStatus; label: string; activeCls: string; rowBg: string }> = [
-  { key: 'unordered', label: '未発注', activeCls: 'bg-white/15 text-white/60 border-white/30',        rowBg: '' },
-  { key: 'ordered',   label: '発注済', activeCls: 'bg-amber-500/25 text-amber-300 border-amber-400/50', rowBg: 'bg-amber-500/8' },
-  { key: 'shipping',  label: '配送中', activeCls: 'bg-blue-500/25 text-blue-300 border-blue-400/50',   rowBg: 'bg-blue-500/8' },
-  { key: 'arrived',   label: '着荷',   activeCls: 'bg-emerald-500/25 text-emerald-300 border-emerald-400/50', rowBg: 'bg-emerald-500/10' },
+  { key: 'unordered', label: '未発注', activeCls: 'bg-white/20 text-white/80 border-white/35', rowBg: '' },
+  { key: 'ordered',   label: '発注済', activeCls: 'bg-amber-500/30 text-amber-200 border-amber-400/60', rowBg: 'bg-amber-500/18' },
+  { key: 'shipping',  label: '配送中', activeCls: 'bg-blue-500/30 text-blue-200 border-blue-400/60', rowBg: 'bg-blue-500/18' },
+  { key: 'arrived',   label: '着荷',   activeCls: 'bg-emerald-500/30 text-emerald-200 border-emerald-400/60', rowBg: 'bg-emerald-500/18' },
 ];
 
 const PREP_BG = 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1280&q=65';
+const PREP_LABEL = 'text-[11px] font-black uppercase tracking-widest mb-1';
+const PREP_INPUT = 'bg-slate-900/50 rounded-md px-2 outline-none focus:ring-2 focus:ring-indigo-400/50 text-white/95 read-only:cursor-default';
+const PREP_PANEL = 'bg-slate-950/88 backdrop-blur-md border-white/25 shadow-lg';
+
+function prepRowBorderClass(item: PreparationItem): string {
+  if (item.prepared) return 'border-l-indigo-500';
+  if (effectiveArrived(item)) return 'border-l-emerald-400';
+  const os = item.orderStatus ?? 'unordered';
+  if (os === 'shipping') return 'border-l-blue-400';
+  if (os === 'ordered') return 'border-l-amber-400';
+  return 'border-l-white/15';
+}
+
+function prepDesktopRowClass(item: PreparationItem, idx: number, rowStep: typeof ORDER_STEPS[number]): string {
+  if (item.prepared) return 'bg-indigo-500/18 opacity-75';
+  if (effectiveArrived(item)) return 'bg-emerald-500/18';
+  if (rowStep.rowBg) return rowStep.rowBg;
+  return idx % 2 === 0 ? 'bg-white/[0.03]' : '';
+}
+
+function prepMobileCardClass(item: PreparationItem, os: OrderStatus): string {
+  if (item.prepared) return 'bg-slate-950/90 border-indigo-400/50 opacity-80';
+  if (effectiveArrived(item)) return 'bg-slate-950/88 border-emerald-400/40';
+  if (os === 'shipping') return 'bg-slate-950/88 border-blue-400/35';
+  if (os === 'ordered') return 'bg-slate-950/88 border-amber-400/35';
+  return `${PREP_PANEL} border-white/25`;
+}
 
 interface Props {
   event: Event;
@@ -364,36 +391,26 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
           return (
           <div
             key={item.id}
-            className={`border rounded-2xl overflow-hidden shadow-sm ${
-              item.prepared
-                ? 'bg-indigo-500/20 border-indigo-400/40'
-                : effectiveArrived(item)
-                  ? 'bg-emerald-500/15 border-emerald-400/35'
-                  : os === 'shipping'
-                    ? 'bg-blue-500/10 border-blue-400/30'
-                    : os === 'ordered'
-                      ? 'bg-amber-500/10 border-amber-400/25'
-                      : 'bg-white/15 border-white/20'
-            }`}
+            className={`border rounded-2xl overflow-hidden shadow-md ${prepMobileCardClass(item, os)}`}
           >
             {/* Status stripe */}
-            <div className={`h-1 ${
+            <div className={`h-1.5 ${
               item.prepared ? 'bg-indigo-500'
               : effectiveArrived(item) ? 'bg-emerald-400'
               : os === 'shipping' ? 'bg-blue-400'
               : os === 'ordered' ? 'bg-amber-400'
-              : 'bg-white/20'
+              : 'bg-white/30'
             }`} />
             {/* Row 1: # + 品名 + badges + delete */}
             <div className="flex items-center gap-2 px-3 pt-2.5 pb-2">
-              <span className="text-[10px] text-white/40 font-mono w-5 shrink-0">{idx + 1}</span>
+              <span className="text-[11px] text-white/60 font-mono w-5 shrink-0">{idx + 1}</span>
               <input
                 type="text"
                 readOnly={!canEdit}
                 value={item.name}
                 onChange={e => updateItem(item.id, { name: e.target.value })}
                 placeholder="アイテム名..."
-                className={`flex-1 text-base font-black bg-transparent outline-none read-only:cursor-default placeholder:text-white/30 ${item.prepared ? 'line-through text-white/40' : 'text-white'}`}
+                className={`flex-1 text-base font-black ${PREP_INPUT} placeholder:text-white/40 ${item.prepared ? 'line-through text-white/50' : 'text-white'}`}
               />
               {!item.prepared && os !== 'unordered' && (
                 <span className={`shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-full border ${step.activeCls}`}>
@@ -415,54 +432,54 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
               </button>
             </div>
             {/* Row 2: 数量 / 単価 / 金額 */}
-            <div className="grid grid-cols-3 border-t border-white/15">
-              <div className="px-3 py-2 border-r border-white/15">
-                <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">数量</div>
+            <div className="grid grid-cols-3 border-t border-white/20">
+              <div className="px-3 py-2 border-r border-white/20">
+                <div className={`${PREP_LABEL} text-white/70`}>数量</div>
                 <input
                   type="number"
                   readOnly={!canEdit}
                   value={item.quantity || ''}
                   onChange={e => updateItem(item.id, { quantity: parseInt(e.target.value) || 0 })}
-                  className="w-full text-sm font-mono text-white/80 bg-transparent outline-none read-only:cursor-default"
+                  className={`w-full text-sm font-mono ${PREP_INPUT}`}
                 />
               </div>
-              <div className="px-3 py-2 border-r border-white/10">
-                <div className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">単価</div>
+              <div className="px-3 py-2 border-r border-white/20">
+                <div className={`${PREP_LABEL} text-white/70`}>単価</div>
                 <div className="flex items-center gap-0.5">
-                  <span className="text-[10px] text-white/40">¥</span>
+                  <span className="text-[11px] text-white/50">¥</span>
                   <input
                     type="number"
                     readOnly={!canEdit}
                     value={item.unitPrice || ''}
                     onChange={e => updateItem(item.id, { unitPrice: parseInt(e.target.value) || 0 })}
-                    className="w-full text-sm font-mono text-white/80 bg-transparent outline-none read-only:cursor-default"
+                    className={`w-full text-sm font-mono ${PREP_INPUT}`}
                   />
                 </div>
               </div>
-              <div className="px-3 py-2 bg-indigo-500/10">
-                <div className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-1">金額</div>
-                <div className="text-sm font-black text-indigo-300 font-mono">¥{(item.amount || 0).toLocaleString()}</div>
+              <div className="px-3 py-2 bg-indigo-500/15">
+                <div className={`${PREP_LABEL} text-indigo-200`}>金額</div>
+                <div className="text-sm font-black text-indigo-200 font-mono">¥{(item.amount || 0).toLocaleString()}</div>
               </div>
             </div>
             {/* Row 3: 到着予定日 / 到着先 / 準備完了 */}
-            <div className="grid grid-cols-3 border-t border-white/15">
-              <div className="px-3 py-2 border-r border-white/15">
-                <div className="text-[9px] font-black text-orange-300 uppercase tracking-widest mb-1">到着予定日</div>
+            <div className="grid grid-cols-3 border-t border-white/20">
+              <div className="px-3 py-2 border-r border-white/20">
+                <div className={`${PREP_LABEL} text-orange-200`}>到着予定日</div>
                 <input
                   type="date"
                   readOnly={!canEdit}
                   value={item.arrivalDate ?? ''}
                   onChange={e => updateItem(item.id, { arrivalDate: e.target.value })}
-                  className="w-full text-xs font-mono text-white/80 bg-transparent outline-none read-only:cursor-default [color-scheme:dark]"
+                  className={`w-full text-xs font-mono ${PREP_INPUT} [color-scheme:dark]`}
                 />
               </div>
-              <div className="px-3 py-2 border-r border-white/15" style={{ background: item.arrivalDestination ? ARRIVAL_DEST_STYLE[item.arrivalDestination]?.bg : undefined }}>
-                <div className="text-[9px] font-black text-cyan-300 uppercase tracking-widest mb-1">到着先</div>
+              <div className="px-3 py-2 border-r border-white/20" style={{ background: item.arrivalDestination ? ARRIVAL_DEST_STYLE[item.arrivalDestination]?.bg : undefined }}>
+                <div className={`${PREP_LABEL} text-cyan-200`}>到着先</div>
                 <select
                   disabled={!canEdit}
                   value={item.arrivalDestination ?? ''}
                   onChange={e => updateItem(item.id, { arrivalDestination: e.target.value as '新宿' | '長南' | '' })}
-                  className="w-full text-xs font-bold bg-transparent outline-none disabled:opacity-60 [color-scheme:dark]"
+                  className={`w-full text-xs font-bold ${PREP_INPUT} disabled:opacity-60 [color-scheme:dark]`}
                   style={{ color: item.arrivalDestination ? ARRIVAL_DEST_STYLE[item.arrivalDestination]?.dot : undefined }}
                 >
                   <option value="">—</option>
@@ -472,13 +489,13 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                 </select>
               </div>
               <div className="px-3 py-2 flex flex-col items-center">
-                <div className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-1.5">準備完了</div>
+                <div className={`${PREP_LABEL} text-indigo-200 mb-1.5`}>準備完了</div>
                 <Checkbox checked={item.prepared} disabled={!canEdit} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
               </div>
             </div>
             {/* Row 4: 発注状況 */}
-            <div className="border-t border-white/15 px-3 py-2">
-              <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1.5">発注状況</div>
+            <div className="border-t border-white/20 px-3 py-2">
+              <div className={`${PREP_LABEL} text-white/70 mb-1.5`}>発注状況</div>
               <OrderStatusPicker
                 status={item.orderStatus}
                 itemUrl={item.url}
@@ -487,26 +504,26 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
               />
             </div>
             {/* Row 4: 配送料 */}
-            <div className="border-t border-white/15">
+            <div className="border-t border-white/20">
               <div className="px-3 py-2">
-                <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">配送料</div>
+                <div className={`${PREP_LABEL} text-white/70`}>配送料</div>
                 <div className="flex items-center gap-0.5">
-                  <span className="text-[10px] text-white/40">¥</span>
+                  <span className="text-[11px] text-white/50">¥</span>
                   <input
                     type="number"
                     readOnly={!canEdit}
                     value={item.shippingFee || ''}
                     onChange={e => updateItem(item.id, { shippingFee: parseInt(e.target.value) || 0 })}
                     placeholder="0"
-                    className="w-full text-sm font-mono text-white/80 bg-transparent outline-none read-only:cursor-default placeholder:text-white/20"
+                    className={`w-full text-sm font-mono ${PREP_INPUT} placeholder:text-white/30`}
                   />
                 </div>
               </div>
             </div>
             {/* Row 5: 備考 (shown if has content or canEdit) */}
             {(item.note || canEdit) && (
-              <div className="border-t border-white/15 px-3 py-2">
-                <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">備考</div>
+              <div className="border-t border-white/20 px-3 py-2">
+                <div className={`${PREP_LABEL} text-white/70`}>備考</div>
                 <PreparationNoteField value={item.note || ''} readOnly={!canEdit} onChange={note => updateItem(item.id, { note })} />
                 {item.noteUpdatedAt && (
                   <p className="text-[10px] text-white/30 mt-0.5 leading-tight">
@@ -517,8 +534,8 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
             )}
             {/* Row 6: URL (shown if has content or canEdit) */}
             {(item.url || canEdit) && (
-              <div className="border-t border-white/15 px-3 py-2">
-                <div className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1">URL</div>
+              <div className="border-t border-white/20 px-3 py-2">
+                <div className={`${PREP_LABEL} text-white/70`}>URL</div>
                 {canEdit ? (
                   <div className="flex items-center gap-1.5">
                     <input
@@ -526,7 +543,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                       value={item.url || ''}
                       onChange={e => updateItem(item.id, { url: e.target.value })}
                       placeholder="https://..."
-                      className="flex-1 text-sm text-indigo-300 bg-transparent outline-none min-w-0 placeholder:text-white/20"
+                      className={`flex-1 text-sm text-indigo-200 min-w-0 placeholder:text-white/30 ${PREP_INPUT}`}
                     />
                     {item.url && (
                       <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-indigo-300 hover:text-indigo-200">
@@ -569,67 +586,66 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
           </div>
         )}
         {(canEdit || items.filter(i => !isEmptyItem(i)).length > 0) && (
-        <div className="bg-white/15 border border-white/20 rounded-2xl overflow-hidden shadow-sm print:border-0 print:shadow-none print:rounded-none">
+        <div className={`${PREP_PANEL} rounded-2xl overflow-hidden print:border-0 print:shadow-none print:rounded-none print:bg-white`}>
           <div className="overflow-x-auto print:overflow-visible">
             <table className="w-full border-collapse text-sm print:text-[9pt] print:min-w-0" style={{ minWidth: '1280px' }}>
-              <thead>
-                <tr className="bg-white/10 border-b border-white/15">
-                  <th className="w-10 px-3 py-3 text-[10px] font-black text-white/40 uppercase tracking-widest text-center border-r border-white/10">#</th>
-                  <th className="w-32 px-3 py-3 text-[10px] font-black text-orange-300 uppercase tracking-widest text-center border-r border-white/10 bg-orange-500/10 whitespace-nowrap">到着予定日</th>
-                  <th className="w-24 px-3 py-3 text-[10px] font-black text-cyan-300 uppercase tracking-widest text-center border-r border-white/10 bg-cyan-500/10 whitespace-nowrap">到着先</th>
-                  <th className="px-3 py-3 text-[10px] font-black text-amber-300 uppercase tracking-widest text-center border-r border-white/10 bg-amber-500/8 whitespace-nowrap" style={{ minWidth: '200px' }}>発注状況</th>
-                  <th className="w-20 px-3 py-3 text-[10px] font-black text-indigo-300 uppercase tracking-widest text-center border-r border-white/10 bg-indigo-500/10 whitespace-nowrap">準備完了</th>
-                  <th className="px-4 py-3 text-[10px] font-black text-white/60 uppercase tracking-widest text-left border-r border-white/10" style={{ minWidth: '200px' }}>品名</th>
-                  <th className="w-20 px-3 py-3 text-[10px] font-black text-white/60 uppercase tracking-widest text-center border-r border-white/10">数量</th>
-                  <th className="w-28 px-3 py-3 text-[10px] font-black text-white/60 uppercase tracking-widest text-right border-r border-white/10">単価</th>
-                  <th className="w-32 px-3 py-3 text-[10px] font-black text-indigo-300 uppercase tracking-widest text-right border-r border-white/10 bg-indigo-500/10">金額</th>
-                  <th className="w-28 px-3 py-3 text-[10px] font-black text-white/60 uppercase tracking-widest text-right border-r border-white/10">配送料</th>
-                  <th className="px-4 py-3 text-[10px] font-black text-white/60 uppercase tracking-widest text-left border-r border-white/10" style={{ minWidth: '220px' }}>備考</th>
-                  <th className="px-4 py-3 text-[10px] font-black text-white/60 uppercase tracking-widest text-left border-r border-white/10 print:text-slate-700" style={{ minWidth: '160px' }}>URL</th>
+              <thead className="sticky top-0 z-20">
+                <tr className="bg-slate-900/95 backdrop-blur-sm border-b border-white/20 shadow-sm">
+                  <th className="w-10 px-3 py-3 text-[11px] font-black text-white/60 uppercase tracking-widest text-center border-r border-white/20">#</th>
+                  <th className="w-32 px-3 py-3 text-[11px] font-black text-orange-200 uppercase tracking-widest text-center border-r border-white/20 bg-orange-500/15 whitespace-nowrap">到着予定日</th>
+                  <th className="w-24 px-3 py-3 text-[11px] font-black text-cyan-200 uppercase tracking-widest text-center border-r border-white/20 bg-cyan-500/15 whitespace-nowrap">到着先</th>
+                  <th className="px-3 py-3 text-[11px] font-black text-amber-200 uppercase tracking-widest text-center border-r border-white/20 bg-amber-500/15 whitespace-nowrap" style={{ minWidth: '200px' }}>発注状況</th>
+                  <th className="w-20 px-3 py-3 text-[11px] font-black text-indigo-200 uppercase tracking-widest text-center border-r border-white/20 bg-indigo-500/15 whitespace-nowrap">準備完了</th>
+                  <th className="px-4 py-3 text-[11px] font-black text-white/80 uppercase tracking-widest text-left border-r border-white/20" style={{ minWidth: '200px' }}>品名</th>
+                  <th className="w-20 px-3 py-3 text-[11px] font-black text-white/80 uppercase tracking-widest text-center border-r border-white/20">数量</th>
+                  <th className="w-28 px-3 py-3 text-[11px] font-black text-white/80 uppercase tracking-widest text-right border-r border-white/20">単価</th>
+                  <th className="w-32 px-3 py-3 text-[11px] font-black text-indigo-200 uppercase tracking-widest text-right border-r border-white/20 bg-indigo-500/15">金額</th>
+                  <th className="w-28 px-3 py-3 text-[11px] font-black text-white/80 uppercase tracking-widest text-right border-r border-white/20">配送料</th>
+                  <th className="px-4 py-3 text-[11px] font-black text-white/80 uppercase tracking-widest text-left border-r border-white/20" style={{ minWidth: '220px' }}>備考</th>
+                  <th className="px-4 py-3 text-[11px] font-black text-white/80 uppercase tracking-widest text-left border-r border-white/20 print:text-slate-700" style={{ minWidth: '160px' }}>URL</th>
                   <th className="w-10 px-2 py-3 prep-print-hide" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-white/20">
                 {items.map((item, idx) => {
                   const rowOs = item.orderStatus ?? 'unordered';
                   const rowStep = ORDER_STEPS.find(s => s.key === rowOs) ?? ORDER_STEPS[0];
                   return (
                   <tr
                     key={item.id}
-                    className={`group transition-colors ${
-                      item.prepared ? 'bg-indigo-500/10'
-                      : effectiveArrived(item) ? 'bg-emerald-500/10'
-                      : rowStep.rowBg
-                    } hover:bg-white/10 ${isEmptyItem(item) ? 'print:hidden' : ''}`}
+                    className={`group transition-colors border-l-4 ${prepRowBorderClass(item)} ${prepDesktopRowClass(item, idx, rowStep)} hover:bg-white/[0.08] ${isEmptyItem(item) ? 'print:hidden' : ''}`}
                   >
-                    <td className="px-3 py-3 text-center text-xs text-white/40 font-mono border-r border-white/10">{idx + 1}</td>
-                    <td className="px-2 py-2 text-center border-r border-white/10 bg-orange-500/10">
+                    <td className="px-3 py-3 text-center text-xs text-white/60 font-mono border-r border-white/20">{idx + 1}</td>
+                    <td className="px-2 py-2 text-center border-r border-white/20 bg-orange-500/12">
                       <input
                         type="date"
                         readOnly={!canEdit}
                         value={item.arrivalDate ?? ''}
                         onChange={e => updateItem(item.id, { arrivalDate: e.target.value })}
-                        className="w-full text-xs font-mono text-white/80 bg-transparent outline-none read-only:cursor-default text-center [color-scheme:dark]"
+                        className={`w-full text-xs font-mono text-center [color-scheme:dark] ${PREP_INPUT}`}
                       />
                     </td>
                     <td
-                      className="px-2 py-2 text-center border-r border-white/10 bg-cyan-500/10"
+                      className="px-2 py-2 text-center border-r border-white/20 bg-cyan-500/12"
                       style={{ background: item.arrivalDestination ? ARRIVAL_DEST_STYLE[item.arrivalDestination]?.bg : undefined }}
                     >
-                      <select
-                        disabled={!canEdit}
-                        value={item.arrivalDestination ?? ''}
-                        onChange={e => updateItem(item.id, { arrivalDestination: e.target.value as '新宿' | '長南' | '' })}
-                        className="w-full text-xs font-bold bg-transparent outline-none text-center disabled:opacity-60 [color-scheme:dark]"
-                        style={{ color: item.arrivalDestination ? ARRIVAL_DEST_STYLE[item.arrivalDestination]?.dot : undefined }}
-                      >
-                        <option value="">—</option>
-                        {ARRIVAL_DESTINATIONS.map(d => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                      </select>
+                      <div className="print:hidden">
+                        <select
+                          disabled={!canEdit}
+                          value={item.arrivalDestination ?? ''}
+                          onChange={e => updateItem(item.id, { arrivalDestination: e.target.value as '新宿' | '長南' | '' })}
+                          className={`w-full text-xs font-bold text-center disabled:opacity-60 [color-scheme:dark] ${PREP_INPUT}`}
+                          style={{ color: item.arrivalDestination ? ARRIVAL_DEST_STYLE[item.arrivalDestination]?.dot : undefined }}
+                        >
+                          <option value="">—</option>
+                          {ARRIVAL_DESTINATIONS.map(d => (
+                            <option key={d} value={d}>{d}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <PrintCellText>{item.arrivalDestination || '—'}</PrintCellText>
                     </td>
-                    <td className={`px-3 py-2 border-r border-white/10 transition-colors ${rowStep.rowBg}`}>
+                    <td className={`px-3 py-2 border-r border-white/20 transition-colors ${rowStep.rowBg}`}>
                       <div className="print:hidden flex justify-center">
                         <OrderStatusPicker
                           status={item.orderStatus}
@@ -639,62 +655,62 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                           onChange={(s) => updateItem(item.id, { orderStatus: s, arrived: s === 'arrived' })}
                         />
                       </div>
-                      <PrintCheckMark checked={effectiveArrived(item)} />
+                      <PrintCellText>{rowStep.label}</PrintCellText>
                     </td>
-                    <td className={`px-3 py-3 text-center border-r border-white/10 transition-colors ${item.prepared ? 'bg-indigo-500/20' : ''}`}>
+                    <td className={`px-3 py-3 text-center border-r border-white/20 transition-colors ${item.prepared ? 'bg-indigo-500/25' : ''}`}>
                       <div className="print:hidden">
                         <Checkbox checked={item.prepared} disabled={!canEdit} onChange={() => updateItem(item.id, { prepared: !item.prepared })} />
                       </div>
                       <PrintCheckMark checked={item.prepared} />
                       {item.prepared && <span className="text-[9px] font-black text-indigo-300 uppercase tracking-widest print:hidden">済</span>}
                     </td>
-                    <td className="p-0 border-r border-white/10">
+                    <td className="p-1 border-r border-white/20">
                       <input
                         type="text"
                         readOnly={!canEdit}
                         value={item.name}
                         onChange={e => updateItem(item.id, { name: e.target.value })}
                         placeholder="アイテム名..."
-                        className={`w-full px-4 py-3 bg-transparent outline-none focus:bg-white/10 text-sm font-medium text-white read-only:cursor-default placeholder:text-white/30 ${item.prepared ? 'line-through text-white/40' : ''}`}
+                        className={`w-full px-3 py-2.5 text-sm font-semibold placeholder:text-white/35 ${PREP_INPUT} ${item.prepared ? 'line-through text-white/50' : 'text-white'}`}
                       />
                     </td>
-                    <td className="p-0 border-r border-white/10">
+                    <td className="p-1 border-r border-white/20">
                       <input
                         type="number"
                         readOnly={!canEdit}
                         value={item.quantity || ''}
                         onChange={e => updateItem(item.id, { quantity: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-3 bg-transparent outline-none focus:bg-white/10 text-sm font-mono text-white/80 text-center read-only:cursor-default"
+                        className={`w-full py-2.5 text-sm font-mono text-center ${PREP_INPUT}`}
                       />
                     </td>
-                    <td className="p-0 border-r border-white/10">
-                      <div className="flex items-center justify-end px-3 py-3 gap-1">
-                        <span className="text-xs text-white/40">¥</span>
+                    <td className="p-1 border-r border-white/20">
+                      <div className="flex items-center justify-end px-2 py-2.5 gap-1">
+                        <span className="text-xs text-white/50">¥</span>
                         <input
                           type="number"
                           readOnly={!canEdit}
                           value={item.unitPrice || ''}
                           onChange={e => updateItem(item.id, { unitPrice: parseInt(e.target.value) || 0 })}
-                          className="w-full bg-transparent outline-none focus:bg-white/10 text-sm font-mono text-white/80 text-right read-only:cursor-default"
+                          className={`w-full text-sm font-mono text-right ${PREP_INPUT}`}
                         />
                       </div>
                     </td>
-                    <td className="px-3 py-3 text-right font-mono font-black text-indigo-300 text-sm border-r border-white/10 bg-indigo-500/10 whitespace-nowrap">
+                    <td className="px-3 py-3 text-right font-mono font-black text-indigo-200 text-sm border-r border-white/20 bg-indigo-500/15 whitespace-nowrap">
                       ¥{(item.amount || 0).toLocaleString()}
                     </td>
-                    <td className="p-0 border-r border-white/10">
-                      <div className="flex items-center justify-end px-3 py-3 gap-1">
+                    <td className="p-1 border-r border-white/20">
+                      <div className="flex items-center justify-end px-2 py-2.5 gap-1">
                         <input
                           type="number"
                           readOnly={!canEdit}
                           value={item.shippingFee || ''}
                           onChange={e => updateItem(item.id, { shippingFee: parseInt(e.target.value) || 0 })}
                           placeholder="0"
-                          className="w-full bg-transparent outline-none focus:bg-white/10 text-sm font-mono text-white/80 text-right read-only:cursor-default placeholder:text-white/20"
+                          className={`w-full text-sm font-mono text-right placeholder:text-white/30 ${PREP_INPUT}`}
                         />
                       </div>
                     </td>
-                    <td className="p-0 border-r border-white/10">
+                    <td className="p-1 border-r border-white/20">
                       <PreparationNoteField
                         value={item.note || ''}
                         readOnly={!canEdit}
@@ -707,15 +723,15 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                         </p>
                       )}
                     </td>
-                    <td className="p-0 border-r border-white/10">
+                    <td className="p-1 border-r border-white/20">
                       {canEdit ? (
-                        <div className="flex items-center gap-1 px-2 py-1">
+                        <div className="flex items-center gap-1 px-1 py-1">
                           <input
                             type="text"
                             value={item.url || ''}
                             onChange={e => updateItem(item.id, { url: e.target.value })}
                             placeholder="https://..."
-                            className="flex-1 px-2 py-1.5 bg-transparent outline-none focus:bg-white/10 text-sm text-indigo-300 min-w-0 placeholder:text-white/20"
+                            className={`flex-1 text-sm text-indigo-200 min-w-0 placeholder:text-white/30 ${PREP_INPUT}`}
                           />
                           {item.url && (
                             <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-indigo-300 hover:text-indigo-200 p-1">
@@ -758,7 +774,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
             <button
               type="button"
               onClick={addItem}
-              className="w-full py-4 bg-white/5 hover:bg-white/10 text-white/30 hover:text-indigo-300 text-xs font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 border-t border-white/10 print:hidden"
+              className="w-full py-4 bg-slate-900/40 hover:bg-slate-900/60 text-white/50 hover:text-indigo-200 text-xs font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 border-t border-white/20 print:hidden"
             >
               <Plus size={14} /> 新しい項目を追加
             </button>
@@ -767,50 +783,50 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
         )}
       </div>
 
-      {/* Footer — no card boxes, background image shows through */}
-      <div className="px-5 py-2.5 shrink-0 print:bg-white print:border-t print:border-slate-200 print:px-0 print:py-3">
+      {/* Footer */}
+      <div className="px-5 py-3 shrink-0 bg-slate-950/90 border-t border-white/20 print:bg-white print:border-slate-200 print:px-0 print:py-3">
         <div className="flex items-start gap-4 sm:gap-6 flex-wrap">
           {/* SUBTOTAL */}
           <div>
-            <div className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-0.5 print:text-slate-500">商品計</div>
-            <div className="text-sm font-black text-white font-mono print:text-slate-900">¥{totals.subtotal.toLocaleString()}</div>
+            <div className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-0.5 print:text-slate-500">商品計</div>
+            <div className="text-base font-black text-white font-mono print:text-slate-900">¥{totals.subtotal.toLocaleString()}</div>
           </div>
           {/* SHIPPING */}
           <div>
-            <div className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-0.5 print:text-slate-500">配送料</div>
-            <div className="text-sm font-black text-white font-mono print:text-slate-900">¥{totals.shipping.toLocaleString()}</div>
+            <div className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-0.5 print:text-slate-500">配送料</div>
+            <div className="text-base font-black text-white font-mono print:text-slate-900">¥{totals.shipping.toLocaleString()}</div>
           </div>
           {/* TOTAL */}
           <div>
-            <div className="text-[8px] font-black text-indigo-300/70 uppercase tracking-widest mb-0.5 print:text-slate-500">総支払</div>
-            <div className="text-base font-black text-indigo-200 font-mono print:text-slate-900">¥{totals.total.toLocaleString()}</div>
+            <div className="text-[10px] font-black text-indigo-200/80 uppercase tracking-widest mb-0.5 print:text-slate-500">総支払</div>
+            <div className="text-lg font-black text-indigo-100 font-mono print:text-slate-900">¥{totals.total.toLocaleString()}</div>
           </div>
           {/* PROGRESS */}
           <div className="flex-1 min-w-[160px] prep-print-hide">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">進捗</span>
-              <span className="text-[10px] font-black text-indigo-300">
+              <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">進捗</span>
+              <span className="text-xs font-black text-indigo-200">
                 {items.filter(i => !isEmptyItem(i)).length > 0
                   ? Math.round((totals.done / items.filter(i => !isEmptyItem(i)).length) * 100)
                   : 0}%
               </span>
             </div>
-            <div className="w-full bg-white/15 rounded-full h-1 mb-1.5">
+            <div className="w-full bg-white/20 rounded-full h-2 mb-1.5">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${items.filter(i => !isEmptyItem(i)).length > 0 ? (totals.done / items.filter(i => !isEmptyItem(i)).length) * 100 : 0}%` }}
-                className="bg-indigo-400 h-1 rounded-full"
+                className="bg-indigo-400 h-2 rounded-full"
               />
             </div>
             <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-              {totals.unorderedCount > 0 && <span className="text-[10px] font-black text-white/35">📋 {totals.unorderedCount}</span>}
-              {totals.orderedCount > 0 && <span className="text-[10px] font-black text-amber-300">🛒 {totals.orderedCount}</span>}
-              {totals.shippingCount > 0 && <span className="text-[10px] font-black text-blue-300">🚚 {totals.shippingCount}</span>}
-              {totals.arrived > 0 && <span className="text-[10px] font-black text-emerald-300">✅ {totals.arrived}</span>}
-              <span className="text-white/20">·</span>
-              <span className="text-[10px] font-black text-indigo-300">✓ {totals.prepared}</span>
-              <span className="text-white/20">·</span>
-              <span className="text-[11px] font-black text-white/80">{items.filter(i => !isEmptyItem(i)).length}件</span>
+              {totals.unorderedCount > 0 && <span className="text-[11px] font-black text-white/55">📋 {totals.unorderedCount}</span>}
+              {totals.orderedCount > 0 && <span className="text-[11px] font-black text-amber-200">🛒 {totals.orderedCount}</span>}
+              {totals.shippingCount > 0 && <span className="text-[11px] font-black text-blue-200">🚚 {totals.shippingCount}</span>}
+              {totals.arrived > 0 && <span className="text-[11px] font-black text-emerald-200">✅ {totals.arrived}</span>}
+              <span className="text-white/30">·</span>
+              <span className="text-[11px] font-black text-indigo-200">✓ {totals.prepared}</span>
+              <span className="text-white/30">·</span>
+              <span className="text-xs font-black text-white/90">{items.filter(i => !isEmptyItem(i)).length}件</span>
             </div>
           </div>
           {/* Excel / 印刷 buttons */}
@@ -866,11 +882,11 @@ function OrderStatusPicker({
             onClick={() => onChange(step.key)}
             title={step.label}
             className={`flex items-center gap-0.5 rounded border transition-all disabled:pointer-events-none ${
-              compact ? 'px-1 py-0.5 text-[9px]' : 'px-2 py-1 text-[11px]'
+              compact ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[11px]'
             } font-black ${
               isActive
                 ? step.activeCls
-                : 'bg-transparent text-white/20 border-white/10 hover:border-white/30 hover:text-white/40'
+                : 'bg-transparent text-white/50 border-white/20 hover:border-white/35 hover:text-white/70'
             }`}
           >
             <span>{step.label}</span>
@@ -914,7 +930,7 @@ function PreparationNoteField({ value, onChange, readOnly, desktop }: { value: s
         onChange(e.target.value);
       }}
       placeholder="..."
-      className="w-full px-4 py-2.5 bg-transparent outline-none focus:bg-white/10 text-sm text-white/70 break-words read-only:cursor-default placeholder:text-white/20"
+      className={`w-full px-3 py-2.5 text-sm text-white/90 break-words placeholder:text-white/30 ${PREP_INPUT}`}
       style={{ resize: 'none', overflowX: 'hidden', minHeight: desktop ? '52px' : '38px' }}
     />
   );
@@ -940,6 +956,14 @@ function SaveStatus({ isSaving, hasChanges, error, savedOnce }: { isSaving: bool
   return null;
 }
 
+function PrintCellText({ children }: { children: ReactNode }) {
+  return (
+    <span className="hidden print:inline text-sm font-bold text-slate-900">
+      {children}
+    </span>
+  );
+}
+
 function PrintCheckMark({ checked }: { checked: boolean }) {
   return (
     <span className="hidden print:inline text-sm font-bold text-slate-900">
@@ -960,9 +984,9 @@ function Checkbox({ checked, onChange, disabled, color = 'indigo' }: { checked: 
       type="button"
       onClick={onChange}
       disabled={disabled}
-      className={`w-6 h-6 rounded border-2 flex items-center justify-center mx-auto transition-all ${
-        checked ? activeClass : `border-white/30 bg-white/5 ${hoverClass}`
-      } disabled:opacity-40 disabled:pointer-events-none disabled:hover:border-white/30`}
+      className={`w-7 h-7 rounded border-2 flex items-center justify-center mx-auto transition-all ${
+        checked ? activeClass : `border-white/40 bg-slate-900/40 ${hoverClass}`
+      } disabled:opacity-40 disabled:pointer-events-none disabled:hover:border-white/40`}
     >
       {checked && (
         <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
