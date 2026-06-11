@@ -8,6 +8,7 @@ import {
   notifyPush,
   registerPushServiceWorker,
   listenForForegroundPushMessages,
+  syncPushSubscriptionIfGranted,
   isPushNotificationConfigured,
 } from './lib/pushNotifications';
 import MobilePushBanner from './components/MobilePushBanner';
@@ -232,6 +233,16 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     registerPushServiceWorker();
+    if (isMobile) {
+      syncPushSubscriptionIfGranted(user).catch(() => {});
+    }
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && isMobile) {
+        syncPushSubscriptionIfGranted(user).catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
 
     const openEventFromMessage = (eventId: string | null | undefined) => {
       if (!eventId) return;
@@ -251,10 +262,11 @@ export default function App() {
     listenForForegroundPushMessages(() => {}).then(unsub => { stopForeground = unsub; });
 
     return () => {
+      document.removeEventListener('visibilitychange', onVisible);
       navigator.serviceWorker?.removeEventListener('message', swHandler);
       stopForeground();
     };
-  }, [user, dbEvents, runWithGuard]);
+  }, [user, dbEvents, runWithGuard, isMobile]);
 
   // 通知 deep link: /?event=<id>
   useEffect(() => {

@@ -4,7 +4,7 @@ import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import type { Event, FishItem } from '../types';
 import { Fish, Plus, Trash2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { notifyPush, isPushNotificationConfigured } from '../lib/pushNotifications';
 import { fmtDateJPFull } from '../lib/eventHelpers';
 
@@ -48,6 +48,11 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
   const { runWithGuard } = useUnsavedChanges();
 
   const selectedEvent = aquariumEvents.find(ev => ev.id === selectedEventId);
+
+  const totalFishCount = useMemo(
+    () => fishItems.reduce((sum, item) => sum + (Number.isFinite(item.count) ? item.count : 0), 0),
+    [fishItems],
+  );
 
   const hasDraft = useMemo(
     () => !!(newName.trim() || newNote.trim() || newCount !== 1),
@@ -287,47 +292,63 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 mb-4">
-                  <AnimatePresence initial={false}>
+                {fishItems.length > 0 && (
+                  <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5">
+                    <span className="text-xs font-black uppercase tracking-widest text-slate-500">登録一覧</span>
+                    <span className="text-sm font-black text-slate-800 tabular-nums">
+                      {fishItems.length}種 / 合計 {totalFishCount}匹
+                    </span>
+                  </div>
+                )}
+
+                {fishItems.length === 0 ? (
+                  <div className="text-center py-16 text-slate-500">
+                    <Fish size={32} className="mx-auto mb-3 opacity-50" />
+                    <div className="text-sm">観賞魚が登録されていません</div>
+                    {canEdit && <div className="text-xs mt-1 text-slate-400">左のフォームから追加してください</div>}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {fishItems.map(item => (
                       <motion.div
                         key={item.id}
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, x: 20 }}
-                        className="flex items-center gap-3 bg-white/90 rounded-xl px-4 py-3 shadow-sm border border-cyan-100"
+                        layout
+                        className="bg-white border border-slate-200 rounded-2xl p-4 hover:border-slate-300 transition-colors group shadow-sm"
                       >
-                        <span className="text-lg shrink-0">🐠</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-sm text-slate-800">{item.name}</div>
-                          {item.note && <div className="text-xs text-slate-400 truncate">{item.note}</div>}
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="font-black text-sm text-slate-900 leading-snug">{item.name}</div>
+                          {canEdit && (
+                            <button
+                              onClick={() => handleDelete(item.id)}
+                              aria-label={`${item.name}を削除`}
+                              className="p-2 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 shrink-0"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
-                        {canEdit ? (
-                          <input
-                            type="number"
-                            min={0}
-                            value={item.count}
-                            onChange={e => handleCountChange(item, Number(e.target.value))}
-                            className="w-16 text-center rounded-lg border border-slate-200 px-2 py-1 text-sm font-black text-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
-                          />
-                        ) : (
-                          <span className="text-sm font-black text-cyan-700 w-16 text-center">{item.count}</span>
-                        )}
-                        <span className="text-xs text-slate-400 -ml-1">匹</span>
-                        {canEdit && (
-                          <button onClick={() => handleDelete(item.id)} className="text-slate-300 hover:text-red-400 transition-colors p-1 shrink-0">
-                            <Trash2 size={14} />
-                          </button>
-                        )}
+                        <div className="text-xs text-slate-500 mb-1 flex items-center gap-1.5">
+                          {canEdit ? (
+                            <>
+                              <input
+                                type="number"
+                                min={0}
+                                value={item.count}
+                                onChange={e => handleCountChange(item, Number(e.target.value))}
+                                aria-label={`${item.name}の匹数`}
+                                className="w-16 text-center rounded-lg border border-slate-200 px-2 py-1 text-xs font-black tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-300"
+                              />
+                              <span>匹</span>
+                            </>
+                          ) : (
+                            <span className="font-bold tabular-nums">{item.count}匹</span>
+                          )}
+                        </div>
+                        {item.note && <div className="text-xs text-slate-400">{item.note}</div>}
                       </motion.div>
                     ))}
-                  </AnimatePresence>
-                  {fishItems.length === 0 && (
-                    <div className="text-center py-10 text-slate-400 text-sm bg-slate-50 rounded-2xl border border-slate-200">
-                      観賞魚を追加してください
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
               </div>
             )}

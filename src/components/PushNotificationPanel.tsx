@@ -1,18 +1,15 @@
-import { Bell, Loader2, Check } from 'lucide-react';
-import type { PushNotificationStatus } from '../lib/pushNotifications';
-import { needsPwaInstallForPush } from '../lib/pushDeviceSupport';
+import { Bell, Loader2, Check, AlertCircle } from 'lucide-react';
+import type { PushSetupState } from '../lib/pushNotifications';
 
 interface Props {
-  status: PushNotificationStatus;
+  state: PushSetupState;
   busy: boolean;
   error: string | null;
   onEnable: () => void;
   compact?: boolean;
 }
 
-export default function PushNotificationPanel({ status, busy, error, onEnable, compact }: Props) {
-  const iosNeedsPwa = needsPwaInstallForPush();
-
+export default function PushNotificationPanel({ state, busy, error, onEnable, compact }: Props) {
   return (
     <div className={compact ? '' : 'text-left'}>
       {!compact && (
@@ -22,20 +19,22 @@ export default function PushNotificationPanel({ status, busy, error, onEnable, c
         </div>
       )}
 
-      {iosNeedsPwa ? (
+      {state === 'needs_pwa' ? (
         <div className="space-y-2">
           <p className="text-xs text-slate-600 leading-relaxed">
             <strong className="text-slate-900">iPhone で通知を受け取るには</strong>
-            、Safari の共有メニューから「ホーム画面に追加」し、追加したアイコンからアプリを開いてください（iOS 16.4 以降）。
+            、Safari の共有メニュー（□↑）から「ホーム画面に追加」し、
+            <strong className="text-slate-900">追加したアイコンから</strong>
+            アプリを開いてから、もう一度「通知を有効にする」を押してください（iOS 16.4 以降）。
           </p>
           <p className="text-[10px] text-slate-400 leading-snug">
-            通常の Safari タブではプッシュ通知は利用できません。
+            通常の Safari タブではプッシュ通知は届きません。
           </p>
         </div>
-      ) : status === 'granted' ? (
+      ) : state === 'subscribed' ? (
         <>
           <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 mb-2">
-            <Check size={14} /> この端末で有効です
+            <Check size={14} /> この端末で通知を受け取れます
           </div>
           <p className="text-xs text-slate-500 leading-relaxed mb-3">
             イベントの追加・更新、担当追加、準備物・写真の変更などで通知が届きます。
@@ -50,11 +49,29 @@ export default function PushNotificationPanel({ status, busy, error, onEnable, c
             この端末を再登録
           </button>
         </>
-      ) : status === 'denied' ? (
+      ) : state === 'permission_only' ? (
+        <>
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-700 mb-2">
+            <AlertCircle size={14} /> 登録が未完了です
+          </div>
+          <p className="text-xs text-slate-500 leading-relaxed mb-3">
+            通知は許可されていますが、この端末がサーバーに登録されていません。下のボタンで登録を完了してください。
+          </p>
+          <button
+            type="button"
+            onClick={onEnable}
+            disabled={busy}
+            className="w-full h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black flex items-center justify-center gap-2 disabled:opacity-60"
+          >
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Bell size={14} />}
+            登録を完了する
+          </button>
+        </>
+      ) : state === 'denied' ? (
         <p className="text-xs text-slate-500 leading-relaxed">
           ブラウザでこのサイトの通知が
           <strong className="text-slate-800">ブロック</strong>
-          されています。アドレスバー（または端末の設定）から通知を「許可」に変更し、ページを再読み込みしてください。
+          されています。端末の設定またはアドレスバーのサイト設定から通知を「許可」に変更し、ページを再読み込みしてください。
         </p>
       ) : (
         <>

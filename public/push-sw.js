@@ -4,16 +4,16 @@ self.addEventListener('push', event => {
   const body = payload.body || '';
   const data = payload.data || {};
 
+  const options = {
+    body,
+    icon: '/icon-192.png',
+    badge: '/favicon.svg',
+    tag: data.type ? `${data.type}:${data.eventId || 'global'}` : 'ivent-push',
+    data,
+  };
+
   event.waitUntil((async () => {
-    await self.registration.showNotification(title, {
-      body,
-      icon: '/icon-192.png',
-      badge: '/favicon.svg',
-      tag: data.type ? `${data.type}:${data.eventId || 'global'}` : 'ivent-push',
-      renotify: true,
-      vibrate: [120, 60, 120],
-      data,
-    });
+    await self.registration.showNotification(title, options);
 
     const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const client of clients) {

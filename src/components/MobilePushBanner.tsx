@@ -1,63 +1,40 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { User } from 'firebase/auth';
 import { X, Bell } from 'lucide-react';
-import {
-  enablePushNotifications,
-  getPushNotificationStatus,
-  isPushNotificationConfigured,
-  type PushNotificationStatus,
-} from '../lib/pushNotifications';
-import { needsPwaInstallForPush } from '../lib/pushDeviceSupport';
+import { usePushSetup } from '../hooks/usePushSetup';
 import PushNotificationPanel from './PushNotificationPanel';
 
-const DISMISS_KEY = 'push-banner-dismissed-v1';
+const DISMISS_KEY = 'push-banner-dismissed-v2';
 
 interface Props {
   user: User;
 }
 
-/** スマホ向け：通知未設定時に画面下部（ナビ直上）で案内 */
+/** スマホ向け：未購読時に画面下部（ナビ直上）で案内 */
 export default function MobilePushBanner({ user }: Props) {
-  const configured = isPushNotificationConfigured();
-  const [status, setStatus] = useState<PushNotificationStatus | null>(null);
+  const { configured, state, busy, error, enable, setError } = usePushSetup(user);
   const [dismissed, setDismissed] = useState(() => {
     try { return localStorage.getItem(DISMISS_KEY) === '1'; } catch { return false; }
   });
   const [expanded, setExpanded] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!configured) return;
-    let alive = true;
-    getPushNotificationStatus().then(s => { if (alive) setStatus(s); });
-    return () => { alive = false; };
-  }, [configured]);
-
-  const handleEnable = useCallback(async () => {
-    if (busy || needsPwaInstallForPush()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await enablePushNotifications(user);
-      setStatus('granted');
-      setExpanded(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '通知の有効化に失敗しました。');
-      setStatus(await getPushNotificationStatus());
-    } finally {
-      setBusy(false);
-    }
-  }, [busy, user]);
 
   const dismiss = () => {
     setDismissed(true);
     try { localStorage.setItem(DISMISS_KEY, '1'); } catch { /* ignore */ }
   };
 
-  if (!configured || status === null || status === 'unsupported') return null;
-  if (status === 'granted' || status === 'denied') return null;
-  if (dismissed && !needsPwaInstallForPush()) return null;
+  if (!configured || state === null || state === 'unsupported') return null;
+  if (state === 'subscribed' || state === 'denied') return null;
+
+  const mustShow = state === 'needs_pwa' || state === 'permission_only';
+  if (dismissed && !mustShow) return null;
+
+  const bannerText =
+    state === 'needs_pwa'
+      ? 'iPhone：ホーム画面に追加してから通知を有効に'
+      : state === 'permission_only'
+        ? '通知の登録が未完了です。タップして完了'
+        : 'プッシュ通知を有効にして変更をお知らせ';
 
   if (!expanded) {
     return (
@@ -72,11 +49,9 @@ export default function MobilePushBanner({ user }: Props) {
             onClick={() => setExpanded(true)}
             className="flex-1 text-left text-xs font-bold text-indigo-900 leading-snug"
           >
-            {needsPwaInstallForPush()
-              ? 'iPhone：ホーム画面に追加すると通知を受け取れます'
-              : 'プッシュ通知を有効にして変更をお知らせ'}
+            {bannerText}
           </button>
-          {!needsPwaInstallForPush() && (
+          {!mustShow && (
             <button
               type="button"
               onClick={dismiss}
@@ -108,10 +83,10 @@ export default function MobilePushBanner({ user }: Props) {
           </button>
         </div>
         <PushNotificationPanel
-          status={status}
+          state={state}
           busy={busy}
           error={error}
-          onEnable={handleEnable}
+          onEnable={enable}
           compact
         />
       </div>
