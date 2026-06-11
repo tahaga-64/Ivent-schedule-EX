@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { Calendar, ClipboardList, Building2, Plus, X, Mail } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import { REGIONS } from '../constants';
 import { rs } from '../lib/eventHelpers';
 import { type StaffMember } from '../types';
@@ -298,47 +297,9 @@ export default function AppSidebar({
     </div>
   );
 
+  // モバイルではサイドバーを表示しない（PC専用）
   return (
     <>
-      {/* Mobile drawer */}
-      <AnimatePresence>
-        {open && (
-          <>
-            <motion.div
-              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={onClose}
-            />
-            <motion.aside
-              className="fixed inset-y-0 left-0 z-50 flex w-[min(19rem,88vw)] flex-col overflow-hidden border-r border-white/15 backdrop-blur-xl md:hidden"
-              style={{ ...sidebarStyle, paddingTop: 'env(safe-area-inset-top)' }}
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', stiffness: 380, damping: 36 }}
-            >
-              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
-                <span className="text-sm font-black text-white">フィルター</span>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="p-2 rounded-xl text-white/60 hover:bg-white/10 transition-colors"
-                  aria-label="閉じる"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto overscroll-contain">
-                {content}
-              </div>
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Desktop sidebar */}
       {open && (
         <aside
           className="hidden md:flex w-72 flex-col flex-shrink-0 backdrop-blur-lg border-r border-white/10 overflow-y-auto"

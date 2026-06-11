@@ -1173,7 +1173,7 @@ function App() {
                   </div>
                 </div>
 
-                <div className="overflow-auto max-h-[calc(100vh-250px)] sm:max-h-[700px] -mx-5 px-5 relative border-b border-border">
+                <div className="overflow-x-auto relative border-b border-border">
                   <table className="w-full text-[10px] border-separate border-spacing-0 min-w-[max-content]">
                     <thead className="relative z-30">
                       <tr className="bg-[#1e2d46] text-white">
