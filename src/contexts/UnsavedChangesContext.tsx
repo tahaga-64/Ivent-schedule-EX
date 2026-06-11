@@ -9,18 +9,21 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Check } from 'lucide-react';
 
 export interface UnsavedGuard {
   hasUnsaved: boolean;
   save: () => Promise<boolean>;
   discard: () => void;
+  /** true の場合、ページ移動時に確認モーダルなしで自動保存する */
+  autoSaveOnNavigate?: boolean;
 }
 
 interface UnsavedChangesContextValue {
   registerGuard: (id: string, guard: UnsavedGuard | null) => void;
   runWithGuard: (action: () => void) => void;
   hasAnyUnsaved: boolean;
+  showSaveToast: (message?: string) => void;
 }
 
 const UnsavedChangesContext = createContext<UnsavedChangesContextValue | null>(null);
@@ -30,10 +33,18 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
   const [hasAnyUnsaved, setHasAnyUnsaved] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveToast, setSaveToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const recomputeHasUnsaved = useCallback(() => {
     const any = Array.from(guardsRef.current.values()).some(g => g.hasUnsaved);
     setHasAnyUnsaved(any);
+  }, []);
+
+  const showSaveToast = useCallback((message = '保存されました') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setSaveToast(message);
+    toastTimerRef.current = setTimeout(() => setSaveToast(null), 3000);
   }, []);
 
   const registerGuard = useCallback((id: string, guard: UnsavedGuard | null) => {
@@ -49,13 +60,39 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
     return Array.from(guardsRef.current.values()).filter(g => g.hasUnsaved);
   }, []);
 
-  const runWithGuard = useCallback((action: () => void) => {
-    if (getUnsavedGuards().length === 0) {
+  const executeAutoSaveAndContinue = useCallback(async (action: () => void) => {
+    const guards = getUnsavedGuards();
+    if (guards.length === 0) {
       action();
       return;
     }
+    setSaving(true);
+    try {
+      for (const guard of guards) {
+        const ok = await guard.save();
+        if (!ok) return;
+      }
+      recomputeHasUnsaved();
+      showSaveToast('保存されました');
+      action();
+    } finally {
+      setSaving(false);
+    }
+  }, [getUnsavedGuards, recomputeHasUnsaved, showSaveToast]);
+
+  const runWithGuard = useCallback((action: () => void) => {
+    const unsaved = getUnsavedGuards();
+    if (unsaved.length === 0) {
+      action();
+      return;
+    }
+    const allAutoSave = unsaved.every(g => g.autoSaveOnNavigate);
+    if (allAutoSave) {
+      void executeAutoSaveAndContinue(action);
+      return;
+    }
     setPendingAction(() => action);
-  }, [getUnsavedGuards]);
+  }, [getUnsavedGuards, executeAutoSaveAndContinue]);
 
   const closeModal = useCallback(() => {
     setPendingAction(null);
@@ -102,9 +139,32 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [getUnsavedGuards]);
 
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
   return (
-    <UnsavedChangesContext.Provider value={{ registerGuard, runWithGuard, hasAnyUnsaved }}>
+    <UnsavedChangesContext.Provider value={{ registerGuard, runWithGuard, hasAnyUnsaved, showSaveToast }}>
       {children}
+      {createPortal(
+        <AnimatePresence>
+          {saveToast && (
+            <motion.div
+              key="save-toast"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 16 }}
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[210] flex items-center gap-2 px-5 py-3 rounded-2xl bg-emerald-600 text-white text-sm font-black shadow-2xl"
+            >
+              <Check size={16} />
+              {saveToast}
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
       {createPortal(
         <AnimatePresence>
           {pendingAction && (
@@ -192,6 +252,7 @@ export function useRegisterUnsavedGuard(
     hasUnsaved: boolean;
     save: () => Promise<boolean>;
     discard: () => void;
+    autoSaveOnNavigate?: boolean;
   }
 ) {
   const { registerGuard } = useUnsavedChanges();
@@ -209,6 +270,9 @@ export function useRegisterUnsavedGuard(
       },
       save: () => optionsRef.current.save(),
       discard: () => optionsRef.current.discard(),
+      get autoSaveOnNavigate() {
+        return optionsRef.current.autoSaveOnNavigate;
+      },
     });
     return () => registerGuard(id, null);
   }, [id, options.enabled, options.hasUnsaved, registerGuard]);

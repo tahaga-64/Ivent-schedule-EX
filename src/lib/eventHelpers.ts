@@ -64,17 +64,40 @@ export function daysUntil(start: string): number {
   return Math.round((new Date(start + 'T00:00:00').getTime() - today.getTime()) / 86400000);
 }
 
-/**
- * イベント日までのカウントダウンに応じた背景色クラス。
- * 当日=赤 / 開催中=緑 / 7日以内=橙 / それ以遠=藍 / 終了済み=グレー。
- * スマホ一覧（PrepEventList の日付バッジ）と PC 準備物テーブルで共通利用。
- */
-export function countdownBg(until: number, isOngoing: boolean, expired = false): string {
-  if (expired) return 'bg-slate-500/40';
-  if (until === 0) return 'bg-red-500';
-  if (isOngoing) return 'bg-emerald-500';
-  if (until > 0 && until <= 7) return 'bg-amber-400';
-  return 'bg-indigo-600';
+/** 準備物リストのイベント一覧：開始日までの日数に応じた背景色・ラベル */
+export function prepEventUrgency(start: string, end: string): {
+  daysLabel: string;
+  rowBg: string;
+  badgeCls: string;
+  dateBadgeCls: string;
+} {
+  const today = new Date().toISOString().slice(0, 10);
+  const until = daysUntil(start);
+  const isOngoing = until < 0 && end >= today;
+
+  if (isOngoing || until === 0 || (until > 0 && until <= 3)) {
+    const label = isOngoing ? '開催中' : until === 0 ? '今日' : `あと${until}日`;
+    return {
+      daysLabel: label,
+      rowBg: 'bg-red-500/15 hover:bg-red-500/20',
+      badgeCls: 'bg-red-500/30 text-red-100 border-red-400/40',
+      dateBadgeCls: 'bg-red-500/80',
+    };
+  }
+  if (until > 3 && until <= 7) {
+    return {
+      daysLabel: `あと${until}日`,
+      rowBg: 'bg-amber-500/15 hover:bg-amber-500/20',
+      badgeCls: 'bg-amber-500/30 text-amber-100 border-amber-400/40',
+      dateBadgeCls: 'bg-amber-500/80',
+    };
+  }
+  return {
+    daysLabel: `あと${until}日`,
+    rowBg: 'bg-blue-500/15 hover:bg-blue-500/20',
+    badgeCls: 'bg-blue-500/30 text-blue-100 border-blue-400/40',
+    dateBadgeCls: 'bg-blue-600/80',
+  };
 }
 
 export function statusStyle(status?: string): { label: string; bg: string; text: string; dot: string } {
