@@ -301,26 +301,15 @@ export default function EventDetailModal({
                   onChange={e => onUpdate(selected.id, { nearestStation: e.target.value || undefined })}
                 />
                 {selected.nearestStation && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <a
-                      href={`https://jorudan.co.jp/norikae/cgi/nori.cgi?eki2=${encodeURIComponent(selected.nearestStation)}&Rf=0`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-600 hover:bg-blue-100 transition-colors whitespace-nowrap"
-                      title="乗換案内 Web版"
-                    >
-                      🚃 Web
-                    </a>
-                    <a
-                      href="https://apps.apple.com/app/id291676451"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 hover:bg-slate-100 transition-colors whitespace-nowrap"
-                      title="乗換案内アプリ（App Store）"
-                    >
-                      📱 App
-                    </a>
-                  </div>
+                  <a
+                    href={`https://transit.yahoo.co.jp/search/result?to=${encodeURIComponent(selected.nearestStation)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-[10px] font-bold text-blue-600 hover:bg-blue-100 transition-colors whitespace-nowrap"
+                    title="Yahoo!乗換案内で経路を検索"
+                  >
+                    乗換案内
+                  </a>
                 )}
               </div>
             </div>
