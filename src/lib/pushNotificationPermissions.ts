@@ -1,12 +1,12 @@
 /** Worker の canSendNotificationType と同期すること（workers/push/src/index.ts） */
 export const EDITOR_ONLY_PUSH_TYPES = new Set([
-  'event_created',
   'member_added',
-  'event_updated',
-  'event_deleted',
 ]);
 
 export const AUTHENTICATED_PUSH_TYPES = new Set([
+  'event_created',
+  'event_updated',
+  'event_deleted',
   'fish_added',
   'photo_added',
   'schedule_updated',

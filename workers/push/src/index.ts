@@ -134,11 +134,15 @@ function canSendNotificationType(type: string, email: string | undefined, env: E
     .filter(Boolean);
   const isEditor = !!email && editors.includes(email.toLowerCase());
 
-  if (type === 'event_created' || type === 'member_added' || type === 'event_updated' || type === 'event_deleted') {
+  // 担当追加のみ編集者＋メール指定配信
+  if (type === 'member_added') {
     return isEditor;
   }
-  // 魚リスト・写真・スケジュール・準備物はログイン済みユーザー全員が可（verifyFirebaseUser で認証済み）
-  if (type === 'fish_added' || type === 'photo_added' || type === 'schedule_updated' || type === 'prep_updated') {
+  // イベント系・準備物等は Firebase 認証済みなら送信可（匿名認証 PWA 含む）
+  if (
+    type === 'event_created' || type === 'event_updated' || type === 'event_deleted'
+    || type === 'fish_added' || type === 'photo_added' || type === 'schedule_updated' || type === 'prep_updated'
+  ) {
     return true;
   }
   return false;
