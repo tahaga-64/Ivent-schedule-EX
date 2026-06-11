@@ -11,7 +11,8 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

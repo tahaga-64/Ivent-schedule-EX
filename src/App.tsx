@@ -17,9 +17,11 @@ import { usePhotos } from './hooks/usePhotos';
 import { useRoles } from './hooks/useRoles';
 import {
   canEditPreparationList as computeCanEditPreparationList,
+  canEditFishList as computeCanEditFishList,
 } from './lib/permissions';
 import { checkUserAllowed } from './lib/allowedUsers';
 import HelpModal from './components/HelpModal';
+import StaffEmailPicker from './components/StaffEmailPicker';
 import AppSidebar from './components/AppSidebar';
 import AppHeader from './components/AppHeader';
 import DayDetailModal from './components/DayDetailModal';
@@ -204,6 +206,8 @@ export default function App() {
   }, [sidebarTypes]);
 
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [knownUsers, setKnownUsers] = useState<{ email: string; displayName: string }[]>([]);
+  const [emailPickerStaff, setEmailPickerStaff] = useState<StaffMember | null>(null);
   const [staffExpanded, setStaffExpanded] = useState(false);
   const [pendingNewEventId, setPendingNewEventId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 768 : false));
@@ -257,6 +261,17 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // ログイン実績ユーザー購読（スタッフの email 連携ピッカー用）
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'userProfiles'), (snap) => {
+      const list = snap.docs
+        .map(d => ({ email: (d.data().email as string) ?? '', displayName: (d.data().displayName as string) ?? '' }))
+        .filter(u => u.email);
+      setKnownUsers(list);
+    }, () => {});
+    return () => unsubscribe();
+  }, []);
+
   const [narrowViewport, setNarrowViewport] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches
   );
@@ -271,6 +286,7 @@ export default function App() {
   const { isEventEditor } = useRoles();
   const canEditEvent = !narrowViewport && !!user && isEventEditor(user.email);
   const canEditPreparationList = computeCanEditPreparationList(user);
+  const canEditFishList = computeCanEditFishList(user, narrowViewport);
   const canUploadPhoto = !!user;
 
   // Firestoreから書き換えられたイベントデータを購読
@@ -738,14 +754,19 @@ export default function App() {
     }
   };
 
-  const handleEditStaffEmail = async (staff: StaffMember) => {
-    const input = prompt(`「${staff.name}」のGmailアドレスを設定してください（削除する場合は空白）:`, staff.email ?? '');
-    if (input === null) return;
-    const trimmed = input.trim();
+  const handleEditStaffEmail = (staff: StaffMember) => {
+    setEmailPickerStaff(staff);
+  };
+
+  const saveStaffEmail = async (email: string) => {
+    if (!emailPickerStaff) return;
+    const trimmed = email.trim();
     try {
-      await updateDoc(doc(db, 'staff', staff.id), { email: trimmed || deleteField() });
+      await updateDoc(doc(db, 'staff', emailPickerStaff.id), { email: trimmed || deleteField() });
     } catch {
       alert('メールアドレスの更新に失敗しました');
+    } finally {
+      setEmailPickerStaff(null);
     }
   };
 
@@ -994,7 +1015,7 @@ VITE_FIREBASE_DATABASE_ID`}
         <MasterItemsView canEdit={canEditPreparationList} isActive />
       )}
       {v === "fish" && (
-        <FishListView events={allEvents} canEdit={canEditPreparationList} isActive />
+        <FishListView events={allEvents} canEdit={canEditFishList} isMobile={narrowViewport} isActive />
       )}
       {v === "layout" && (
         <LayoutView events={allEvents} canEdit={canEditPreparationList} />
@@ -1003,7 +1024,7 @@ VITE_FIREBASE_DATABASE_ID`}
         <AlbumView events={allEvents} />
       )}
       {v === "schedule" && (
-        <ScheduleView />
+        <ScheduleView currentUser={user} />
       )}
       {(v === "prep" || v === "archive") && prepEvent ? (
         <PreparationList
@@ -1047,6 +1068,15 @@ VITE_FIREBASE_DATABASE_ID`}
       />
 
       <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
+
+      {emailPickerStaff && (
+        <StaffEmailPicker
+          staff={emailPickerStaff}
+          knownUsers={knownUsers}
+          onSave={saveStaffEmail}
+          onClose={() => setEmailPickerStaff(null)}
+        />
+      )}
 
       {/* 初期データ移行バナー（編集者のみ・未移行時） */}
       {canEditEvent && !eventsMigrated && (

@@ -35,3 +35,16 @@ export function canUploadPhoto(user: User | null | undefined): boolean {
 export function canEditPreparationList(user: User | null | undefined): boolean {
   return isSignedIn(user);
 }
+
+/** 魚リストを編集できる唯一のアカウント。Firestore ルール（fishItems write）と揃えること。 */
+export const FISH_LIST_EDITOR_EMAIL = 'boruhirabayashi@icloud.com';
+
+/**
+ * 魚リストの編集可否。
+ * 仕様: デスクトップの boruhirabayashi@icloud.com のみ。スマホは常に閲覧のみ。
+ */
+export function canEditFishList(user: User | null | undefined, isMobile = false): boolean {
+  if (isMobile) return false;
+  if (!isSignedIn(user)) return false;
+  return user.email === FISH_LIST_EDITOR_EMAIL;
+}
