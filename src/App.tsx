@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense, type MouseEvent as ReactMouseEvent } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, Suspense, type MouseEvent as ReactMouseEvent } from 'react';
+import { lazyWithRetry } from './lib/lazyWithRetry';
 import { db, auth, loginWithGoogle, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
@@ -33,24 +34,24 @@ import LoadingSplash from './components/LoadingSplash';
 import ViewLoadingFallback from './components/ViewLoadingFallback';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from './contexts/UnsavedChangesContext';
 
-const HomeView = lazy(() => import('./components/HomeView'));
-const MasterItemsView = lazy(() => import('./components/MasterItemsView'));
-const FishListView = lazy(() => import('./components/FishListView'));
-const LayoutView = lazy(() => import('./components/LayoutView'));
-const LayoutPublicView = lazy(() => import('./components/LayoutView').then(m => ({ default: m.LayoutPublicView })));
-const PreparationList = lazy(() => import('./components/PreparationList'));
-const PrepEventList = lazy(() => import('./components/PrepEventList'));
-const ArchiveView = lazy(() => import('./components/ArchiveView'));
-const AlbumView = lazy(() => import('./components/AlbumView'));
+const HomeView = lazyWithRetry(() => import('./components/HomeView'));
+const MasterItemsView = lazyWithRetry(() => import('./components/MasterItemsView'));
+const FishListView = lazyWithRetry(() => import('./components/FishListView'));
+const LayoutView = lazyWithRetry(() => import('./components/LayoutView'));
+const LayoutPublicView = lazyWithRetry(() => import('./components/LayoutView').then(m => ({ default: m.LayoutPublicView })));
+const PreparationList = lazyWithRetry(() => import('./components/PreparationList'));
+const PrepEventList = lazyWithRetry(() => import('./components/PrepEventList'));
+const ArchiveView = lazyWithRetry(() => import('./components/ArchiveView'));
+const AlbumView = lazyWithRetry(() => import('./components/AlbumView'));
 // シフト管理ページ = EX-schedule アプリ全体を移植・埋め込み（ExScheduleApp）
-const ScheduleView = lazy(() => import('./components/ExScheduleApp'));
-const CalendarView = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.CalendarView })));
-const HoverCard = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.HoverCard })));
-const EmptyState = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.EmptyState })));
-const MobileTimelineView = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileTimelineView })));
-const MobileWeekStrip = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileWeekStrip })));
-const MobileDayAgendaView = lazy(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileDayAgendaView })));
-const EventDetailModal = lazy(() => import('./components/EventDetailModal'));
+const ScheduleView = lazyWithRetry(() => import('./components/ExScheduleApp'));
+const CalendarView = lazyWithRetry(() => import('./components/CalendarComponents').then(m => ({ default: m.CalendarView })));
+const HoverCard = lazyWithRetry(() => import('./components/CalendarComponents').then(m => ({ default: m.HoverCard })));
+const EmptyState = lazyWithRetry(() => import('./components/CalendarComponents').then(m => ({ default: m.EmptyState })));
+const MobileTimelineView = lazyWithRetry(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileTimelineView })));
+const MobileWeekStrip = lazyWithRetry(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileWeekStrip })));
+const MobileDayAgendaView = lazyWithRetry(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileDayAgendaView })));
+const EventDetailModal = lazyWithRetry(() => import('./components/EventDetailModal'));
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule";
 type ModalTab = "detail" | "photos" | "financial";
