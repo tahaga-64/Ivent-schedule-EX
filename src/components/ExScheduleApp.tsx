@@ -344,25 +344,31 @@ const TrainingInfo = ({
 };
 
 
-const MemberTabs = ({ members, current, onSelect }: { members: string[], current: string, onSelect: (n: string) => void }) => (
-  <div className="bg-white rounded-xl shadow-sm mb-4 overflow-hidden border border-border">
-    <div className="flex overflow-x-auto p-2 gap-1.5 border-b border-border scrollbar-hide">
-      {members.map(name => (
-        <button
-          key={name}
-          onClick={() => onSelect(name)}
-          className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-all duration-200 border ${
-            name === current 
-              ? 'bg-accent border-accent text-white font-semibold' 
-              : 'bg-bg border-border2 text-text2 hover:border-accent-m hover:text-accent hover:bg-accent-l'
-          }`}
-        >
-          {name.replace('　', '')}
-        </button>
-      ))}
+const MemberTabs = ({ members, current, myName, onSelect }: { members: string[], current: string, myName: string, onSelect: (n: string) => void }) => {
+  const sorted = myName ? [myName, ...members.filter(m => m !== myName)] : members;
+  return (
+    <div className="bg-white rounded-xl shadow-sm mb-4 overflow-hidden border border-border">
+      <div className="flex overflow-x-auto p-2 gap-1.5 border-b border-border scrollbar-hide">
+        {sorted.map(name => (
+          <button
+            key={name}
+            onClick={() => onSelect(name)}
+            className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-all duration-200 border flex items-center gap-1 ${
+              name === current
+                ? 'bg-accent border-accent text-white font-black'
+                : name === myName
+                  ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-bold'
+                  : 'bg-bg border-border2 text-text2 hover:border-accent-m hover:text-accent hover:bg-accent-l'
+            }`}
+          >
+            {name === myName && <span className="text-[10px]">★</span>}
+            {name.replace('　', '')}
+          </button>
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default function AppWrapper({ currentUser }: { currentUser?: User | null }) {
   return (
@@ -374,9 +380,12 @@ export default function AppWrapper({ currentUser }: { currentUser?: User | null 
 
 function App({ currentUser }: { currentUser: User | null }) {
   const [activeTab, setActiveTab] = useState<'schedule' | 'overall'>('schedule');
-  // スケジュール更新通知のスロットル用（最後に通知した時刻）
   const lastScheduleNotifyRef = useRef(0);
-  const [currentSchedMember, setCurrentSchedMember] = useState(MEMBERS[0]);
+  const [myName, setMyName] = useState<string>(() => localStorage.getItem('ex_schedule_my_name') || '');
+  const [showNamePicker, setShowNamePicker] = useState(() => !localStorage.getItem('ex_schedule_my_name'));
+  const [currentSchedMember, setCurrentSchedMember] = useState<string>(() => localStorage.getItem('ex_schedule_my_name') || MEMBERS[0]);
+  const schedCalendarRef = useRef<HTMLDivElement>(null);
+  const overallTableRef = useRef<HTMLDivElement>(null);
   
   // Initialize from current real date to ensure the app opens with the latest current month always
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
@@ -618,6 +627,27 @@ function App({ currentUser }: { currentUser: User | null }) {
 
     return () => unsubscribe();
   }, []);
+
+  // 今日の列を中央にauto-scroll
+  useEffect(() => {
+    const today = new Date();
+    if (currentYear !== today.getFullYear() || currentMonth !== today.getMonth()) return;
+    const todayDay = today.getDate();
+    const todayDow = getDow(today.getFullYear(), today.getMonth(), todayDay); // 0=Mon
+
+    if (activeTab === 'schedule' && schedCalendarRef.current) {
+      const el = schedCalendarRef.current;
+      // min-w-[700px] / 7 cols ≈ 100px per col
+      const colWidth = Math.max(el.scrollWidth, 700) / 7;
+      el.scrollLeft = todayDow * colWidth + colWidth / 2 - el.clientWidth / 2;
+    }
+    if (activeTab === 'overall' && overallTableRef.current) {
+      const el = overallTableRef.current;
+      const nameCol = 64;
+      const dayCol = 52;
+      el.scrollLeft = nameCol + (todayDay - 1) * dayCol + dayCol / 2 - el.clientWidth / 2;
+    }
+  }, [activeTab, currentYear, currentMonth]);
 
   const saveData = async (updates: Record<string, any>) => {
     if (!monthKey || monthKey.includes('NaN')) {
@@ -921,6 +951,38 @@ function App({ currentUser }: { currentUser: User | null }) {
 
   return (
     <div className="min-h-full bg-transparent text-text font-sans pb-20">
+      {/* 初回名前選択モーダル */}
+      {showNamePicker && (
+        <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <h2 className="text-lg font-black text-slate-900 mb-1">あなたの名前を選んでください</h2>
+            <p className="text-xs text-slate-500 mb-5">選択後、自分のスケジュールが最初に表示されます</p>
+            <div className="grid grid-cols-2 gap-2">
+              {MEMBERS.map(name => (
+                <button
+                  key={name}
+                  onClick={() => {
+                    localStorage.setItem('ex_schedule_my_name', name);
+                    setMyName(name);
+                    setCurrentSchedMember(name);
+                    setShowNamePicker(false);
+                  }}
+                  className="py-3 px-4 rounded-xl border-2 border-slate-200 text-sm font-bold text-slate-800 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-700 active:scale-95 transition-all"
+                >
+                  {name.replace('　', '')}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowNamePicker(false)}
+              className="mt-4 w-full py-2 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              スキップ
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Non-blocking Save Error Banner */}
       <AnimatePresence>
         {saveError && (
@@ -982,10 +1044,13 @@ function App({ currentUser }: { currentUser: User | null }) {
                 </span>
               )}
             </button>
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-200 text-[10px] font-bold">
-              <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-              パブリック編集モード
-            </div>
+            <button
+              onClick={() => setShowNamePicker(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 text-[10px] font-bold hover:bg-indigo-100 transition-colors"
+              title="自分の名前を変更"
+            >
+              ★ {myName ? myName.replace('　', '') : '名前設定'}
+            </button>
           </div>
         </div>
       </header>
@@ -1024,10 +1089,11 @@ function App({ currentUser }: { currentUser: User | null }) {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-4"
             >
-              <MemberTabs 
-                members={MEMBERS} 
-                current={currentSchedMember} 
-                onSelect={setCurrentSchedMember} 
+              <MemberTabs
+                members={MEMBERS}
+                current={currentSchedMember}
+                myName={myName}
+                onSelect={setCurrentSchedMember}
               />
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1064,7 +1130,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                 </div>
 
                 {/* Scrollable Calendar Container */}
-                <div className="overflow-x-auto pb-2 -mx-0">
+                <div ref={schedCalendarRef} className="overflow-x-auto pb-2 -mx-0">
                   <div className="min-w-[700px]">
                     {/* Calendar Grid Header */}
                     <div className="grid grid-cols-7 gap-1 md:gap-2 mb-1">
@@ -1193,7 +1259,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto relative border-b border-border">
+                <div ref={overallTableRef} className="overflow-x-auto relative border-b border-border">
                   <table className="w-full text-xs border-separate border-spacing-0 min-w-[max-content]">
                     <thead className="relative z-30">
                       <tr className="bg-slate-100 text-slate-900">
