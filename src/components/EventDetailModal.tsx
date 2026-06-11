@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { Event, EventStatus, EventPhoto, type FieldAuthorAttribution } from '../types';
 import { REGIONS } from '../constants';
-import { rs, ts, statusStyle, getDaysInRange, formatDayLabel, type ValidationError } from '../lib/eventHelpers';
+import { rs, ts, statusStyle, getDaysInRange, formatDayLabel, normalizeRegion, type ValidationError } from '../lib/eventHelpers';
 import { type StaffMember } from '../types';
 import PhotoUpload from './photos/PhotoUpload';
 import PhotoGallery from './photos/PhotoGallery';
@@ -137,13 +137,13 @@ export default function EventDetailModal({
                     key={r}
                     type="button"
                     disabled={!canEditEvent}
-                    onClick={() => canEditEvent && onUpdate(selected.id, { region: r, dept: '' })}
+                    onClick={() => canEditEvent && onUpdate(selected.id, { region: r })}
                     className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-all ${
-                      selected.region === r
+                      normalizeRegion(selected.region) === r
                         ? 'text-white border-transparent'
                         : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
                     } ${!canEditEvent ? 'cursor-default' : 'cursor-pointer'}`}
-                    style={selected.region === r
+                    style={normalizeRegion(selected.region) === r
                       ? { background: rs(r).dot, borderColor: rs(r).dot }
                       : {}
                     }
@@ -151,6 +151,16 @@ export default function EventDetailModal({
                     {r}
                   </button>
                 ))}
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">部署</label>
+                <input
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                  value={selected.dept ?? ''}
+                  placeholder="部署名を入力..."
+                  disabled={!canEditEvent}
+                  onChange={e => onUpdate(selected.id, { dept: e.target.value })}
+                />
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {sidebarTypes.map(t => (

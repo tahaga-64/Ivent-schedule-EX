@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import { Event } from '../types';
-import { fmtDateRange, rs, ts } from '../lib/eventHelpers';
+import { fmtDateRange, rs, ts, normalizeRegion } from '../lib/eventHelpers';
 import EventPickerTable from './EventPickerTable';
 
 interface ArchiveViewProps {
@@ -76,7 +76,7 @@ export default function ArchiveView({ events, onSelectEvent }: ArchiveViewProps)
                               <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black ${st.cls}`}>{st.label}</span>
                             </div>
                             <div className="text-xs text-white/50 font-mono">
-                              {fmtDateRange(ev.start, ev.end)}{ev.client ? ` · ${ev.client}` : ''}{ev.region ? ` · ${ev.region}` : ''}
+                              {fmtDateRange(ev.start, ev.end)}{ev.client ? ` · ${ev.client}` : ''}{ev.region ? ` · ${normalizeRegion(ev.region)}` : ''}
                             </div>
                           </div>
                           <ChevronRight size={15} className="text-white/30 group-hover:text-white/70 shrink-0 mt-1 transition-colors" />
