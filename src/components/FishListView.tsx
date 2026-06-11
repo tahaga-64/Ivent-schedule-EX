@@ -4,7 +4,7 @@ import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import type { Event, FishItem } from '../types';
 import { Fish, Plus, Trash2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { notifyPush, isPushNotificationConfigured } from '../lib/pushNotifications';
 import { fmtDateJPFull } from '../lib/eventHelpers';
 
@@ -301,63 +301,54 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 mb-4">
-                  <AnimatePresence initial={false}>
-                    {fishItems.map((item, index) => (
+                {fishItems.length === 0 ? (
+                  <div className="text-center py-16 text-slate-500">
+                    <Fish size={32} className="mx-auto mb-3 opacity-50" />
+                    <div className="text-sm">観賞魚が登録されていません</div>
+                    {canEdit && <div className="text-xs mt-1 text-slate-400">左のフォームから追加してください</div>}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {fishItems.map(item => (
                       <motion.div
                         key={item.id}
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, x: 20 }}
-                        className="flex items-start gap-3 bg-white rounded-xl px-3.5 py-3 shadow-sm border border-slate-200 border-l-[3px] border-l-cyan-500"
+                        layout
+                        className="bg-white border border-slate-200 rounded-2xl p-4 hover:border-slate-300 transition-colors group shadow-sm"
                       >
-                        <span
-                          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-black tabular-nums text-slate-600"
-                          aria-hidden
-                        >
-                          {index + 1}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-black text-base leading-snug text-slate-900 break-words">{item.name}</div>
-                          {item.note && (
-                            <div className="mt-1 text-sm leading-snug text-slate-500 break-words">{item.note}</div>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="font-black text-sm text-slate-900 leading-snug">{item.name}</div>
+                          {canEdit && (
+                            <button
+                              onClick={() => handleDelete(item.id)}
+                              aria-label={`${item.name}を削除`}
+                              className="p-2 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 shrink-0"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           )}
                         </div>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <div className="flex items-center gap-1 rounded-lg bg-cyan-50 px-2 py-1 border border-cyan-100">
-                            {canEdit ? (
+                        <div className="text-xs text-slate-500 mb-1 flex items-center gap-1.5">
+                          {canEdit ? (
+                            <>
                               <input
                                 type="number"
                                 min={0}
                                 value={item.count}
                                 onChange={e => handleCountChange(item, Number(e.target.value))}
                                 aria-label={`${item.name}の匹数`}
-                                className="w-12 text-center rounded-md border border-cyan-200 bg-white px-1 py-0.5 text-sm font-black tabular-nums text-cyan-800 focus:outline-none focus:ring-2 focus:ring-cyan-300"
+                                className="w-16 text-center rounded-lg border border-slate-200 px-2 py-1 text-xs font-black tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-300"
                               />
-                            ) : (
-                              <span className="min-w-[2rem] text-center text-base font-black tabular-nums text-cyan-800">{item.count}</span>
-                            )}
-                            <span className="text-xs font-bold text-cyan-700">匹</span>
-                          </div>
-                          {canEdit && (
-                            <button
-                              onClick={() => handleDelete(item.id)}
-                              aria-label={`${item.name}を削除`}
-                              className="text-slate-300 hover:text-red-500 transition-colors p-1 shrink-0"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                              <span>匹</span>
+                            </>
+                          ) : (
+                            <span className="font-bold tabular-nums">{item.count}匹</span>
                           )}
                         </div>
+                        {item.note && <div className="text-xs text-slate-400">{item.note}</div>}
                       </motion.div>
                     ))}
-                  </AnimatePresence>
-                  {fishItems.length === 0 && (
-                    <div className="col-span-full text-center py-12 text-slate-500 text-sm bg-slate-50 rounded-2xl border border-dashed border-slate-300">
-                      観賞魚を追加してください
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
               </div>
             )}
