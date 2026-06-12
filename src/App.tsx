@@ -349,7 +349,7 @@ export default function App() {
   }, []);
 
   const { isEventEditor } = useRoles();
-  const canEditEvent = !narrowViewport && !!user && isEventEditor(user.email);
+  const canEditEvent = !!user && isEventEditor(user.email);
   const canEditPreparationList = computeCanEditPreparationList(user);
   const canEditFishList = computeCanEditFishList(user, narrowViewport);
   const canUploadPhoto = !!user;
