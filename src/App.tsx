@@ -970,7 +970,7 @@ VITE_FIREBASE_DATABASE_ID`}
       <LayoutPublicView eventId={publicLayoutId} />
     </Suspense>
   );
-  if (user === undefined) return <LoadingSplash />;
+  if (user === undefined || !splashMinElapsed) return <LoadingSplash />;
   if (!user) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-slate-100 px-6 text-center">
@@ -1348,11 +1348,6 @@ VITE_FIREBASE_DATABASE_ID`}
         view={view}
         onSetView={navigateToView}
       />
-
-      {/* Aquarium splash overlay — fades out once min elapsed */}
-      <AnimatePresence>
-        {!splashMinElapsed && <LoadingSplash asOverlay />}
-      </AnimatePresence>
 
       {/* Global bubble burst FX portal */}
       <BubbleBurstPortal />
