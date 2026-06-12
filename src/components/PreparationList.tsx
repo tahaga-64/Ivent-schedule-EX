@@ -9,6 +9,7 @@ import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedC
 import { computePrepProgressFields, effectiveArrived } from '../lib/prepProgress';
 import { ARRIVAL_DESTINATIONS } from '../constants';
 import { notifyPush } from '../lib/pushNotifications';
+import { syncNewPrepItemsToMaster } from '../lib/masterItemSync';
 
 // ─── 発注ステータス ──────────────────────────────────────────────────────────
 
@@ -200,6 +201,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
     if (!canEdit) return true;
     const version = editVersionRef.current;
     const toDelete = [...deletedIdsRef.current];
+    const previousSaved = savedItemsRef.current;
     setIsSaving(true);
     setSaveError(null);
     try {
@@ -211,6 +213,10 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
         batch.delete(doc(db, `events/${event.id}/preparationItems`, id));
       });
       await batch.commit();
+      // 新しく追加された準備物を備品マスターへ自動登録（失敗しても保存自体は成功扱い）
+      syncNewPrepItemsToMaster(toSave, previousSaved).catch(err => {
+        console.error('masterItems sync error:', err);
+      });
       const budgetTotal = toSave.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0);
       const progress = computePrepProgressFields(toSave);
       updateDoc(doc(db, 'events', event.id), {
