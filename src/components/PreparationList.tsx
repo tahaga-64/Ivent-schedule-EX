@@ -10,6 +10,7 @@ import { computePrepProgressFields, effectiveArrived } from '../lib/prepProgress
 import { ARRIVAL_DESTINATIONS } from '../constants';
 import { notifyPush } from '../lib/pushNotifications';
 import { syncNewPrepItemsToMaster } from '../lib/masterItemSync';
+import { burstAt } from '../lib/fx';
 
 // ─── 発注ステータス ──────────────────────────────────────────────────────────
 
@@ -558,7 +559,14 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
               )}
               <button
                 type="button"
-                onClick={() => canEdit && updateItem(item.id, { prepared: !item.prepared })}
+                onClick={(e) => {
+                  if (!canEdit) return;
+                  if (!item.prepared) {
+                    const r = (e.target as HTMLElement).getBoundingClientRect();
+                    burstAt(r.left + r.width / 2, r.top + r.height / 2, 6);
+                  }
+                  updateItem(item.id, { prepared: !item.prepared });
+                }}
                 disabled={!canEdit}
                 className={`shrink-0 flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-black transition-colors disabled:pointer-events-none ${
                   item.prepared

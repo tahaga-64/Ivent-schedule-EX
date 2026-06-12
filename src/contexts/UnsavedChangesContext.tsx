@@ -10,6 +10,7 @@ import {
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { AlertTriangle, Check } from 'lucide-react';
+import { burstAt } from '../lib/fx';
 
 export interface UnsavedGuard {
   hasUnsaved: boolean;
@@ -45,6 +46,7 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setSaveToast(message);
     toastTimerRef.current = setTimeout(() => setSaveToast(null), 3000);
+    burstAt(window.innerWidth / 2, window.innerHeight - 56);
   }, []);
 
   const registerGuard = useCallback((id: string, guard: UnsavedGuard | null) => {

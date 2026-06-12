@@ -38,6 +38,7 @@ import LoadingSplash from './components/LoadingSplash';
 import ViewLoadingFallback from './components/ViewLoadingFallback';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from './contexts/UnsavedChangesContext';
 import { getViewDir, viewVariants } from './lib/viewTransitions';
+import BubbleBurstPortal from './components/fx/BubbleBurst';
 
 const HomeView = lazyWithRetry(() => import('./components/HomeView'));
 const MasterItemsView = lazyWithRetry(() => import('./components/MasterItemsView'));
@@ -1352,6 +1353,9 @@ VITE_FIREBASE_DATABASE_ID`}
       <AnimatePresence>
         {!splashMinElapsed && <LoadingSplash asOverlay />}
       </AnimatePresence>
+
+      {/* Global bubble burst FX portal */}
+      <BubbleBurstPortal />
     </div>
   );
 }

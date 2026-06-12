@@ -8,6 +8,7 @@ import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule
 import EXBadge from './EXBadge';
 import UnderwaterBackdrop from './fx/UnderwaterBackdrop';
 import SwipeActionCard from './fx/SwipeActionCard';
+import RippleButton from './fx/RippleButton';
 import { EASE_OUT } from '../lib/motionTokens';
 
 interface Props {
@@ -383,26 +384,26 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         <div className="mt-2 flex flex-col gap-2">
           <div className="text-[11px] font-black text-slate-600 uppercase tracking-widest mb-1">クイックアクション</div>
 
-          <button
+          <RippleButton
             onClick={() => setShowEventPicker(true)}
-            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all"
+            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
           >
             準備物リスト
-          </button>
+          </RippleButton>
 
-          <button
+          <RippleButton
             onClick={() => { if (canEditEvent) { onCreateEvent(); } else { setShowPermissionToast(true); } }}
-            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all"
+            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
           >
             新規イベントを追加する
-          </button>
+          </RippleButton>
 
-          <button
+          <RippleButton
             onClick={onOpenSchedule}
-            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all"
+            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
           >
             スケジュール
-          </button>
+          </RippleButton>
 
         </div>
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid, Images, Archive, MoreHorizontal, X, CalendarDays, Boxes } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { burstAt } from '../lib/fx';
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container";
 
@@ -33,16 +34,24 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
   const [moreOpen, setMoreOpen] = useState(false);
   const isMoreActive = MORE_VIEW_IDS.has(view);
 
-  const handleTab = (id: ViewMode | 'more') => {
+  const handleTab = (id: ViewMode | 'more', e?: React.MouseEvent) => {
     if (id === 'more') {
       setMoreOpen(true);
       return;
+    }
+    if (e) {
+      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      burstAt(r.left + r.width / 2, r.top + r.height / 2, 4);
     }
     setMoreOpen(false);
     onSetView(id);
   };
 
-  const handleMoreSelect = (id: ViewMode) => {
+  const handleMoreSelect = (id: ViewMode, e?: React.MouseEvent) => {
+    if (e) {
+      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      burstAt(r.left + r.width / 2, r.top + r.height / 2, 4);
+    }
     setMoreOpen(false);
     onSetView(id);
   };
@@ -59,7 +68,7 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
             return (
               <button
                 key={tab.id}
-                onClick={() => handleTab(tab.id)}
+                onClick={(e) => handleTab(tab.id, e)}
                 className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[3.25rem] py-2 text-[10px] font-bold transition-colors active:scale-95 ${
                   active ? 'text-indigo-600' : 'text-slate-500'
                 }`}
@@ -117,7 +126,7 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => handleMoreSelect(item.id)}
+                      onClick={(e) => handleMoreSelect(item.id, e)}
                       className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-left transition-all active:scale-[0.98] ${
                         view === item.id
                           ? 'bg-indigo-50 border border-indigo-200'
