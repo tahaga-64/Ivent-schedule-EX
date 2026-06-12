@@ -6,7 +6,6 @@ import type { Event } from '../types';
 import { rs, ts, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
 import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule';
 import EXBadge from './EXBadge';
-import UnderwaterBackdrop from './fx/UnderwaterBackdrop';
 import SwipeActionCard from './fx/SwipeActionCard';
 import RippleButton from './fx/RippleButton';
 import { EASE_OUT } from '../lib/motionTokens';
@@ -236,8 +235,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
   });
 
   return (
-    <div className="relative min-h-screen">
-      <UnderwaterBackdrop />
+    <div>
 
       <div className="relative z-10 flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-6 pb-32 md:pb-8 w-full max-w-none">
 
