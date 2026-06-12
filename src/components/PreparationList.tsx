@@ -3,7 +3,7 @@ import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { PreparationItem, Event, OrderStatus } from '../types';
-import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer, FileSpreadsheet } from 'lucide-react';
+import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer, FileSpreadsheet, LayoutGrid, List } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import { computePrepProgressFields, effectiveArrived } from '../lib/prepProgress';
@@ -161,6 +161,10 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
   const [exportError, setExportError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  // 一覧（グリッド）と詳細（スクロール式カード）の切替。開いた直後は一覧で全体を把握できるようにする
+  const [viewMode, setViewMode] = useState<'overview' | 'detail'>('overview');
+  const [focusItemId, setFocusItemId] = useState<string | null>(null);
+  const listScrollRef = useRef<HTMLDivElement>(null);
   const hasChangesRef = useRef(hasChanges);
   hasChangesRef.current = hasChanges;
   const itemsRef = useRef(items);
@@ -314,6 +318,56 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
     return { subtotal, shipping, total: subtotal + shipping, arrived, prepared, done, orderedCount, shippingCount, unorderedCount };
   }, [items]);
 
+  // 一覧でアイテムをクリック → 詳細表示に切り替えて該当カードを画面中央へモーション付きスクロール
+  const openItemDetail = (id: string) => {
+    setFocusItemId(id);
+    setViewMode('detail');
+  };
+
+  useEffect(() => {
+    if (viewMode !== 'detail' || !focusItemId) return;
+
+    let cancelled = false;
+    let rafId = 0;
+    const startedAt = performance.now();
+
+    const tryScroll = () => {
+      if (cancelled) return;
+      const container = listScrollRef.current;
+      const el = container?.querySelector<HTMLElement>(`[data-prep-id="${focusItemId}"]`);
+      if (container && el) {
+        const cRect = container.getBoundingClientRect();
+        const eRect = el.getBoundingClientRect();
+        const target = Math.max(0, Math.min(
+          container.scrollHeight - container.clientHeight,
+          (eRect.top - cRect.top) + container.scrollTop - (container.clientHeight - eRect.height) / 2,
+        ));
+        const start = container.scrollTop;
+        const dist = target - start;
+        const t0 = performance.now();
+        const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+        const step = (now: number) => {
+          if (cancelled) return;
+          const p = Math.min(1, (now - t0) / 600);
+          container.scrollTop = start + dist * ease(p);
+          if (p < 1) rafId = requestAnimationFrame(step);
+        };
+        rafId = requestAnimationFrame(step);
+        return;
+      }
+      if (performance.now() - startedAt < 2000) rafId = requestAnimationFrame(tryScroll);
+    };
+    rafId = requestAnimationFrame(tryScroll);
+
+    // ハイライトはスクロール後しばらく見せてから消す
+    const clear = setTimeout(() => setFocusItemId(null), 2200);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+      clearTimeout(clear);
+    };
+  }, [viewMode, focusItemId]);
+
   const onExportExcel = async () => {
     setExportError(null);
     setIsExporting(true);
@@ -376,6 +430,31 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
             <span className="text-[11px] text-slate-500 font-mono">{event.start} → {event.end}</span>
           </div>
         </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* 一覧 / 詳細 切替 */}
+          <div className="flex items-center rounded-xl border border-slate-200 bg-white p-0.5 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setViewMode('overview')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-[10px] text-[11px] font-black transition-colors ${
+                viewMode === 'overview' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <LayoutGrid size={13} />
+              一覧
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('detail')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-[10px] text-[11px] font-black transition-colors ${
+                viewMode === 'detail' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <List size={13} />
+              詳細
+            </button>
+          </div>
+        </div>
         {canEdit && (
           <div className="flex items-center gap-2 shrink-0">
             {hasChanges && !isSaving && !saveError && (
@@ -397,21 +476,61 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
         )}
       </div>
 
-      {/* 準備物リスト（画面：カード形式・横スクロールなし） */}
-      <div className="print:hidden flex-1 overflow-y-auto p-3 md:p-6 space-y-3">
-        {!canEdit && items.filter(i => !isEmptyItem(i)).length === 0 && (
+      {/* 準備物リスト（画面：一覧グリッド ⇄ カード詳細、横スクロールなし） */}
+      <div ref={listScrollRef} className="print:hidden flex-1 overflow-y-auto p-3 md:p-6 space-y-3">
+        {items.filter(i => !isEmptyItem(i)).length === 0 && !canEdit && (
           <div className="flex flex-col items-center justify-center py-16 text-slate-400">
             <ClipboardList size={36} className="mb-3" />
             <p className="text-sm font-bold text-slate-500">準備物が登録されていません</p>
           </div>
         )}
+
+        {/* 一覧（アイテム名のみのグリッド。PC は hover で金額表示、クリックで詳細へ） */}
+        {viewMode === 'overview' && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2"
+          >
+            {items.filter(i => !isEmptyItem(i)).map(item => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => openItemDetail(item.id)}
+                className={`group relative text-left bg-white border border-slate-200 border-l-4 ${prepRowBorderClass(item)} rounded-xl px-3 py-3 shadow-sm hover:shadow-md hover:border-indigo-300 active:scale-[0.97] transition-all`}
+              >
+                <span className={`block text-sm font-bold leading-snug break-words ${item.prepared ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                  {item.name || '（名称未設定）'}
+                </span>
+                <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-1.5 -translate-y-full z-20 hidden md:group-hover:block whitespace-nowrap rounded-lg bg-slate-900 text-white text-[11px] font-bold px-2.5 py-1.5 shadow-lg">
+                  金額 ¥{(item.amount || 0).toLocaleString()}
+                  {(item.shippingFee || 0) > 0 && ` ＋送料 ¥${(item.shippingFee || 0).toLocaleString()}`}
+                </span>
+              </button>
+            ))}
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => setViewMode('detail')}
+                className="border-2 border-dashed border-slate-200 hover:border-indigo-400 text-slate-400 hover:text-indigo-600 rounded-xl px-3 py-3 text-xs font-black flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Plus size={13} /> 詳細で編集
+              </button>
+            )}
+          </motion.div>
+        )}
+
+        {viewMode === 'detail' && (<>
         {items.filter(item => canEdit || !isEmptyItem(item)).map((item, idx) => {
           const os = item.orderStatus ?? 'unordered';
           const step = ORDER_STEPS.find(s => s.key === os) ?? ORDER_STEPS[0];
           return (
           <div
             key={item.id}
-            className={`border-l-4 rounded-2xl overflow-hidden shadow-md ${prepRowBorderClass(item)} ${prepItemCardClass(item)}`}
+            data-prep-id={item.id}
+            className={`border-l-4 rounded-2xl overflow-hidden shadow-md transition-shadow duration-500 ${prepRowBorderClass(item)} ${prepItemCardClass(item)} ${
+              focusItemId === item.id ? 'ring-2 ring-indigo-500 ring-offset-2 shadow-xl' : ''
+            }`}
           >
             {/* Row 1: # + 品名 + badges + delete */}
             <div className="flex items-center gap-2 px-3 md:px-4 pt-3 pb-2">
@@ -584,6 +703,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
             <Plus size={14} /> 新しい項目を追加
           </button>
         )}
+        </>)}
       </div>
 
       {/* 印刷専用テーブル */}
