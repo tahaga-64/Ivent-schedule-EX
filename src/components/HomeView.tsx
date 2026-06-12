@@ -7,6 +7,7 @@ import { rs, ts, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
 import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule';
 import EXBadge from './EXBadge';
 import UnderwaterBackdrop from './fx/UnderwaterBackdrop';
+import SwipeActionCard from './fx/SwipeActionCard';
 import { EASE_OUT } from '../lib/motionTokens';
 
 interface Props {
@@ -350,7 +351,9 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             ? <SectionEmpty label="本日のイベントはありません" />
             : <div className="flex flex-col gap-2">
                 {todayEvents.map(ev => (
-                  <EventCard key={ev.id} ev={ev} prog={prepProgressMap[ev.id]} today={today} onSelect={onSelectEvent} />
+                  <SwipeActionCard key={ev.id} onAction={() => onSelectPrepEvent(ev)}>
+                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} onSelect={onSelectEvent} />
+                  </SwipeActionCard>
                 ))}
               </div>
           }
@@ -366,7 +369,9 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             ? <SectionEmpty label="来週のイベントはありません" />
             : <div className="flex flex-col gap-2">
                 {upcomingWeek.map(ev => (
-                  <EventCard key={ev.id} ev={ev} prog={prepProgressMap[ev.id]} today={today} onSelect={onSelectEvent} />
+                  <SwipeActionCard key={ev.id} onAction={() => onSelectPrepEvent(ev)}>
+                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} onSelect={onSelectEvent} />
+                  </SwipeActionCard>
                 ))}
               </div>
           }
