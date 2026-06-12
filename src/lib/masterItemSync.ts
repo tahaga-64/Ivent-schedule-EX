@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import type { PreparationItem } from '../types';
 
@@ -8,10 +8,12 @@ function normalizeName(name: string): string {
 }
 
 /**
- * 準備物リストの保存時に「今回新しく名前が付いたアイテム」を備品マスター（masterItems）へ自動登録する。
- * - 前回保存時に同名がすでにあったアイテムは対象外（追加・改名されたものだけが候補）
- * - マスターに同名（空白無視で比較）が存在する場合はスキップ
- * - 単価・数量・URLは準備物の値を初期値として引き継ぐ
+ * 備品マスター（masterItems）をアプリの在庫DBとして扱う同期処理。
+ * 準備物リストの保存時に「今回新しく準備リストへ追加されたアイテム」を対象に：
+ *   - マスターに同名（空白無視で比較）が既にある場合 → その個数（defaultQuantity）を追加分だけ加算
+ *   - マスターに無い新規アイテムの場合 → 新しくマスターへ登録
+ *
+ * 対象は「前回保存時には無かった名前」のアイテムのみ。既存行の数量編集では二重加算しない。
  */
 export async function syncNewPrepItemsToMaster(
   saved: PreparationItem[],
@@ -25,22 +27,41 @@ export async function syncNewPrepItemsToMaster(
   if (candidates.length === 0) return;
 
   const snap = await getDocs(collection(db, 'masterItems'));
-  const masterNames = new Set(
-    snap.docs.map(d => normalizeName((d.data().name as string) ?? '')).filter(Boolean),
-  );
+  // 正規化名 → 既存マスタードキュメントID
+  const masterIdByName = new Map<string, string>();
+  for (const d of snap.docs) {
+    const n = normalizeName((d.data().name as string) ?? '');
+    if (n && !masterIdByName.has(n)) masterIdByName.set(n, d.id);
+  }
 
-  const seen = new Set<string>();
+  // 同じ保存内に同名アイテムが複数あっても合算して扱う
+  const addQtyByName = new Map<string, number>();
+  const firstItemByName = new Map<string, PreparationItem>();
   for (const item of candidates) {
     const n = normalizeName(item.name);
-    if (masterNames.has(n) || seen.has(n)) continue;
-    seen.add(n);
-    await addDoc(collection(db, 'masterItems'), {
-      name: item.name.trim(),
-      unitPrice: item.unitPrice || 0,
-      defaultQuantity: item.quantity || 1,
-      note: '',
-      url: item.url?.trim() ?? '',
-      updatedAt: serverTimestamp(),
-    });
+    addQtyByName.set(n, (addQtyByName.get(n) ?? 0) + (item.quantity || 1));
+    if (!firstItemByName.has(n)) firstItemByName.set(n, item);
+  }
+
+  for (const [n, qty] of addQtyByName) {
+    const existingId = masterIdByName.get(n);
+    if (existingId) {
+      // 既存アイテム → 在庫個数を加算
+      await updateDoc(doc(db, 'masterItems', existingId), {
+        defaultQuantity: increment(qty),
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      // 新規アイテム → マスターへ登録
+      const item = firstItemByName.get(n)!;
+      await addDoc(collection(db, 'masterItems'), {
+        name: item.name.trim(),
+        unitPrice: item.unitPrice || 0,
+        defaultQuantity: qty,
+        note: '',
+        url: item.url?.trim() ?? '',
+        updatedAt: serverTimestamp(),
+      });
+    }
   }
 }
