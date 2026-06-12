@@ -6,6 +6,8 @@ import type { Event } from '../types';
 import { rs, ts, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
 import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule';
 import EXBadge from './EXBadge';
+import UnderwaterBackdrop from './fx/UnderwaterBackdrop';
+import { EASE_OUT } from '../lib/motionTokens';
 
 interface Props {
   events: Event[];
@@ -106,8 +108,13 @@ function EventCard({ ev, prog, today, onSelect }: {
   return (
     <motion.button
       onClick={() => onSelect(ev)}
-      whileHover={{ y: -2, boxShadow: '0 8px 24px rgba(0,0,0,0.10)' }}
-      className="w-full text-left bg-white rounded-2xl transition-all group overflow-hidden border border-slate-200 shadow-sm hover:shadow-md"
+      whileHover={{ y: -2, boxShadow: '0 8px 24px rgba(8,47,73,0.10)' }}
+      className="w-full text-left rounded-2xl transition-all group overflow-hidden shadow-sm hover:shadow-md"
+      style={{
+        background: 'rgba(255,255,255,0.82)',
+        border: '1px solid rgba(103,232,249,0.28)',
+        boxShadow: '0 1px 0 rgba(103,232,249,0.35) inset, 0 1px 3px rgba(8,47,73,0.06)',
+      }}
     >
       <div className="flex items-stretch">
         <div className="w-1 shrink-0" style={{ background: regionColor }} />
@@ -220,12 +227,20 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
     return { thisMonthCount: thisMonth.length, daysToNext, nextVenue: nextEvent?.venue ?? null };
   }, [events, today]);
 
+  const sectionAnim = (i: number) => ({
+    initial: { opacity: 0, y: 10 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.4, ease: EASE_OUT, delay: i * 0.06 },
+  });
+
   return (
     <div className="relative min-h-screen">
+      <UnderwaterBackdrop />
+
       <div className="relative z-10 flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-6 pb-32 md:pb-8 w-full max-w-none">
 
         {/* Date header — 日付 / 時計+EXロゴ(右) */}
-        <div className="flex items-center gap-3 text-slate-900">
+        <motion.div {...sectionAnim(0)} className="flex items-center gap-3 text-slate-900">
           <div className="flex-1 flex items-end gap-2 min-w-0">
             <div className="text-6xl sm:text-7xl md:text-8xl font-black leading-none tracking-tighter tabular-nums">
               {new Date().getDate()}
@@ -248,13 +263,13 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             <div className="hidden sm:block md:hidden"><EXBadge size={80} /></div>
             <div className="hidden md:block"><EXBadge size={104} /></div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Stats — 今月 / 本日稼働 / 次イベント を横並び */}
-        <div className="grid grid-cols-3 gap-2">
+        <motion.div {...sectionAnim(1)} className="grid grid-cols-3 gap-2">
           <button
             onClick={onNavigateCalendar}
-            className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm flex flex-col text-left hover:bg-slate-50 transition-colors"
+            className="tank-card rounded-2xl p-3 flex flex-col text-left hover:brightness-[1.03] transition-all"
           >
             <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">今月</div>
             <div className="flex items-baseline gap-1">
@@ -266,7 +281,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             </span>
           </button>
 
-          <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm flex flex-col">
+          <div className="tank-card rounded-2xl p-3 flex flex-col">
             <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">本日稼働</div>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-black text-slate-900 leading-none">
@@ -279,7 +294,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             <span className="mt-auto pt-2 text-[10px] font-bold text-slate-400">出勤中</span>
           </div>
 
-          <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm flex flex-col">
+          <div className="tank-card rounded-2xl p-3 flex flex-col">
             <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">次イベント</div>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-black text-slate-900 leading-none">
@@ -293,11 +308,11 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               {stats.nextVenue || '予定なし'}
             </span>
           </div>
-        </div>
+        </motion.div>
 
         {/* 稼働内訳 — 本社/イベント/外出/公休/希望休/その他 を横並び */}
         {!staffLoading && staffBreakdown !== null && (
-          <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm">
+          <motion.div {...sectionAnim(2)} className="tank-card rounded-2xl p-3">
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
               {([
                 { label: '本社',   value: staffBreakdown.office,   bg: 'bg-blue-50 border-blue-200',   text: 'text-blue-800' },
@@ -313,15 +328,15 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
                 </div>
               ))}
             </div>
-          </div>
+          </motion.div>
         )}
         {!staffLoading && staffBreakdown === null && (
-          <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm text-[10px] text-slate-400">
+          <div className="tank-card rounded-2xl p-3 text-[10px] text-slate-400">
             稼働データを取得できませんでした
           </div>
         )}
 
-        <div className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
+        <motion.div {...sectionAnim(3)} className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
         {/* 本日のイベント */}
         <div>
           <div className="flex items-center gap-2 mb-3">
@@ -356,30 +371,30 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               </div>
           }
         </div>
-        </div>
+        </motion.div>
 
-        <div className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
+        <motion.div {...sectionAnim(4)} className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
         {/* クイックアクション */}
         <div className="mt-2 flex flex-col gap-2">
           <div className="text-[11px] font-black text-slate-600 uppercase tracking-widest mb-1">クイックアクション</div>
 
           <button
             onClick={() => setShowEventPicker(true)}
-            className="flex items-center gap-3 bg-white border border-slate-200 shadow-sm text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:bg-slate-50 active:scale-[0.98] transition-all"
+            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all"
           >
             準備物リスト
           </button>
 
           <button
             onClick={() => { if (canEditEvent) { onCreateEvent(); } else { setShowPermissionToast(true); } }}
-            className="flex items-center gap-3 bg-white border border-slate-200 shadow-sm text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:bg-slate-50 active:scale-[0.98] transition-all"
+            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all"
           >
             新規イベントを追加する
           </button>
 
           <button
             onClick={onOpenSchedule}
-            className="flex items-center gap-3 bg-white border border-slate-200 shadow-sm text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:bg-slate-50 active:scale-[0.98] transition-all"
+            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all"
           >
             スケジュール
           </button>
@@ -399,7 +414,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               href={svc.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between bg-white border border-slate-200 shadow-sm text-slate-900 rounded-2xl px-5 py-3.5 hover:bg-slate-50 active:scale-[0.98] transition-all"
+              className="flex items-center justify-between tank-card text-slate-900 rounded-2xl px-5 py-3.5 hover:brightness-[1.03] active:scale-[0.98] transition-all"
             >
               <div className="min-w-0">
                 <div className="font-black text-sm leading-tight">{svc.label}</div>
@@ -409,7 +424,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             </a>
           ))}
         </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Event Picker Bottom Sheet — portal to escape carousel transform */}

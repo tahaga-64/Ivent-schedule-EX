@@ -75,8 +75,8 @@ function safeGetItem<T>(key: string, fallback: T): T {
 
 const getMonth = (d: string) => { if (!d) return null; return parseInt(d.split("-")[1]); };
 
-/** ローディングスプラッシュの最低表示時間（ms） */
-const SPLASH_MIN_MS = 3000;
+/** ローディングスプラッシュの最低表示時間（ms）— 終了演出700ms込みで体感は同等 */
+const SPLASH_MIN_MS = 2400;
 
 /** 開発用: 同一週の連続4日にイベント0/2/4/6件の見え比べ用データ（?calPreview=density） */
 function buildCalendarDensityPreviewEvents(
@@ -964,7 +964,7 @@ VITE_FIREBASE_DATABASE_ID`}
       <LayoutPublicView eventId={publicLayoutId} />
     </Suspense>
   );
-  if (user === undefined || !splashMinElapsed) return <LoadingSplash />;
+  if (user === undefined) return <LoadingSplash />;
   if (!user) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-slate-100 px-6 text-center">
@@ -1341,6 +1341,11 @@ VITE_FIREBASE_DATABASE_ID`}
         view={view}
         onSetView={navigateToView}
       />
+
+      {/* Aquarium splash overlay — fades out once min elapsed */}
+      <AnimatePresence>
+        {!splashMinElapsed && <LoadingSplash asOverlay />}
+      </AnimatePresence>
     </div>
   );
 }
