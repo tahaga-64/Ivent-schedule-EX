@@ -59,6 +59,12 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow create, update, delete: if isAuthenticated() && isValidId(itemId);
       }
+
+      // コンテナボックス: ログイン済みユーザー全員が編集可
+      match /containerItems/{itemId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if isAuthenticated();
+      }
     }
 
     match /staff/{staffId} {

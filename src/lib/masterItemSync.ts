@@ -9,21 +9,36 @@ function normalizeName(name: string): string {
 
 /**
  * 備品マスター（masterItems）をアプリの在庫DBとして扱う同期処理。
- * 準備物リストの保存時に「今回新しく準備リストへ追加されたアイテム」を対象に：
+ * 準備物リストの保存時に「orderStatus が 'ordered' に遷移したアイテム」を対象に：
  *   - マスターに同名（空白無視で比較）が既にある場合 → その個数（defaultQuantity）を追加分だけ加算
  *   - マスターに無い新規アイテムの場合 → 新しくマスターへ登録
  *
- * 対象は「前回保存時には無かった名前」のアイテムのみ。既存行の数量編集では二重加算しない。
+ * 対象は「前回保存時に 'ordered' ではなかった（または存在しなかった）が、
+ * 今回の保存後に 'ordered' になったアイテム」のみ。
+ * 既に 'ordered' だったアイテムの数量編集では二重加算しない。
  */
 export async function syncNewPrepItemsToMaster(
   saved: PreparationItem[],
   previous: PreparationItem[],
 ): Promise<void> {
-  const prevNames = new Set(previous.map(i => normalizeName(i.name)).filter(Boolean));
+  // 前回スナップショットの orderStatus を id で引けるマップ
+  const prevStatusById = new Map<string, string | undefined>();
+  for (const item of previous) {
+    prevStatusById.set(item.id, item.orderStatus);
+  }
+
+  // 'ordered' への遷移アイテムを抽出
+  // - 新規アイテム（previous に id が無い）かつ orderStatus === 'ordered'
+  // - 既存アイテムで前回が 'ordered' 以外 かつ 今回が 'ordered'
   const candidates = saved.filter(i => {
     const n = normalizeName(i.name);
-    return n !== '' && !prevNames.has(n);
+    if (n === '') return false;
+    if (i.orderStatus !== 'ordered') return false;
+    const prevStatus = prevStatusById.get(i.id);
+    // 前回スナップショットに存在しなかった（新規）場合は prevStatus === undefined
+    return prevStatus !== 'ordered';
   });
+
   if (candidates.length === 0) return;
 
   const snap = await getDocs(collection(db, 'masterItems'));
