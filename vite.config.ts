@@ -22,6 +22,7 @@ export default defineConfig(({mode}) => {
             'vendor-react': ['react', 'react-dom'],
             'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
             'vendor-motion': ['motion/react'],
+            'vendor-three': ['three'],
           },
         },
       },
