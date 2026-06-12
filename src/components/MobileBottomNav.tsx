@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid, Images, Archive, MoreHorizontal, X, CalendarDays } from 'lucide-react';
+import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid, Images, Archive, MoreHorizontal, X, CalendarDays, Boxes } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container";
 
 interface MobileBottomNavProps {
   view: ViewMode;
@@ -22,6 +22,7 @@ const MORE_ITEMS: { id: ViewMode; icon: React.ReactNode; label: string; sub: str
   { id: "master",  icon: <Package size={20} />,    label: "備品マスター", sub: "備品の登録・管理" },
   { id: "fish",    icon: <Fish size={20} />,       label: "魚リスト",     sub: "水族館イベント用" },
   { id: "layout",  icon: <LayoutGrid size={20} />, label: "レイアウト",   sub: "会場配置図" },
+  { id: "container", icon: <Boxes size={20} />,    label: "コンテナボックス", sub: "備品の計算・確認" },
   { id: "album",   icon: <Images size={20} />,     label: "アルバム",     sub: "イベント写真" },
   { id: "archive", icon: <Archive size={20} />,    label: "アーカイブ",   sub: "終了したイベント" },
 ];

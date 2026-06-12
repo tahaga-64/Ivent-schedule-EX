@@ -42,6 +42,7 @@ const HomeView = lazyWithRetry(() => import('./components/HomeView'));
 const MasterItemsView = lazyWithRetry(() => import('./components/MasterItemsView'));
 const FishListView = lazyWithRetry(() => import('./components/FishListView'));
 const LayoutView = lazyWithRetry(() => import('./components/LayoutView'));
+const ContainerBoxView = lazyWithRetry(() => import('./components/ContainerBoxView'));
 const LayoutPublicView = lazyWithRetry(() => import('./components/LayoutView').then(m => ({ default: m.LayoutPublicView })));
 const PreparationList = lazyWithRetry(() => import('./components/PreparationList'));
 const PrepEventList = lazyWithRetry(() => import('./components/PrepEventList'));
@@ -57,7 +58,7 @@ const MobileWeekStrip = lazyWithRetry(() => import('./components/CalendarCompone
 const MobileDayAgendaView = lazyWithRetry(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileDayAgendaView })));
 const EventDetailModal = lazyWithRetry(() => import('./components/EventDetailModal'));
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container";
 type ModalTab = "detail" | "photos" | "financial";
 
 // 安全なlocalStorage読み込み
@@ -143,7 +144,7 @@ export default function App() {
   }, []);
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
-    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout', 'album', 'schedule'];
+    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout', 'album', 'schedule', 'container'];
     return valid.includes(saved as ViewMode) ? saved as ViewMode : 'home';
   });
   const { runWithGuard } = useUnsavedChanges();
@@ -186,6 +187,9 @@ export default function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [prepEvent, setPrepEvent] = useState<Event | null>(null);
+  // イベント詳細から魚リスト / レイアウトを開いたときに最初に表示するイベント
+  const [fishFocusEventId, setFishFocusEventId] = useState<string | null>(null);
+  const [layoutFocusEventId, setLayoutFocusEventId] = useState<string | null>(null);
   const [modalTab, setModalTab] = useState<ModalTab>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
@@ -1088,10 +1092,13 @@ VITE_FIREBASE_DATABASE_ID`}
         <MasterItemsView canEdit={canEditPreparationList} isActive />
       )}
       {v === "fish" && (
-        <FishListView events={allEvents} canEdit={canEditFishList} isActive />
+        <FishListView events={allEvents} canEdit={canEditFishList} isActive initialEventId={fishFocusEventId} />
       )}
       {v === "layout" && (
-        <LayoutView events={allEvents} canEdit={canEditPreparationList} />
+        <LayoutView events={allEvents} canEdit={canEditPreparationList} initialEventId={layoutFocusEventId} />
+      )}
+      {v === "container" && (
+        <ContainerBoxView events={allEvents} canEdit={canEditPreparationList} />
       )}
       {v === "album" && (
         <AlbumView events={allEvents} />
@@ -1246,6 +1253,20 @@ VITE_FIREBASE_DATABASE_ID`}
               runWithGuard(() => {
                 if (selected) setPrepEvent(selected);
                 applySetView('prep');
+                closeEventModal();
+              });
+            }}
+            onOpenFishList={() => {
+              runWithGuard(() => {
+                setFishFocusEventId(selected?.id ?? null);
+                applySetView('fish');
+                closeEventModal();
+              });
+            }}
+            onOpenLayout={() => {
+              runWithGuard(() => {
+                setLayoutFocusEventId(selected?.id ?? null);
+                applySetView('layout');
                 closeEventModal();
               });
             }}
