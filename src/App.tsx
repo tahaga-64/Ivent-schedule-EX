@@ -37,6 +37,8 @@ import MigrationBanner from './components/MigrationBanner';
 import LoadingSplash from './components/LoadingSplash';
 import ViewLoadingFallback from './components/ViewLoadingFallback';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from './contexts/UnsavedChangesContext';
+import { getViewDir, viewVariants } from './lib/viewTransitions';
+import BubbleBurstPortal from './components/fx/BubbleBurst';
 
 const HomeView = lazyWithRetry(() => import('./components/HomeView'));
 const MasterItemsView = lazyWithRetry(() => import('./components/MasterItemsView'));
@@ -147,6 +149,10 @@ export default function App() {
     const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout', 'album', 'schedule', 'container'];
     return valid.includes(saved as ViewMode) ? saved as ViewMode : 'home';
   });
+  // 遷移方向を計算するために直前のビューを追跡
+  const prevViewRef = useRef<ViewMode>(view);
+  const viewDir = getViewDir(prevViewRef.current, view);
+  useEffect(() => { prevViewRef.current = view; }, [view]);
   const { runWithGuard } = useUnsavedChanges();
 
   const applySetView = useCallback((v: ViewMode) => {
@@ -1195,16 +1201,17 @@ VITE_FIREBASE_DATABASE_ID`}
           />
 
           <div className="flex-1 relative overflow-hidden">
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait" custom={viewDir}>
               <motion.div
                 key={view === 'prep' || view === 'archive' ? `${view}-${prepEvent?.id ?? 'list'}` : view}
+                custom={viewDir}
                 className={`absolute inset-0 overflow-y-auto w-full max-w-none overscroll-contain ${
                   isMobile ? 'p-3 sm:p-4 pb-[calc(3.75rem+env(safe-area-inset-bottom))]' : 'p-4 md:p-6 lg:p-8 pb-20 md:pb-8'
                 }`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.1, ease: 'easeOut' }}
+                variants={viewVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
               >
                 <Suspense fallback={<ViewLoadingFallback />}>
                   {renderView(view)}
@@ -1346,6 +1353,9 @@ VITE_FIREBASE_DATABASE_ID`}
       <AnimatePresence>
         {!splashMinElapsed && <LoadingSplash asOverlay />}
       </AnimatePresence>
+
+      {/* Global bubble burst FX portal */}
+      <BubbleBurstPortal />
     </div>
   );
 }
