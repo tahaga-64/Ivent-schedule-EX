@@ -790,6 +790,8 @@ export function LayoutPublicView({ eventId }: { eventId: string }) {
 interface AdminProps {
   events: Event[];
   canEdit: boolean;
+  /** イベント詳細から開いたとき最初に表示するイベントID */
+  initialEventId?: string | null;
 }
 
 function fmtDateRange(start: string, end: string) {
@@ -822,8 +824,8 @@ function EventCard({ ev, onSelect, past }: { ev: Event; onSelect: () => void; pa
   );
 }
 
-export default function LayoutView({ events, canEdit }: AdminProps) {
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+export default function LayoutView({ events, canEdit, initialEventId }: AdminProps) {
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(initialEventId ?? null);
   const { runWithGuard } = useUnsavedChanges();
 
   // すべてのイベントを対象（中止のみ除外）。終了したイベントは下部にアーカイブ表示。

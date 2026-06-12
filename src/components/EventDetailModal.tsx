@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { X, Save, Trash2, ClipboardList, Copy, MapPin, Navigation } from 'lucide-react';
+import { X, Save, Trash2, ClipboardList, Copy, MapPin, Navigation, Fish, LayoutGrid } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
 import { Event, EventStatus, EventPhoto, type FieldAuthorAttribution } from '../types';
@@ -62,6 +62,8 @@ export interface EventDetailModalProps {
   onSave: () => Promise<boolean>;
   onDelete: () => void;
   onOpenPrepList: () => void;
+  onOpenFishList: () => void;
+  onOpenLayout: () => void;
   photoUploading: boolean;
   uploadProgress: number;
   photoError: string | null;
@@ -97,6 +99,8 @@ export default function EventDetailModal({
   onSave,
   onDelete,
   onOpenPrepList,
+  onOpenFishList,
+  onOpenLayout,
   photoUploading,
   uploadProgress,
   photoError,
@@ -527,12 +531,12 @@ export default function EventDetailModal({
           </div>
 
           {/* ボタン */}
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex flex-col gap-2">
             {hasUnsavedChanges && (
               <button
                 onClick={onSave}
                 disabled={isSaving}
-                className="flex-1 py-4 rounded-2xl bg-amber-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-amber-600 disabled:opacity-60 transition-colors shadow-lg shadow-amber-500/20"
+                className="w-full py-4 rounded-2xl bg-amber-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-amber-600 disabled:opacity-60 transition-colors shadow-lg shadow-amber-500/20"
               >
                 <Save size={16} />
                 {isSaving ? "保存中..." : "保存する"}
@@ -540,11 +544,27 @@ export default function EventDetailModal({
             )}
             <button
               onClick={onOpenPrepList}
-              className="flex-1 py-4 rounded-2xl bg-indigo-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20"
+              className="w-full py-3.5 rounded-2xl bg-indigo-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/20"
             >
               <ClipboardList size={18} />
               準備物リストを開く
             </button>
+            <div className="flex gap-2">
+              <button
+                onClick={onOpenFishList}
+                className="flex-1 py-3 rounded-2xl bg-cyan-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-cyan-700 transition-colors"
+              >
+                <Fish size={16} />
+                魚リストを確認
+              </button>
+              <button
+                onClick={onOpenLayout}
+                className="flex-1 py-3 rounded-2xl bg-violet-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-violet-700 transition-colors"
+              >
+                <LayoutGrid size={16} />
+                レイアウトを確認
+              </button>
+            </div>
           </div>
           {isNewEvent && (
             <button

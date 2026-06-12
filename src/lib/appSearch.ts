@@ -1,7 +1,7 @@
 import { Event } from '../types';
 import { normalizeRegion, fmtDateJP } from './eventHelpers';
 
-export type AppViewMode = 'calendar' | 'prep' | 'archive' | 'home' | 'master' | 'fish' | 'layout' | 'album' | 'schedule';
+export type AppViewMode = 'calendar' | 'prep' | 'archive' | 'home' | 'master' | 'fish' | 'layout' | 'album' | 'schedule' | 'container';
 
 export const SEARCH_FEATURES: { id: AppViewMode; label: string; keywords: string[] }[] = [
   { id: 'home', label: 'ホーム', keywords: ['ホーム', 'home', 'トップ', '直近', 'ダッシュボード'] },
@@ -12,6 +12,7 @@ export const SEARCH_FEATURES: { id: AppViewMode; label: string; keywords: string
   { id: 'master', label: '備品マスター', keywords: ['備品', 'マスター', 'master', '在庫', '機材'] },
   { id: 'layout', label: 'レイアウト', keywords: ['レイアウト', 'layout', '配置', '会場図', '図面'] },
   { id: 'album', label: 'アルバム', keywords: ['アルバム', '写真', 'album', 'photo', '画像'] },
+  { id: 'container', label: 'コンテナボックス', keywords: ['コンテナ', 'ボックス', 'container', '備品計算', '積載', '持ち物'] },
   { id: 'archive', label: 'アーカイブ', keywords: ['アーカイブ', 'archive', '過去', '終了'] },
 ];
 

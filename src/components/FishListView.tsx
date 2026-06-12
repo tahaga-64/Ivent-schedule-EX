@@ -12,6 +12,8 @@ interface Props {
   events: Event[];
   canEdit: boolean;
   isActive?: boolean;
+  /** イベント詳細から開いたとき最初に表示するイベントID */
+  initialEventId?: string | null;
 }
 
 function fmtDateRange(start: string, end: string) {
@@ -29,7 +31,7 @@ function isEventPast(ev: Event): boolean {
   return !!endDate && endDate < today;
 }
 
-export default function FishListView({ events, canEdit, isActive = true }: Props) {
+export default function FishListView({ events, canEdit, isActive = true, initialEventId }: Props) {
   const aquariumEvents = useMemo(
     () => events
       .filter(ev => ev.type === '水族館' && ev.status !== 'cancelled' && !isEventPast(ev))
@@ -37,7 +39,9 @@ export default function FishListView({ events, canEdit, isActive = true }: Props
     [events]
   );
 
-  const [selectedEventId, setSelectedEventId] = useState<string>(() => aquariumEvents[0]?.id ?? '');
+  const [selectedEventId, setSelectedEventId] = useState<string>(
+    () => (initialEventId && aquariumEvents.some(e => e.id === initialEventId) ? initialEventId : aquariumEvents[0]?.id) ?? ''
+  );
   const [fishItems, setFishItems] = useState<FishItem[]>([]);
   const [newName, setNewName] = useState('');
   const [newCount, setNewCount] = useState<number>(1);
