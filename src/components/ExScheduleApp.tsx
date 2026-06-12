@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useMemo, useRef, Component, ErrorInfo, ReactNode } from 'react';
 import type { User } from 'firebase/auth';
 import { notifyPush, isPushNotificationConfigured } from '../lib/pushNotifications';
+import { EVENT_EDITOR_EMAILS } from '../lib/permissions';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Calendar,
@@ -316,13 +317,14 @@ function App({ currentUser }: { currentUser: User | null }) {
   const schedCalendarRef = useRef<HTMLDivElement>(null);
   const overallTableRef = useRef<HTMLDivElement>(null);
 
-  // スマホは閲覧専用（編集はデスクトップのみ）
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+  const isEditor = EVENT_EDITOR_EMAILS.includes(currentUser?.email ?? '');
+  const readOnly = isMobile && !isEditor;
 
   // Initialize from current real date to ensure the app opens with the latest current month always
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
@@ -1097,7 +1099,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-bold text-slate-900">{currentYear}年{currentMonth + 1}月</span>
-                    {currentYear === 2026 && currentMonth === 3 && !isMobile && (
+                    {currentYear === 2026 && currentMonth === 3 && !readOnly && (
                       <button
                         onClick={handleRestoreInitial}
                         className="px-3 py-1 rounded-md text-xs transition-all border bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100"
@@ -1157,8 +1159,8 @@ function App({ currentUser }: { currentUser: User | null }) {
                               {isToday && <span className="text-[7px] font-black bg-indigo-500 text-white px-1 py-0.5 rounded-full leading-none">今</span>}
                             </span>
 
-                            {isMobile ? (
-                              /* スマホ: 閲覧専用表示。テキストは折り返してセルが縦に伸びるので潰れない */
+                            {readOnly ? (
+                              /* 閲覧専用表示（スマホ非編集者）。テキストは折り返してセルが縦に伸びるので潰れない */
                               <>
                                 <div className={`w-full px-0.5 py-0.5 rounded text-[10px] font-bold text-center leading-tight ${TYPE_CLASS[type]}`}>
                                   {TYPE_LABEL[type].split('(')[0]}
@@ -1252,7 +1254,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                         value={currentMonthData.teamGoal}
                         onChange={(val: string) => updateCurrentMonthData({ teamGoal: val })}
                         placeholder="今月の全体目標を入力..."
-                        disabled={isMobile}
+                        disabled={readOnly}
                       />
                     </div>
                     {showSaveOk['team-goal'] && (
@@ -1303,7 +1305,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                               value={globalLocations[i + 1] || ''}
                               onChange={(val: string) => handleGlobalLocationChange(i + 1, val)}
                               placeholder="場所"
-                              disabled={isMobile}
+                              disabled={readOnly}
                             />
                           </td>
                         ))}
@@ -1322,7 +1324,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                               value={globalTimes[i + 1] || ''}
                               onChange={(val: string) => handleGlobalTimeChange(i + 1, val)}
                               placeholder="時間"
-                              disabled={isMobile}
+                              disabled={readOnly}
                             />
                           </td>
                         ))}
@@ -1374,7 +1376,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                                   value={globalStations[name] || currentMonthData.memberStations?.[name] || ''}
                                   onChange={(val: string) => handleMemberStationChange(name, val)}
                                   placeholder="駅"
-                                  disabled={isMobile}
+                                  disabled={readOnly}
                                 />
                               </div>
                             </td>
@@ -1386,7 +1388,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                                     <select
                                       className={`w-full px-0.5 py-0.5 rounded-full text-[9px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all disabled:opacity-100 ${TYPE_CLASS[item.type]}`}
                                       value={item.type}
-                                      disabled={isMobile}
+                                      disabled={readOnly}
                                       onChange={(e) => handleScheduleTypeChange(name, i, e.target.value as StatusType)}
                                     >
                                       {Object.keys(TYPE_LABEL).map(t => (
@@ -1399,7 +1401,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                                       value={item.detail || ''}
                                       onChange={(val: string) => handleScheduleDetailChange(name, i, val)}
                                       placeholder="..."
-                                      disabled={isMobile}
+                                      disabled={readOnly}
                                     />
                                   </div>
                                 </td>
@@ -1418,7 +1420,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                       <Info size={14} />
                       全体メモ / 連絡事項
                     </div>
-                    {!isMobile && (
+                    {!readOnly && (
                       <button
                         onClick={() => {
                           updateCurrentMonthData({ overallMemo: currentMonthData.overallMemo });
@@ -1431,7 +1433,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                       </button>
                     )}
                   </div>
-                  {isMobile ? (
+                  {readOnly ? (
                     <div className="w-full border border-accent/20 rounded-xl p-4 text-xs bg-white min-h-[80px] leading-relaxed font-bold text-text whitespace-pre-wrap break-words">
                       {currentMonthData.overallMemo || <span className="text-slate-300 font-normal">連絡事項はありません</span>}
                     </div>

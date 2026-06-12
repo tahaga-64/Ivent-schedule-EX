@@ -19,9 +19,6 @@ describe('canEditEvent', () => {
     expect(canEditEvent(null)).toBe(false);
   });
 
-  it('モバイルは編集者でもfalse', () => {
-    expect(canEditEvent(mockUser(EVENT_EDITOR_EMAILS[0]), true)).toBe(false);
-  });
 
   it('emailなしUserはfalse', () => {
     expect(canEditEvent(mockUser(null))).toBe(false);
