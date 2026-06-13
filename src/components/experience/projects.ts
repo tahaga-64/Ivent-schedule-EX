@@ -31,7 +31,7 @@ export const PROJECTS: Project[] = [
     title: 'EX Event Manager',
     desc: 'イベントのスケジュール管理ツール。',
     tags: ['Next.js', 'TypeScript', 'Supabase', 'Tailwind', 'Vercel'],
-    href: '#',
+    href: 'https://ivent-schedule-ex.vercel.app',
     scrollTop: '0vh',
     // 環境1にカメラがいる間（offset 0→0.30）に表示
     fadeIn:  { from: 0,    dist: 0.08 },
