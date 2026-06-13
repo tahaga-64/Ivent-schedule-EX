@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -8,8 +8,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { notifyPush, isPushNotificationConfigured } from '../lib/pushNotifications';
 import { fmtDateJPFull } from '../lib/eventHelpers';
 import { cachedFxLevel } from '../lib/deviceTier';
+import { lazyWithRetry } from '../lib/lazyWithRetry';
 
-const AquariumScene = lazy(() => import('./fx/AquariumScene'));
+const AquariumScene = lazyWithRetry(() => import('./fx/AquariumScene'));
 
 interface Props {
   events: Event[];

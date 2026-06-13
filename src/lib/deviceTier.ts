@@ -14,23 +14,26 @@ function probeWebGL(): boolean {
 export function fxLevel(): FxLevel {
   if (typeof window === 'undefined') return 'lite';
 
-  const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-  if (mq.matches) return 'off';
+  // WebGL が無い端末では 3D シーンを描画できないため完全オフ。
+  // （これだけが唯一「演出ゼロ」になる条件。iOS/モダン端末はまず該当しない）
+  if (!probeWebGL()) return 'off';
 
   const nav = navigator as Navigator & {
     deviceMemory?: number;
     connection?: { saveData?: boolean };
   };
+  // 明示的なデータセーバー指定のみ完全オフ。
   if (nav.connection?.saveData) return 'off';
 
-  const mem = nav.deviceMemory ?? 8;
-  if (mem <= 2) return 'off';
-  if (mem <= 4) return 'lite';
-
+  const mem   = nav.deviceMemory ?? 8;
   const cores = navigator.hardwareConcurrency ?? 4;
-  if (cores <= 2) return 'lite';
 
-  if (!probeWebGL()) return 'lite';
+  // 注意: iOS は「省電力モード」や「視差効果を減らす」が ON だと
+  // prefers-reduced-motion: reduce を報告する。これを 'off' にすると
+  // スマホ利用者の大半で 3D 水槽・演出が消えてしまうため 'lite' に留める
+  // （演出は出すが匹数・パーティクルを抑えて軽量化）。
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce || mem <= 4 || cores <= 4) return 'lite';
 
   return 'full';
 }
