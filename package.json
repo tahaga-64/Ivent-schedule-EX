@@ -22,6 +22,8 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@google/genai": "^1.29.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
     "@rive-app/react-canvas": "^4.29.1",
     "@splinetool/runtime": "^1.12.97",
     "@tailwindcss/vite": "^4.1.14",

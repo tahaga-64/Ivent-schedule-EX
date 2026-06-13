@@ -19,6 +19,7 @@ import {
   ChevronRight as ChevronRightIcon,
   AlertCircle,
   Share2,
+  Upload,
   X,
 } from 'lucide-react';
 import { 
@@ -300,6 +301,88 @@ const MemberTabs = ({ members, current, myName, onSelect }: { members: string[],
   );
 };
 
+const BulkImportModal = ({ isOpen, onClose, onImport }: { isOpen: boolean, onClose: () => void, onImport: (data: Record<string, string[]>) => void }) => {
+  const [text, setText] = React.useState('');
+
+  const handleImport = () => {
+    if (!text.trim()) return;
+    const lines = text.trim().split('\n');
+    const result: Record<string, string[]> = {};
+    const normalizeName = (n: string) => n.replace(/[\s　]+/g, '').trim();
+    const normalizedMembers = MEMBERS.map(normalizeName);
+    lines.forEach(line => {
+      const parts = line.split('\t');
+      if (parts.length > 1) {
+        const name = parts[0].trim();
+        const normName = normalizeName(name);
+        const memberIndex = normalizedMembers.indexOf(normName);
+        if (memberIndex !== -1) {
+          result[MEMBERS[memberIndex]] = parts.slice(1).map(p => p.trim());
+        }
+      }
+    });
+    if (Object.keys(result).length === 0) {
+      alert('有効なメンバー名が見つかりませんでした。スプレッドシートから名前を含めてコピーしてください。');
+      return;
+    }
+    onImport(result);
+    setText('');
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      >
+        <div className="p-6 border-b border-border flex items-center justify-between bg-accent text-white">
+          <div>
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Upload size={24} />
+              一括インポート
+            </h2>
+            <p className="text-xs opacity-80 mt-1">スプレッドシートからコピーしたデータを貼り付けてください。</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+            <X size={24} />
+          </button>
+        </div>
+        <div className="p-6 flex-grow overflow-y-auto">
+          <p className="text-xs text-text2 mb-3">
+            書式: <code className="bg-bg px-1 py-0.5 rounded">名前 [TAB] 1日 [TAB] 2日 [TAB] ...</code>
+          </p>
+          <textarea
+            className="w-full h-48 p-3 border border-border rounded-xl text-xs font-mono outline-none focus:border-accent resize-none bg-bg"
+            placeholder={"山田太郎\t研修\t研修\t休み\n鈴木花子\t待機\t研修\t研修"}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            style={{ fontSize: '14px' }}
+          />
+        </div>
+        <div className="p-4 border-t border-border flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-sm font-bold text-text2 hover:bg-bg border border-border transition-colors"
+          >
+            キャンセル
+          </button>
+          <button
+            onClick={handleImport}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-accent text-white hover:bg-accent-d transition-colors flex items-center gap-2"
+          >
+            <Upload size={14} />
+            インポート
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 export default function AppWrapper({ currentUser }: { currentUser?: User | null }) {
   return (
     <ErrorBoundary>
@@ -343,6 +426,8 @@ function App({ currentUser }: { currentUser: User | null }) {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showSaveOk, setShowSaveOk] = useState<Record<string, boolean>>({});
+  const [hideDone, setHideDone] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
     const errInfo: FirestoreErrorInfo = {
@@ -821,6 +906,39 @@ function App({ currentUser }: { currentUser: User | null }) {
   };
 
 
+  const handleResetMonth = () => {
+    if (!window.confirm(`${currentYear}年${currentMonth + 1}月のスケジュールを全て空欄にリセットしますか？`)) return;
+    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+    const blankSched: Record<string, { type: StatusType, detail: string }[]> = {};
+    for (const member of MEMBERS) {
+      blankSched[member] = Array(daysInMonth).fill(null).map(() => ({ type: 'rest' as StatusType, detail: '' }));
+    }
+    updateCurrentMonthData({ schedule: blankSched });
+  };
+
+  const handleBulkImport = (importedData: Record<string, string[]>) => {
+    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+    const newSched = { ...currentMonthData.schedule };
+    Object.keys(importedData).forEach(member => {
+      const rawData = importedData[member];
+      const processed = rawData.map(s => ({ type: getType(s), detail: s }));
+      if (processed.length < daysInMonth) {
+        const extra = Array(daysInMonth - processed.length).fill(null).map(() => ({ type: 'rest' as StatusType, detail: '' }));
+        newSched[member] = [...processed, ...extra];
+      } else {
+        newSched[member] = processed.slice(0, daysInMonth);
+      }
+    });
+    updateCurrentMonthData({ schedule: newSched });
+    triggerSaveOk('bulk-import');
+  };
+
+  const handleDoneChange = (member: string, day: number, checked: boolean) => {
+    const newDones = { ...currentMonthData.dones };
+    newDones[member] = { ...(newDones[member] || {}), [day]: checked };
+    updateCurrentMonthData({ dones: newDones });
+  };
+
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     triggerSaveOk('share');
@@ -1097,8 +1215,35 @@ function App({ currentUser }: { currentUser: User | null }) {
               
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-bold text-slate-900">{currentYear}年{currentMonth + 1}月</span>
+                    {!readOnly && (
+                      <button
+                        onClick={() => setHideDone(!hideDone)}
+                        className={`px-3 py-1 rounded-md text-xs transition-all border ${
+                          hideDone ? 'bg-accent border-accent text-white' : 'bg-bg border-border2 text-text2'
+                        }`}
+                      >
+                        完了済みを非表示
+                      </button>
+                    )}
+                    {!readOnly && (
+                      <button
+                        onClick={() => setIsImportOpen(true)}
+                        className="px-3 py-1 rounded-md text-xs transition-all border bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100 flex items-center gap-1"
+                      >
+                        <Upload size={12} />
+                        一括インポート
+                      </button>
+                    )}
+                    {!readOnly && (
+                      <button
+                        onClick={handleResetMonth}
+                        className="px-3 py-1 rounded-md text-xs transition-all border bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
+                      >
+                        この月をリセット
+                      </button>
+                    )}
                     {currentYear === 2026 && currentMonth === 3 && !readOnly && (
                       <button
                         onClick={handleRestoreInitial}
@@ -1122,18 +1267,22 @@ function App({ currentUser }: { currentUser: User | null }) {
                         const type = item.type;
                         const detail = item.detail;
                         const memo = currentMonthData.memos[currentSchedMember]?.[day] || '';
+                        const isDone = currentMonthData.dones[currentSchedMember]?.[day] || false;
                         const isSat = dow === 5;
                         const isSun = dow === 6;
                         const dowLabel = ['月', '火', '水', '木', '金', '土', '日'][dow];
                         const _today = new Date();
                         const isToday = currentYear === _today.getFullYear() && currentMonth === _today.getMonth() && day === _today.getDate();
 
+                        if (isDone && hideDone) return null;
+
                         return (
                           <div
                             key={day}
                             data-today={isToday ? 'true' : undefined}
-                            className={`flex items-stretch gap-2.5 rounded-xl border p-2.5 transition-all bg-white ${
-                              isSun ? 'border-red-200 bg-red-50/40' : isSat ? 'border-blue-200 bg-blue-50/40' : 'border-border'
+                            className={`flex items-stretch gap-2.5 rounded-xl border p-2.5 transition-all ${
+                              isDone ? 'opacity-50 bg-slate-50' : 'bg-white'
+                            } ${isSun ? 'border-red-200 bg-red-50/40' : isSat ? 'border-blue-200 bg-blue-50/40' : 'border-border'
                             } ${isToday ? 'ring-2 ring-indigo-400' : ''}`}
                           >
                             {/* 日付列 */}
@@ -1194,6 +1343,18 @@ function App({ currentUser }: { currentUser: User | null }) {
                                 </>
                               )}
                             </div>
+                            {!readOnly && (
+                              <div className="flex items-center self-center shrink-0">
+                                <input
+                                  type="checkbox"
+                                  id={`mob-chk-${day}`}
+                                  className="accent-accent w-4 h-4"
+                                  checked={isDone}
+                                  onChange={(e) => handleDoneChange(currentSchedMember, day, e.target.checked)}
+                                />
+                                <label htmlFor={`mob-chk-${day}`} className="text-[10px] text-text2 ml-1">完了</label>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -1228,17 +1389,21 @@ function App({ currentUser }: { currentUser: User | null }) {
                             const type = item.type;
                             const detail = item.detail;
                             const memo = currentMonthData.memos[currentSchedMember]?.[day] || '';
+                            const isDone = currentMonthData.dones[currentSchedMember]?.[day] || false;
                             const isSat = dow === 5;
                             const isSun = dow === 6;
                             const _today = new Date();
                             const isToday = currentYear === _today.getFullYear() && currentMonth === _today.getMonth() && day === _today.getDate();
 
+                            if (isDone && hideDone) return null;
+
                             return (
                               <div
                                 key={day}
                                 data-today={isToday ? 'true' : undefined}
-                                className={`border border-border rounded p-1 min-h-[110px] transition-all relative flex flex-col bg-white ${
-                                  isSun ? 'bg-red-50' : isSat ? 'bg-blue-50' : ''
+                                className={`border border-border rounded p-1 min-h-[110px] transition-all relative flex flex-col ${
+                                  isDone ? 'opacity-50 bg-slate-50' : 'bg-white'
+                                } ${isSun ? 'bg-red-50' : isSat ? 'bg-blue-50' : ''
                                 } ${isToday ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-white' : ''}`}
                               >
                                 <span className={`font-mono text-[11px] font-black mb-0.5 flex items-center gap-1 ${
@@ -1277,6 +1442,19 @@ function App({ currentUser }: { currentUser: User | null }) {
                                   value={memo}
                                   onChange={(val: string) => handleMemoChange(currentSchedMember, day, val)}
                                 />
+
+                                {!readOnly && (
+                                  <div className="flex items-center gap-1 mt-1 text-[10px] text-text2">
+                                    <input
+                                      type="checkbox"
+                                      id={`chk-${day}`}
+                                      className="accent-accent w-3 h-3"
+                                      checked={isDone}
+                                      onChange={(e) => handleDoneChange(currentSchedMember, day, e.target.checked)}
+                                    />
+                                    <label htmlFor={`chk-${day}`}>完了</label>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
@@ -1537,6 +1715,12 @@ function App({ currentUser }: { currentUser: User | null }) {
           <span>データはサーバーにリアルタイム保存されます。リンクを知っている全員が閲覧・編集可能です。</span>
         </div>
       </footer>
+
+      <BulkImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onImport={handleBulkImport}
+      />
 
     </div>
   );
