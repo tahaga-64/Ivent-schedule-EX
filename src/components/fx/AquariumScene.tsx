@@ -1,24 +1,30 @@
 /**
- * AquariumScene v3 — リアル系 three.js 水中シーン
+ * AquariumScene v4 — 映画品質 water シーン
  *
- * v3 改善点:
- *  - 3段脊椎進行波: bodyGroup(0.06) → caudalPivot(0.18) → tailPivot(0.42)
- *    でリアルな S カーブ泳ぎを実現
- *  - 上下に開く二股月形尾びれ（lunate tail）: ファン角度が泳ぎに連動
- *  - MeshPhysicalMaterial: clearcoat + iridescence で「濡れた鱗」質感
- *  - 胸びれが Z + Y 2軸で3Dはばたき
- *  - 尾柄（peduncle）メッシュで体→尾の自然なつながり
- *  - 肛門びれ追加（腹側）
- *  - 目 + 瞳孔（別メッシュで立体感）
- *  - 腹側ハイライトメッシュ（背が濃く腹が明るい自然なグラデ）
- *  - 魚の大きさに反比例して尾びれ頻度を調整（小魚は速くはばたく）
- *  - 旋回量に応じてスピードアップ
- *  - 2レイヤーコースティクス（逆向きスクロール）
- *  - 海底岩礁 + 珊瑚デコレーション
- *  - アンダーライト（底からの反射光）の揺らぎ
+ * 新機能 (v4):
+ *  - postprocessing EffectComposer:
+ *      Bloom (魚・ゴッドレイが発光) + Vignette (周辺暗化) + ChromaticAberration (レンズ収差)
+ *      + DepthOfField (手前の魚がシャープ、奥がボケ) — full モードのみ
+ *  - troika-three-text: 各種の群れの上に浮かぶ種名ラベル (GPU SDF フォント)
+ *  - シネマティックイントロ: カメラが高所から 2.5 秒かけて水槽前へ飛び込む
+ *  - シーン背景をグラデーション CanvasTexture に変更 (CSS alpha 依存を排除)
+ *  - 魚マテリアルの emissive 強化 → Bloom でリアルな発光
+ *  - ゴッドレイ輝度アップ → Bloom 効果が映える
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import {
+  EffectComposer,
+  EffectPass,
+  RenderPass,
+  BloomEffect,
+  VignetteEffect,
+  ChromaticAberrationEffect,
+  DepthOfFieldEffect,
+  KernelSize,
+  type Effect,
+} from 'postprocessing';
+import { Text as TroikaText } from 'troika-three-text';
 import type { FishItem } from '../../types';
 import { cachedFxLevel } from '../../lib/deviceTier';
 
@@ -68,43 +74,103 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
 
     const level = cachedFxLevel();
     const isFull = level === 'full';
+    const usePostFx = level !== 'off';
 
-    // ── Renderer ──────────────────────────────────────────────
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: isFull });
+    // ── Renderer (alpha off — gradient handled by scene.background) ─────
+    const renderer = new THREE.WebGLRenderer({ antialias: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, isFull ? 2 : 1.5));
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.25;
+    // Tone mapping handled by ToneMappingEffect in composer; disable here
+    renderer.toneMapping = THREE.NoToneMapping;
     container.appendChild(renderer.domElement);
     Object.assign(renderer.domElement.style, {
       position: 'absolute', inset: '0', width: '100%', height: '100%',
     });
 
-    // ── Scene / fog ───────────────────────────────────────────
+    // ── Scene / fog ─────────────────────────────────────────────────────
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x0a4f73, isFull ? 0.040 : 0.056);
+    scene.fog = new THREE.FogExp2(0x0a4f73, isFull ? 0.038 : 0.054);
 
-    // ── Lights ────────────────────────────────────────────────
-    scene.add(new THREE.HemisphereLight(0xbfefff, 0x06324a, 0.9));
-    scene.add(new THREE.AmbientLight(0x4fb8e6, 0.4));
-    const sun = new THREE.DirectionalLight(0xdff6ff, 2.0);
+    // グラデーション背景テクスチャ (CSS alpha 不要)
+    const bgCvs = document.createElement('canvas');
+    bgCvs.width = 1; bgCvs.height = 4;
+    const bgCtx = bgCvs.getContext('2d')!;
+    const bgGrad = bgCtx.createLinearGradient(0, 0, 0, 4);
+    bgGrad.addColorStop(0, '#0e7490');
+    bgGrad.addColorStop(0.45, '#075985');
+    bgGrad.addColorStop(1, '#082f49');
+    bgCtx.fillStyle = bgGrad;
+    bgCtx.fillRect(0, 0, 1, 4);
+    const bgTex = new THREE.CanvasTexture(bgCvs);
+    scene.background = bgTex;
+
+    // ── Lights ───────────────────────────────────────────────────────────
+    scene.add(new THREE.HemisphereLight(0xbfefff, 0x06324a, 0.95));
+    scene.add(new THREE.AmbientLight(0x4fb8e6, 0.42));
+    const sun = new THREE.DirectionalLight(0xdff6ff, 2.2);
     sun.position.set(-3, 12, 5);
     scene.add(sun);
-    const rim = new THREE.DirectionalLight(0x67e8f9, 0.65);
+    const rim = new THREE.DirectionalLight(0x67e8f9, 0.7);
     rim.position.set(5, 2, -7);
     scene.add(rim);
-    // 底からの反射光（コースティクス演出）
-    const underLight = new THREE.PointLight(0x4dd4ff, 0.85, 14);
+    const underLight = new THREE.PointLight(0x4dd4ff, 1.0, 14);
     underLight.position.set(0, -2.2, 0);
     scene.add(underLight);
 
-    // ── Camera ────────────────────────────────────────────────
+    // ── Camera ───────────────────────────────────────────────────────────
     const camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 100);
-    camera.position.set(0, 1.2, 9.5);
+    camera.position.set(0, 8, 15.5); // シネマティックイントロ開始位置
     camera.lookAt(0, 0.3, 0);
 
-    // ── Caustics canvas texture ───────────────────────────────
+    // ── postprocessing EffectComposer ────────────────────────────────────
+    let composer: EffectComposer | null = null;
+    if (usePostFx) {
+      composer = new EffectComposer(renderer, {
+        frameBufferType: THREE.HalfFloatType,
+        multisampling: isFull ? 4 : 0,
+      });
+      composer.addPass(new RenderPass(scene, camera));
+
+      const effects: Effect[] = [];
+
+      // Bloom: 魚・ゴッドレイが発光する
+      effects.push(new BloomEffect({
+        intensity: isFull ? 1.15 : 0.65,
+        luminanceThreshold: 0.65,
+        luminanceSmoothing: 0.38,
+        kernelSize: isFull ? KernelSize.LARGE : KernelSize.SMALL,
+      }));
+
+      // DOF: 前景が鮮明、背景ボケ (full のみ)
+      if (isFull) {
+        effects.push(new DepthOfFieldEffect(camera, {
+          focusDistance: 0.09,
+          focalLength: 0.05,
+          bokehScale: 2.8,
+        }));
+      }
+
+      // レンズ収差: 端に向かって色がにじむ (full のみ)
+      if (isFull) {
+        const chromaEff = new ChromaticAberrationEffect({
+          offset: new THREE.Vector2(0.0005, 0.0005),
+          radialModulation: true,
+          modulationOffset: 0.14,
+        });
+        effects.push(chromaEff);
+      }
+
+      // Vignette: 四隅を暗くして「水槽を覗く」演出
+      effects.push(new VignetteEffect({
+        darkness: 0.54,
+        offset: 0.28,
+      }));
+
+      composer.addPass(new EffectPass(camera, ...effects));
+    }
+
+    // ── Caustics textures ────────────────────────────────────────────────
     function makeCausticsTexture(seed: number): THREE.CanvasTexture {
       const size = 512;
       const cvs = document.createElement('canvas');
@@ -112,9 +178,7 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
       const ctx = cvs.getContext('2d')!;
       ctx.fillStyle = '#08506e';
       ctx.fillRect(0, 0, size, size);
-      // seeded pseudo-random for reproducible but varied patterns
       const rng = (s: number) => { const v = Math.sin(s * 127.1 + seed * 311.7) * 43758.5453; return v - Math.floor(v); };
-      // Multi-scale voronoi-like blobs
       for (const [count, scale] of [[80, 0.13], [60, 0.07], [40, 0.04]] as [number, number][]) {
         for (let i = 0; i < count; i++) {
           const x = rng(i * 7.1) * size;
@@ -137,11 +201,10 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
       return tex;
     }
 
-    // ── Floor / seabed ────────────────────────────────────────
+    // ── Floor ────────────────────────────────────────────────────────────
     const floorGeo = new THREE.PlaneGeometry(60, 40);
     const caus1 = makeCausticsTexture(1.0);
     const caus2 = makeCausticsTexture(4.3);
-
     const floorMat = new THREE.MeshStandardMaterial({
       color: 0x0b6080, roughness: 0.95, metalness: 0,
       map: caus1, transparent: true, opacity: 0.97,
@@ -151,7 +214,6 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
     floor.position.y = -3.2;
     scene.add(floor);
 
-    // 2枚目コースティクス（逆スクロール・加算合成）
     const floor2Mat = new THREE.MeshBasicMaterial({
       map: caus2, transparent: true, opacity: 0.30,
       blending: THREE.AdditiveBlending, depthWrite: false,
@@ -161,23 +223,23 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
     floor2.position.set(0, -3.195, 0);
     scene.add(floor2);
 
-    // ── 海底装飾: 岩 + 珊瑚 ─────────────────────────────────
+    // ── 海底装飾 ─────────────────────────────────────────────────────────
     const decorMeshes: THREE.Mesh[] = [];
     const rockGeo = new THREE.SphereGeometry(1, 7, 5);
     const rockMat = new THREE.MeshStandardMaterial({ color: 0x1a6b8a, roughness: 0.92 });
     const coralGeo = new THREE.CylinderGeometry(0.06, 0.18, 1.4, 6);
-    const coralMat = new THREE.MeshStandardMaterial({ color: 0xff6b8a, roughness: 0.55 });
-
+    const coralMat = new THREE.MeshStandardMaterial({
+      color: 0xff6b8a, roughness: 0.55,
+      emissive: new THREE.Color(0xff6b8a), emissiveIntensity: 0.08,
+    });
     for (const [x, z, sx, sy, sz] of [
       [-7, -2.5, 2.0, 0.65, 1.5], [7.5, -1.5, 1.6, 0.55, 1.2],
-      [-3, 3, 1.2, 0.75, 1.0], [5.5, 3, 1.4, 0.50, 1.1],
-      [1, -3.5, 1.1, 0.6, 0.9],
+      [-3, 3, 1.2, 0.75, 1.0], [5.5, 3, 1.4, 0.50, 1.1], [1, -3.5, 1.1, 0.6, 0.9],
     ] as [number, number, number, number, number][]) {
       const m = new THREE.Mesh(rockGeo, rockMat);
       m.scale.set(sx, sy, sz);
       m.position.set(x, -3.2 + sy * 0.5, z);
-      scene.add(m);
-      decorMeshes.push(m);
+      scene.add(m); decorMeshes.push(m);
     }
     if (isFull) {
       for (const [x, z, h] of [[-5, -1.2, 1.5], [3.5, -2, 1.1], [-2, 3.5, 1.8], [6.5, 0.5, 1.0]] as [number, number, number][]) {
@@ -185,13 +247,12 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
           const m = new THREE.Mesh(coralGeo, coralMat);
           m.scale.y = h * (0.6 + Math.random() * 0.6);
           m.position.set(x + (Math.random() - 0.5) * 0.7, -3.2 + m.scale.y * 0.7, z + (Math.random() - 0.5) * 0.5);
-          scene.add(m);
-          decorMeshes.push(m);
+          scene.add(m); decorMeshes.push(m);
         }
       }
     }
 
-    // ── God rays ──────────────────────────────────────────────
+    // ── God rays (Bloom で光芒が輝く) ────────────────────────────────────
     const rayMeshes: THREE.Mesh[] = [];
     let rayTex: THREE.CanvasTexture | null = null;
     let rayGeo: THREE.PlaneGeometry | null = null;
@@ -201,27 +262,26 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
       rc.width = 64; rc.height = 256;
       const rctx = rc.getContext('2d')!;
       const grad = rctx.createLinearGradient(0, 0, 0, 256);
-      grad.addColorStop(0, 'rgba(220,248,255,0.65)');
-      grad.addColorStop(0.55, 'rgba(180,235,255,0.18)');
-      grad.addColorStop(1, 'rgba(180,235,255,0)');
+      grad.addColorStop(0, 'rgba(230,252,255,0.85)'); // Bloom が乗るので明るめに
+      grad.addColorStop(0.55, 'rgba(190,240,255,0.22)');
+      grad.addColorStop(1, 'rgba(190,240,255,0)');
       rctx.fillStyle = grad;
       rctx.fillRect(0, 0, 64, 256);
       rayTex = new THREE.CanvasTexture(rc);
       rayGeo = new THREE.PlaneGeometry(1.4, 13);
       rayMat = new THREE.MeshBasicMaterial({
-        map: rayTex, transparent: true, opacity: 0.14,
+        map: rayTex, transparent: true, opacity: 0.25,
         blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
       });
       for (let i = 0; i < 6; i++) {
         const m = new THREE.Mesh(rayGeo, rayMat);
         m.position.set(-6 + i * 2.5 + Math.random() * 0.5, 3.8, -3 - Math.random() * 3);
         m.rotation.z = (Math.random() - 0.5) * 0.45;
-        scene.add(m);
-        rayMeshes.push(m);
+        scene.add(m); rayMeshes.push(m);
       }
     }
 
-    // ── Plankton ──────────────────────────────────────────────
+    // ── Plankton + Bubbles ───────────────────────────────────────────────
     const PLK = isFull ? 280 : 80;
     const plkPos = new Float32Array(PLK * 3);
     for (let i = 0; i < PLK; i++) {
@@ -235,7 +295,6 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
     const plankton = new THREE.Points(plkGeo, plkMat);
     scene.add(plankton);
 
-    // ── Bubbles ───────────────────────────────────────────────
     const BUB = isFull ? 80 : 35;
     const bPos = new Float32Array(BUB * 3);
     const bSpeed = new Float32Array(BUB);
@@ -257,36 +316,23 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
     const bubbles = new THREE.Points(bGeo, bMat);
     scene.add(bubbles);
 
-    // ── 共有魚ジオメトリ ──────────────────────────────────────
-    // ボディ: より魚らしく長い楕円体
+    // ── 共有ジオメトリ ───────────────────────────────────────────────────
     const bodyGeo = new THREE.SphereGeometry(0.5, 20, 14);
     bodyGeo.scale(1.7, 0.58, 0.35);
-
-    // 尾柄（peduncle）: ボディと尾の間の細い部分
     const peduncleGeo = new THREE.SphereGeometry(0.2, 8, 6);
     peduncleGeo.scale(0.55, 0.38, 0.22);
-
-    // 尾びれローブ: 月形（lunate）尾びれの片ヒレ
     const tailLobeGeo = new THREE.ConeGeometry(0.28, 0.55, 7);
     tailLobeGeo.scale(0.6, 1, 0.13);
     tailLobeGeo.rotateZ(-Math.PI / 2);
     tailLobeGeo.translate(-0.22, 0, 0);
-
-    // 背びれ
     const dorsalGeo = new THREE.ConeGeometry(0.22, 0.45, 5);
     dorsalGeo.scale(1.2, 1, 0.09);
     dorsalGeo.translate(0.12, 0.40, 0);
-
-    // 胸びれ
     const pecGeo = new THREE.ConeGeometry(0.15, 0.36, 5);
     pecGeo.scale(1.1, 1, 0.08);
-
-    // 肛門びれ（腹側）
     const analGeo = new THREE.ConeGeometry(0.13, 0.30, 4);
     analGeo.scale(1, 1, 0.09);
     analGeo.translate(-0.22, -0.30, 0);
-
-    // 目（白目）+ 瞳孔
     const eyeGeo = new THREE.SphereGeometry(0.068, 10, 10);
     const pupilGeo = new THREE.SphereGeometry(0.042, 8, 8);
     const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xf0f8ff, roughness: 0.1, metalness: 0.08 });
@@ -294,90 +340,64 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
 
     const fishStates: FishState[] = [];
     let matPool: THREE.Material[] = [];
+    let labelMeshes: TroikaText[] = [];
+
+    function clearLabels() {
+      for (const lbl of labelMeshes) { scene.remove(lbl); lbl.dispose(); }
+      labelMeshes = [];
+    }
 
     function makeFish(color: number, scale: number): FishState {
       const fishColor = new THREE.Color(color);
       const bellyColor = fishColor.clone().lerp(new THREE.Color(0xffffff), 0.62);
       const finColor = fishColor.clone().lerp(new THREE.Color(0xffffff), 0.28);
 
+      // Bloom が乗るように emissive を強化
       const bodyMat = isFull
         ? new THREE.MeshPhysicalMaterial({
-            color: fishColor,
-            roughness: 0.26,
-            metalness: 0.0,
-            clearcoat: 1.0,
-            clearcoatRoughness: 0.10,
-            iridescence: 0.50,
-            iridescenceIOR: 1.45,
+            color: fishColor, roughness: 0.26, metalness: 0.0,
+            clearcoat: 1.0, clearcoatRoughness: 0.10,
+            iridescence: 0.50, iridescenceIOR: 1.45,
             iridescenceThicknessRange: [100, 480] as [number, number],
-            sheen: 0.3,
-            sheenRoughness: 0.45,
-            sheenColor: finColor,
+            sheen: 0.3, sheenRoughness: 0.45, sheenColor: finColor,
+            emissive: fishColor, emissiveIntensity: 0.18, // Bloom 用
           })
-        : new THREE.MeshLambertMaterial({ color: fishColor });
+        : new THREE.MeshLambertMaterial({ color: fishColor, emissive: fishColor, emissiveIntensity: 0.05 });
 
       const finMat = isFull
         ? new THREE.MeshPhysicalMaterial({
-            color: finColor,
-            roughness: 0.38,
-            metalness: 0.0,
-            clearcoat: 0.55,
-            clearcoatRoughness: 0.22,
-            transparent: true,
-            opacity: 0.82,
-            side: THREE.DoubleSide,
+            color: finColor, roughness: 0.38, metalness: 0.0,
+            clearcoat: 0.55, clearcoatRoughness: 0.22,
+            transparent: true, opacity: 0.82, side: THREE.DoubleSide,
           })
         : new THREE.MeshLambertMaterial({ color: finColor, side: THREE.DoubleSide });
 
-      // 腹側ハイライトマテリアル（半透明で重ねて腹を明るく）
       const bellyMat = isFull
         ? new THREE.MeshPhysicalMaterial({
-            color: bellyColor,
-            roughness: 0.38,
-            metalness: 0.0,
-            clearcoat: 0.6,
-            clearcoatRoughness: 0.20,
-            transparent: true,
-            opacity: 0.62,
+            color: bellyColor, roughness: 0.38, metalness: 0.0,
+            clearcoat: 0.6, clearcoatRoughness: 0.20,
+            transparent: true, opacity: 0.62,
           })
         : null;
 
       matPool.push(bodyMat, finMat);
       if (bellyMat) matPool.push(bellyMat);
 
-      // ─── 魚の骨格階層 ───────────────────────────────────────
-      // group (ワールド位置・全体向き)
-      //   bodyGroup (体幹うねり: 小)
-      //     bodyMesh + bellyMesh + dorsalFin + analFin
-      //     pecL, pecR (はばたく)
-      //     eyeL, eyeR (目)
-      //     caudalPivot (x=-0.68: 中程度のうねり)
-      //       peduncle mesh
-      //       tailPivot (x=-0.55: 大きなうねり)
-      //         tailTopMesh, tailBotMesh (二股尾びれ)
-
       const group = new THREE.Group();
       group.scale.setScalar(scale);
-
       const bodyGroup = new THREE.Group();
       group.add(bodyGroup);
 
-      // ボディ本体
       bodyGroup.add(new THREE.Mesh(bodyGeo, bodyMat));
-
-      // 腹側ハイライト
       if (bellyMat) {
         const belly = new THREE.Mesh(bodyGeo, bellyMat);
         belly.scale.set(0.97, 0.48, 1.06);
         belly.position.y = -0.15;
         bodyGroup.add(belly);
       }
-
-      // 背びれ・肛門びれ
       bodyGroup.add(new THREE.Mesh(dorsalGeo, finMat));
       if (isFull) bodyGroup.add(new THREE.Mesh(analGeo, finMat));
 
-      // 胸びれ（両側）
       let pecL: THREE.Mesh | null = null;
       let pecR: THREE.Mesh | null = null;
       if (isFull) {
@@ -388,10 +408,7 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
         pecR.position.set(0.05, -0.11, -0.21);
         pecR.rotation.set(-0.65, -0.2, -0.72);
         bodyGroup.add(pecL, pecR);
-      }
 
-      // 目 + 瞳孔
-      if (isFull) {
         for (const side of [1, -1] as const) {
           const eye = new THREE.Mesh(eyeGeo, eyeWhiteMat);
           eye.position.set(0.60, 0.10, side * 0.155);
@@ -402,22 +419,17 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
         }
       }
 
-      // 尾柄ピボット（胴体レベル: 中程度うねり）
       const caudalPivot = new THREE.Group();
       caudalPivot.position.x = -0.68;
       bodyGroup.add(caudalPivot);
-
-      // 尾柄メッシュ
       const peduncle = new THREE.Mesh(peduncleGeo, bodyMat);
       peduncle.position.x = -0.14;
       caudalPivot.add(peduncle);
 
-      // テールピボット（最大うねり）
       const tailPivot = new THREE.Group();
       tailPivot.position.x = -0.54;
       caudalPivot.add(tailPivot);
 
-      // 二股尾びれ（上ローブ + 下ローブ）
       const tailTopMesh = new THREE.Mesh(tailLobeGeo, finMat);
       tailTopMesh.position.y = 0.17;
       tailTopMesh.rotation.z = -0.30;
@@ -426,24 +438,17 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
       tailBotMesh.rotation.z = 0.30;
       tailPivot.add(tailTopMesh, tailBotMesh);
 
-      // 小さい魚ほど速く尾びれを振る
       const wagFreq = 5.5 + (1.2 / Math.max(scale, 0.5)) * 1.8;
-
       const initX = Math.random() * Math.PI * 2;
       return {
         group, bodyGroup, caudalPivot, tailPivot,
         tailTopMesh, tailBotMesh, pecL, pecR,
-        t: Math.random() * Math.PI * 2,
-        phase: Math.random() * Math.PI * 2,
-        wagFreq,
-        baseSpeed: 0.26 + Math.random() * 0.30,
-        speed: 0.3,
+        t: Math.random() * Math.PI * 2, phase: Math.random() * Math.PI * 2,
+        wagFreq, baseSpeed: 0.26 + Math.random() * 0.30, speed: 0.3,
         ax: 5.0 + Math.random() * 2.5,
         ay: 0.48 + Math.random() * 0.56,
         az: 0.48 + Math.random() * 0.65,
-        px: initX,
-        py: Math.random() * Math.PI * 2,
-        pz: Math.random() * Math.PI * 2,
+        px: initX, py: Math.random() * Math.PI * 2, pz: Math.random() * Math.PI * 2,
         ly: 0, lz: 0, scale,
         prevPos: new THREE.Vector3(Math.sin(initX) * (5 + Math.random() * 2.5), 0, 0),
         heading: 0,
@@ -451,6 +456,7 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
     }
 
     function clearFish() {
+      clearLabels();
       for (const fs of fishStates) scene.remove(fs.group);
       fishStates.length = 0;
       for (const m of matPool) m.dispose();
@@ -469,7 +475,6 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
     function syncFish(items: FishItem[]) {
       clearFish();
       const maxFish = isFull ? MAX_FISH_FULL : MAX_FISH_LITE;
-
       const speciesCount = new Map<string, number>();
       for (const item of items) speciesCount.set(item.name, (speciesCount.get(item.name) ?? 0) + (item.count || 1));
       const speciesNames = [...speciesCount.keys()];
@@ -481,10 +486,30 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
         const cap = Math.max(1, Math.min(count, Math.ceil(maxFish / speciesNames.length)));
         const laneY = -1.4 + (si / Math.max(speciesNames.length - 1, 1)) * 2.8;
         const laneZ = -1.8 + (si % 3) * 1.6;
+
         for (let j = 0; j < cap && total < maxFish; j++) {
           spawnFish(color, laneY + (Math.random() - 0.5) * 0.75, laneZ + (Math.random() - 0.5) * 0.9, 0.62 + Math.random() * 0.58);
           total++;
         }
+
+        // troika-three-text: 種名ラベル
+        const fishColor = new THREE.Color(FISH_COLORS[si % FISH_COLORS.length]);
+        const hexStr = '#' + fishColor.lerp(new THREE.Color(0xffffff), 0.55).getHexString();
+        const label = new TroikaText();
+        label.text = `${speciesNames[si]}  ×${Math.min(count, cap)}`;
+        label.fontSize = 0.30;
+        label.color = hexStr;
+        label.fillOpacity = 0.88;
+        label.outlineWidth = '5%';
+        label.outlineColor = '#082f49';
+        label.anchorX = 'center';
+        label.anchorY = 'bottom';
+        label.maxWidth = 6;
+        label.position.set(0, laneY + 1.65, laneZ);
+        label.userData = { baseLaneY: laneY + 1.65, phase: si * 1.35 };
+        label.sync();
+        scene.add(label);
+        labelMeshes.push(label);
       }
 
       if (fishStates.length === 0) {
@@ -497,11 +522,15 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
     syncFishRef.current = syncFish;
     syncFish(fishItemsRef.current);
 
-    // ── Animation loop ────────────────────────────────────────
+    // ── Animation loop ────────────────────────────────────────────────────
     let prevTime = performance.now();
     let rafId = 0;
     let elapsed = 0;
     const tmpVec = new THREE.Vector3();
+
+    // シネマティックイントロ: カメラが高所から水槽前へ飛び込む (2.5秒)
+    let introPhase = 1.0; // 1→0 でイントロ完了
+    const INTRO_DUR = 2.5;
 
     function animate() {
       rafId = requestAnimationFrame(animate);
@@ -512,21 +541,36 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
       prevTime = now;
       elapsed += dt;
 
+      // ── カメラ: イントロ → 通常ドリフト ─────────────────────────────
+      if (introPhase > 0) {
+        introPhase = Math.max(0, introPhase - dt / INTRO_DUR);
+        const t = 1 - introPhase;
+        const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+        camera.position.set(
+          0,
+          8  - (8   - 1.2) * eased,   // y: 8 → 1.2
+          15.5 - (15.5 - 9.5) * eased, // z: 15.5 → 9.5
+        );
+        camera.fov = 70 - (70 - 55) * eased;
+        camera.updateProjectionMatrix();
+      } else {
+        camera.position.x = Math.sin(elapsed * 0.17) * 0.55;
+        camera.position.y = 1.2 + Math.sin(elapsed * 0.12) * 0.28;
+        if (camera.fov !== 55) { camera.fov = 55; camera.updateProjectionMatrix(); }
+      }
+      camera.lookAt(0, 0.3, 0);
+
+      // ── 魚の動き ──────────────────────────────────────────────────────
       for (const fs of fishStates) {
         fs.t += dt * fs.speed;
-
-        // Lissajous 軌道
         const x = Math.sin(fs.t + fs.px) * fs.ax;
         const y = fs.ly + Math.sin(fs.t * 0.58 + fs.py) * fs.ay;
         const z = fs.lz + Math.sin(fs.t * 0.41 + fs.pz) * fs.az;
         tmpVec.set(x, y, z);
 
-        // 進行方向
         const vx = x - fs.prevPos.x;
         const vy = y - fs.prevPos.y;
         const targetHeading = Math.atan2(-(z - fs.prevPos.z), vx);
-
-        // 向き補間（急旋回を抑制）
         let dh = targetHeading - fs.heading;
         while (dh > Math.PI) dh -= Math.PI * 2;
         while (dh < -Math.PI) dh += Math.PI * 2;
@@ -534,29 +578,19 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
 
         fs.group.position.copy(tmpVec);
         fs.group.rotation.y = fs.heading;
-        // ピッチ（上下速度に連動して頭を上げ下げ）
         fs.group.rotation.z = THREE.MathUtils.clamp(vy * 5.5, -0.44, 0.44);
-        // バンク（旋回でロール）
         fs.group.rotation.x = THREE.MathUtils.clamp(-dh * 3.0, -0.70, 0.70);
 
-        // ── 3段脊椎進行波 ─────────────────────────────────
+        // 3段脊椎進行波
         const wag = Math.sin(fs.t * fs.wagFreq + fs.phase);
-
-        // Stage 1: 体幹（最小うねり）
         fs.bodyGroup.rotation.y = wag * 0.055;
-
-        // Stage 2: 尾柄ピボット（中程度 + 位相遅延 0.55 rad）
         fs.caudalPivot.rotation.y = Math.sin(fs.t * fs.wagFreq + fs.phase + 0.55) * 0.17;
-
-        // Stage 3: テールピボット（最大 + 位相遅延 1.1 rad）
         fs.tailPivot.rotation.y = Math.sin(fs.t * fs.wagFreq + fs.phase + 1.1) * 0.44;
 
-        // 尾びれファン: うねりが大きいときに上下に開く
         const fanAngle = 0.28 + Math.abs(Math.sin(fs.t * fs.wagFreq * 2.0 + fs.phase)) * 0.18;
         fs.tailTopMesh.rotation.z = -fanAngle;
         fs.tailBotMesh.rotation.z = fanAngle;
 
-        // 胸びれ 3D はばたき（Z + Y 2軸）
         if (fs.pecL && fs.pecR) {
           const flap = Math.sin(fs.t * fs.wagFreq * 0.72 + fs.phase) * 0.30;
           fs.pecL.rotation.z = -0.58 + flap;
@@ -565,14 +599,17 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
           fs.pecR.rotation.y = -0.22 - flap * 0.45;
         }
 
-        // 旋回時スピードアップ
         const turnRate = Math.abs(dh) / (dt + 0.001);
         fs.speed = fs.baseSpeed + Math.min(turnRate * 0.07, 0.22);
-
         fs.prevPos.copy(tmpVec);
       }
 
-      // ── 泡の上昇 + 横揺れ ─────────────────────────────────
+      // troika ラベル: ゆらゆら浮遊
+      for (const lbl of labelMeshes) {
+        lbl.position.y = (lbl.userData.baseLaneY as number) + Math.sin(elapsed * 0.5 + (lbl.userData.phase as number)) * 0.10;
+      }
+
+      // ── 環境アニメーション ─────────────────────────────────────────────
       for (let i = 0; i < BUB; i++) {
         let yy = bAttr.getY(i) + dt * bSpeed[i];
         if (yy > 5.5) yy = -4.5;
@@ -580,52 +617,50 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
         bAttr.setX(i, bAttr.getX(i) + Math.sin(elapsed * 1.85 + bPhase[i]) * dt * 0.14);
       }
       bAttr.needsUpdate = true;
-
-      // ── プランクトンドリフト ──────────────────────────────
       plankton.rotation.y = elapsed * 0.010;
       plankton.rotation.x = Math.sin(elapsed * 0.045) * 0.018;
 
-      // ── コースティクス 2レイヤースクロール ───────────────
       caus1.offset.x = (elapsed * 0.021) % 1;
       caus1.offset.y = Math.sin(elapsed * 0.12) * 0.055;
       caus2.offset.x = (-elapsed * 0.014) % 1;
-      caus2.offset.y = (-Math.sin(elapsed * 0.16) * 0.055);
+      caus2.offset.y = -Math.sin(elapsed * 0.16) * 0.055;
 
-      // ── アンダーライト（底からの反射光）揺らぎ ─────────
-      underLight.intensity = 0.65 + Math.sin(elapsed * 1.15) * 0.22;
+      underLight.intensity = 0.70 + Math.sin(elapsed * 1.15) * 0.25;
       underLight.position.x = Math.sin(elapsed * 0.48) * 2.2;
 
-      // ── God rays 揺らぎ ───────────────────────────────────
       for (let i = 0; i < rayMeshes.length; i++) {
         const m = rayMeshes[i];
         m.rotation.z = Math.sin(elapsed * 0.27 + i * 1.05) * 0.15 + (i - 2.5) * 0.09;
-        (m.material as THREE.MeshBasicMaterial).opacity = 0.10 + Math.abs(Math.sin(elapsed * 0.33 + i * 0.65)) * 0.09;
+        (m.material as THREE.MeshBasicMaterial).opacity = 0.18 + Math.abs(Math.sin(elapsed * 0.33 + i * 0.65)) * 0.11;
       }
 
-      // ── カメラ アイドルドリフト ───────────────────────────
-      camera.position.x = Math.sin(elapsed * 0.17) * 0.55;
-      camera.position.y = 1.2 + Math.sin(elapsed * 0.12) * 0.28;
-      camera.lookAt(0, 0.3, 0);
-
-      renderer.render(scene, camera);
+      // ── レンダー: composer または fallback ───────────────────────────
+      if (composer) {
+        composer.render(dt);
+      } else {
+        renderer.render(scene, camera);
+      }
     }
     animate();
 
-    // ── Resize ────────────────────────────────────────────────
+    // ── Resize ────────────────────────────────────────────────────────────
     const ro = new ResizeObserver(() => {
       const w = container.clientWidth, h = container.clientHeight;
       if (!w || !h) return;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      composer?.setSize(w, h);
     });
     ro.observe(container);
 
-    // ── Cleanup ───────────────────────────────────────────────
+    // ── Cleanup ───────────────────────────────────────────────────────────
     return () => {
       cancelAnimationFrame(rafId);
       ro.disconnect();
       clearFish();
+      composer?.dispose();
+      bgTex.dispose();
       bodyGeo.dispose(); peduncleGeo.dispose(); tailLobeGeo.dispose();
       dorsalGeo.dispose(); pecGeo.dispose(); analGeo.dispose();
       eyeGeo.dispose(); pupilGeo.dispose();
@@ -652,10 +687,7 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
     <div
       ref={containerRef}
       className="absolute inset-0 z-0 pointer-events-none overflow-hidden"
-      style={{
-        background:
-          'radial-gradient(120% 90% at 50% 0%, #0e7490 0%, #075985 45%, #082f49 100%)',
-      }}
+      style={{ background: '#082f49' }} // Three.js canvas が乗るまでの fallback
     />
   );
 }
