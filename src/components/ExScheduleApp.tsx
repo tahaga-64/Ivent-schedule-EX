@@ -1110,28 +1110,11 @@ function App({ currentUser }: { currentUser: User | null }) {
                   </div>
                 </div>
 
-                {/* Calendar Container — no forced min-width so it fits on one screen */}
-                <div ref={schedCalendarRef} className="overflow-x-auto pb-1">
-                  <div>
-                    {/* Calendar Grid Header */}
-                    <div className="grid grid-cols-7 gap-0.5 mb-0.5">
-                      {['月', '火', '水', '木', '金', '土', '日'].map((day, i) => (
-                        <div key={day} className={`text-center text-[10px] font-bold py-0.5 font-mono ${
-                          i === 5 ? 'text-blue-600' : i === 6 ? 'text-red-600' : 'text-text2'
-                        }`}>
-                          {day}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Calendar Grid Body */}
-                    <div className="grid grid-cols-7 gap-0.5">
-                      {/* Offset cells */}
-                      {Array.from({ length: startOffset }).map((_, i) => (
-                        <div key={`offset-${i}`} className="min-h-[68px]" />
-                      ))}
-
-                      {/* Day cells */}
+                {/* スケジュール本体: モバイル=縦スクロール・アジェンダ / デスクトップ=月グリッド */}
+                <div ref={schedCalendarRef}>
+                  {isMobile ? (
+                    /* 縦スクロール表示（1日1行・全幅で潰れない） */
+                    <div className="flex flex-col gap-1.5">
                       {Array.from({ length: daysInMonth }).map((_, i) => {
                         const day = i + 1;
                         const dow = getDow(currentYear, currentMonth, day);
@@ -1141,6 +1124,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                         const memo = currentMonthData.memos[currentSchedMember]?.[day] || '';
                         const isSat = dow === 5;
                         const isSun = dow === 6;
+                        const dowLabel = ['月', '火', '水', '木', '金', '土', '日'][dow];
                         const _today = new Date();
                         const isToday = currentYear === _today.getFullYear() && currentMonth === _today.getMonth() && day === _today.getDate();
 
@@ -1148,24 +1132,122 @@ function App({ currentUser }: { currentUser: User | null }) {
                           <div
                             key={day}
                             data-today={isToday ? 'true' : undefined}
-                            className={`border border-border rounded p-1 ${readOnly ? 'min-h-[44px]' : 'min-h-[60px]'} md:min-h-[110px] transition-all relative flex flex-col bg-white ${
-                              isSun ? 'bg-red-50' : isSat ? 'bg-blue-50' : ''
-                            } ${isToday ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-white' : ''}`}
+                            className={`flex items-stretch gap-2.5 rounded-xl border p-2.5 transition-all bg-white ${
+                              isSun ? 'border-red-200 bg-red-50/40' : isSat ? 'border-blue-200 bg-blue-50/40' : 'border-border'
+                            } ${isToday ? 'ring-2 ring-indigo-400' : ''}`}
                           >
-                            <span className={`font-mono text-[11px] font-black mb-0.5 flex items-center gap-1 ${
-                              isSun ? 'text-red-600' : isSat ? 'text-blue-600' : 'text-slate-900'
+                            {/* 日付列 */}
+                            <div className="flex flex-col items-center justify-center w-11 shrink-0">
+                              <span className={`font-mono text-xl font-black leading-none ${
+                                isSun ? 'text-red-600' : isSat ? 'text-blue-600' : 'text-slate-900'
+                              }`}>{day}</span>
+                              <span className={`text-[10px] font-bold mt-0.5 ${
+                                isSun ? 'text-red-500' : isSat ? 'text-blue-500' : 'text-slate-400'
+                              }`}>{dowLabel}</span>
+                              {isToday && (
+                                <span className="text-[8px] font-black bg-indigo-500 text-white px-1 py-0.5 rounded-full leading-none mt-1">今日</span>
+                              )}
+                            </div>
+
+                            {/* 内容列 */}
+                            <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+                              {readOnly ? (
+                                <>
+                                  <div className={`self-start px-2.5 py-0.5 rounded-full text-xs font-bold ${TYPE_CLASS[type]}`}>
+                                    {TYPE_LABEL[type]}
+                                  </div>
+                                  {detail && (
+                                    <div className="text-sm font-bold text-slate-800 break-words leading-snug">{detail}</div>
+                                  )}
+                                  {memo && (
+                                    <div className="text-xs text-slate-600 whitespace-pre-wrap break-words leading-snug">{memo}</div>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  <select
+                                    className={`w-full px-2 py-1 rounded-full text-xs font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[type]}`}
+                                    value={type}
+                                    onChange={(e) => handleScheduleTypeChange(currentSchedMember, i, e.target.value as StatusType)}
+                                  >
+                                    {Object.keys(TYPE_LABEL).map(t => (
+                                      <option key={t} value={t}>{TYPE_LABEL[t as StatusType]}</option>
+                                    ))}
+                                  </select>
+                                  {(type !== 'normal' && type !== 'request' && type !== 'rest') && (
+                                    <LocalInput
+                                      className="w-full px-2 py-1 rounded border border-slate-200 text-xs text-slate-900 outline-none focus:border-accent bg-slate-50"
+                                      size={11}
+                                      value={detail}
+                                      onChange={(val: string) => handleScheduleDetailChange(currentSchedMember, i, val)}
+                                      placeholder="詳細..."
+                                      list="status-suggestions"
+                                    />
+                                  )}
+                                  <LocalTextarea
+                                    className="w-full border border-slate-200 rounded p-1.5 text-xs text-slate-900 bg-slate-50 focus:bg-white focus:border-accent outline-none resize-none placeholder:text-slate-300"
+                                    rows={2}
+                                    placeholder="メモ"
+                                    value={memo}
+                                    onChange={(val: string) => handleMemoChange(currentSchedMember, day, val)}
+                                  />
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* デスクトップ: 従来の月グリッド */
+                    <div className="overflow-x-auto pb-1">
+                      <div>
+                        {/* Calendar Grid Header */}
+                        <div className="grid grid-cols-7 gap-0.5 mb-0.5">
+                          {['月', '火', '水', '木', '金', '土', '日'].map((day, i) => (
+                            <div key={day} className={`text-center text-[10px] font-bold py-0.5 font-mono ${
+                              i === 5 ? 'text-blue-600' : i === 6 ? 'text-red-600' : 'text-text2'
                             }`}>
                               {day}
-                              {isToday && <span className="text-[7px] font-black bg-indigo-500 text-white px-1 py-0.5 rounded-full leading-none">今</span>}
-                            </span>
+                            </div>
+                          ))}
+                        </div>
 
-                            {readOnly ? (
-                              /* 閲覧専用（スマホ非編集者）: バッジのみ表示。詳細・メモはセルに出さない */
-                              <div className={`w-full px-0.5 py-0.5 rounded text-[9px] font-bold text-center leading-tight truncate ${TYPE_CLASS[type]}`}>
-                                {TYPE_LABEL[type].split('(')[0]}
-                              </div>
-                            ) : (
-                              <>
+                        {/* Calendar Grid Body */}
+                        <div className="grid grid-cols-7 gap-0.5">
+                          {/* Offset cells */}
+                          {Array.from({ length: startOffset }).map((_, i) => (
+                            <div key={`offset-${i}`} className="min-h-[68px]" />
+                          ))}
+
+                          {/* Day cells */}
+                          {Array.from({ length: daysInMonth }).map((_, i) => {
+                            const day = i + 1;
+                            const dow = getDow(currentYear, currentMonth, day);
+                            const item = currentMonthData.schedule[currentSchedMember]?.[i] || { type: 'rest', detail: '' };
+                            const type = item.type;
+                            const detail = item.detail;
+                            const memo = currentMonthData.memos[currentSchedMember]?.[day] || '';
+                            const isSat = dow === 5;
+                            const isSun = dow === 6;
+                            const _today = new Date();
+                            const isToday = currentYear === _today.getFullYear() && currentMonth === _today.getMonth() && day === _today.getDate();
+
+                            return (
+                              <div
+                                key={day}
+                                data-today={isToday ? 'true' : undefined}
+                                className={`border border-border rounded p-1 min-h-[110px] transition-all relative flex flex-col bg-white ${
+                                  isSun ? 'bg-red-50' : isSat ? 'bg-blue-50' : ''
+                                } ${isToday ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-white' : ''}`}
+                              >
+                                <span className={`font-mono text-[11px] font-black mb-0.5 flex items-center gap-1 ${
+                                  isSun ? 'text-red-600' : isSat ? 'text-blue-600' : 'text-slate-900'
+                                }`}>
+                                  {day}
+                                  {isToday && <span className="text-[7px] font-black bg-indigo-500 text-white px-1 py-0.5 rounded-full leading-none">今</span>}
+                                </span>
+
                                 <div className="flex flex-col gap-0.5 mb-0.5">
                                   <select
                                     className={`w-full px-1 py-0.5 rounded-full text-[11px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[type]}`}
@@ -1195,26 +1277,27 @@ function App({ currentUser }: { currentUser: User | null }) {
                                   value={memo}
                                   onChange={(val: string) => handleMemoChange(currentSchedMember, day, val)}
                                 />
-                              </>
-                            )}
-                          </div>
-                        );
-                      })}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
-                    <datalist id="status-suggestions">
-                      {Object.keys(currentMonthData.trainingLabels || {}).map(k => (
-                        <option key={k} value={k}>{currentMonthData.trainingLabels?.[k]}</option>
-                      ))}
-                      <option value="待機(海浜幕張)" />
-                      <option value="待機(鳥浜)" />
-                      <option value="海浜幕張" />
-                      <option value="鳥浜" />
-                      <option value="外販ミステリー1" />
-                      <option value="イベントメンバー選抜" />
-                      <option value="VR" />
-                      <option value="販売" />
-                    </datalist>
-                  </div>
+                  )}
+
+                  <datalist id="status-suggestions">
+                    {Object.keys(currentMonthData.trainingLabels || {}).map(k => (
+                      <option key={k} value={k}>{currentMonthData.trainingLabels?.[k]}</option>
+                    ))}
+                    <option value="待機(海浜幕張)" />
+                    <option value="待機(鳥浜)" />
+                    <option value="海浜幕張" />
+                    <option value="鳥浜" />
+                    <option value="外販ミステリー1" />
+                    <option value="イベントメンバー選抜" />
+                    <option value="VR" />
+                    <option value="販売" />
+                  </datalist>
                 </div>
               </div>
             </motion.div>

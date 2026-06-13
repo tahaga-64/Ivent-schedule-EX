@@ -6,17 +6,24 @@ import { SPRING_GENTLE } from '../../lib/motionTokens';
 const PEEK_DONE_KEY   = 'ivent:swipe-peek-done';
 const DRAG_THRESHOLD  = -64;          // px — スワイプでアクション発火する閾値
 const VEL_THRESHOLD   = -400;         // px/s — フリック速度閾値
-const CLICK_SUPPRESS  = 12;           // px — 左方向にこれ以上ドラッグしたらクリックを抑止
 
 interface Props {
   children: React.ReactNode;
+  /** 左スワイプで発火するアクション */
   onAction: () => void;
+  /** タップ（ドラッグでない単純なタッチ）で発火 */
+  onTap?: () => void;
   actionLabel?: string;
 }
 
-export default function SwipeActionCard({ children, onAction, actionLabel = '準備物リスト' }: Props) {
+/**
+ * 横スワイプでアクションを出しつつ、タップで onTap を発火するカード。
+ * タップ/ドラッグの判別は framer-motion の onTap に委ねる
+ * （onTap はドラッグが成立すると発火しないため、iOS でも誤爆しない）。
+ */
+export default function SwipeActionCard({ children, onAction, onTap, actionLabel = '準備物リスト' }: Props) {
   const x = useMotionValue(0);
-  const suppressClick = useRef(false);
+  const draggingRef = useRef(false);
 
   // 初回のみ 300ms peek アニメで存在を知らせる
   useEffect(() => {
@@ -57,28 +64,19 @@ export default function SwipeActionCard({ children, onAction, actionLabel = '準
         dragDirectionLock
         dragConstraints={{ left: -88, right: 0 }}
         dragElastic={0.04}
-        onPointerDown={() => { suppressClick.current = false; }}
-        onDrag={(_, info) => {
-          if (info.offset.x < -CLICK_SUPPRESS) suppressClick.current = true;
-        }}
+        onDragStart={() => { draggingRef.current = true; }}
         onDragEnd={(_, info) => {
           const fired =
             info.offset.x   < DRAG_THRESHOLD ||
             info.velocity.x < VEL_THRESHOLD;
           animate(x, 0, SPRING_GENTLE);
-          if (fired) {
-            // クリック抑止を少し遅らせてから解除
-            setTimeout(() => { suppressClick.current = false; }, 80);
-            onAction();
-          } else {
-            setTimeout(() => { suppressClick.current = false; }, 50);
-          }
+          if (fired) onAction();
+          // 次の tap 判定に影響しないよう即時解除
+          requestAnimationFrame(() => { draggingRef.current = false; });
         }}
-        onClickCapture={(e) => {
-          if (suppressClick.current) {
-            e.stopPropagation();
-            e.preventDefault();
-          }
+        onTap={() => {
+          if (draggingRef.current) return;
+          onTap?.();
         }}
       >
         {children}
