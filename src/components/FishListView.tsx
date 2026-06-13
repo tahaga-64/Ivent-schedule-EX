@@ -1,10 +1,18 @@
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import { db } from '../lib/firebase';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import type { Event, FishItem } from '../types';
-import { Fish, Plus, Trash2 } from 'lucide-react';
+import { Fish, Plus, Trash2, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, rectSortingStrategy, useSortable, arrayMove, sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { notifyPush, isPushNotificationConfigured } from '../lib/pushNotifications';
 import { fmtDateJPFull } from '../lib/eventHelpers';
 import { cachedFxLevel } from '../lib/deviceTier';
@@ -33,6 +41,86 @@ function isEventPast(ev: Event): boolean {
   const today = new Date().toISOString().split('T')[0];
   const endDate = ev.end || ev.start;
   return !!endDate && endDate < today;
+}
+
+interface FishCardProps {
+  item: FishItem;
+  index: number;
+  showScene: boolean;
+  canEdit: boolean;
+  onDelete: (id: string) => void;
+  onCountChange: (item: FishItem, count: number) => void;
+}
+
+function FishCardInner({ item, index, showScene, canEdit, onDelete, onCountChange, dragHandle }: FishCardProps & { dragHandle?: React.ReactNode }) {
+  return (
+    <div className={`rounded-2xl p-4 transition-colors group relative ${showScene ? 'tank-card hover:brightness-[1.04]' : 'bg-white border border-slate-200 hover:border-slate-300 shadow-sm'}`}>
+      <div className="absolute top-2.5 left-3 text-[10px] font-black text-slate-300 tabular-nums">
+        #{index + 1}
+      </div>
+      {dragHandle}
+      {canEdit && (
+        <button
+          onClick={() => onDelete(item.id)}
+          aria-label={`${item.name}を削除`}
+          className="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+        >
+          <Trash2 size={12} />
+        </button>
+      )}
+      <div className="mt-3 mb-2">
+        <div className="font-black text-sm text-slate-900 leading-snug pr-4">{item.name}</div>
+      </div>
+      <div className="flex items-center gap-1.5">
+        {canEdit ? (
+          <>
+            <input
+              type="number"
+              min={0}
+              value={item.count}
+              onChange={e => onCountChange(item, Number(e.target.value))}
+              aria-label={`${item.name}の匹数`}
+              className="w-16 text-center rounded-lg border border-slate-200 px-2 py-1 text-xs font-black tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            />
+            <span className="text-xs text-slate-500">匹</span>
+          </>
+        ) : (
+          <span className="font-bold tabular-nums text-sm text-slate-900">{item.count}<span className="text-xs text-slate-500 ml-0.5">匹</span></span>
+        )}
+      </div>
+      {item.note && (
+        <div className="mt-2 text-xs text-slate-400 bg-slate-50 rounded-lg px-2 py-1 leading-snug">
+          {item.note}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SortableFishCard(props: FishCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.item.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 20 : undefined,
+    opacity: isDragging ? 0.9 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <FishCardInner
+        {...props}
+        dragHandle={
+          <button
+            {...listeners}
+            aria-label="ドラッグして並び替え"
+            className="absolute top-1.5 left-1/2 -translate-x-1/2 p-1 rounded-md text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing touch-none"
+          >
+            <GripVertical size={14} />
+          </button>
+        }
+      />
+    </div>
+  );
 }
 
 export default function FishListView({ events, canEdit, isActive = true, initialEventId }: Props) {
@@ -194,6 +282,30 @@ export default function FishListView({ events, canEdit, isActive = true, initial
     }
   }
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleReorder = useCallback(async (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id || !selectedEventId) return;
+    setFishItems(prev => {
+      const oldIndex = prev.findIndex(f => f.id === active.id);
+      const newIndex = prev.findIndex(f => f.id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return prev;
+      const reordered = arrayMove(prev, oldIndex, newIndex);
+      // 並び順を Firestore に永続化（order を振り直し）
+      const batch = writeBatch(db);
+      reordered.forEach((f, idx) => {
+        batch.update(doc(db, 'events', selectedEventId, 'fishItems', f.id), { order: idx });
+      });
+      batch.commit().catch(err => console.error('fishItems reorder error:', err));
+      return reordered;
+    });
+  }, [selectedEventId]);
+
   const showScene = cachedFxLevel() !== 'off';
 
   return (
@@ -343,59 +455,49 @@ export default function FishListView({ events, canEdit, isActive = true, initial
                       {canEdit && <div className={`text-xs mt-1 ${showScene ? 'text-cyan-400/70' : 'text-slate-400'}`}>左のフォームから追加してください</div>}
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      <AnimatePresence initial={false}>
-                        {fishItems.map((item, index) => (
-                          <motion.div
-                            key={item.id}
-                            layout
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            transition={{ duration: 0.15 }}
-                            className={`rounded-2xl p-4 transition-colors group relative ${showScene ? 'tank-card hover:brightness-[1.04]' : 'bg-white border border-slate-200 hover:border-slate-300 shadow-sm'}`}
-                          >
-                            <div className="absolute top-2.5 left-3 text-[10px] font-black text-slate-300 tabular-nums">
-                              #{index + 1}
-                            </div>
-                            {canEdit && (
-                              <button
-                                onClick={() => handleDelete(item.id)}
-                                aria-label={`${item.name}を削除`}
-                                className="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            )}
-                            <div className="mt-3 mb-2">
-                              <div className="font-black text-sm text-slate-900 leading-snug pr-4">{item.name}</div>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              {canEdit ? (
-                                <>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    value={item.count}
-                                    onChange={e => handleCountChange(item, Number(e.target.value))}
-                                    aria-label={`${item.name}の匹数`}
-                                    className="w-16 text-center rounded-lg border border-slate-200 px-2 py-1 text-xs font-black tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                                  />
-                                  <span className="text-xs text-slate-500">匹</span>
-                                </>
-                              ) : (
-                                <span className="font-bold tabular-nums text-sm text-slate-900">{item.count}<span className="text-xs text-slate-500 ml-0.5">匹</span></span>
-                              )}
-                            </div>
-                            {item.note && (
-                              <div className="mt-2 text-xs text-slate-400 bg-slate-50 rounded-lg px-2 py-1 leading-snug">
-                                {item.note}
-                              </div>
-                            )}
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                    </div>
+                    canEdit ? (
+                      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleReorder}>
+                        <SortableContext items={fishItems.map(f => f.id)} strategy={rectSortingStrategy}>
+                          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {fishItems.map((item, index) => (
+                              <SortableFishCard
+                                key={item.id}
+                                item={item}
+                                index={index}
+                                showScene={showScene}
+                                canEdit={canEdit}
+                                onDelete={handleDelete}
+                                onCountChange={handleCountChange}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <AnimatePresence initial={false}>
+                          {fishItems.map((item, index) => (
+                            <motion.div
+                              key={item.id}
+                              layout
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.95 }}
+                              transition={{ duration: 0.15 }}
+                            >
+                              <FishCardInner
+                                item={item}
+                                index={index}
+                                showScene={showScene}
+                                canEdit={false}
+                                onDelete={handleDelete}
+                                onCountChange={handleCountChange}
+                              />
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      </div>
+                    )
                   )}
                 </div>
               </div>
