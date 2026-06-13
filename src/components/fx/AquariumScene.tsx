@@ -254,7 +254,7 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 -z-10 overflow-hidden"
+      className="absolute inset-0 z-0 pointer-events-none overflow-hidden"
       style={{
         background:
           'linear-gradient(180deg, #082f49 0%, #0e7490 50%, #0891b2 100%)',
