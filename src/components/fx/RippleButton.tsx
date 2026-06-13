@@ -13,6 +13,7 @@ interface Props {
   children: React.ReactNode;
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   className?: string;
+  style?: React.CSSProperties;
   disabled?: boolean;
   type?: 'button' | 'submit' | 'reset';
   'aria-label'?: string;
