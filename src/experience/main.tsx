@@ -8,7 +8,7 @@
  * パフォーマンスに影響しない。
  */
 import { createRoot } from 'react-dom/client';
-import Scene from '../components/experience/Scene';
+import ExperienceApp from '../components/experience/ExperienceApp';
 
 const container = document.getElementById('experience-root')!;
-createRoot(container).render(<Scene />);
+createRoot(container).render(<ExperienceApp />);

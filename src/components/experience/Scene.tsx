@@ -18,6 +18,7 @@
 import { useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ScrollControls, useScroll, OrbitControls, Stats, Scroll } from '@react-three/drei';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 
 import {
@@ -38,6 +39,7 @@ import {
   CAMERA_START,
   CAMERA_END,
   DEV_ORBIT,
+  POSTPROCESS,
 } from './constants';
 import EnvironmentDataSpace from './environments/EnvironmentDataSpace';
 import { ProjectOverlay, OverlayController } from './ProjectOverlay';
@@ -184,6 +186,30 @@ function SceneContents() {
           maxPolarAngle={Math.PI / 2 - 0.05}
         />
       )}
+
+      {/**
+       * EffectComposer + Bloom（ポストプロセス）:
+       *   EffectComposer はシーン全体を一旦オフスクリーンバッファに描き、
+       *   その画像に対して GPU フィルタ（ここでは Bloom のみ）をかけてから
+       *   最終的に画面に出力するラッパー。
+       *
+       *   multisampling={0}: EffectComposer 内部の MSAA を無効化。
+       *   Canvas の gl={{ antialias:true }} が既にアンチエイリアスを担っているため、
+       *   ここで重複させると GPU バッファが2倍消費される。
+       *
+       *   mipmapBlur: postprocessing v6.28+ の高品質 bloom アルゴリズム。
+       *   複数の縮小サイズバッファを合成するため、ぼかしが自然で
+       *   従来の Gaussian Blur より軽量かつ質が高い。
+       */}
+      <EffectComposer multisampling={0}>
+        <Bloom
+          intensity={POSTPROCESS.BLOOM_INTENSITY}
+          luminanceThreshold={POSTPROCESS.BLOOM_LUMINANCE_THRESHOLD}
+          luminanceSmoothing={POSTPROCESS.BLOOM_LUMINANCE_SMOOTHING}
+          radius={POSTPROCESS.BLOOM_RADIUS}
+          mipmapBlur
+        />
+      </EffectComposer>
     </>
   );
 }
