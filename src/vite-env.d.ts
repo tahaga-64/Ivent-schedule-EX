@@ -1,5 +1,22 @@
 /// <reference types="vite/client" />
 
+declare module 'troika-three-text' {
+  import { Object3D } from 'three';
+  export class Text extends Object3D {
+    text: string;
+    fontSize: number;
+    color: string | number;
+    fillOpacity: number;
+    outlineWidth: string | number;
+    outlineColor: string | number;
+    anchorX: string;
+    anchorY: string;
+    maxWidth: number;
+    sync(callback?: () => void): void;
+    dispose(): void;
+  }
+}
+
 interface ImportMetaEnv {
   readonly VITE_FIREBASE_API_KEY: string;
   readonly VITE_FIREBASE_AUTH_DOMAIN: string;
