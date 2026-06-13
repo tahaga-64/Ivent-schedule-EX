@@ -17,7 +17,7 @@
  */
 import { useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { ScrollControls, useScroll, OrbitControls, Stats } from '@react-three/drei';
+import { ScrollControls, useScroll, OrbitControls, Stats, Scroll } from '@react-three/drei';
 import * as THREE from 'three';
 
 import {
@@ -40,6 +40,7 @@ import {
   DEV_ORBIT,
 } from './constants';
 import EnvironmentDataSpace from './environments/EnvironmentDataSpace';
+import { ProjectOverlay, OverlayController } from './ProjectOverlay';
 
 // ─── カメラリグ（スクロール連動）────────────────────────────────
 
@@ -146,6 +147,30 @@ function SceneContents() {
 
         {/* スクロール連動カメラ制御（ScrollControls の子孫である必要がある）*/}
         <CameraRig />
+
+        {/*
+         * OverlayController: Canvas 内コンポーネント。
+         * useScroll() + useFrame() で panelRefs の opacity / pointer-events を毎フレーム更新する。
+         * ScrollControls の子孫である必要がある（useScroll が context を参照するため）。
+         */}
+        <OverlayController />
+
+        {/**
+         * <Scroll html>: HTML を 3D Canvas と同期させるラッパー。
+         *
+         * ScrollControls が管理する offset を使い、内部の div に
+         * translateY を毎フレーム適用してスクロール量をHTMLに反映する。
+         * CameraRig も同じ offset を読んでいるため、3D カメラと HTML パネルは
+         * 追加の同期コードなしに自然に連動する（Canvas 外に別の div を置く場合は
+         * この同期を自前で作る必要があり、ズレが生じやすい）。
+         *
+         * パネルは <Scroll html> コンテナ内で position:absolute + top:Nvh で配置し、
+         * offset=0 → 0vh（環境1）、offset=1 → 200vh（環境2）がビューポート中央になる。
+         * 表示/非表示は OverlayController が opacity で制御する（DOM の付け外しより軽い）。
+         */}
+        <Scroll html>
+          <ProjectOverlay />
+        </Scroll>
       </ScrollControls>
 
       {/* DEV_ORBIT=true のときだけ OrbitControls で自由視点を有効化（本番: false）
