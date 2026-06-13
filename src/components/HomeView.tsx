@@ -8,6 +8,8 @@ import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule
 import EXBadge from './EXBadge';
 import SwipeActionCard from './fx/SwipeActionCard';
 import RippleButton from './fx/RippleButton';
+import CountUp from './fx/CountUp';
+import Skeleton from './fx/Skeleton';
 import { EASE_OUT } from '../lib/motionTokens';
 
 interface Props {
@@ -138,9 +140,11 @@ function EventCard({ ev, prog, today }: {
               {pct >= 0 && (
                 <div className="flex items-center gap-2 mt-2">
                   <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-indigo-400' : 'bg-amber-400'}`}
-                      style={{ width: `${pct}%` }}
+                    <motion.div
+                      className={`h-full rounded-full ${pct === 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-indigo-400' : 'bg-amber-400'}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.6, ease: EASE_OUT }}
                     />
                   </div>
                   <span className="text-[10px] text-slate-400 font-mono shrink-0">{prog!.done}/{prog!.total}</span>
@@ -271,7 +275,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
           >
             <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">今月</div>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-black text-slate-900 leading-none">{stats.thisMonthCount}</span>
+              <CountUp value={stats.thisMonthCount} className="text-3xl font-black text-slate-900 leading-none" />
               <span className="text-xs font-bold text-slate-500">件</span>
             </div>
             <span className="mt-auto pt-2 flex items-center gap-0.5 text-[10px] font-black text-indigo-600">
@@ -282,11 +286,15 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
           <div className="tank-card rounded-2xl p-3 flex flex-col">
             <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">本日稼働</div>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-black text-slate-900 leading-none">
-                {staffLoading ? '…' : staffBreakdown !== null ? staffBreakdown.total : '—'}
-              </span>
-              {!staffLoading && staffBreakdown !== null && (
-                <span className="text-xs font-bold text-slate-500">人</span>
+              {staffLoading ? (
+                <Skeleton className="h-7 w-10 mt-1" />
+              ) : staffBreakdown !== null ? (
+                <>
+                  <CountUp value={staffBreakdown.total} className="text-3xl font-black text-slate-900 leading-none" />
+                  <span className="text-xs font-bold text-slate-500">人</span>
+                </>
+              ) : (
+                <span className="text-3xl font-black text-slate-900 leading-none">—</span>
               )}
             </div>
             <span className="mt-auto pt-2 text-[10px] font-bold text-slate-400">出勤中</span>
@@ -309,6 +317,15 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         </motion.div>
 
         {/* 稼働内訳 — 本社/イベント/外出/公休/希望休/その他 を横並び */}
+        {staffLoading && (
+          <div className="tank-card rounded-2xl p-3">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-12" rounded="rounded-lg" />
+              ))}
+            </div>
+          </div>
+        )}
         {!staffLoading && staffBreakdown !== null && (
           <motion.div {...sectionAnim(2)} className="tank-card rounded-2xl p-3">
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
@@ -321,7 +338,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
                 { label: 'その他', value: staffBreakdown.other,    bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700' },
               ] as const).map(({ label, value, bg, text }) => (
                 <div key={label} className={`text-center rounded-lg py-1.5 border ${bg}`}>
-                  <div className={`font-black leading-none text-lg ${text}`}>{value}</div>
+                  <CountUp value={value} className={`block font-black leading-none text-lg ${text}`} />
                   <div className="text-[9px] text-slate-600 mt-0.5 font-bold">{label}</div>
                 </div>
               ))}
