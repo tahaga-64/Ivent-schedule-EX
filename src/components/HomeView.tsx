@@ -1,12 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import {
-  motion, AnimatePresence,
-  useScroll, useTransform, useMotionTemplate, type MotionValue,
-} from 'motion/react';
-import { ChevronRight, ExternalLink, X, ArrowRight, ChevronsDown } from 'lucide-react';
+  ChevronRight, ExternalLink, X,
+  ClipboardList, Plus, CalendarDays,
+} from 'lucide-react';
 import type { Event } from '../types';
-import { rs, ts, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
+import { rs, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
 import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule';
 import { useFxLevel } from '../lib/deviceTier';
 import EXBadge from './EXBadge';
@@ -29,54 +29,23 @@ interface Props {
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-function AnalogClock() {
-  const hmRef = useRef<HTMLDivElement>(null);
-  const secRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const formatter = new Intl.DateTimeFormat('ja-JP', {
-      timeZone: 'Asia/Tokyo',
-      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-    });
-    const tick = () => {
-      const fmt = formatter.format(new Date());
-      if (hmRef.current) hmRef.current.textContent = fmt.slice(0, 5);
-      if (secRef.current) secRef.current.textContent = fmt.slice(6, 8);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  return (
-    <div className="flex flex-col items-end shrink-0 select-none">
-      <div
-        ref={hmRef}
-        className="text-5xl sm:text-6xl md:text-7xl xl:text-8xl font-black text-slate-900 leading-none tracking-tighter tabular-nums"
-      >
-        --:--
-      </div>
-      <div
-        ref={secRef}
-        className="text-xl sm:text-2xl md:text-3xl xl:text-4xl font-black text-slate-400 leading-none tracking-tighter tabular-nums mt-1 md:mt-1.5"
-      >
-        --
-      </div>
-    </div>
-  );
-}
+// ─── helpers ──────────────────────────────────────────────────────────────────
 
 function effectivePast(ev: Event, today: string): boolean {
   if (ev.status === 'cancelled') return false;
   return (ev.end || ev.start) < today;
 }
 
-function statusPill(status: string | undefined, isPast: boolean): { label: string; cls: string } | null {
-  if (isPast || status === 'completed') return { label: '完了', cls: 'bg-slate-100 border border-slate-200 text-slate-600' };
+function statusPill(
+  status: string | undefined,
+  isPast: boolean,
+): { label: string; cls: string } | null {
+  if (isPast || status === 'completed')
+    return { label: '完了', cls: 'bg-slate-100 border border-slate-200 text-slate-600' };
   switch (status) {
     case 'in_progress': return { label: '準備中',    cls: 'bg-amber-50 border border-amber-200 text-amber-800' };
     case 'waiting':     return { label: '入荷待ち',  cls: 'bg-blue-50 border border-blue-200 text-blue-800' };
-    case 'ready':       return { label: '準備完了',  cls: 'bg-indigo-50 border border-indigo-200 text-indigo-800' };
+    case 'ready':       return { label: '準備完了',  cls: 'bg-emerald-50 border border-emerald-200 text-emerald-800' };
     case 'cancelled':   return { label: 'キャンセル',cls: 'bg-red-50 border border-red-200 text-red-800' };
     default:            return null;
   }
@@ -85,8 +54,8 @@ function statusPill(status: string | undefined, isPast: boolean): { label: strin
 function fmtRange(start: string, end: string): string {
   const fmt = (d: string) => {
     const dt = new Date(d + 'T00:00:00');
-    const dow = ['日','月','火','水','木','金','土'][dt.getDay()];
-    return `${dt.getMonth()+1}/${dt.getDate()}(${dow})`;
+    const dow = ['日', '月', '火', '水', '木', '金', '土'][dt.getDay()];
+    return `${dt.getMonth() + 1}/${dt.getDate()}(${dow})`;
   };
   if (!end || end === start) return fmt(start);
   return `${fmt(start)} → ${fmt(end)}`;
@@ -99,10 +68,19 @@ function addDays(base: string, n: number): string {
 }
 
 function daysUntil(start: string, today: string): number {
-  return Math.ceil((new Date(start + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000);
+  return Math.ceil(
+    (new Date(start + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) /
+      86400000,
+  );
 }
 
-function EventCard({ ev, prog, today }: {
+// ─── EventCard ────────────────────────────────────────────────────────────────
+
+function EventCard({
+  ev,
+  prog,
+  today,
+}: {
   ev: Event;
   prog?: { total: number; done: number };
   today: string;
@@ -115,49 +93,85 @@ function EventCard({ ev, prog, today }: {
 
   return (
     <motion.div
-      whileHover={{ y: -2, boxShadow: '0 8px 24px rgba(8,47,73,0.10)' }}
-      className="w-full text-left rounded-2xl transition-all group overflow-hidden shadow-sm hover:shadow-md cursor-pointer"
+      whileHover={{ y: -3, boxShadow: '0 10px 28px rgba(8,47,73,0.12)' }}
+      className="w-full text-left rounded-2xl overflow-hidden cursor-pointer group"
       style={{
-        background: 'rgba(255,255,255,0.82)',
+        background: 'rgba(255,255,255,0.88)',
         border: '1px solid rgba(103,232,249,0.28)',
         boxShadow: '0 1px 0 rgba(103,232,249,0.35) inset, 0 1px 3px rgba(8,47,73,0.06)',
       }}
     >
       <div className="flex items-stretch">
+        {/* 地域カラーバー */}
         <div className="w-1 shrink-0" style={{ background: regionColor }} />
+
         <div className="flex-1 min-w-0 p-4">
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
+
+              {/* 名称 + ステータス + 緊急バッジ */}
               <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                <span className="text-base font-black text-slate-900 truncate">{ev.venue}</span>
+                <span className="text-base font-bold text-slate-900 truncate">{ev.venue}</span>
                 {st && (
-                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black ${st.cls}`}>{st.label}</span>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${st.cls}`}>
+                    {st.label}
+                  </span>
                 )}
                 {!past && days === 0 && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-500 text-white">今日</span>
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500 text-white">
+                    今日
+                  </span>
                 )}
-                {!past && days > 0 && days <= 3 && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/80 text-white">{days}日後</span>
+                {!past && days === 1 && (
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-400 text-white">
+                    明日
+                  </span>
+                )}
+                {!past && days > 1 && days <= 3 && (
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">
+                    {days}日後
+                  </span>
                 )}
               </div>
-              <div className="text-xs text-slate-500 font-mono">
-                {ev.type || ''}
+
+              {/* 日付（常時表示） */}
+              <div className="text-xs font-medium text-slate-500 mb-0.5">
+                {fmtRange(ev.start, ev.end || ev.start)}
               </div>
+
+              {/* イベント種別 */}
+              {ev.type && (
+                <div className="text-xs font-medium text-slate-400">{ev.type}</div>
+              )}
+
+              {/* 準備進捗バー */}
               {pct >= 0 && (
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                <div className="flex items-center gap-2 mt-2.5">
+                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                     <motion.div
-                      className={`h-full rounded-full ${pct === 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-indigo-400' : 'bg-amber-400'}`}
+                      className={`h-full rounded-full ${
+                        pct === 100
+                          ? 'bg-emerald-400'
+                          : pct >= 70
+                          ? 'bg-indigo-400'
+                          : 'bg-amber-400'
+                      }`}
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
-                      transition={{ duration: 0.6, ease: EASE_OUT }}
+                      transition={{ duration: 0.7, ease: EASE_OUT, delay: 0.15 }}
                     />
                   </div>
-                  <span className="text-[10px] text-slate-400 font-mono shrink-0">{prog!.done}/{prog!.total}</span>
+                  <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                    {prog!.done}/{prog!.total}
+                  </span>
                 </div>
               )}
             </div>
-            <ChevronRight size={15} className="text-slate-300 group-hover:text-slate-600 shrink-0 mt-1 transition-colors" />
+
+            <ChevronRight
+              size={16}
+              className="text-slate-300 group-hover:text-slate-500 shrink-0 mt-0.5 transition-colors"
+            />
           </div>
         </div>
       </div>
@@ -165,166 +179,97 @@ function EventCard({ ev, prog, today }: {
   );
 }
 
-function SectionEmpty({ label }: { label: string }) {
+// ─── SectionEmpty ─────────────────────────────────────────────────────────────
+
+function SectionEmpty({ label, sub }: { label: string; sub?: string }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl py-5 text-center text-sm text-slate-400 shadow-sm">
-      {label}
+    <div
+      className="rounded-2xl py-7 px-4 text-center select-none"
+      style={{
+        background: 'rgba(255,255,255,0.55)',
+        border: '1px solid rgba(103,232,249,0.2)',
+      }}
+    >
+      <div className="text-2xl mb-2" aria-hidden="true">🐟</div>
+      <div className="text-sm font-medium text-slate-400">{label}</div>
+      {sub && <div className="text-xs text-slate-300 mt-0.5">{sub}</div>}
     </div>
   );
 }
 
-/**
- * PinnedHero — 「浮上」スクロールテリング
- * 画面に固定され、スクロール進捗で深海→水面へ。深度メーターが 0m に近づくと
- * 通常UIへ受け渡す。背景の色変化は ScrollAquaBackdrop が担当。
- */
-function PinnedHero({
-  scrollContainerRef,
-}: {
-  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
-}) {
-  const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll(
-    scrollContainerRef
-      ? { target: heroRef, container: scrollContainerRef, offset: ['start start', 'end start'] }
-      : { target: heroRef, offset: ['start start', 'end start'] }
-  );
+// ─── SectionHeader ────────────────────────────────────────────────────────────
 
-  // 深度メーター: 200m → 0m
-  const depth = useTransform(scrollYProgress, [0, 1], [200, 0]);
-  const depthText = useTransform(depth, (d) => `${Math.round(d)}`);
-  const phase = useTransform(scrollYProgress, (p): string =>
-    p < 0.38 ? '深海' : p < 0.82 ? '浮上中' : '水面',
-  );
-
-  // 中身: 終盤でフェードアウトして次セクションへ受け渡す
-  const contentOpacity = useTransform(scrollYProgress, [0, 0.75, 1], [1, 1, 0]);
-  const contentY = useTransform(scrollYProgress, [0, 1], [0, -60]);
-  const badgeScale = useTransform(scrollYProgress, [0, 1], [1.18, 0.82]);
-  const headlineY = useTransform(scrollYProgress, [0, 1], [0, -28]);
-  const hintOpacity = useTransform(scrollYProgress, [0, 0.25], [1, 0]);
-
-  const now = new Date();
-  const dateNum = now.getDate();
-  const monthStr = now.toLocaleDateString('ja-JP', { month: 'long' });
-  const weekday = now.toLocaleDateString('ja-JP', { weekday: 'long' });
-
+function SectionHeader({ label, count }: { label: string; count?: number }) {
   return (
-    <div ref={heroRef} className="relative" style={{ height: '138dvh' }}>
-      <div className="sticky top-0 h-[100dvh] flex flex-col items-center justify-center overflow-hidden">
-        <motion.div
-          style={{ opacity: contentOpacity, y: contentY }}
-          className="relative z-10 flex flex-col items-center px-6 text-center"
-        >
-          {/* 深度メーター */}
-          <div className="flex items-center gap-2 mb-5">
-            <motion.span className="text-[11px] font-black tracking-[0.35em] text-cyan-100/80 uppercase">
-              {phase}
-            </motion.span>
-          </div>
-          <div className="flex items-baseline gap-1.5 mb-1">
-            <span className="text-cyan-200/70 text-2xl font-black">−</span>
-            <motion.span className="text-7xl sm:text-8xl font-black text-white leading-none tabular-nums drop-shadow-[0_4px_20px_rgba(6,182,212,0.5)]">
-              {depthText}
-            </motion.span>
-            <span className="text-cyan-200/80 text-2xl font-black">m</span>
-          </div>
-
-          {/* バッジ */}
-          <motion.div style={{ scale: badgeScale }} className="my-6">
-            <EXBadge size={108} />
-          </motion.div>
-
-          {/* 日付ヘッドライン */}
-          <motion.div style={{ y: headlineY }} className="flex items-end gap-2 text-white">
-            <div className="text-6xl sm:text-7xl font-black leading-none tracking-tighter tabular-nums drop-shadow-lg">
-              {dateNum}
-            </div>
-            <div className="pb-1 flex flex-col items-start gap-0.5">
-              <div className="text-base sm:text-lg font-black leading-tight">{monthStr}</div>
-              <div className="text-xs font-bold text-cyan-100/80 leading-tight">{weekday}</div>
-              <div className="text-xs font-bold text-cyan-100/60">{now.getFullYear()}</div>
-            </div>
-          </motion.div>
-        </motion.div>
-
-        {/* スクロール誘導 */}
-        <motion.div
-          style={{ opacity: hintOpacity }}
-          className="absolute bottom-10 flex flex-col items-center gap-1 text-cyan-100/70"
-        >
-          <span className="text-[10px] font-black tracking-[0.3em] uppercase">Scroll</span>
-          <motion.div
-            animate={{ y: [0, 7, 0] }}
-            transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            <ChevronsDown size={20} />
-          </motion.div>
-        </motion.div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * RevealPanel — スクロールで波のようにめくれて現れる clip-path リビール。
- * 内側に通常UIを内包し、進捗0で上方クリップ→進捗1で全表示。
- */
-function RevealPanel({
-  scrollContainerRef,
-  children,
-}: {
-  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
-  children: React.ReactNode;
-}) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll(
-    scrollContainerRef
-      ? { target: panelRef, container: scrollContainerRef, offset: ['start end', 'start center'] }
-      : { target: panelRef, offset: ['start end', 'start center'] }
-  );
-
-  const topInset = useTransform(scrollYProgress, [0, 1], [70, 0]);
-  const radius = useTransform(scrollYProgress, [0, 1], [44, 0]);
-  const clip = useMotionTemplate`inset(${topInset}% 0% 0% 0% round ${radius}px ${radius}px 0px 0px)`;
-  const y = useTransform(scrollYProgress, [0, 1], [40, 0]);
-
-  return (
-    <motion.div ref={panelRef} style={{ clipPath: clip, y }} className="relative z-10">
-      {/* 水面ハイライト（パネル上端） */}
+    <div className="flex items-center gap-2 mb-2.5">
       <div
-        className="absolute inset-x-0 top-0 h-px"
-        style={{ background: 'linear-gradient(90deg, transparent, rgba(103,232,249,0.8), transparent)' }}
+        className="w-0.5 h-4 rounded-full shrink-0"
+        style={{ background: 'rgba(14,116,144,0.5)' }}
       />
-      {children}
-    </motion.div>
+      <div className="text-xs font-bold text-slate-600 uppercase tracking-wider">{label}</div>
+      {count !== undefined && count > 0 && (
+        <span className="w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center text-[10px] font-bold text-white">
+          {count}
+        </span>
+      )}
+    </div>
   );
 }
 
-/** 没入時のみ RevealPanel で包み、それ以外は素通し */
-function ContentReveal({
-  immersive,
-  scrollContainerRef,
-  children,
-}: {
-  immersive: boolean;
-  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
-  children: React.ReactNode;
-}) {
-  if (immersive) {
-    return <RevealPanel scrollContainerRef={scrollContainerRef}>{children}</RevealPanel>;
-  }
-  return <>{children}</>;
-}
+// ─── HomeView ─────────────────────────────────────────────────────────────────
 
-export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, onNavigateCalendar, canEditEvent, scrollContainerRef }: Props) {
+export default function HomeView({
+  events,
+  prepProgressMap,
+  onSelectEvent,
+  onSelectPrepEvent,
+  onCreateEvent,
+  onOpenSchedule,
+  onNavigateCalendar,
+  canEditEvent,
+  scrollContainerRef,
+}: Props) {
   const [showEventPicker, setShowEventPicker] = useState(false);
   const [showPermissionToast, setShowPermissionToast] = useState(false);
   const [staffBreakdown, setStaffBreakdown] = useState<StaffBreakdown | null>(null);
   const [staffLoading, setStaffLoading] = useState(true);
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
   const fxLevel = useFxLevel();
-  const immersive = fxLevel !== 'off' && !!scrollContainerRef;
+  const showBg = fxLevel !== 'off' && !!scrollContainerRef;
+
+  // BottomSheet drag-to-close
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const contentScrollRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef(0);
+  const dragStartTime = useRef(0);
+
+  function handleHandlePointerDown(e: React.PointerEvent) {
+    dragStartY.current = e.clientY;
+    dragStartTime.current = Date.now();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+  function handleHandlePointerMove(e: React.PointerEvent) {
+    const dy = e.clientY - dragStartY.current;
+    if (dy > 0 && sheetRef.current) {
+      sheetRef.current.style.transform = `translateY(${dy}px)`;
+    }
+  }
+  function handleHandlePointerUp(e: React.PointerEvent) {
+    const dy = e.clientY - dragStartY.current;
+    const dt = Date.now() - dragStartTime.current;
+    const velocity = dt > 0 ? (dy / dt) * 1000 : 0;
+    if (dy > 80 || velocity > 400) {
+      setShowEventPicker(false);
+    } else if (sheetRef.current) {
+      sheetRef.current.style.transition =
+        'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1)';
+      sheetRef.current.style.transform = '';
+      setTimeout(() => {
+        if (sheetRef.current) sheetRef.current.style.transition = '';
+      }, 320);
+    }
+  }
 
   useEffect(() => {
     if (!showPermissionToast) return;
@@ -338,26 +283,27 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
       .then(bd => setStaffBreakdown(bd))
       .finally(() => setStaffLoading(false));
   }, [today]);
-  const in7  = addDays(today, 7);
+
+  const in7 = addDays(today, 7);
 
   const { todayEvents, upcomingWeek } = useMemo(() => {
     const active = events.filter(e => e.status !== 'cancelled');
-    const todayEvents = active.filter(e =>
-      e.start && e.start <= today && today <= (e.end || e.start)
-    ).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
-
-    const upcomingWeek = active.filter(e =>
-      e.start && e.start > today && e.start <= in7
-    ).sort((a, b) => (a.start || '').localeCompare(b.start || ''));
-
+    const todayEvents = active
+      .filter(e => e.start && e.start <= today && today <= (e.end || e.start))
+      .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+    const upcomingWeek = active
+      .filter(e => e.start && e.start > today && e.start <= in7)
+      .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
     return { todayEvents, upcomingWeek };
   }, [events, today, in7]);
 
-  const pickerEvents = useMemo(() => {
-    return events
-      .filter(ev => ev.status !== 'cancelled' && (ev.end || ev.start) >= today)
-      .sort((a, b) => a.start.localeCompare(b.start));
-  }, [events, today]);
+  const pickerEvents = useMemo(
+    () =>
+      events
+        .filter(ev => ev.status !== 'cancelled' && (ev.end || ev.start) >= today)
+        .sort((a, b) => a.start.localeCompare(b.start)),
+    [events, today],
+  );
 
   const pickerGroups = useMemo(() => {
     const groups: { month: string; events: Event[] }[] = [];
@@ -372,357 +318,474 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
   }, [pickerEvents]);
 
   const stats = useMemo(() => {
-    const thisMonth = events.filter(e => e.status !== 'cancelled' && e.start?.startsWith(today.slice(0, 7)));
+    const thisMonth = events.filter(
+      e => e.status !== 'cancelled' && e.start?.startsWith(today.slice(0, 7)),
+    );
     const nextEvent = events
       .filter(e => e.status !== 'cancelled' && e.start >= today)
-      .sort((a, b) => a.start.localeCompare(b.start))[0];
+      .sort((a, b) => a.start.localeCompare(b.start))[0] ?? null;
     const daysToNext = nextEvent
-      ? Math.ceil((new Date(nextEvent.start + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000)
+      ? Math.ceil(
+          (new Date(nextEvent.start + 'T00:00:00').getTime() -
+            new Date(today + 'T00:00:00').getTime()) /
+            86400000,
+        )
       : null;
-    return { thisMonthCount: thisMonth.length, daysToNext, nextVenue: nextEvent?.venue ?? null };
+    return {
+      thisMonthCount: thisMonth.length,
+      daysToNext,
+      nextVenue: nextEvent?.venue ?? null,
+      nextEvent,
+    };
   }, [events, today]);
 
-  const sectionAnim = (i: number) => ({
-    initial: { opacity: 0, y: 10 },
+  const sa = (i: number) => ({
+    initial: { opacity: 0, y: 16 },
     animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.4, ease: EASE_OUT, delay: i * 0.06 },
+    transition: { duration: 0.38, ease: EASE_OUT, delay: i * 0.05 },
   });
+
+  const now = new Date();
 
   return (
     <div>
-      {/* スクロール連動 海中バックドロップ（背景の色・世界が変化 / パララックス / 速度反応） */}
-      {immersive && scrollContainerRef && (
+      {/* 海中バックドロップ（ambient、コンテンツを塞がない） */}
+      {showBg && scrollContainerRef && (
         <ScrollAquaBackdrop containerRef={scrollContainerRef} />
       )}
 
-      {/* 「浮上」ピン留めスクロールテリング */}
-      {immersive && <PinnedHero scrollContainerRef={scrollContainerRef} />}
+      <div className="relative z-10 flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-5 pb-28 md:pb-10 w-full max-w-none">
 
-      <ContentReveal immersive={immersive} scrollContainerRef={scrollContainerRef}>
-      <div className="relative z-10 flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-6 pb-32 md:pb-8 w-full max-w-none">
+        {/* ① DateHero — コンパクト、常時表示 */}
+        <motion.div {...sa(0)}>
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline gap-2.5">
+                <div className="text-5xl sm:text-6xl font-black text-slate-900 leading-none tracking-tight tabular-nums">
+                  {now.getDate()}
+                </div>
+                <div className="pb-1 flex flex-col gap-0.5">
+                  <div className="text-base font-bold text-slate-700 leading-tight">
+                    {now.toLocaleDateString('ja-JP', { month: 'long' })}
+                  </div>
+                  <div className="text-xs font-medium text-slate-400 leading-tight">
+                    {now.toLocaleDateString('ja-JP', { weekday: 'long' })}&nbsp;&nbsp;{now.getFullYear()}
+                  </div>
+                </div>
+              </div>
 
-        {/* Date header — 日付 / 時計+EXロゴ(右)（没入時は PinnedHero が担当） */}
-        {!immersive && (
-        <motion.div {...sectionAnim(0)} className="flex items-center gap-3 text-slate-900">
-          <div className="flex-1 flex items-end gap-2 min-w-0">
-            <div className="text-6xl sm:text-7xl md:text-8xl font-black leading-none tracking-tighter tabular-nums">
-              {new Date().getDate()}
+              {/* 次イベント callout（7日以内の場合のみ） */}
+              {stats.nextEvent && stats.daysToNext !== null && stats.daysToNext <= 7 && (
+                <button
+                  onClick={() => stats.nextEvent && onSelectEvent(stats.nextEvent)}
+                  className="mt-3 flex items-center gap-1.5 group"
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      stats.daysToNext === 0 ? 'bg-rose-500 animate-pulse' : 'bg-amber-400'
+                    }`}
+                  />
+                  <span className="text-xs font-medium text-slate-500 group-hover:text-slate-800 transition-colors leading-snug">
+                    {stats.nextVenue}
+                    <span
+                      className={`ml-1.5 font-bold ${
+                        stats.daysToNext === 0 ? 'text-rose-500' : 'text-amber-500'
+                      }`}
+                    >
+                      {stats.daysToNext === 0 ? '今日開催' : `あと${stats.daysToNext}日`}
+                    </span>
+                  </span>
+                  <ChevronRight
+                    size={12}
+                    className="text-slate-300 group-hover:text-slate-500 shrink-0 transition-colors"
+                  />
+                </button>
+              )}
             </div>
-            <div className="pb-1 flex flex-col gap-0.5 min-w-0">
-              <div className="text-sm sm:text-xl font-black text-slate-800 leading-tight">
-                {new Date().toLocaleDateString('ja-JP', { month: 'long' })}
-              </div>
-              <div className="text-xs font-bold text-slate-500 leading-tight">
-                {new Date().toLocaleDateString('ja-JP', { weekday: 'long' })}
-              </div>
-              <div className="text-xs sm:text-sm font-bold text-slate-400">{new Date().getFullYear()}</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="hidden min-[400px]:block">
-              <AnalogClock />
-            </div>
-            <div className="sm:hidden"><EXBadge size={64} /></div>
-            <div className="hidden sm:block md:hidden"><EXBadge size={80} /></div>
-            <div className="hidden md:block"><EXBadge size={104} /></div>
+
+            <EXBadge size={56} />
           </div>
         </motion.div>
-        )}
 
-        {/* Stats — 今月 / 本日稼働 / 次イベント を横並び */}
-        <motion.div {...sectionAnim(1)} className="grid grid-cols-3 gap-2">
+        {/* ② 本日のイベント */}
+        <motion.div {...sa(1)}>
+          <SectionHeader label="本日のイベント" count={todayEvents.length} />
+          {todayEvents.length === 0 ? (
+            <SectionEmpty
+              label="本日のイベントはありません"
+              sub="次のイベントに備えて準備を進めましょう"
+            />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {todayEvents.map(ev => (
+                <SwipeActionCard
+                  key={ev.id}
+                  onAction={() => onSelectPrepEvent(ev)}
+                  onTap={() => onSelectEvent(ev)}
+                >
+                  <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
+                </SwipeActionCard>
+              ))}
+            </div>
+          )}
+        </motion.div>
+
+        {/* ③ PRIMARY CTA */}
+        <motion.div {...sa(2)}>
+          <RippleButton
+            onClick={() => setShowEventPicker(true)}
+            className="flex items-center justify-center gap-3 w-full rounded-2xl px-5 py-4 font-black text-base text-white shadow-md active:scale-[0.98] transition-all"
+            style={{
+              background: 'linear-gradient(135deg, #0e7490 0%, #0891b2 100%)',
+            }}
+          >
+            <ClipboardList size={19} />
+            準備物リストを開く
+          </RippleButton>
+        </motion.div>
+
+        {/* ④ Stats Row — 全カードにCTA */}
+        <motion.div {...sa(3)} className="grid grid-cols-3 gap-2">
+
+          {/* 今月 */}
           <button
             onClick={onNavigateCalendar}
-            className="tank-card rounded-2xl p-3 flex flex-col text-left hover:brightness-[1.03] transition-all"
+            className="tank-card rounded-2xl p-3 flex flex-col text-left hover:brightness-[1.03] active:scale-[0.98] transition-all group"
           >
-            <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">今月</div>
+            <div className="text-[11px] font-bold text-slate-500 mb-1.5">今月</div>
             <div className="flex items-baseline gap-1">
               <CountUp value={stats.thisMonthCount} className="text-3xl font-black text-slate-900 leading-none" />
-              <span className="text-xs font-bold text-slate-500">件</span>
+              <span className="text-xs font-medium text-slate-500">件</span>
             </div>
-            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[10px] font-black text-indigo-600">
-              詳しく <ArrowRight size={10} />
+            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[11px] font-bold text-cyan-600 group-hover:text-cyan-500 transition-colors">
+              カレンダー <ChevronRight size={11} />
             </span>
           </button>
 
-          <div className="tank-card rounded-2xl p-3 flex flex-col">
-            <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">本日稼働</div>
+          {/* 本日稼働 */}
+          <button
+            onClick={() => setBreakdownOpen(v => !v)}
+            className="tank-card rounded-2xl p-3 flex flex-col text-left hover:brightness-[1.03] active:scale-[0.98] transition-all group"
+          >
+            <div className="text-[11px] font-bold text-slate-500 mb-1.5">本日稼働</div>
             <div className="flex items-baseline gap-1">
               {staffLoading ? (
-                <Skeleton className="h-7 w-10 mt-1" />
+                <Skeleton className="h-8 w-10 mt-0.5" />
               ) : staffBreakdown !== null ? (
                 <>
                   <CountUp value={staffBreakdown.total} className="text-3xl font-black text-slate-900 leading-none" />
-                  <span className="text-xs font-bold text-slate-500">人</span>
+                  <span className="text-xs font-medium text-slate-500">人</span>
                 </>
               ) : (
-                <span className="text-3xl font-black text-slate-900 leading-none">—</span>
+                <span className="text-3xl font-black text-slate-400">—</span>
               )}
             </div>
-            <span className="mt-auto pt-2 text-[10px] font-bold text-slate-400">出勤中</span>
-          </div>
+            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[11px] font-bold text-cyan-600 group-hover:text-cyan-500 transition-colors">
+              内訳
+              <ChevronRight
+                size={11}
+                className={`transition-transform duration-200 ${breakdownOpen ? 'rotate-90' : ''}`}
+              />
+            </span>
+          </button>
 
-          <div className="tank-card rounded-2xl p-3 flex flex-col">
-            <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">次イベント</div>
+          {/* 次イベント */}
+          <button
+            onClick={() => { if (stats.nextEvent) onSelectEvent(stats.nextEvent); }}
+            disabled={!stats.nextEvent}
+            className="tank-card rounded-2xl p-3 flex flex-col text-left hover:brightness-[1.03] active:scale-[0.98] transition-all disabled:pointer-events-none group"
+          >
+            <div className="text-[11px] font-bold text-slate-500 mb-1.5">次イベント</div>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-black text-slate-900 leading-none">
+              <span className="text-3xl font-black text-slate-900 leading-none tabular-nums">
                 {stats.daysToNext === null ? '—' : stats.daysToNext === 0 ? '今日' : stats.daysToNext}
               </span>
               {stats.daysToNext !== null && stats.daysToNext > 0 && (
-                <span className="text-xs font-bold text-slate-500">日後</span>
+                <span className="text-xs font-medium text-slate-500">日後</span>
               )}
             </div>
-            <span className="mt-auto pt-2 text-[10px] font-bold text-slate-400 truncate">
+            <span className="mt-auto pt-2 text-[11px] font-medium text-slate-400 truncate group-hover:text-slate-600 transition-colors">
               {stats.nextVenue || '予定なし'}
             </span>
-          </div>
+          </button>
         </motion.div>
 
-        {/* 稼働内訳 — 本社/イベント/外出/公休/希望休/その他 を横並び */}
-        {staffLoading && (
-          <div className="tank-card rounded-2xl p-3">
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-12" rounded="rounded-lg" />
-              ))}
-            </div>
-          </div>
-        )}
-        {!staffLoading && staffBreakdown !== null && (
-          <motion.div {...sectionAnim(2)} className="tank-card rounded-2xl p-3">
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
-              {([
-                { label: '本社',   value: staffBreakdown.office,   bg: 'bg-blue-50 border-blue-200',   text: 'text-blue-800' },
-                { label: 'イベント', value: staffBreakdown.event,    bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-800' },
-                { label: '外出',   value: staffBreakdown.dispatch, bg: 'bg-amber-50 border-amber-200', text: 'text-amber-800' },
-                { label: '公休',   value: staffBreakdown.rest,     bg: 'bg-violet-50 border-violet-200', text: 'text-violet-800' },
-                { label: '希望休', value: staffBreakdown.request,  bg: 'bg-pink-50 border-pink-200',   text: 'text-pink-800' },
-                { label: 'その他', value: staffBreakdown.other,    bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700' },
-              ] as const).map(({ label, value, bg, text }) => (
-                <div key={label} className={`text-center rounded-lg py-1.5 border ${bg}`}>
-                  <CountUp value={value} className={`block font-black leading-none text-lg ${text}`} />
-                  <div className="text-[9px] text-slate-600 mt-0.5 font-bold">{label}</div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-        {!staffLoading && staffBreakdown === null && (
-          <div className="tank-card rounded-2xl p-3 text-[10px] text-slate-400">
-            稼働データを取得できませんでした
-          </div>
-        )}
-
-        <motion.div {...sectionAnim(3)} className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
-        {/* 本日のイベント */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-0.5 h-4 bg-slate-300 rounded-full shrink-0" />
-            <div className="text-[11px] font-black text-slate-600 uppercase tracking-widest">本日のイベント</div>
-            {todayEvents.length > 0 && (
-              <span className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-[10px] font-black text-white">{todayEvents.length}</span>
-            )}
-          </div>
-          {todayEvents.length === 0
-            ? <SectionEmpty label="本日のイベントはありません" />
-            : <div className="flex flex-col gap-2">
-                {todayEvents.map(ev => (
-                  <SwipeActionCard key={ev.id} onAction={() => onSelectPrepEvent(ev)} onTap={() => onSelectEvent(ev)}>
-                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
-                  </SwipeActionCard>
-                ))}
-              </div>
-          }
-        </div>
-
-        {/* 来週のイベント */}
-        <div className="mt-5 md:mt-0">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-0.5 h-4 bg-slate-300 rounded-full shrink-0" />
-            <div className="text-[11px] font-black text-slate-600 uppercase tracking-widest">来週のイベント</div>
-          </div>
-          {upcomingWeek.length === 0
-            ? <SectionEmpty label="来週のイベントはありません" />
-            : <div className="flex flex-col gap-2">
-                {upcomingWeek.map(ev => (
-                  <SwipeActionCard key={ev.id} onAction={() => onSelectPrepEvent(ev)} onTap={() => onSelectEvent(ev)}>
-                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
-                  </SwipeActionCard>
-                ))}
-              </div>
-          }
-        </div>
-        </motion.div>
-
-        <motion.div {...sectionAnim(4)} className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
-        {/* クイックアクション */}
-        <div className="mt-2 flex flex-col gap-2">
-          <div className="text-[11px] font-black text-slate-600 uppercase tracking-widest mb-1">クイックアクション</div>
-
-          <RippleButton
-            onClick={() => setShowEventPicker(true)}
-            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
-          >
-            準備物リスト
-          </RippleButton>
-
-          <RippleButton
-            onClick={() => { if (canEditEvent) { onCreateEvent(); } else { setShowPermissionToast(true); } }}
-            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
-          >
-            新規イベントを追加する
-          </RippleButton>
-
-          <RippleButton
-            onClick={onOpenSchedule}
-            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
-          >
-            スケジュール
-          </RippleButton>
-
-        </div>
-
-        {/* マーキュリー サービス */}
-        <div className="mt-2 flex flex-col gap-2">
-          <div className="text-[11px] font-black text-slate-600 uppercase tracking-widest mb-1">マーキュリー サービス</div>
-          {([
-            { label: 'TranChat',           sub: '社内連絡ツール', href: 'https://tranchat1.mercury-group.co.jp/chat2_fed/public/index.html' },
-            { label: 'Chronus',            sub: '退勤システム',   href: 'https://chronus.mercury-group.co.jp/index.html' },
-            { label: 'マーキュリーアカデミア', sub: '研修・学習',    href: 'https://www.haken-school.com/mercury-academia/top/' },
-          ] as const).map(svc => (
-            <a
-              key={svc.label}
-              href={svc.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between tank-card text-slate-900 rounded-2xl px-5 py-3.5 hover:brightness-[1.03] active:scale-[0.98] transition-all"
-            >
-              <div className="min-w-0">
-                <div className="font-black text-sm leading-tight">{svc.label}</div>
-                <div className="text-[11px] text-slate-500 font-medium">{svc.sub}</div>
-              </div>
-              <ExternalLink size={14} className="text-slate-400 shrink-0 ml-3" />
-            </a>
-          ))}
-        </div>
-        </motion.div>
-      </div>
-      </ContentReveal>
-
-      {/* Event Picker Bottom Sheet — portal to escape carousel transform */}
-      {createPortal(
-      <AnimatePresence>
-        {showEventPicker && (
-          <>
+        {/* 稼働内訳（展開式） */}
+        <AnimatePresence>
+          {breakdownOpen && (
             <motion.div
-              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowEventPicker(false)}
-            />
-            <motion.div
-              className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl max-h-[80dvh] flex flex-col overflow-hidden border-t border-slate-200 shadow-2xl"
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              key="breakdown"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.24, ease: EASE_OUT }}
+              className="overflow-hidden"
             >
-              <div className="flex justify-center pt-3 pb-1 shrink-0">
-                <div className="w-9 h-1 bg-slate-200 rounded-full" />
-              </div>
-              <div className="flex items-center justify-between px-5 pt-2 pb-3 shrink-0 border-b border-slate-200">
-                <div>
-                  <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-0.5">準備物リスト</div>
-                  <h2 className="text-base font-black text-slate-900">どのイベントに追加しますか？</h2>
-                </div>
-                <button
-                  onClick={() => setShowEventPicker(false)}
-                  className="p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-500"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-              <div className="overflow-y-auto px-4 pt-3 pb-10 space-y-4">
-                {pickerEvents.length === 0 ? (
-                  <div className="py-12 text-center text-sm text-slate-400">進行中のイベントがありません</div>
-                ) : (
-                  pickerGroups.map(({ month, events: evs }) => (
-                    <div key={month}>
-                      <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest px-1 mb-2">{month}</div>
-                      <div className="flex flex-col gap-2">
-                        {evs.map(ev => {
-                          const s = fmtDateJP(ev.start);
-                          const until = daysUntil(ev.start, today);
-                          const isToday = until === 0;
-                          const isSoon = until > 0 && until <= 7;
-                          const isOngoing = until < 0 && (ev.end || ev.start) >= today;
-                          const urgencyBadge = isToday
-                            ? { label: '今日', cls: 'bg-red-500 text-white' }
-                            : isOngoing
-                            ? { label: '開催中', cls: 'bg-emerald-500 text-white' }
-                            : isSoon
-                            ? { label: `${until}日後`, cls: 'bg-amber-400 text-white' }
-                            : null;
-                          const badgeBg = isToday || isOngoing ? '#ef4444' : isSoon ? '#f59e0b' : '#6366f1';
-                          return (
-                            <button
-                              key={ev.id}
-                              onClick={() => { setShowEventPicker(false); onSelectPrepEvent(ev); }}
-                              className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-sm flex items-stretch overflow-hidden hover:bg-slate-50 active:scale-[0.98] transition-all"
-                            >
-                              <div
-                                className="flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0"
-                                style={{ background: badgeBg }}
-                              >
-                                <span className="text-[10px] font-black text-white/70 leading-none">{s.month}月</span>
-                                <span className="text-xl font-black text-white leading-none mt-0.5">{s.day}</span>
-                                <span className="text-[10px] font-black text-white/80 leading-none mt-0.5">{s.dow}</span>
-                              </div>
-                              <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  <span className="font-bold text-slate-900 text-sm truncate">{ev.venue}</span>
-                                  {urgencyBadge && (
-                                    <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full ${urgencyBadge.cls}`}>{urgencyBadge.label}</span>
-                                  )}
-                                </div>
-                                <div className="text-xs text-slate-500 truncate">{fmtDateRange(ev.start, ev.end)}</div>
-                              </div>
-                              <div className="flex items-center pr-3">
-                                <ChevronRight size={16} className="text-slate-400 shrink-0" />
-                              </div>
-                            </button>
-                          );
-                        })}
+              <div className="tank-card rounded-2xl p-3">
+                {staffLoading ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <Skeleton key={i} className="h-12" rounded="rounded-lg" />
+                    ))}
+                  </div>
+                ) : staffBreakdown !== null ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
+                    {(
+                      [
+                        { label: '本社',    value: staffBreakdown.office,   bg: 'bg-blue-50 border-blue-200',    text: 'text-blue-800' },
+                        { label: 'イベント', value: staffBreakdown.event,    bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-800' },
+                        { label: '外出',    value: staffBreakdown.dispatch, bg: 'bg-amber-50 border-amber-200',  text: 'text-amber-800' },
+                        { label: '公休',    value: staffBreakdown.rest,     bg: 'bg-violet-50 border-violet-200', text: 'text-violet-800' },
+                        { label: '希望休',  value: staffBreakdown.request,  bg: 'bg-pink-50 border-pink-200',    text: 'text-pink-800' },
+                        { label: 'その他',  value: staffBreakdown.other,    bg: 'bg-slate-50 border-slate-200',  text: 'text-slate-700' },
+                      ] as const
+                    ).map(({ label, value, bg, text }) => (
+                      <div key={label} className={`text-center rounded-lg py-1.5 border ${bg}`}>
+                        <CountUp value={value} className={`block font-black leading-none text-lg ${text}`} />
+                        <div className="text-[11px] text-slate-600 mt-0.5 font-medium">{label}</div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-400 text-center py-3">
+                    データを取得できませんでした
+                  </div>
                 )}
               </div>
             </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-      , document.body)}
+          )}
+        </AnimatePresence>
 
-      {/* Permission toast — portal to escape carousel transform */}
-      {createPortal(
-      <AnimatePresence>
-        {showPermissionToast && (
-          <motion.div
-            className="fixed bottom-24 inset-x-0 z-[200] flex justify-center pointer-events-none"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.18 }}
-          >
-            <div className="bg-white border border-slate-200 text-slate-900 text-sm font-bold px-5 py-3 rounded-2xl shadow-xl">
-              権限がありません
+        {/* ⑤ 直近7日のイベント */}
+        <motion.div {...sa(4)}>
+          <SectionHeader label="直近7日のイベント" />
+          {upcomingWeek.length === 0 ? (
+            <SectionEmpty label="直近7日のイベントはありません" />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {upcomingWeek.map(ev => (
+                <SwipeActionCard
+                  key={ev.id}
+                  onAction={() => onSelectPrepEvent(ev)}
+                  onTap={() => onSelectEvent(ev)}
+                >
+                  <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
+                </SwipeActionCard>
+              ))}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      , document.body)}
+          )}
+        </motion.div>
+
+        {/* ⑥ クイックリンク */}
+        <motion.div {...sa(5)} className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
+
+          <div className="flex flex-col gap-2">
+            <div className="text-[11px] font-bold text-slate-500 mb-0.5">クイックアクション</div>
+
+            {/* Secondary */}
+            <RippleButton
+              onClick={() => {
+                if (canEditEvent) onCreateEvent();
+                else setShowPermissionToast(true);
+              }}
+              className="flex items-center gap-3 tank-card text-slate-700 rounded-2xl px-5 py-3.5 font-bold text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
+            >
+              <Plus size={16} className="text-slate-400 shrink-0" />
+              新規イベントを追加する
+            </RippleButton>
+
+            {/* Tertiary */}
+            <RippleButton
+              onClick={onOpenSchedule}
+              className="flex items-center gap-3 text-slate-500 rounded-xl px-5 py-3 font-medium text-sm hover:bg-white/60 active:scale-[0.98] transition-all w-full"
+            >
+              <CalendarDays size={15} className="text-slate-400 shrink-0" />
+              スケジュール確認
+            </RippleButton>
+          </div>
+
+          {/* マーキュリーサービス */}
+          <div className="mt-4 md:mt-0 flex flex-col gap-2">
+            <div className="text-[11px] font-bold text-slate-500 mb-0.5">マーキュリーサービス</div>
+            {(
+              [
+                { label: 'TranChat',            sub: '社内連絡ツール', href: 'https://tranchat1.mercury-group.co.jp/chat2_fed/public/index.html' },
+                { label: 'Chronus',             sub: '退勤システム',   href: 'https://chronus.mercury-group.co.jp/index.html' },
+                { label: 'マーキュリーアカデミア', sub: '研修・学習',    href: 'https://www.haken-school.com/mercury-academia/top/' },
+              ] as const
+            ).map(svc => (
+              <a
+                key={svc.label}
+                href={svc.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between tank-card text-slate-900 rounded-2xl px-5 py-3.5 hover:brightness-[1.03] active:scale-[0.98] transition-all"
+              >
+                <div className="min-w-0">
+                  <div className="font-bold text-sm text-slate-800 leading-tight">{svc.label}</div>
+                  <div className="text-xs font-medium text-slate-500 mt-0.5">{svc.sub}</div>
+                </div>
+                <ExternalLink size={14} className="text-slate-400 shrink-0 ml-3" />
+              </a>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Event Picker Bottom Sheet */}
+      {createPortal(
+        <AnimatePresence>
+          {showEventPicker && (
+            <>
+              <motion.div
+                className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowEventPicker(false)}
+              />
+              <motion.div
+                ref={sheetRef}
+                className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl max-h-[82dvh] flex flex-col overflow-hidden border-t border-slate-100 shadow-2xl"
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {/* ドラッグハンドル（下スワイプで閉じる） */}
+                <div
+                  className="flex justify-center pt-3 pb-2 shrink-0 cursor-grab active:cursor-grabbing touch-none select-none"
+                  onPointerDown={handleHandlePointerDown}
+                  onPointerMove={handleHandlePointerMove}
+                  onPointerUp={handleHandlePointerUp}
+                >
+                  <div className="w-10 h-1 bg-slate-200 rounded-full" />
+                </div>
+
+                {/* ヘッダー */}
+                <div className="flex items-center justify-between px-5 pt-1 pb-3 shrink-0 border-b border-slate-100">
+                  <div>
+                    <div className="text-[10px] font-bold text-cyan-600 uppercase tracking-wider mb-0.5">
+                      準備物リスト
+                    </div>
+                    <h2 className="text-base font-black text-slate-900">どのイベントを開きますか？</h2>
+                  </div>
+                  <button
+                    onClick={() => setShowEventPicker(false)}
+                    className="p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-500"
+                    aria-label="閉じる"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* コンテンツ */}
+                <div
+                  ref={contentScrollRef}
+                  className="overflow-y-auto px-4 pt-3 pb-12 space-y-4"
+                >
+                  {pickerEvents.length === 0 ? (
+                    <div className="py-16 text-center">
+                      <div className="text-3xl mb-3" aria-hidden="true">🐟</div>
+                      <div className="text-sm font-medium text-slate-400">進行中のイベントがありません</div>
+                    </div>
+                  ) : (
+                    pickerGroups.map(({ month, events: evs }) => (
+                      <div key={month}>
+                        <div className="text-xs font-bold text-slate-500 px-1 mb-2">{month}</div>
+                        <div className="flex flex-col gap-2">
+                          {evs.map(ev => {
+                            const s = fmtDateJP(ev.start);
+                            const until = daysUntil(ev.start, today);
+                            const isToday = until === 0;
+                            const isSoon = until > 0 && until <= 7;
+                            const isOngoing = until < 0 && (ev.end || ev.start) >= today;
+                            const urgencyBadge = isToday
+                              ? { label: '今日', cls: 'bg-rose-500 text-white' }
+                              : isOngoing
+                              ? { label: '開催中', cls: 'bg-emerald-500 text-white' }
+                              : isSoon
+                              ? { label: `${until}日後`, cls: 'bg-amber-400 text-white' }
+                              : null;
+                            const badgeBg =
+                              isToday || isOngoing ? '#ef4444' : isSoon ? '#f59e0b' : '#6366f1';
+                            return (
+                              <button
+                                key={ev.id}
+                                onClick={() => {
+                                  setShowEventPicker(false);
+                                  onSelectPrepEvent(ev);
+                                }}
+                                className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-sm flex items-stretch overflow-hidden hover:bg-slate-50 active:scale-[0.98] transition-all"
+                              >
+                                <div
+                                  className="flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0"
+                                  style={{ background: badgeBg }}
+                                >
+                                  <span className="text-[10px] font-bold text-white/70 leading-none">
+                                    {s.month}月
+                                  </span>
+                                  <span className="text-xl font-black text-white leading-none mt-0.5">
+                                    {s.day}
+                                  </span>
+                                  <span className="text-[10px] font-bold text-white/80 leading-none mt-0.5">
+                                    {s.dow}
+                                  </span>
+                                </div>
+                                <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="font-bold text-slate-900 text-sm truncate">
+                                      {ev.venue}
+                                    </span>
+                                    {urgencyBadge && (
+                                      <span
+                                        className={`shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${urgencyBadge.cls}`}
+                                      >
+                                        {urgencyBadge.label}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-slate-500 truncate">
+                                    {fmtDateRange(ev.start, ev.end)}
+                                  </div>
+                                </div>
+                                <div className="flex items-center pr-3">
+                                  <ChevronRight size={16} className="text-slate-400 shrink-0" />
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
+
+      {/* Permission toast */}
+      {createPortal(
+        <AnimatePresence>
+          {showPermissionToast && (
+            <motion.div
+              className="fixed bottom-24 inset-x-0 z-[200] flex justify-center pointer-events-none"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.18 }}
+            >
+              <div className="bg-white border border-slate-200 text-slate-900 text-sm font-bold px-5 py-3 rounded-2xl shadow-xl">
+                権限がありません
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 }
