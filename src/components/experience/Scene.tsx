@@ -9,10 +9,8 @@
  *    JSX → Three.js オブジェクト に変換される（react-reconciler 経由）
  * ────────────────────────────────────────────────────────────────
  */
-import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, Stats } from '@react-three/drei';
-import * as THREE from 'three';
 
 import {
   BG_COLOR,
@@ -28,72 +26,11 @@ import {
   GRID_SECTION_COLOR,
   GRID_FADE_DISTANCE,
   GRID_FADE_STRENGTH,
-  ROCK_COLOR,
-  ROCK_METALNESS,
-  ROCK_ROUGHNESS,
-  ROCK_EMISSIVE,
-  ROCK_EMISSIVE_INTENSITY,
-  ROCK_RADIUS,
-  ROCK_DEFORM_AMOUNT,
-  ROCK_Y,
   CAMERA_POSITION,
   CAMERA_FOV,
+  ENV_DATASPACE,
 } from './constants';
-
-// ─── 岩コンポーネント ────────────────────────────────────────────
-function Rock() {
-  /**
-   * useMemo: 毎フレーム再計算されないようにジオメトリを一度だけ生成する。
-   *
-   * IcosahedronGeometry(radius, detail):
-   *   - radius: 半径
-   *   - detail=1: 面を1段階細分化（=低ポリゴン。0だと粗すぎ、2以上は重い）
-   */
-  const geometry = useMemo(() => {
-    const geo = new THREE.IcosahedronGeometry(ROCK_RADIUS, 1);
-
-    // position 属性 = 頂点の座標バッファ
-    const pos = geo.attributes.position as THREE.BufferAttribute;
-
-    for (let i = 0; i < pos.count; i++) {
-      // 各頂点を少しランダムにずらして「岩っぽい凸凹」を作る
-      pos.setXYZ(
-        i,
-        pos.getX(i) + (Math.random() - 0.5) * ROCK_DEFORM_AMOUNT,
-        pos.getY(i) + (Math.random() - 0.5) * ROCK_DEFORM_AMOUNT,
-        pos.getZ(i) + (Math.random() - 0.5) * ROCK_DEFORM_AMOUNT,
-      );
-    }
-
-    // 頂点を動かした後は法線（光の当たり方の計算に使うベクトル）を再計算する
-    pos.needsUpdate = true;
-    geo.computeVertexNormals();
-
-    return geo;
-  }, []);
-
-  return (
-    /**
-     * <mesh>: Three.js の Mesh = ジオメトリ（形）+ マテリアル（見た目）のペア。
-     * position-y で床から浮かせる。
-     */
-    <mesh geometry={geometry} position-y={ROCK_Y} castShadow>
-      {/**
-       * meshStandardMaterial: PBR（物理ベースレンダリング）マテリアル。
-       *   - metalness: 金属らしさ（高いほどエッジに光が集中する）
-       *   - roughness: 表面の粗さ（低いほど鏡面に近い）
-       *   - emissive: 自己発光色（ライトなしで発光するように見える）
-       */}
-      <meshStandardMaterial
-        color={ROCK_COLOR}
-        metalness={ROCK_METALNESS}
-        roughness={ROCK_ROUGHNESS}
-        emissive={ROCK_EMISSIVE}
-        emissiveIntensity={ROCK_EMISSIVE_INTENSITY}
-      />
-    </mesh>
-  );
-}
+import EnvironmentDataSpace from './environments/EnvironmentDataSpace';
 
 // ─── シーン全体コンポーネント ─────────────────────────────────────
 function SceneContents() {
@@ -153,19 +90,21 @@ function SceneContents() {
         position={[0, 0, 0]}
       />
 
-      {/* 中央に岩を配置 */}
-      <Rock />
+      {/* 工程2: DataSpace 環境（粒子 + 浮遊オブジェクト）*/}
+      <EnvironmentDataSpace />
 
       {/**
-       * OrbitControls (drei): マウスドラッグで視点を回転・ズームできる。
-       * ⚠️ 本番では外すこと（ユーザーに自由な視点操作は通常させない）。
+       * OrbitControls (drei): autoRotate で視点をゆっくり周回する。
+       * ⚠️ 暫定: 工程3 でカメラアニメーションパスに差し替え予定。
        */}
       <OrbitControls
-        enableDamping       // 慣性をつけてカメラが滑らかに止まる
+        enableDamping
         dampingFactor={0.05}
-        minDistance={3}     // ズームインの限界（単位: ワールド単位）
-        maxDistance={30}    // ズームアウトの限界
-        maxPolarAngle={Math.PI / 2 - 0.05} // 床下に潜らないようにする
+        minDistance={3}
+        maxDistance={30}
+        maxPolarAngle={Math.PI / 2 - 0.05}
+        autoRotate
+        autoRotateSpeed={ENV_DATASPACE.AUTO_ROTATE_SPEED}
       />
     </>
   );
