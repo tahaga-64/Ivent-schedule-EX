@@ -84,3 +84,41 @@ export const CAMERA_POSITION = [0, 3, 9] as const;
 
 /** カメラの視野角（単位: 度）*/
 export const CAMERA_FOV = 60;
+
+// ─── 工程2: DataSpace 環境定数 ───────────────────────────────
+
+export const ENV_DATASPACE = {
+  // --- 粒子の地平 (THREE.Points) ---
+  /** 空間に散らす粒子数（多すぎると重い、3000 が draw call 1本で十分映える）*/
+  PARTICLE_COUNT: 3000,
+  /** 粒子が散らばる立方体の半辺長（単位: ワールド単位）*/
+  PARTICLE_SPREAD: 20,
+  /** 粒子のサイズ（points.size）*/
+  PARTICLE_SIZE: 0.06,
+  /** 粒子の色: シアン */
+  PARTICLE_COLOR: '#00d4ff',
+  /** 粒子のドリフト速度係数（delta 乗算）*/
+  PARTICLE_DRIFT_SPEED: 0.08,
+
+  // --- 浮遊する幾何オブジェクト ---
+  /** オブジェクトのベース色 */
+  GEO_COLOR: '#1a1a3e',
+  /** 金属質感（高めでエッジに光を走らせる）*/
+  GEO_METALNESS: 0.9,
+  /** 表面の粗さ（低めで光沢）*/
+  GEO_ROUGHNESS: 0.08,
+  /** エミッシブ色: 青〜紫 */
+  GEO_EMISSIVE: '#1a0540',
+  /** エミッシブ強度 */
+  GEO_EMISSIVE_INTENSITY: 0.8,
+  /** 自転速度係数 */
+  GEO_ROTATE_SPEED: 0.4,
+  /** 上下ボブ振幅（単位: ワールド単位）*/
+  GEO_BOB_AMPLITUDE: 0.18,
+  /** ボブ周期（低いほどゆっくり）*/
+  GEO_BOB_FREQUENCY: 0.5,
+
+  // --- OrbitControls 暫定 autoRotate ---
+  /** autoRotate 速度（暫定: 工程3でカメラパスに差し替え）*/
+  AUTO_ROTATE_SPEED: 0.4,
+} as const;
