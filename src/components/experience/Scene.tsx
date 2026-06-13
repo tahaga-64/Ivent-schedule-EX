@@ -1,16 +1,24 @@
 /**
- * 3D Experience — メインシーン
+ * 3D Experience — メインシーン（工程3: スクロール駆動カメラ）
  *
- * ── <Canvas> が裏でやっていること（初学者向け）──────────────────
- * 1. THREE.WebGLRenderer を生成し、canvas 要素をマウント
- * 2. THREE.Scene（物体の入れ物）と THREE.PerspectiveCamera を自動設定
- * 3. requestAnimationFrame ループを内部で回し続け、毎フレーム描画
- * 4. React のコンポーネントツリーが「仮想 Three.js グラフ」として
- *    JSX → Three.js オブジェクト に変換される（react-reconciler 経由）
+ * ── <Canvas> が裏でやっていること ──────────────────────────────
+ * 1. THREE.WebGLRenderer を生成し canvas 要素をマウント
+ * 2. THREE.PerspectiveCamera を自動設定
+ * 3. requestAnimationFrame ループを回し続け毎フレーム描画
+ * 4. React コンポーネントツリー → 仮想 Three.js グラフ（react-reconciler 経由）
+ * ────────────────────────────────────────────────────────────────
+ *
+ * ── Lenis について ──────────────────────────────────────────────
+ * /experience は独立した Vite MPA エントリ（experience/index.html）のため、
+ * メインアプリ側で Lenis を使っていてもここには影響しない。
+ * さらに ScrollControls は独自のスクロールコンテナを Canvas に重ねるため、
+ * Lenis と併用すると二重スクロールが競合する。ここでは使用しない。
  * ────────────────────────────────────────────────────────────────
  */
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid, Stats } from '@react-three/drei';
+import { useRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { ScrollControls, useScroll, OrbitControls, Stats } from '@react-three/drei';
+import * as THREE from 'three';
 
 import {
   BG_COLOR,
@@ -21,45 +29,95 @@ import {
   DIR_LIGHT_COLOR,
   DIR_LIGHT_INTENSITY,
   DIR_LIGHT_POSITION,
-  GRID_SIZE,
-  GRID_CELL_COLOR,
-  GRID_SECTION_COLOR,
-  GRID_FADE_DISTANCE,
-  GRID_FADE_STRENGTH,
   CAMERA_POSITION,
   CAMERA_FOV,
   ENV_DATASPACE,
+  ENV_DATASPACE_2,
+  SCROLL_PAGES,
+  SCROLL_DAMPING,
+  CAMERA_START,
+  CAMERA_END,
+  DEV_ORBIT,
 } from './constants';
 import EnvironmentDataSpace from './environments/EnvironmentDataSpace';
 
+// ─── カメラリグ（スクロール連動）────────────────────────────────
+
+function CameraRig() {
+  /**
+   * useScroll() は ScrollControls の子孫コンポーネントでのみ呼べる。
+   * scroll.offset: 0（ページ上端）〜 1（ページ下端）の正規化スクロール進捗。
+   *
+   * ── なぜ「Canvas 固定・背後の高さでスクロール」させるのか ──────
+   * Canvas は CSS で viewport に固定する。ScrollControls はその上に
+   * 透明な div を重ね、pages×100vh の高さを与える。
+   * ユーザーがスクロールしてもその div が動くだけで Canvas は動かない。
+   * useScroll().offset がその scroll 量を 0〜1 で渡してくれるので、
+   * useFrame の中でカメラを動かせば「自分が移動している」ように見える。
+   * ─────────────────────────────────────────────────────────────
+   */
+  const scroll = useScroll();
+  const { camera } = useThree();
+
+  // lookAt の現在値を ref で追跡（毎フレーム damp で目標値に近づける）
+  const currentLookAt = useRef(new THREE.Vector3(...CAMERA_START.lookAt));
+
+  // Vector3 を毎フレーム new すると GC プレッシャーになるため ref で使い回す
+  const targetPos  = useRef(new THREE.Vector3());
+  const targetLook = useRef(new THREE.Vector3());
+  const vStart = useRef(new THREE.Vector3(...CAMERA_START.position));
+  const vEnd   = useRef(new THREE.Vector3(...CAMERA_END.position));
+  const lStart = useRef(new THREE.Vector3(...CAMERA_START.lookAt));
+  const lEnd   = useRef(new THREE.Vector3(...CAMERA_END.lookAt));
+
+  useFrame((_state, delta) => {
+    const t = scroll.offset; // 0〜1
+
+    /**
+     * Easing（緩急）: offset をそのまま lerp に入れると等速で機械的に見える。
+     * cubic ease-in-out を通すと開始・終了時がゆっくり・中間が速い自然な加減速。
+     *   t=0 → eased=0（始点）、t=0.5 → eased=0.5（中点）、t=1 → eased=1（終点）
+     */
+    const eased = t < 0.5
+      ? 4 * t * t * t
+      : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    // eased 値でターゲット位置・視線方向を線形補間（始点→終点）
+    targetPos.current.lerpVectors(vStart.current, vEnd.current, eased);
+    targetLook.current.lerpVectors(lStart.current, lEnd.current, eased);
+
+    /**
+     * MathUtils.damp(current, target, λ, delta):
+     *   毎フレーム「current → target へ λ の速さで指数的に近づく」。
+     *   delta（前フレームからの経過秒数）を組み込むため、
+     *   60fps でも 30fps でも同じ追従速度になる（フレームレート非依存）。
+     *
+     *   lerp との違い: lerp(cur, tgt, 0.1) はフレームレートが落ちると
+     *   動きが遅くなる。damp は delta があるため速度が常に一定。
+     */
+    camera.position.x = THREE.MathUtils.damp(camera.position.x, targetPos.current.x, SCROLL_DAMPING, delta);
+    camera.position.y = THREE.MathUtils.damp(camera.position.y, targetPos.current.y, SCROLL_DAMPING, delta);
+    camera.position.z = THREE.MathUtils.damp(camera.position.z, targetPos.current.z, SCROLL_DAMPING, delta);
+
+    // lookAt も damp で滑らかに追従（currentLookAt ref に現在値を保持）
+    currentLookAt.current.x = THREE.MathUtils.damp(currentLookAt.current.x, targetLook.current.x, SCROLL_DAMPING, delta);
+    currentLookAt.current.y = THREE.MathUtils.damp(currentLookAt.current.y, targetLook.current.y, SCROLL_DAMPING, delta);
+    currentLookAt.current.z = THREE.MathUtils.damp(currentLookAt.current.z, targetLook.current.z, SCROLL_DAMPING, delta);
+
+    camera.lookAt(currentLookAt.current);
+  });
+
+  return null;
+}
+
 // ─── シーン全体コンポーネント ─────────────────────────────────────
+
 function SceneContents() {
   return (
     <>
-      {/**
-       * fog: カメラから一定距離を超えた物体を霧で隠す。
-       * FogExp2 より Fog（線形）の方が制御しやすい。
-       * 背景と同系統の色にすると自然に溶け込む。
-       */}
       <fog attach="fog" args={[FOG_COLOR, FOG_NEAR, FOG_FAR]} />
-
-      {/**
-       * color を scene.background に直接アタッチする書き方。
-       * Canvas の background prop より確実にシーン背景色が設定される。
-       */}
       <color attach="background" args={[BG_COLOR]} />
-
-      {/**
-       * ambientLight: 全方向から均等に照らす環境光。
-       * 影のない「底上げ」照明。intensity を低めにして方向光の陰影を活かす。
-       */}
       <ambientLight intensity={AMBIENT_INTENSITY} />
-
-      {/**
-       * directionalLight: 太陽光に相当する平行光源。
-       * position は光の方向ベクトル（originへ向かう）。
-       * 寒色（青白）にして近未来感を演出。
-       */}
       <directionalLight
         color={DIR_LIGHT_COLOR}
         intensity={DIR_LIGHT_INTENSITY}
@@ -69,60 +127,50 @@ function SceneContents() {
       />
 
       {/**
-       * Grid (drei): 床のグリッド表示。
-       * PlaneGeometry + wireframe より綺麗にフェードアウトできる。
-       *   - cellSize: 1マスのサイズ
-       *   - sectionSize: 太線で区切るマス数
-       *   - fadeDistance: ここを超えると透明になる
-       *   - infiniteGrid: false にして fadeDistance 外は消す
+       * ScrollControls (drei):
+       *   - pages: スクロール可能高さ = pages × 100vh
+       *   - damping: ScrollControls 内部の慣性係数（独自のスムーズスクロール）。
+       *     CameraRig 側の MathUtils.damp と合わさって2段階の滑らかさになる。
+       *
+       * CameraRig は ScrollControls の子孫として配置する必要がある
+       * （useScroll() がコンテキストを参照するため）。
        */}
-      <Grid
-        args={[GRID_SIZE, GRID_SIZE]}
-        cellSize={1}
-        cellThickness={0.5}
-        cellColor={GRID_CELL_COLOR}
-        sectionSize={5}
-        sectionThickness={1}
-        sectionColor={GRID_SECTION_COLOR}
-        fadeDistance={GRID_FADE_DISTANCE}
-        fadeStrength={GRID_FADE_STRENGTH}
-        infiniteGrid={false}
-        position={[0, 0, 0]}
-      />
+      <ScrollControls pages={SCROLL_PAGES} damping={0.1}>
+        {/* 環境1: DataSpace（シアン）— 原点 */}
+        <EnvironmentDataSpace preset={ENV_DATASPACE} position={[0, 0, 0]} />
 
-      {/* 工程2: DataSpace 環境（粒子 + 浮遊オブジェクト）*/}
-      <EnvironmentDataSpace />
+        {/* 環境2: DataSpace（マゼンタ）— 60 ユニット奥
+            ※ここのプリセットを差し替えれば「サイバー都市」「SF自然」等の別テーマに変更できる。
+              constants.ts の ENV_DATASPACE_2 の色・速度定数を書き換えるだけでよい。 */}
+        <EnvironmentDataSpace preset={ENV_DATASPACE_2} position={[0, 0, -60]} />
 
-      {/**
-       * OrbitControls (drei): autoRotate で視点をゆっくり周回する。
-       * ⚠️ 暫定: 工程3 でカメラアニメーションパスに差し替え予定。
-       */}
-      <OrbitControls
-        enableDamping
-        dampingFactor={0.05}
-        minDistance={3}
-        maxDistance={30}
-        maxPolarAngle={Math.PI / 2 - 0.05}
-        autoRotate
-        autoRotateSpeed={ENV_DATASPACE.AUTO_ROTATE_SPEED}
-      />
+        {/* スクロール連動カメラ制御（ScrollControls の子孫である必要がある）*/}
+        <CameraRig />
+      </ScrollControls>
+
+      {/* DEV_ORBIT=true のときだけ OrbitControls で自由視点を有効化（本番: false）
+          スクロールカメラとの競合を避けるため、本番では必ず外す */}
+      {DEV_ORBIT && (
+        <OrbitControls
+          enableDamping
+          dampingFactor={0.05}
+          minDistance={3}
+          maxDistance={80}
+          maxPolarAngle={Math.PI / 2 - 0.05}
+        />
+      )}
     </>
   );
 }
 
 // ─── エクスポート（Canvas ラッパー）──────────────────────────────
+
 export default function Scene() {
   return (
     /**
-     * Canvas は 100% × 100% で親要素を埋める。
-     * experience/index.html 側で html/body を 100dvh にしているので
-     * 自動的にブラウザいっぱいになる。
-     *
-     * camera: Three.js PerspectiveCamera の初期設定。
-     *   - position: カメラの初期座標
-     *   - fov: 視野角（度）
-     * gl.antialias: エッジのギザギザを滑らかにする（重くなければ有効推奨）
-     * shadows: directionalLight の castShadow を有効にする
+     * Canvas を 100vw × 100dvh の固定サイズにする。
+     * ScrollControls が Canvas の上に透明な div を重ねてスクロール領域を作るため、
+     * Canvas 自体は動かず、スクロール量だけが CameraRig に届く構造になる。
      */
     <Canvas
       style={{ width: '100vw', height: '100dvh', display: 'block' }}
@@ -131,12 +179,6 @@ export default function Scene() {
       shadows
     >
       <SceneContents />
-
-      {/**
-       * Stats (drei): 画面左上にFPSを常時表示するデバッグパネル。
-       * r3f-perf より軽量で React 19 との互換リスクがない。
-       * 工程完了後に削除するか、開発モードのみ表示に切り替えること。
-       */}
       <Stats />
     </Canvas>
   );

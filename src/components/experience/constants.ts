@@ -85,7 +85,29 @@ export const CAMERA_POSITION = [0, 3, 9] as const;
 /** カメラの視野角（単位: 度）*/
 export const CAMERA_FOV = 60;
 
-// ─── 工程2: DataSpace 環境定数 ───────────────────────────────
+// ─── 工程2/3: DataSpace 環境定数 ──────────────────────────────
+
+/**
+ * 環境プリセットの型。この形を満たすオブジェクトを
+ * EnvironmentDataSpace の preset prop に渡せる。
+ * 別の世界観を作るときはこの型で新しい定数を追加するだけでよい。
+ */
+export interface EnvPreset {
+  PARTICLE_COUNT: number;
+  PARTICLE_SPREAD: number;
+  PARTICLE_SIZE: number;
+  PARTICLE_COLOR: string;
+  PARTICLE_DRIFT_SPEED: number;
+  GEO_COLOR: string;
+  GEO_METALNESS: number;
+  GEO_ROUGHNESS: number;
+  GEO_EMISSIVE: string;
+  GEO_EMISSIVE_INTENSITY: number;
+  GEO_ROTATE_SPEED: number;
+  GEO_BOB_AMPLITUDE: number;
+  GEO_BOB_FREQUENCY: number;
+  AUTO_ROTATE_SPEED: number;
+}
 
 export const ENV_DATASPACE = {
   // --- 粒子の地平 (THREE.Points) ---
@@ -118,7 +140,67 @@ export const ENV_DATASPACE = {
   /** ボブ周期（低いほどゆっくり）*/
   GEO_BOB_FREQUENCY: 0.5,
 
-  // --- OrbitControls 暫定 autoRotate ---
-  /** autoRotate 速度（暫定: 工程3でカメラパスに差し替え）*/
+  // --- OrbitControls autoRotate（工程3で撤去済み。型統一のため保持）---
   AUTO_ROTATE_SPEED: 0.4,
+} as const;
+
+// ─── 工程3: 環境2プリセット（マゼンタ寄り）──────────────────────
+/**
+ * ※ここの色・速度定数を書き換えるだけで別の世界観（サイバー都市・SF自然など）に差し替えられる。
+ *   コンポーネント側は変更不要。
+ */
+export const ENV_DATASPACE_2: EnvPreset = {
+  PARTICLE_COUNT: 3000,         // 粒子数（環境1と合計 6000。重ければここを減らす）
+  PARTICLE_SPREAD: 20,
+  PARTICLE_SIZE: 0.06,
+  PARTICLE_COLOR: '#ff40d0',    // 環境1=シアン、環境2=マゼンタ
+  PARTICLE_DRIFT_SPEED: 0.07,   // ドリフトリズムを少し変えて個性を出す
+  GEO_COLOR: '#1a0a2e',
+  GEO_METALNESS: 0.9,
+  GEO_ROUGHNESS: 0.08,
+  GEO_EMISSIVE: '#50053a',      // 青紫 → マゼンタ
+  GEO_EMISSIVE_INTENSITY: 0.8,
+  GEO_ROTATE_SPEED: 0.35,       // 自転速度も微妙に変えて区別感を出す
+  GEO_BOB_AMPLITUDE: 0.20,
+  GEO_BOB_FREQUENCY: 0.45,
+  AUTO_ROTATE_SPEED: 0.4,       // OrbitControls 撤去後は未使用。型統一のため保持
+};
+
+// ─── 工程3: スクロールカメラ定数 ─────────────────────────────
+
+/**
+ * ScrollControls の pages 数。
+ * pages=3 → スクロール可能高さが 3×100vh になり、
+ * 一番下まで到達したとき useScroll().offset = 1 になる。
+ */
+export const SCROLL_PAGES = 3;
+
+/**
+ * MathUtils.damp の λ（ラムダ）値。
+ * 大きいほどカメラが目標値に速く追いつく（4〜8 が自然）。
+ */
+export const SCROLL_DAMPING = 5;
+
+/**
+ * 開発時だけ OrbitControls で自由視点確認したい場合に true に変える。
+ * 本番では必ず false のまま。
+ */
+export const DEV_ORBIT = false;
+
+/**
+ * カメラ始点 — 環境1（z=0）を正面に捉える位置。
+ * CAMERA_POSITION と同値にしておくと Canvas 初期カメラと一致する。
+ */
+export const CAMERA_START = {
+  position: [0, 3, 9] as const,
+  lookAt:   [0, 1.5, 0] as const,
+} as const;
+
+/**
+ * カメラ終点 — 環境2（z=-60）を正面に捉える位置。
+ * 環境間距離 60 > FOG_FAR 45 のため、移動中は霧で自然に切り替わる。
+ */
+export const CAMERA_END = {
+  position: [0, 3, -51] as const,   // 環境2 の手前 9 ユニット（始点と同じオフセット）
+  lookAt:   [0, 1.5, -60] as const,
 } as const;
