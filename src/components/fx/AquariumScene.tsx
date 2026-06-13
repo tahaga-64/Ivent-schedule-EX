@@ -13,6 +13,7 @@
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { subscribeCameraIntro, getCameraValues, playIntro } from '../../lib/theatreProject';
 import {
   EffectComposer,
   EffectPass,
@@ -522,15 +523,31 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
     syncFishRef.current = syncFish;
     syncFish(fishItemsRef.current);
 
+    // ── Theatre.js カメライントロ ─────────────────────────────────────────
+    // Theatre.js が onChange でカメラ値を配信 → rAF ループはカメラを読むだけ
+    let introComplete = false;
+    let theatrePosY = 8, theatrePosZ = 15.5, theatreFov = 70;
+
+    // 初期値を同期取得してカメラをセット
+    const initVals = getCameraValues();
+    theatrePosY = initVals.posY;
+    theatrePosZ = initVals.posZ;
+    theatreFov  = initVals.fov;
+
+    const unsubTheatre = subscribeCameraIntro(({ posY, posZ, fov }) => {
+      theatrePosY = posY;
+      theatrePosZ = posZ;
+      theatreFov  = fov;
+    });
+
+    // シーンが安定したら再生開始
+    playIntro().then(() => { introComplete = true; });
+
     // ── Animation loop ────────────────────────────────────────────────────
     let prevTime = performance.now();
     let rafId = 0;
     let elapsed = 0;
     const tmpVec = new THREE.Vector3();
-
-    // シネマティックイントロ: カメラが高所から水槽前へ飛び込む (2.5秒)
-    let introPhase = 1.0; // 1→0 でイントロ完了
-    const INTRO_DUR = 2.5;
 
     function animate() {
       rafId = requestAnimationFrame(animate);
@@ -541,19 +558,14 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
       prevTime = now;
       elapsed += dt;
 
-      // ── カメラ: イントロ → 通常ドリフト ─────────────────────────────
-      if (introPhase > 0) {
-        introPhase = Math.max(0, introPhase - dt / INTRO_DUR);
-        const t = 1 - introPhase;
-        const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
-        camera.position.set(
-          0,
-          8  - (8   - 1.2) * eased,   // y: 8 → 1.2
-          15.5 - (15.5 - 9.5) * eased, // z: 15.5 → 9.5
-        );
-        camera.fov = 70 - (70 - 55) * eased;
+      // ── カメラ: Theatre.js 値 → イントロ完了後は ambient drift ─────────
+      if (!introComplete) {
+        // Theatre.js シーケンスが値を配信中 → 反映
+        camera.position.set(0, theatrePosY, theatrePosZ);
+        camera.fov = theatreFov;
         camera.updateProjectionMatrix();
       } else {
+        // イントロ完了後: ゆるやかなアイドルドリフト
         camera.position.x = Math.sin(elapsed * 0.17) * 0.55;
         camera.position.y = 1.2 + Math.sin(elapsed * 0.12) * 0.28;
         if (camera.fov !== 55) { camera.fov = 55; camera.updateProjectionMatrix(); }
@@ -656,6 +668,7 @@ export default function AquariumScene({ fishItems, active = true }: Props) {
 
     // ── Cleanup ───────────────────────────────────────────────────────────
     return () => {
+      unsubTheatre();
       cancelAnimationFrame(rafId);
       ro.disconnect();
       clearFish();

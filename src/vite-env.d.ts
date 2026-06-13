@@ -36,6 +36,10 @@ interface ImportMetaEnv {
   readonly VITE_EX_SCHEDULE_API_KEY: string;
   readonly VITE_EX_SCHEDULE_PROJECT_ID: string;
   readonly VITE_EX_SCHEDULE_DATABASE_ID: string;
+  /** Spline 3D シーンの公開 URL（省略可: 未設定時はグラデーション fallback） */
+  readonly VITE_SPLINE_SCENE_URL?: string;
+  /** Rive スプラッシュアニメーション .riv ファイルの URL（省略可） */
+  readonly VITE_RIVE_SPLASH_SRC?: string;
 }
 
 interface ImportMeta {
