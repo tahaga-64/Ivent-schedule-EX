@@ -17,12 +17,19 @@ export default defineConfig(({mode}) => {
     },
     build: {
       rollupOptions: {
+        // MPA: index.html（メインアプリ）と experience/index.html（3Dページ）を
+        // それぞれ独立したエントリとしてビルドする
+        input: {
+          main: path.resolve(__dirname, 'index.html'),
+          experience: path.resolve(__dirname, 'experience/index.html'),
+        },
         output: {
           manualChunks: {
             'vendor-react': ['react', 'react-dom'],
             'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
             'vendor-motion': ['motion/react'],
             'vendor-three': ['three'],
+            'vendor-r3f': ['@react-three/fiber', '@react-three/drei'],
             'vendor-postprocessing': ['postprocessing'],
             'vendor-troika': ['troika-three-text'],
             'vendor-spline': ['@splinetool/runtime'],
