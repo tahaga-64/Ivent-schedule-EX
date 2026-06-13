@@ -139,6 +139,7 @@ function buildCalendarDensityPreviewEvents(
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [splashMinElapsed, setSplashMinElapsed] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setSplashMinElapsed(true), SPLASH_MIN_MS);
@@ -1092,6 +1093,7 @@ VITE_FIREBASE_DATABASE_ID`}
           onOpenSchedule={() => applySetView('schedule')}
           onNavigateCalendar={() => applySetView('calendar')}
           canEditEvent={canEditEvent}
+          scrollContainerRef={scrollContainerRef}
         />
       )}
       {v === "master" && (
@@ -1204,6 +1206,7 @@ VITE_FIREBASE_DATABASE_ID`}
             <AnimatePresence mode="wait" custom={viewDir}>
               <motion.div
                 key={view === 'prep' || view === 'archive' ? `${view}-${prepEvent?.id ?? 'list'}` : view}
+                ref={scrollContainerRef}
                 custom={viewDir}
                 className={`absolute inset-0 overflow-y-auto w-full max-w-none overscroll-contain ${
                   isMobile ? 'p-3 sm:p-4 pb-[calc(3.75rem+env(safe-area-inset-bottom))]' : 'p-4 md:p-6 lg:p-8 pb-20 md:pb-8'

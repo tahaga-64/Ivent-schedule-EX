@@ -1,15 +1,20 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, ExternalLink, X, ArrowRight } from 'lucide-react';
+import {
+  motion, AnimatePresence,
+  useScroll, useTransform, useMotionTemplate, type MotionValue,
+} from 'motion/react';
+import { ChevronRight, ExternalLink, X, ArrowRight, ChevronsDown } from 'lucide-react';
 import type { Event } from '../types';
 import { rs, ts, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
 import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule';
+import { useFxLevel } from '../lib/deviceTier';
 import EXBadge from './EXBadge';
 import SwipeActionCard from './fx/SwipeActionCard';
 import RippleButton from './fx/RippleButton';
 import CountUp from './fx/CountUp';
 import Skeleton from './fx/Skeleton';
+import ScrollAquaBackdrop from './fx/ScrollAquaBackdrop';
 import { EASE_OUT } from '../lib/motionTokens';
 
 interface Props {
@@ -21,6 +26,7 @@ interface Props {
   onOpenSchedule: () => void;
   onNavigateCalendar: () => void;
   canEditEvent: boolean;
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 function AnalogClock() {
@@ -167,12 +173,158 @@ function SectionEmpty({ label }: { label: string }) {
   );
 }
 
-export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, onNavigateCalendar, canEditEvent }: Props) {
+/**
+ * PinnedHero — 「浮上」スクロールテリング
+ * 画面に固定され、スクロール進捗で深海→水面へ。深度メーターが 0m に近づくと
+ * 通常UIへ受け渡す。背景の色変化は ScrollAquaBackdrop が担当。
+ */
+function PinnedHero({
+  scrollContainerRef,
+}: {
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
+}) {
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll(
+    scrollContainerRef
+      ? { target: heroRef, container: scrollContainerRef, offset: ['start start', 'end start'] }
+      : { target: heroRef, offset: ['start start', 'end start'] }
+  );
+
+  // 深度メーター: 200m → 0m
+  const depth = useTransform(scrollYProgress, [0, 1], [200, 0]);
+  const depthText = useTransform(depth, (d) => `${Math.round(d)}`);
+  const phase = useTransform(scrollYProgress, (p): string =>
+    p < 0.38 ? '深海' : p < 0.82 ? '浮上中' : '水面',
+  );
+
+  // 中身: 終盤でフェードアウトして次セクションへ受け渡す
+  const contentOpacity = useTransform(scrollYProgress, [0, 0.75, 1], [1, 1, 0]);
+  const contentY = useTransform(scrollYProgress, [0, 1], [0, -60]);
+  const badgeScale = useTransform(scrollYProgress, [0, 1], [1.18, 0.82]);
+  const headlineY = useTransform(scrollYProgress, [0, 1], [0, -28]);
+  const hintOpacity = useTransform(scrollYProgress, [0, 0.25], [1, 0]);
+
+  const now = new Date();
+  const dateNum = now.getDate();
+  const monthStr = now.toLocaleDateString('ja-JP', { month: 'long' });
+  const weekday = now.toLocaleDateString('ja-JP', { weekday: 'long' });
+
+  return (
+    <div ref={heroRef} className="relative" style={{ height: '138dvh' }}>
+      <div className="sticky top-0 h-[100dvh] flex flex-col items-center justify-center overflow-hidden">
+        <motion.div
+          style={{ opacity: contentOpacity, y: contentY }}
+          className="relative z-10 flex flex-col items-center px-6 text-center"
+        >
+          {/* 深度メーター */}
+          <div className="flex items-center gap-2 mb-5">
+            <motion.span className="text-[11px] font-black tracking-[0.35em] text-cyan-100/80 uppercase">
+              {phase}
+            </motion.span>
+          </div>
+          <div className="flex items-baseline gap-1.5 mb-1">
+            <span className="text-cyan-200/70 text-2xl font-black">−</span>
+            <motion.span className="text-7xl sm:text-8xl font-black text-white leading-none tabular-nums drop-shadow-[0_4px_20px_rgba(6,182,212,0.5)]">
+              {depthText}
+            </motion.span>
+            <span className="text-cyan-200/80 text-2xl font-black">m</span>
+          </div>
+
+          {/* バッジ */}
+          <motion.div style={{ scale: badgeScale }} className="my-6">
+            <EXBadge size={108} />
+          </motion.div>
+
+          {/* 日付ヘッドライン */}
+          <motion.div style={{ y: headlineY }} className="flex items-end gap-2 text-white">
+            <div className="text-6xl sm:text-7xl font-black leading-none tracking-tighter tabular-nums drop-shadow-lg">
+              {dateNum}
+            </div>
+            <div className="pb-1 flex flex-col items-start gap-0.5">
+              <div className="text-base sm:text-lg font-black leading-tight">{monthStr}</div>
+              <div className="text-xs font-bold text-cyan-100/80 leading-tight">{weekday}</div>
+              <div className="text-xs font-bold text-cyan-100/60">{now.getFullYear()}</div>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* スクロール誘導 */}
+        <motion.div
+          style={{ opacity: hintOpacity }}
+          className="absolute bottom-10 flex flex-col items-center gap-1 text-cyan-100/70"
+        >
+          <span className="text-[10px] font-black tracking-[0.3em] uppercase">Scroll</span>
+          <motion.div
+            animate={{ y: [0, 7, 0] }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            <ChevronsDown size={20} />
+          </motion.div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * RevealPanel — スクロールで波のようにめくれて現れる clip-path リビール。
+ * 内側に通常UIを内包し、進捗0で上方クリップ→進捗1で全表示。
+ */
+function RevealPanel({
+  scrollContainerRef,
+  children,
+}: {
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
+  children: React.ReactNode;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll(
+    scrollContainerRef
+      ? { target: panelRef, container: scrollContainerRef, offset: ['start end', 'start center'] }
+      : { target: panelRef, offset: ['start end', 'start center'] }
+  );
+
+  const topInset = useTransform(scrollYProgress, [0, 1], [70, 0]);
+  const radius = useTransform(scrollYProgress, [0, 1], [44, 0]);
+  const clip = useMotionTemplate`inset(${topInset}% 0% 0% 0% round ${radius}px ${radius}px 0px 0px)`;
+  const y = useTransform(scrollYProgress, [0, 1], [40, 0]);
+
+  return (
+    <motion.div ref={panelRef} style={{ clipPath: clip, y }} className="relative z-10">
+      {/* 水面ハイライト（パネル上端） */}
+      <div
+        className="absolute inset-x-0 top-0 h-px"
+        style={{ background: 'linear-gradient(90deg, transparent, rgba(103,232,249,0.8), transparent)' }}
+      />
+      {children}
+    </motion.div>
+  );
+}
+
+/** 没入時のみ RevealPanel で包み、それ以外は素通し */
+function ContentReveal({
+  immersive,
+  scrollContainerRef,
+  children,
+}: {
+  immersive: boolean;
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
+  children: React.ReactNode;
+}) {
+  if (immersive) {
+    return <RevealPanel scrollContainerRef={scrollContainerRef}>{children}</RevealPanel>;
+  }
+  return <>{children}</>;
+}
+
+export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, onNavigateCalendar, canEditEvent, scrollContainerRef }: Props) {
   const [showEventPicker, setShowEventPicker] = useState(false);
   const [showPermissionToast, setShowPermissionToast] = useState(false);
   const [staffBreakdown, setStaffBreakdown] = useState<StaffBreakdown | null>(null);
   const [staffLoading, setStaffLoading] = useState(true);
   const today = new Date().toISOString().slice(0, 10);
+  const fxLevel = useFxLevel();
+  const immersive = fxLevel !== 'off' && !!scrollContainerRef;
 
   useEffect(() => {
     if (!showPermissionToast) return;
@@ -238,10 +390,19 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
   return (
     <div>
+      {/* スクロール連動 海中バックドロップ（背景の色・世界が変化 / パララックス / 速度反応） */}
+      {immersive && scrollContainerRef && (
+        <ScrollAquaBackdrop containerRef={scrollContainerRef} />
+      )}
 
+      {/* 「浮上」ピン留めスクロールテリング */}
+      {immersive && <PinnedHero scrollContainerRef={scrollContainerRef} />}
+
+      <ContentReveal immersive={immersive} scrollContainerRef={scrollContainerRef}>
       <div className="relative z-10 flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-6 pb-32 md:pb-8 w-full max-w-none">
 
-        {/* Date header — 日付 / 時計+EXロゴ(右) */}
+        {/* Date header — 日付 / 時計+EXロゴ(右)（没入時は PinnedHero が担当） */}
+        {!immersive && (
         <motion.div {...sectionAnim(0)} className="flex items-center gap-3 text-slate-900">
           <div className="flex-1 flex items-end gap-2 min-w-0">
             <div className="text-6xl sm:text-7xl md:text-8xl font-black leading-none tracking-tighter tabular-nums">
@@ -266,6 +427,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             <div className="hidden md:block"><EXBadge size={104} /></div>
           </div>
         </motion.div>
+        )}
 
         {/* Stats — 今月 / 本日稼働 / 次イベント を横並び */}
         <motion.div {...sectionAnim(1)} className="grid grid-cols-3 gap-2">
@@ -445,6 +607,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         </div>
         </motion.div>
       </div>
+      </ContentReveal>
 
       {/* Event Picker Bottom Sheet — portal to escape carousel transform */}
       {createPortal(
