@@ -94,11 +94,10 @@ function daysUntil(start: string, today: string): number {
   return Math.ceil((new Date(start + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000);
 }
 
-function EventCard({ ev, prog, today, onSelect }: {
+function EventCard({ ev, prog, today }: {
   ev: Event;
   prog?: { total: number; done: number };
   today: string;
-  onSelect: (e: Event) => void;
 }) {
   const past = effectivePast(ev, today);
   const st = statusPill(ev.status, past);
@@ -107,10 +106,9 @@ function EventCard({ ev, prog, today, onSelect }: {
   const regionColor = rs(ev.region || '').dot;
 
   return (
-    <motion.button
-      onClick={() => onSelect(ev)}
+    <motion.div
       whileHover={{ y: -2, boxShadow: '0 8px 24px rgba(8,47,73,0.10)' }}
-      className="w-full text-left rounded-2xl transition-all group overflow-hidden shadow-sm hover:shadow-md"
+      className="w-full text-left rounded-2xl transition-all group overflow-hidden shadow-sm hover:shadow-md cursor-pointer"
       style={{
         background: 'rgba(255,255,255,0.82)',
         border: '1px solid rgba(103,232,249,0.28)',
@@ -153,7 +151,7 @@ function EventCard({ ev, prog, today, onSelect }: {
           </div>
         </div>
       </div>
-    </motion.button>
+    </motion.div>
   );
 }
 
@@ -350,8 +348,8 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             ? <SectionEmpty label="本日のイベントはありません" />
             : <div className="flex flex-col gap-2">
                 {todayEvents.map(ev => (
-                  <SwipeActionCard key={ev.id} onAction={() => onSelectPrepEvent(ev)}>
-                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} onSelect={onSelectEvent} />
+                  <SwipeActionCard key={ev.id} onAction={() => onSelectPrepEvent(ev)} onTap={() => onSelectEvent(ev)}>
+                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
                   </SwipeActionCard>
                 ))}
               </div>
@@ -368,8 +366,8 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             ? <SectionEmpty label="来週のイベントはありません" />
             : <div className="flex flex-col gap-2">
                 {upcomingWeek.map(ev => (
-                  <SwipeActionCard key={ev.id} onAction={() => onSelectPrepEvent(ev)}>
-                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} onSelect={onSelectEvent} />
+                  <SwipeActionCard key={ev.id} onAction={() => onSelectPrepEvent(ev)} onTap={() => onSelectEvent(ev)}>
+                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
                   </SwipeActionCard>
                 ))}
               </div>
