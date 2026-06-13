@@ -6,7 +6,7 @@ import { SPRING_GENTLE } from '../../lib/motionTokens';
 const PEEK_DONE_KEY   = 'ivent:swipe-peek-done';
 const DRAG_THRESHOLD  = -64;          // px — スワイプでアクション発火する閾値
 const VEL_THRESHOLD   = -400;         // px/s — フリック速度閾値
-const CLICK_SUPPRESS  = 4;            // px — これ以上ドラッグしたらクリックを抑止
+const CLICK_SUPPRESS  = 12;           // px — 左方向にこれ以上ドラッグしたらクリックを抑止
 
 interface Props {
   children: React.ReactNode;
@@ -59,7 +59,7 @@ export default function SwipeActionCard({ children, onAction, actionLabel = '準
         dragElastic={0.04}
         onPointerDown={() => { suppressClick.current = false; }}
         onDrag={(_, info) => {
-          if (Math.abs(info.offset.x) > CLICK_SUPPRESS) suppressClick.current = true;
+          if (info.offset.x < -CLICK_SUPPRESS) suppressClick.current = true;
         }}
         onDragEnd={(_, info) => {
           const fired =

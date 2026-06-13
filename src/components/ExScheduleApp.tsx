@@ -1148,7 +1148,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                           <div
                             key={day}
                             data-today={isToday ? 'true' : undefined}
-                            className={`border border-border rounded p-1 min-h-[60px] md:min-h-[110px] transition-all relative flex flex-col bg-white ${
+                            className={`border border-border rounded p-1 ${readOnly ? 'min-h-[44px]' : 'min-h-[60px]'} md:min-h-[110px] transition-all relative flex flex-col bg-white ${
                               isSun ? 'bg-red-50' : isSat ? 'bg-blue-50' : ''
                             } ${isToday ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-white' : ''}`}
                           >
@@ -1160,22 +1160,10 @@ function App({ currentUser }: { currentUser: User | null }) {
                             </span>
 
                             {readOnly ? (
-                              /* 閲覧専用表示（スマホ非編集者）。テキストは折り返してセルが縦に伸びるので潰れない */
-                              <>
-                                <div className={`w-full px-0.5 py-0.5 rounded text-[10px] font-bold text-center leading-tight ${TYPE_CLASS[type]}`}>
-                                  {TYPE_LABEL[type].split('(')[0]}
-                                </div>
-                                {detail && (
-                                  <div className="text-[10px] font-bold text-slate-800 break-words leading-tight mt-0.5">
-                                    {detail}
-                                  </div>
-                                )}
-                                {memo && (
-                                  <div className="text-[10px] text-slate-600 whitespace-pre-wrap break-words leading-tight mt-0.5 border-t border-slate-200/70 pt-0.5">
-                                    {memo}
-                                  </div>
-                                )}
-                              </>
+                              /* 閲覧専用（スマホ非編集者）: バッジのみ表示。詳細・メモはセルに出さない */
+                              <div className={`w-full px-0.5 py-0.5 rounded text-[9px] font-bold text-center leading-tight truncate ${TYPE_CLASS[type]}`}>
+                                {TYPE_LABEL[type].split('(')[0]}
+                              </div>
                             ) : (
                               <>
                                 <div className="flex flex-col gap-0.5 mb-0.5">
