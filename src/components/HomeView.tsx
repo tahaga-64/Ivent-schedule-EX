@@ -48,12 +48,12 @@ function statusPill(
   isPast: boolean,
 ): { label: string; cls: string } | null {
   if (isPast || status === 'completed')
-    return { label: '完了', cls: 'bg-slate-100 border border-slate-200 text-slate-600' };
+    return { label: '完了', cls: 'bg-white/10 border border-white/15 text-white/40' };
   switch (status) {
-    case 'in_progress': return { label: '準備中',   cls: 'bg-amber-50 border border-amber-200 text-amber-800' };
-    case 'waiting':     return { label: '入荷待ち', cls: 'bg-blue-50 border border-blue-200 text-blue-800' };
-    case 'ready':       return { label: '準備完了', cls: 'bg-emerald-50 border border-emerald-200 text-emerald-800' };
-    case 'cancelled':   return { label: 'キャンセル', cls: 'bg-red-50 border border-red-200 text-red-800' };
+    case 'in_progress': return { label: '準備中',   cls: 'bg-amber-500/20 border border-amber-400/30 text-amber-300' };
+    case 'waiting':     return { label: '入荷待ち', cls: 'bg-sky-500/20 border border-sky-400/30 text-sky-300' };
+    case 'ready':       return { label: '準備完了', cls: 'bg-emerald-500/20 border border-emerald-400/30 text-emerald-300' };
+    case 'cancelled':   return { label: 'キャンセル', cls: 'bg-red-500/20 border border-red-400/30 text-red-300' };
     default:            return null;
   }
 }
@@ -126,45 +126,47 @@ function EventCard({
 
   return (
     <motion.div
-      whileHover={{ y: -3, boxShadow: '0 10px 28px rgba(8,47,73,0.14)' }}
+      whileHover={{ y: -2, boxShadow: '0 16px 40px rgba(0,0,0,0.5)' }}
       className="w-full text-left rounded-2xl overflow-hidden cursor-pointer group"
       style={{
-        background: 'rgba(255,255,255,0.88)',
-        border: '1px solid rgba(103,232,249,0.28)',
-        boxShadow: '0 1px 0 rgba(103,232,249,0.3) inset, 0 1px 3px rgba(8,47,73,0.06)',
+        background: 'rgba(0,12,28,0.52)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        backdropFilter: 'blur(18px)',
+        WebkitBackdropFilter: 'blur(18px)',
+        boxShadow: '0 1px 0 rgba(255,255,255,0.06) inset',
       }}
     >
       <div className="flex items-stretch">
-        <div className="w-1 shrink-0" style={{ background: regionColor }} />
+        <div className="w-[3px] shrink-0" style={{ background: regionColor }} />
         <div className="flex-1 min-w-0 p-4">
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                <span className="text-base font-bold text-slate-900 truncate">{ev.venue}</span>
+                <span className="text-sm font-black text-white truncate">{ev.venue}</span>
                 {st && (
                   <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${st.cls}`}>
                     {st.label}
                   </span>
                 )}
                 {!past && days === 0 && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500 text-white">今日</span>
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/90 text-white">今日</span>
                 )}
                 {!past && days === 1 && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-400 text-white">明日</span>
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-400/80 text-white">明日</span>
                 )}
                 {!past && days > 1 && days <= 3 && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">{days}日後</span>
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/80 text-white">{days}日後</span>
                 )}
               </div>
-              <div className="text-xs font-medium text-slate-500 mb-0.5">
+              <div className="text-xs font-medium text-white/40 mb-0.5">
                 {fmtRange(ev.start, ev.end || ev.start)}
               </div>
               {ev.type && (
-                <div className="text-xs font-medium text-slate-400">{ev.type}</div>
+                <div className="text-xs font-medium text-white/25">{ev.type}</div>
               )}
               {pct >= 0 && (
                 <div className="flex items-center gap-2 mt-2.5">
-                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
                     <motion.div
                       className={`h-full rounded-full ${
                         pct === 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-indigo-400' : 'bg-amber-400'
@@ -174,15 +176,15 @@ function EventCard({
                       transition={{ duration: 0.7, ease: EASE_OUT, delay: 0.15 }}
                     />
                   </div>
-                  <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                  <span className="text-[10px] text-white/30 font-medium shrink-0">
                     {prog!.done}/{prog!.total}
                   </span>
                 </div>
               )}
             </div>
             <ChevronRight
-              size={16}
-              className="text-slate-300 group-hover:text-slate-500 shrink-0 mt-0.5 transition-colors"
+              size={14}
+              className="text-white/20 group-hover:text-white/45 shrink-0 mt-0.5 transition-colors"
             />
           </div>
         </div>
@@ -195,14 +197,14 @@ function EventCard({
 
 function SectionLabel({ text, count }: { text: string; count?: number }) {
   return (
-    <div className="flex items-center gap-2 mb-4">
-      <div className="w-0.5 h-5 rounded-full bg-cyan-400/70 shrink-0" />
-      <div className="text-xs font-bold text-white/80 uppercase tracking-widest">{text}</div>
+    <div className="flex items-center gap-3 mb-4">
+      <div className="text-[10px] font-bold text-white/35 uppercase tracking-[0.3em] shrink-0">{text}</div>
       {count !== undefined && count > 0 && (
-        <span className="w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center text-[10px] font-bold text-white">
+        <span className="w-4 h-4 rounded-full bg-rose-500 flex items-center justify-center text-[9px] font-black text-white shrink-0">
           {count}
         </span>
       )}
+      <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
     </div>
   );
 }
@@ -213,11 +215,11 @@ function SectionEmpty({ label, sub }: { label: string; sub?: string }) {
   return (
     <div
       className="rounded-2xl py-7 px-4 text-center select-none"
-      style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(103,232,249,0.2)' }}
+      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
     >
       <div className="text-2xl mb-2" aria-hidden="true">🐟</div>
-      <div className="text-sm font-medium text-slate-400">{label}</div>
-      {sub && <div className="text-xs text-slate-300 mt-0.5">{sub}</div>}
+      <div className="text-sm font-medium text-white/35">{label}</div>
+      {sub && <div className="text-xs text-white/20 mt-0.5">{sub}</div>}
     </div>
   );
 }
@@ -399,71 +401,104 @@ export default function HomeView({
       <div className="relative" style={{ zIndex: 1 }}>
 
         {/* ════════════════════════════════════════════════════════════════════
-            SECTION 1 — EXロゴ + ライブ時計
+            SECTION 1 — EXロゴ + ライブ時計（Editorial hero）
         ════════════════════════════════════════════════════════════════════ */}
-        <section className="min-h-[90svh] flex flex-col items-center justify-center gap-6 pt-8 pb-12 px-4 relative">
+        <section className="min-h-[90svh] flex flex-col justify-between pt-8 pb-10 px-4 md:px-8 lg:px-12 relative">
+
+          {/* Top kicker */}
           <motion.div
-            initial={{ scale: 0.7, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1] }}
+            className="flex items-center justify-between"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.05 }}
           >
-            <EXBadge size={88} />
+            <span className="text-[9px] font-bold text-white/25 uppercase tracking-[0.4em]">
+              Mercury Group — EX事業部
+            </span>
+            <span className="text-[9px] font-bold text-white/20 uppercase tracking-[0.25em] tabular-nums">
+              {new Date().getFullYear()}.{String(new Date().getMonth()+1).padStart(2,'0')}.{String(new Date().getDate()).padStart(2,'0')}
+            </span>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.15, ease: EASE_OUT }}
-          >
-            <LiveClock />
-          </motion.div>
+          {/* Center: clock */}
+          <div className="flex flex-col items-center gap-5 py-8">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <LiveClock />
+            </motion.div>
 
-          <motion.div
-            className="text-center space-y-0.5"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.28, ease: EASE_OUT }}
-          >
-            <div className="text-base font-bold text-white/80">{dateStr}</div>
+            {/* thin divider */}
+            <motion.div
+              className="w-12 h-px"
+              style={{ background: 'rgba(255,255,255,0.15)' }}
+              initial={{ scaleX: 0, opacity: 0 }}
+              animate={{ scaleX: 1, opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.38 }}
+            />
+
+            <motion.div
+              className="text-center"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3, ease: EASE_OUT }}
+            >
+              <div className="text-sm font-bold text-white/55 tracking-wide">{dateStr}</div>
+            </motion.div>
 
             {/* 次イベントの callout */}
             {nextEvent && daysToNext !== null && daysToNext <= 7 && (
-              <button
+              <motion.button
                 onClick={() => onSelectEvent(nextEvent)}
-                className="mt-3 flex items-center gap-1.5 group mx-auto"
+                className="flex items-center gap-2 group mt-1"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.48 }}
               >
                 <span
                   className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                     daysToNext === 0 ? 'bg-rose-400 animate-pulse' : 'bg-amber-300'
                   }`}
                 />
-                <span className="text-xs font-medium text-white/60 group-hover:text-white transition-colors">
+                <span className="text-xs font-medium text-white/50 group-hover:text-white/80 transition-colors">
                   {nextEvent.venue}
                   <span className={`ml-1.5 font-bold ${daysToNext === 0 ? 'text-rose-300' : 'text-amber-300'}`}>
                     {daysToNext === 0 ? '今日開催' : `あと${daysToNext}日`}
                   </span>
                 </span>
-                <ChevronRight size={12} className="text-slate-300 group-hover:text-slate-400 shrink-0" />
-              </button>
+                <ChevronRight size={12} className="text-white/25 group-hover:text-white/50 shrink-0 transition-colors" />
+              </motion.button>
             )}
-          </motion.div>
+          </div>
 
-          {/* スクロールヒント */}
-          <motion.div
-            className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.9, duration: 0.5 }}
-          >
+          {/* Bottom: EX badge + scroll hint */}
+          <div className="flex items-end justify-between">
             <motion.div
-              animate={{ y: [0, 7, 0] }}
-              transition={{ repeat: Infinity, duration: 1.9, ease: 'easeInOut' }}
               className="flex flex-col items-center gap-1"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.9, duration: 0.5 }}
             >
-              <span className="text-[10px] font-medium text-white/30 uppercase tracking-widest">scroll</span>
-              <ChevronDown size={14} className="text-white/25" />
+              <motion.div
+                animate={{ y: [0, 6, 0] }}
+                transition={{ repeat: Infinity, duration: 2.0, ease: 'easeInOut' }}
+                className="flex flex-col items-center gap-1"
+              >
+                <span className="text-[9px] font-medium text-white/25 uppercase tracking-widest">scroll</span>
+                <ChevronDown size={13} className="text-white/20" />
+              </motion.div>
             </motion.div>
-          </motion.div>
+
+            <motion.div
+              initial={{ scale: 0.7, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.12, ease: [0.34, 1.56, 0.64, 1] }}
+            >
+              <EXBadge size={64} />
+            </motion.div>
+          </div>
         </section>
 
         {/* ════════════════════════════════════════════════════════════════════
