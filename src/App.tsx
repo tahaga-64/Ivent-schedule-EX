@@ -30,7 +30,9 @@ import LoadingBar from './components/LoadingBar';
 import LoadingSplash from './components/LoadingSplash';
 import ViewLoadingFallback from './components/ViewLoadingFallback';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from './contexts/UnsavedChangesContext';
+import { initSmoothScroll } from './lib/smoothScroll';
 
+const GlBackground = lazy(() => import('./components/webgl/GlBackground'));
 const HomeView = lazy(() => import('./components/HomeView'));
 const MasterItemsView = lazy(() => import('./components/MasterItemsView'));
 const FishListView = lazy(() => import('./components/FishListView'));
@@ -193,6 +195,16 @@ export default function App() {
   const [hoveredEvent, setHoveredEvent] = useState<Event | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollContentRef   = useRef<HTMLDivElement>(null);
+
+  // Lenis smooth scroll — 1回だけ初期化（スクロールコンテナは安定した div）
+  useEffect(() => {
+    const wrapper  = scrollContainerRef.current;
+    const content  = scrollContentRef.current;
+    if (!wrapper || !content) return;
+    return initSmoothScroll(wrapper, content);
+  }, []);
   const [sidebarTypes, setSidebarTypes] = useState<{label: string, icon: string}[]>(() => 
     safeGetItem('sidebarTypes', [
       { label: "職業体験", icon: "🎓" },
@@ -1021,8 +1033,12 @@ VITE_FIREBASE_DATABASE_ID`}
 
   return (
     <div className="relative isolate flex flex-col h-dvh min-h-dvh overflow-hidden">
+      {/* WebGL fluid background — CSS gradient as fallback while canvas loads */}
       <div className="absolute inset-0 -z-10 print:hidden"
-        style={{ background: 'linear-gradient(160deg, #0f172a 0%, #1e1b4b 50%, #0c1a35 100%)' }} />
+        style={{ background: 'linear-gradient(160deg, #010309 0%, #0a0a30 50%, #020a15 100%)' }} />
+      <Suspense fallback={null}>
+        <GlBackground />
+      </Suspense>
 
       {/* ページ切替ローディングバー */}
       <LoadingBar visible={viewLoading} />
@@ -1086,23 +1102,30 @@ VITE_FIREBASE_DATABASE_ID`}
             onDismissError={() => setSaveError(null)}
           />
 
-          <div className="flex-1 relative overflow-hidden">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={view + regionFilter + typeFilter + monthFilter + (prepEvent?.id ?? '')}
-                className={`absolute inset-0 overflow-y-auto w-full max-w-none overscroll-contain ${
-                  isMobile ? 'p-3 sm:p-4 pb-[calc(3.75rem+env(safe-area-inset-bottom))]' : 'p-4 md:p-6 lg:p-8 pb-20 md:pb-8'
-                }`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15, ease: 'easeInOut' }}
-              >
-                <Suspense fallback={<ViewLoadingFallback />}>
-                  {renderView(view)}
-                </Suspense>
-              </motion.div>
-            </AnimatePresence>
+          <div
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto overscroll-contain"
+          >
+            <div
+              ref={scrollContentRef}
+              className={`min-h-full ${
+                isMobile ? 'p-3 sm:p-4 pb-[calc(3.75rem+env(safe-area-inset-bottom))]' : 'p-4 md:p-6 lg:p-8 pb-20 md:pb-8'
+              }`}
+            >
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={view + regionFilter + typeFilter + monthFilter + (prepEvent?.id ?? '')}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15, ease: 'easeInOut' }}
+                >
+                  <Suspense fallback={<ViewLoadingFallback />}>
+                    {renderView(view)}
+                  </Suspense>
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
         </main>
       </div>

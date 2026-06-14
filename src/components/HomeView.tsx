@@ -6,6 +6,9 @@ import type { Event } from '../types';
 import { rs, ts, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
 import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule';
 import EXBadge from './EXBadge';
+import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
+gsap.registerPlugin(ScrollTrigger);
 
 interface Props {
   events: Event[];
@@ -222,8 +225,60 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
     return { thisMonthCount: thisMonth.length, daysToNext, nextVenue: nextEvent?.venue ?? null };
   }, [events, today]);
 
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const ctx = gsap.context(() => {
+      // Section header clip-path reveal
+      gsap.utils.toArray<HTMLElement>('.home-section-header', root).forEach(el => {
+        gsap.from(el, {
+          clipPath: 'inset(0 100% 0 0)',
+          opacity: 0,
+          duration: 0.7,
+          ease: 'power3.out',
+          scrollTrigger: {
+            trigger: el,
+            start: 'top 90%',
+            toggleActions: 'play none none none',
+          },
+        });
+      });
+
+      // Stats grid entrance
+      gsap.from('.home-stats-grid', {
+        y: 20,
+        opacity: 0,
+        duration: 0.6,
+        ease: 'power3.out',
+        delay: 0.1,
+      });
+
+      // EventCard staggered entrance per section
+      gsap.utils.toArray<HTMLElement>('.home-card-list', root).forEach(list => {
+        const cards = list.querySelectorAll<HTMLElement>('.home-event-card');
+        if (!cards.length) return;
+        gsap.from(cards, {
+          y: 28,
+          opacity: 0,
+          duration: 0.55,
+          ease: 'power3.out',
+          stagger: 0.07,
+          scrollTrigger: {
+            trigger: list,
+            start: 'top 88%',
+            toggleActions: 'play none none none',
+          },
+        });
+      });
+    }, root);
+
+    return () => ctx.revert();
+  }, [todayEvents.length, upcomingWeek.length]);
+
   return (
-    <div className="relative min-h-screen">
+    <div ref={rootRef} className="relative min-h-screen">
       <div className="relative z-10 flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-6 pb-32 md:pb-8 w-full max-w-none">
 
         {/* Date header — 日付 / EXロゴ / 時計 */}
@@ -248,7 +303,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         </div>
 
         {/* Stats — 今月 / 本日稼働 / 次イベント を横並び */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="home-stats-grid grid grid-cols-3 gap-2">
           <button
             onClick={onNavigateCalendar}
             className="bg-white/10 rounded-2xl p-3 border border-white/15 flex flex-col text-left hover:bg-white/15 transition-colors"
@@ -321,7 +376,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         <div className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
         {/* 本日のイベント */}
         <div>
-          <div className="flex items-center gap-2 mb-3">
+          <div className="home-section-header flex items-center gap-2 mb-3">
             <div className="w-0.5 h-4 bg-white/40 rounded-full shrink-0" />
             <div className="text-[11px] font-black text-white/70 uppercase tracking-widest">本日のイベント</div>
             {todayEvents.length > 0 && (
@@ -330,9 +385,11 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
           </div>
           {todayEvents.length === 0
             ? <SectionEmpty label="本日のイベントはありません" />
-            : <div className="flex flex-col gap-2">
+            : <div className="home-card-list flex flex-col gap-2">
                 {todayEvents.map(ev => (
-                  <EventCard key={ev.id} ev={ev} prog={prepProgressMap[ev.id]} today={today} onSelect={onSelectEvent} />
+                  <div key={ev.id} className="home-event-card">
+                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} onSelect={onSelectEvent} />
+                  </div>
                 ))}
               </div>
           }
@@ -340,15 +397,17 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
         {/* 来週のイベント */}
         <div className="mt-5 md:mt-0">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="home-section-header flex items-center gap-2 mb-3">
             <div className="w-0.5 h-4 bg-white/40 rounded-full shrink-0" />
             <div className="text-[11px] font-black text-white/70 uppercase tracking-widest">来週のイベント</div>
           </div>
           {upcomingWeek.length === 0
             ? <SectionEmpty label="来週のイベントはありません" />
-            : <div className="flex flex-col gap-2">
+            : <div className="home-card-list flex flex-col gap-2">
                 {upcomingWeek.map(ev => (
-                  <EventCard key={ev.id} ev={ev} prog={prepProgressMap[ev.id]} today={today} onSelect={onSelectEvent} />
+                  <div key={ev.id} className="home-event-card">
+                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} onSelect={onSelectEvent} />
+                  </div>
                 ))}
               </div>
           }
