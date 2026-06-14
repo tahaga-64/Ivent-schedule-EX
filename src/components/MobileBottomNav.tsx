@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid, Images, Archive, MoreHorizontal, X, CalendarDays, Boxes } from 'lucide-react';
+import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid, Images, Archive, MoreHorizontal, X, CalendarDays, Boxes, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { burstAt } from '../lib/fx';
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container" | "experience";
 
 interface MobileBottomNavProps {
   view: ViewMode;
@@ -26,6 +26,7 @@ const MORE_ITEMS: { id: ViewMode; icon: React.ReactNode; label: string; sub: str
   { id: "container", icon: <Boxes size={20} />,    label: "コンテナボックス", sub: "備品の計算・確認" },
   { id: "album",   icon: <Images size={20} />,     label: "アルバム",     sub: "イベント写真" },
   { id: "archive", icon: <Archive size={20} />,    label: "アーカイブ",   sub: "終了したイベント" },
+  { id: "experience", icon: <Sparkles size={20} />, label: "体験",        sub: "没入型シネマティック" },
 ];
 
 const MORE_VIEW_IDS = new Set<ViewMode>(MORE_ITEMS.map(i => i.id));

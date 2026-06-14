@@ -1,5 +1,5 @@
 import { User } from 'firebase/auth';
-import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Images, Plus, HelpCircle, CalendarDays, Boxes } from 'lucide-react';
+import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Images, Plus, HelpCircle, CalendarDays, Boxes, Sparkles } from 'lucide-react';
 import PushNotificationButton from './PushNotificationButton';
 import AppSearch from './AppSearch';
 import { Event } from '../types';
@@ -34,6 +34,7 @@ const desktopNavItems: { id: ViewMode; icon: React.ReactNode; label: string }[] 
   { id: 'layout', icon: <LayoutGrid size={14} />, label: 'レイアウト' },
   { id: 'album', icon: <Images size={14} />, label: 'アルバム' },
   { id: 'container', icon: <Boxes size={14} />, label: 'コンテナボックス' },
+  { id: 'experience', icon: <Sparkles size={14} />, label: '体験' },
 ];
 
 export default function AppHeader({
@@ -61,7 +62,8 @@ export default function AppHeader({
     view === 'layout' ? 'レイアウト' :
     view === 'album' ? 'アルバム' :
     view === 'schedule' ? 'スケジュール' :
-    view === 'container' ? 'コンテナボックス' : '';
+    view === 'container' ? 'コンテナボックス' :
+    view === 'experience' ? '体験' : '';
 
   return (
     <header
