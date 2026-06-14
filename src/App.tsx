@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef, Suspense, type MouseEvent as ReactMouseEvent } from 'react';
 import { lazyWithRetry } from './lib/lazyWithRetry';
+import { fxLevel } from './lib/deviceTier';
 import { db, auth, ensureAnonymousAuth, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
@@ -60,6 +61,7 @@ const MobileWeekStrip = lazyWithRetry(() => import('./components/CalendarCompone
 const MobileDayAgendaView = lazyWithRetry(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileDayAgendaView })));
 const EventDetailModal = lazyWithRetry(() => import('./components/EventDetailModal'));
 const ExperienceView = lazyWithRetry(() => import('./components/ExperienceView'));
+const GlBackground = lazyWithRetry(() => import('./components/webgl/GlBackground'));
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container" | "experience";
 type ModalTab = "detail" | "photos" | "financial";
@@ -1140,7 +1142,13 @@ VITE_FIREBASE_DATABASE_ID`}
   }
 
   return (
-    <div className="relative isolate flex flex-col h-dvh min-h-dvh overflow-hidden bg-[var(--bg-app)]">
+    <>
+    {fxLevel() !== 'off' && (
+      <Suspense fallback={null}>
+        <GlBackground />
+      </Suspense>
+    )}
+    <div className="relative isolate flex flex-col h-dvh min-h-dvh overflow-hidden">
 
       {/* Header */}
       <AppHeader
@@ -1365,5 +1373,6 @@ VITE_FIREBASE_DATABASE_ID`}
       {/* Global bubble burst FX portal */}
       <BubbleBurstPortal />
     </div>
+    </>
   );
 }

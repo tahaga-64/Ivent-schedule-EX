@@ -62,13 +62,14 @@
 
   html {
     overflow-x: clip;
-    background: var(--bg-app);
+    background: #041122;
     width: 100%;
     height: 100%;
   }
 
   body, #root {
-    @apply bg-[var(--bg-app)] text-[var(--text-primary)] antialiased transition-colors duration-300 overflow-x-hidden w-full min-h-full;
+    @apply text-[var(--text-primary)] antialiased transition-colors duration-300 overflow-x-hidden w-full min-h-full;
+    background: transparent;
     -webkit-tap-highlight-color: transparent;
   }
 

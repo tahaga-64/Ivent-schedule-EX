@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -136,39 +136,21 @@ function FluidPlane() {
 
 // ─── Canvas wrapper ─────────────────────────────────────────────────────────
 
-interface Props {
-  containerRef?: React.RefObject<HTMLDivElement | null>;
-}
-
-export default function GlBackground({ containerRef }: Props) {
-  const [vh, setVh] = useState(0);
-
-  useEffect(() => {
-    const el = containerRef?.current;
-    if (!el) return;
-    const update = () => setVh(el.clientHeight);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [containerRef]);
-
+export default function GlBackground() {
   return (
     <div
       aria-hidden
-      className="sticky top-0 pointer-events-none select-none print:hidden"
-      style={{ height: 0, zIndex: 0 }}
+      className="fixed inset-0 pointer-events-none select-none print:hidden"
+      style={{ zIndex: -1 }}
     >
-      <div style={{ height: vh || '100dvh', position: 'relative' }}>
-        <Canvas
-          dpr={[1, 1.5]}
-          camera={{ position: [0, 0, 1], fov: 75, near: 0.1, far: 10 }}
-          gl={{ antialias: false, alpha: false, powerPreference: 'low-power' }}
-          style={{ width: '100%', height: '100%' }}
-        >
-          <FluidPlane />
-        </Canvas>
-      </div>
+      <Canvas
+        dpr={[1, 1.5]}
+        camera={{ position: [0, 0, 1], fov: 75, near: 0.1, far: 10 }}
+        gl={{ antialias: false, alpha: false, powerPreference: 'low-power' }}
+        style={{ width: '100%', height: '100%' }}
+      >
+        <FluidPlane />
+      </Canvas>
     </div>
   );
 }

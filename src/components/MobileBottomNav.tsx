@@ -60,7 +60,7 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
   return (
     <>
       <nav
-        className="fixed bottom-0 left-0 right-0 border-t border-white/10 bg-[rgba(4,17,34,0.88)] backdrop-blur-xl z-20 md:hidden"
+        className="fixed bottom-0 left-0 right-0 border-t border-white/10 bg-black/25 backdrop-blur-xl z-20 md:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex items-stretch justify-around px-1">

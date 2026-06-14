@@ -20,7 +20,6 @@ import ScrollTrigger from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
 
-const GlBackground   = lazy(() => import('./webgl/GlBackground'));
 const HomeFishScene  = lazy(() => import('./webgl/HomeFishScene'));
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -254,8 +253,8 @@ export default function HomeView({
     () => new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }),
     [],
   );
-  const fxLevel  = useFxLevel();
-  const showBg   = fxLevel !== 'off' && !!scrollContainerRef;
+  const fx      = useFxLevel();
+  const showBg  = fx !== 'off';
 
   const rootRef            = useRef<HTMLDivElement>(null);
   const fishSectionRef     = useRef<HTMLDivElement>(null);
@@ -396,13 +395,6 @@ export default function HomeView({
 
   return (
     <div ref={rootRef}>
-
-      {/* WebGL 流体バックドロップ */}
-      {showBg && scrollContainerRef && (
-        <Suspense fallback={null}>
-          <GlBackground containerRef={scrollContainerRef} />
-        </Suspense>
-      )}
 
       <div className="relative" style={{ zIndex: 1 }}>
 
