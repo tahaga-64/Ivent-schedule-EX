@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, Suspense, lazy } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -14,8 +14,13 @@ import SwipeActionCard from './fx/SwipeActionCard';
 import RippleButton from './fx/RippleButton';
 import CountUp from './fx/CountUp';
 import Skeleton from './fx/Skeleton';
-import ScrollAquaBackdrop from './fx/ScrollAquaBackdrop';
 import { EASE_OUT } from '../lib/motionTokens';
+import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
+
+const GlBackground = lazy(() => import('./webgl/GlBackground'));
 
 interface Props {
   events: Event[];
@@ -201,12 +206,9 @@ function SectionEmpty({ label, sub }: { label: string; sub?: string }) {
 
 function SectionHeader({ label, count }: { label: string; count?: number }) {
   return (
-    <div className="flex items-center gap-2 mb-2.5">
-      <div
-        className="w-0.5 h-4 rounded-full shrink-0"
-        style={{ background: 'rgba(14,116,144,0.5)' }}
-      />
-      <div className="text-xs font-bold text-slate-600 uppercase tracking-wider">{label}</div>
+    <div className="hv-section-header flex items-center gap-2 mb-2.5">
+      <div className="w-0.5 h-4 rounded-full shrink-0 bg-white/40" />
+      <div className="text-xs font-bold text-white/80 uppercase tracking-wider">{label}</div>
       {count !== undefined && count > 0 && (
         <span className="w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center text-[10px] font-bold text-white">
           {count}
@@ -237,6 +239,7 @@ export default function HomeView({
   const today = new Date().toISOString().slice(0, 10);
   const fxLevel = useFxLevel();
   const showBg = fxLevel !== 'off' && !!scrollContainerRef;
+  const rootRef = useRef<HTMLDivElement>(null);
 
   // BottomSheet drag-to-close
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -283,6 +286,49 @@ export default function HomeView({
       .then(bd => setStaffBreakdown(bd))
       .finally(() => setStaffLoading(false));
   }, [today]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const scroller = scrollContainerRef?.current ?? undefined;
+
+    const ctx = gsap.context(() => {
+      gsap.utils.toArray<HTMLElement>('.hv-section-header', root).forEach(el => {
+        gsap.from(el, {
+          clipPath: 'inset(0 100% 0 0)',
+          opacity: 0,
+          duration: 0.65,
+          ease: 'power3.out',
+          scrollTrigger: {
+            trigger: el,
+            scroller,
+            start: 'top 90%',
+            toggleActions: 'play none none none',
+          },
+        });
+      });
+
+      gsap.utils.toArray<HTMLElement>('.hv-card-list', root).forEach(list => {
+        const cards = list.querySelectorAll<HTMLElement>('.hv-event-card');
+        if (!cards.length) return;
+        gsap.from(cards, {
+          y: 24,
+          opacity: 0,
+          duration: 0.5,
+          ease: 'power3.out',
+          stagger: 0.07,
+          scrollTrigger: {
+            trigger: list,
+            scroller,
+            start: 'top 88%',
+            toggleActions: 'play none none none',
+          },
+        });
+      });
+    }, root);
+
+    return () => ctx.revert();
+  }, [scrollContainerRef]);
 
   const in7 = addDays(today, 7);
 
@@ -348,27 +394,29 @@ export default function HomeView({
   const now = new Date();
 
   return (
-    <div>
-      {/* 海中バックドロップ（ambient、コンテンツを塞がない） */}
+    <div ref={rootRef}>
+      {/* WebGL 流体バックドロップ */}
       {showBg && scrollContainerRef && (
-        <ScrollAquaBackdrop containerRef={scrollContainerRef} />
+        <Suspense fallback={null}>
+          <GlBackground containerRef={scrollContainerRef} />
+        </Suspense>
       )}
 
-      <div className="relative z-10 flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-5 pb-28 md:pb-10 w-full max-w-none">
+      <div className="relative flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-5 pb-28 md:pb-10 w-full max-w-none" style={{ zIndex: 1 }}>
 
         {/* ① DateHero — コンパクト、常時表示 */}
         <motion.div {...sa(0)}>
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2.5">
-                <div className="text-5xl sm:text-6xl font-black text-slate-900 leading-none tracking-tight tabular-nums">
+                <div className="text-5xl sm:text-6xl font-black text-white leading-none tracking-tight tabular-nums drop-shadow-sm">
                   {now.getDate()}
                 </div>
                 <div className="pb-1 flex flex-col gap-0.5">
-                  <div className="text-base font-bold text-slate-700 leading-tight">
+                  <div className="text-base font-bold text-white/90 leading-tight">
                     {now.toLocaleDateString('ja-JP', { month: 'long' })}
                   </div>
-                  <div className="text-xs font-medium text-slate-400 leading-tight">
+                  <div className="text-xs font-medium text-white/60 leading-tight">
                     {now.toLocaleDateString('ja-JP', { weekday: 'long' })}&nbsp;&nbsp;{now.getFullYear()}
                   </div>
                 </div>
@@ -382,14 +430,14 @@ export default function HomeView({
                 >
                   <span
                     className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      stats.daysToNext === 0 ? 'bg-rose-500 animate-pulse' : 'bg-amber-400'
+                      stats.daysToNext === 0 ? 'bg-rose-400 animate-pulse' : 'bg-amber-300'
                     }`}
                   />
-                  <span className="text-xs font-medium text-slate-500 group-hover:text-slate-800 transition-colors leading-snug">
+                  <span className="text-xs font-medium text-white/70 group-hover:text-white transition-colors leading-snug">
                     {stats.nextVenue}
                     <span
                       className={`ml-1.5 font-bold ${
-                        stats.daysToNext === 0 ? 'text-rose-500' : 'text-amber-500'
+                        stats.daysToNext === 0 ? 'text-rose-300' : 'text-amber-300'
                       }`}
                     >
                       {stats.daysToNext === 0 ? '今日開催' : `あと${stats.daysToNext}日`}
@@ -416,15 +464,16 @@ export default function HomeView({
               sub="次のイベントに備えて準備を進めましょう"
             />
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="hv-card-list flex flex-col gap-2">
               {todayEvents.map(ev => (
-                <SwipeActionCard
-                  key={ev.id}
-                  onAction={() => onSelectPrepEvent(ev)}
-                  onTap={() => onSelectEvent(ev)}
-                >
-                  <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
-                </SwipeActionCard>
+                <div key={ev.id} className="hv-event-card">
+                  <SwipeActionCard
+                    onAction={() => onSelectPrepEvent(ev)}
+                    onTap={() => onSelectEvent(ev)}
+                  >
+                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
+                  </SwipeActionCard>
+                </div>
               ))}
             </div>
           )}
@@ -450,14 +499,14 @@ export default function HomeView({
           {/* 今月 */}
           <button
             onClick={onNavigateCalendar}
-            className="tank-card rounded-2xl p-3 flex flex-col text-left hover:brightness-[1.03] active:scale-[0.98] transition-all group"
+            className="bg-white/15 border border-white/20 backdrop-blur-sm rounded-2xl p-3 flex flex-col text-left hover:bg-white/20 active:scale-[0.98] transition-all group"
           >
-            <div className="text-[11px] font-bold text-slate-500 mb-1.5">今月</div>
+            <div className="text-[11px] font-bold text-white/60 mb-1.5">今月</div>
             <div className="flex items-baseline gap-1">
-              <CountUp value={stats.thisMonthCount} className="text-3xl font-black text-slate-900 leading-none" />
-              <span className="text-xs font-medium text-slate-500">件</span>
+              <CountUp value={stats.thisMonthCount} className="text-3xl font-black text-white leading-none" />
+              <span className="text-xs font-medium text-white/60">件</span>
             </div>
-            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[11px] font-bold text-cyan-600 group-hover:text-cyan-500 transition-colors">
+            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[11px] font-bold text-cyan-300 group-hover:text-cyan-200 transition-colors">
               カレンダー <ChevronRight size={11} />
             </span>
           </button>
@@ -465,22 +514,22 @@ export default function HomeView({
           {/* 本日稼働 */}
           <button
             onClick={() => setBreakdownOpen(v => !v)}
-            className="tank-card rounded-2xl p-3 flex flex-col text-left hover:brightness-[1.03] active:scale-[0.98] transition-all group"
+            className="bg-white/15 border border-white/20 backdrop-blur-sm rounded-2xl p-3 flex flex-col text-left hover:bg-white/20 active:scale-[0.98] transition-all group"
           >
-            <div className="text-[11px] font-bold text-slate-500 mb-1.5">本日稼働</div>
+            <div className="text-[11px] font-bold text-white/60 mb-1.5">本日稼働</div>
             <div className="flex items-baseline gap-1">
               {staffLoading ? (
                 <Skeleton className="h-8 w-10 mt-0.5" />
               ) : staffBreakdown !== null ? (
                 <>
-                  <CountUp value={staffBreakdown.total} className="text-3xl font-black text-slate-900 leading-none" />
-                  <span className="text-xs font-medium text-slate-500">人</span>
+                  <CountUp value={staffBreakdown.total} className="text-3xl font-black text-white leading-none" />
+                  <span className="text-xs font-medium text-white/60">人</span>
                 </>
               ) : (
-                <span className="text-3xl font-black text-slate-400">—</span>
+                <span className="text-3xl font-black text-white/40">—</span>
               )}
             </div>
-            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[11px] font-bold text-cyan-600 group-hover:text-cyan-500 transition-colors">
+            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[11px] font-bold text-cyan-300 group-hover:text-cyan-200 transition-colors">
               内訳
               <ChevronRight
                 size={11}
@@ -493,18 +542,18 @@ export default function HomeView({
           <button
             onClick={() => { if (stats.nextEvent) onSelectEvent(stats.nextEvent); }}
             disabled={!stats.nextEvent}
-            className="tank-card rounded-2xl p-3 flex flex-col text-left hover:brightness-[1.03] active:scale-[0.98] transition-all disabled:pointer-events-none group"
+            className="bg-white/15 border border-white/20 backdrop-blur-sm rounded-2xl p-3 flex flex-col text-left hover:bg-white/20 active:scale-[0.98] transition-all disabled:pointer-events-none group"
           >
-            <div className="text-[11px] font-bold text-slate-500 mb-1.5">次イベント</div>
+            <div className="text-[11px] font-bold text-white/60 mb-1.5">次イベント</div>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-black text-slate-900 leading-none tabular-nums">
+              <span className="text-3xl font-black text-white leading-none tabular-nums">
                 {stats.daysToNext === null ? '—' : stats.daysToNext === 0 ? '今日' : stats.daysToNext}
               </span>
               {stats.daysToNext !== null && stats.daysToNext > 0 && (
-                <span className="text-xs font-medium text-slate-500">日後</span>
+                <span className="text-xs font-medium text-white/60">日後</span>
               )}
             </div>
-            <span className="mt-auto pt-2 text-[11px] font-medium text-slate-400 truncate group-hover:text-slate-600 transition-colors">
+            <span className="mt-auto pt-2 text-[11px] font-medium text-white/50 truncate group-hover:text-white/70 transition-colors">
               {stats.nextVenue || '予定なし'}
             </span>
           </button>
@@ -521,7 +570,7 @@ export default function HomeView({
               transition={{ duration: 0.24, ease: EASE_OUT }}
               className="overflow-hidden"
             >
-              <div className="tank-card rounded-2xl p-3">
+              <div className="bg-white/15 border border-white/20 backdrop-blur-sm rounded-2xl p-3">
                 {staffLoading ? (
                   <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
                     {Array.from({ length: 6 }).map((_, i) => (
@@ -532,22 +581,22 @@ export default function HomeView({
                   <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
                     {(
                       [
-                        { label: '本社',    value: staffBreakdown.office,   bg: 'bg-blue-50 border-blue-200',    text: 'text-blue-800' },
-                        { label: 'イベント', value: staffBreakdown.event,    bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-800' },
-                        { label: '外出',    value: staffBreakdown.dispatch, bg: 'bg-amber-50 border-amber-200',  text: 'text-amber-800' },
-                        { label: '公休',    value: staffBreakdown.rest,     bg: 'bg-violet-50 border-violet-200', text: 'text-violet-800' },
-                        { label: '希望休',  value: staffBreakdown.request,  bg: 'bg-pink-50 border-pink-200',    text: 'text-pink-800' },
-                        { label: 'その他',  value: staffBreakdown.other,    bg: 'bg-slate-50 border-slate-200',  text: 'text-slate-700' },
+                        { label: '本社',    value: staffBreakdown.office,   bg: 'bg-blue-500/25 border-blue-400/40',    text: 'text-blue-100' },
+                        { label: 'イベント', value: staffBreakdown.event,    bg: 'bg-emerald-500/25 border-emerald-400/40', text: 'text-emerald-100' },
+                        { label: '外出',    value: staffBreakdown.dispatch, bg: 'bg-amber-500/25 border-amber-400/40',  text: 'text-amber-100' },
+                        { label: '公休',    value: staffBreakdown.rest,     bg: 'bg-violet-500/25 border-violet-400/40', text: 'text-violet-100' },
+                        { label: '希望休',  value: staffBreakdown.request,  bg: 'bg-pink-500/25 border-pink-400/40',    text: 'text-pink-100' },
+                        { label: 'その他',  value: staffBreakdown.other,    bg: 'bg-slate-500/25 border-slate-400/40',  text: 'text-slate-200' },
                       ] as const
                     ).map(({ label, value, bg, text }) => (
                       <div key={label} className={`text-center rounded-lg py-1.5 border ${bg}`}>
                         <CountUp value={value} className={`block font-black leading-none text-lg ${text}`} />
-                        <div className="text-[11px] text-slate-600 mt-0.5 font-medium">{label}</div>
+                        <div className="text-[11px] text-white/70 mt-0.5 font-medium">{label}</div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-xs text-slate-400 text-center py-3">
+                  <div className="text-xs text-white/40 text-center py-3">
                     データを取得できませんでした
                   </div>
                 )}
@@ -562,15 +611,16 @@ export default function HomeView({
           {upcomingWeek.length === 0 ? (
             <SectionEmpty label="直近7日のイベントはありません" />
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="hv-card-list flex flex-col gap-2">
               {upcomingWeek.map(ev => (
-                <SwipeActionCard
-                  key={ev.id}
-                  onAction={() => onSelectPrepEvent(ev)}
-                  onTap={() => onSelectEvent(ev)}
-                >
-                  <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
-                </SwipeActionCard>
+                <div key={ev.id} className="hv-event-card">
+                  <SwipeActionCard
+                    onAction={() => onSelectPrepEvent(ev)}
+                    onTap={() => onSelectEvent(ev)}
+                  >
+                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
+                  </SwipeActionCard>
+                </div>
               ))}
             </div>
           )}
@@ -580,7 +630,7 @@ export default function HomeView({
         <motion.div {...sa(5)} className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
 
           <div className="flex flex-col gap-2">
-            <div className="text-[11px] font-bold text-slate-500 mb-0.5">クイックアクション</div>
+            <div className="text-[11px] font-bold text-white/60 mb-0.5">クイックアクション</div>
 
             {/* Secondary */}
             <RippleButton
@@ -588,25 +638,25 @@ export default function HomeView({
                 if (canEditEvent) onCreateEvent();
                 else setShowPermissionToast(true);
               }}
-              className="flex items-center gap-3 tank-card text-slate-700 rounded-2xl px-5 py-3.5 font-bold text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
+              className="flex items-center gap-3 bg-white/15 border border-white/20 backdrop-blur-sm text-white rounded-2xl px-5 py-3.5 font-bold text-sm hover:bg-white/20 active:scale-[0.98] transition-all w-full"
             >
-              <Plus size={16} className="text-slate-400 shrink-0" />
+              <Plus size={16} className="text-white/60 shrink-0" />
               新規イベントを追加する
             </RippleButton>
 
             {/* Tertiary */}
             <RippleButton
               onClick={onOpenSchedule}
-              className="flex items-center gap-3 text-slate-500 rounded-xl px-5 py-3 font-medium text-sm hover:bg-white/60 active:scale-[0.98] transition-all w-full"
+              className="flex items-center gap-3 text-white/60 rounded-xl px-5 py-3 font-medium text-sm hover:bg-white/10 active:scale-[0.98] transition-all w-full"
             >
-              <CalendarDays size={15} className="text-slate-400 shrink-0" />
+              <CalendarDays size={15} className="text-white/40 shrink-0" />
               スケジュール確認
             </RippleButton>
           </div>
 
           {/* マーキュリーサービス */}
           <div className="mt-4 md:mt-0 flex flex-col gap-2">
-            <div className="text-[11px] font-bold text-slate-500 mb-0.5">マーキュリーサービス</div>
+            <div className="text-[11px] font-bold text-white/60 mb-0.5">マーキュリーサービス</div>
             {(
               [
                 { label: 'TranChat',            sub: '社内連絡ツール', href: 'https://tranchat1.mercury-group.co.jp/chat2_fed/public/index.html' },
@@ -619,13 +669,13 @@ export default function HomeView({
                 href={svc.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between tank-card text-slate-900 rounded-2xl px-5 py-3.5 hover:brightness-[1.03] active:scale-[0.98] transition-all"
+                className="flex items-center justify-between bg-white/15 border border-white/20 backdrop-blur-sm text-white rounded-2xl px-5 py-3.5 hover:bg-white/20 active:scale-[0.98] transition-all"
               >
                 <div className="min-w-0">
-                  <div className="font-bold text-sm text-slate-800 leading-tight">{svc.label}</div>
-                  <div className="text-xs font-medium text-slate-500 mt-0.5">{svc.sub}</div>
+                  <div className="font-bold text-sm text-white leading-tight">{svc.label}</div>
+                  <div className="text-xs font-medium text-white/60 mt-0.5">{svc.sub}</div>
                 </div>
-                <ExternalLink size={14} className="text-slate-400 shrink-0 ml-3" />
+                <ExternalLink size={14} className="text-white/40 shrink-0 ml-3" />
               </a>
             ))}
           </div>
