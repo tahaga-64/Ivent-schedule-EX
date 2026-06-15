@@ -5,6 +5,7 @@ import {
   ChevronRight, ExternalLink, X, ClipboardList, Plus,
   CalendarDays, ChevronDown,
 } from 'lucide-react';
+import Lenis from 'lenis';
 import type { Event } from '../types';
 import { rs, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
 import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule';
@@ -20,7 +21,7 @@ import ScrollTrigger from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
 
-const HomeFishScene  = lazy(() => import('./webgl/HomeFishScene'));
+const HomeFishScene = lazy(() => import('./webgl/HomeFishScene'));
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,38 @@ interface Props {
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
+// ─── Mercury "M" mark (SVG approximation) ────────────────────────────────────
+
+function MercuryMark({
+  size = 40,
+  color = 'currentColor',
+  className = '',
+}: {
+  size?: number;
+  color?: string;
+  className?: string;
+}) {
+  return (
+    <svg
+      width={size}
+      height={Math.round(size * 0.88)}
+      viewBox="0 0 124 110"
+      fill="none"
+      className={className}
+      aria-hidden
+    >
+      <path
+        d="M12 96 C12 96 10 34 12 26 C14 18 23 13 30 22 L56 68 L82 22 C89 13 98 18 100 28 C102 38 100 60 100 66 C100 74 104 80 112 72"
+        stroke={color}
+        strokeWidth="15"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="116" cy="14" r="13" fill={color} />
+    </svg>
+  );
+}
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function effectivePast(ev: Event, today: string): boolean {
@@ -48,12 +81,12 @@ function statusPill(
   isPast: boolean,
 ): { label: string; cls: string } | null {
   if (isPast || status === 'completed')
-    return { label: '完了', cls: 'bg-slate-100 border border-slate-200 text-slate-600' };
+    return { label: '完了', cls: 'bg-white/8 border border-white/10 text-white/35' };
   switch (status) {
-    case 'in_progress': return { label: '準備中',   cls: 'bg-amber-50 border border-amber-200 text-amber-800' };
-    case 'waiting':     return { label: '入荷待ち', cls: 'bg-blue-50 border border-blue-200 text-blue-800' };
-    case 'ready':       return { label: '準備完了', cls: 'bg-emerald-50 border border-emerald-200 text-emerald-800' };
-    case 'cancelled':   return { label: 'キャンセル', cls: 'bg-red-50 border border-red-200 text-red-800' };
+    case 'in_progress': return { label: '準備中',   cls: 'bg-amber-500/15 border border-amber-400/25 text-amber-300' };
+    case 'waiting':     return { label: '入荷待ち', cls: 'bg-sky-500/15 border border-sky-400/25 text-sky-300' };
+    case 'ready':       return { label: '準備完了', cls: 'bg-emerald-500/15 border border-emerald-400/25 text-emerald-300' };
+    case 'cancelled':   return { label: 'キャンセル', cls: 'bg-red-500/15 border border-red-400/25 text-red-300' };
     default:            return null;
   }
 }
@@ -80,7 +113,7 @@ function daysUntil(start: string, today: string): number {
   );
 }
 
-// ─── LiveClock ────────────────────────────────────────────────────────────────
+// ─── LiveClock (isolate renders to avoid parent re-render) ────────────────────
 
 function LiveClock() {
   const [now, setNow] = useState(() => new Date());
@@ -89,25 +122,24 @@ function LiveClock() {
     return () => clearInterval(id);
   }, []);
   const pad = (n: number) => n.toString().padStart(2, '0');
-  const hh = pad(now.getHours());
-  const mm = pad(now.getMinutes());
-  const ss = pad(now.getSeconds());
   return (
-    <div className="select-none text-center tabular-nums">
+    <div className="select-none tabular-nums">
       <div
-        className="text-[4.5rem] sm:text-[6rem] font-black text-white leading-none tracking-tighter"
-        style={{ textShadow: '0 0 40px rgba(34,200,216,0.55), 0 2px 12px rgba(0,0,0,0.5)' }}
+        className="text-4xl sm:text-5xl font-black text-white leading-none tracking-tighter"
+        style={{ textShadow: '0 0 30px rgba(59,130,246,0.5), 0 0 60px rgba(59,130,246,0.2)' }}
       >
-        {hh}<span className="text-white/35 animate-pulse">:</span>{mm}
+        {pad(now.getHours())}
+        <span className="text-white/25 animate-pulse">:</span>
+        {pad(now.getMinutes())}
       </div>
-      <div className="text-2xl sm:text-3xl font-bold text-white/30 mt-2 tracking-[0.35em]">
-        {ss}
+      <div className="text-base font-bold text-white/20 mt-1 tracking-[0.35em]">
+        {pad(now.getSeconds())}
       </div>
     </div>
   );
 }
 
-// ─── EventCard ────────────────────────────────────────────────────────────────
+// ─── EventCard — dark glass ───────────────────────────────────────────────────
 
 function EventCard({
   ev,
@@ -126,63 +158,65 @@ function EventCard({
 
   return (
     <motion.div
-      whileHover={{ y: -3, boxShadow: '0 10px 28px rgba(8,47,73,0.14)' }}
+      whileHover={{ y: -2, boxShadow: '0 20px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.1)' }}
       className="w-full text-left rounded-2xl overflow-hidden cursor-pointer group"
       style={{
-        background: 'rgba(255,255,255,0.88)',
-        border: '1px solid rgba(103,232,249,0.28)',
-        boxShadow: '0 1px 0 rgba(103,232,249,0.3) inset, 0 1px 3px rgba(8,47,73,0.06)',
+        background: 'rgba(0,0,0,0.52)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        boxShadow: '0 1px 0 rgba(255,255,255,0.05) inset',
       }}
     >
       <div className="flex items-stretch">
-        <div className="w-1 shrink-0" style={{ background: regionColor }} />
+        <div className="w-[3px] shrink-0" style={{ background: regionColor }} />
         <div className="flex-1 min-w-0 p-4">
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                <span className="text-base font-bold text-slate-900 truncate">{ev.venue}</span>
+                <span className="text-sm font-black text-white truncate">{ev.venue}</span>
                 {st && (
                   <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${st.cls}`}>
                     {st.label}
                   </span>
                 )}
                 {!past && days === 0 && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500 text-white">今日</span>
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white">今日</span>
                 )}
                 {!past && days === 1 && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-400 text-white">明日</span>
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-400/80 text-white">明日</span>
                 )}
                 {!past && days > 1 && days <= 3 && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">{days}日後</span>
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/80 text-white">{days}日後</span>
                 )}
               </div>
-              <div className="text-xs font-medium text-slate-500 mb-0.5">
+              <div className="text-xs font-medium text-white/35 mb-0.5">
                 {fmtRange(ev.start, ev.end || ev.start)}
               </div>
               {ev.type && (
-                <div className="text-xs font-medium text-slate-400">{ev.type}</div>
+                <div className="text-xs text-white/20">{ev.type}</div>
               )}
               {pct >= 0 && (
                 <div className="flex items-center gap-2 mt-2.5">
-                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="flex-1 h-[2px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
                     <motion.div
                       className={`h-full rounded-full ${
-                        pct === 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-indigo-400' : 'bg-amber-400'
+                        pct === 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-blue-400' : 'bg-amber-400'
                       }`}
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
-                      transition={{ duration: 0.7, ease: EASE_OUT, delay: 0.15 }}
+                      transition={{ duration: 0.8, ease: EASE_OUT, delay: 0.1 }}
                     />
                   </div>
-                  <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                  <span className="text-[10px] text-white/25 font-medium shrink-0">
                     {prog!.done}/{prog!.total}
                   </span>
                 </div>
               )}
             </div>
             <ChevronRight
-              size={16}
-              className="text-slate-300 group-hover:text-slate-500 shrink-0 mt-0.5 transition-colors"
+              size={14}
+              className="text-white/15 group-hover:text-white/40 shrink-0 mt-0.5 transition-colors"
             />
           </div>
         </div>
@@ -191,43 +225,46 @@ function EventCard({
   );
 }
 
-// ─── SectionLabel ─────────────────────────────────────────────────────────────
+// ─── SectionLabel — dark premium minimal ─────────────────────────────────────
 
-function SectionLabel({ text, count }: { text: string; count?: number }) {
+function SectionLabel({ text, count, sub }: { text: string; count?: number; sub?: string }) {
   return (
-    <div className="flex items-center gap-2 mb-4">
-      <div className="w-0.5 h-5 rounded-full bg-cyan-400/70 shrink-0" />
-      <div className="text-xs font-bold text-white/80 uppercase tracking-widest">{text}</div>
-      {count !== undefined && count > 0 && (
-        <span className="w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center text-[10px] font-bold text-white">
-          {count}
-        </span>
-      )}
+    <div className="mb-5">
+      <div className="flex items-center gap-3">
+        <div className="text-[9px] font-black text-white/25 uppercase tracking-[0.4em] shrink-0">{text}</div>
+        {count !== undefined && count > 0 && (
+          <span className="w-4 h-4 rounded-full bg-rose-500 flex items-center justify-center text-[9px] font-black text-white shrink-0">
+            {count}
+          </span>
+        )}
+        <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+      </div>
+      {sub && <div className="text-xs font-medium text-white/15 mt-1 ml-0">{sub}</div>}
     </div>
   );
 }
 
-// ─── SectionEmpty ─────────────────────────────────────────────────────────────
+// ─── SectionEmpty — dark glass ────────────────────────────────────────────────
 
 function SectionEmpty({ label, sub }: { label: string; sub?: string }) {
   return (
     <div
-      className="rounded-2xl py-7 px-4 text-center select-none"
-      style={{ background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(103,232,249,0.2)' }}
+      className="rounded-2xl py-8 px-4 text-center select-none"
+      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
     >
-      <div className="text-2xl mb-2" aria-hidden="true">🐟</div>
-      <div className="text-sm font-medium text-slate-400">{label}</div>
-      {sub && <div className="text-xs text-slate-300 mt-0.5">{sub}</div>}
+      <div className="text-2xl mb-2 opacity-40" aria-hidden="true">◦</div>
+      <div className="text-sm font-medium text-white/25">{label}</div>
+      {sub && <div className="text-xs text-white/15 mt-0.5">{sub}</div>}
     </div>
   );
 }
 
-// ─── ServiceLinks ─────────────────────────────────────────────────────────────
+// ─── Service links ────────────────────────────────────────────────────────────
 
 const SERVICES = [
-  { label: 'TranChat',             sub: '社内連絡ツール', href: 'https://tranchat1.mercury-group.co.jp/chat2_fed/public/index.html' },
-  { label: 'Chronus',             sub: '退勤システム',   href: 'https://chronus.mercury-group.co.jp/index.html' },
-  { label: 'マーキュリーアカデミア', sub: '研修・学習',    href: 'https://www.haken-school.com/mercury-academia/top/' },
+  { label: 'TranChat',              sub: '社内連絡ツール', href: 'https://tranchat1.mercury-group.co.jp/chat2_fed/public/index.html' },
+  { label: 'Chronus',              sub: '退勤システム',   href: 'https://chronus.mercury-group.co.jp/index.html' },
+  { label: 'マーキュリーアカデミア',  sub: '研修・学習',    href: 'https://www.haken-school.com/mercury-academia/top/' },
 ] as const;
 
 // ─── HomeView ─────────────────────────────────────────────────────────────────
@@ -243,16 +280,17 @@ export default function HomeView({
   canEditEvent,
   scrollContainerRef,
 }: Props) {
-  const [showEventPicker, setShowEventPicker]     = useState(false);
+  const [showEventPicker, setShowEventPicker]         = useState(false);
   const [showPermissionToast, setShowPermissionToast] = useState(false);
-  const [staffBreakdown, setStaffBreakdown]       = useState<StaffBreakdown | null>(null);
-  const [staffLoading, setStaffLoading]           = useState(true);
+  const [staffBreakdown, setStaffBreakdown]           = useState<StaffBreakdown | null>(null);
+  const [staffLoading, setStaffLoading]               = useState(true);
 
-  const today    = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const dateStr  = useMemo(
-    () => new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }),
+  const today   = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const dateStr = useMemo(
+    () => new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'long' }),
     [],
   );
+
   const fx      = useFxLevel();
   const showBg  = fx !== 'off';
 
@@ -260,7 +298,7 @@ export default function HomeView({
   const fishSectionRef     = useRef<HTMLDivElement>(null);
   const fishScrollProgress = useRef(0);
 
-  // ── BottomSheet drag-to-close ──────────────────────────────────────────────
+  // bottom-sheet drag state
   const sheetRef         = useRef<HTMLDivElement>(null);
   const contentScrollRef = useRef<HTMLDivElement>(null);
   const dragStartY       = useRef(0);
@@ -277,25 +315,25 @@ export default function HomeView({
   }
   function handleHandlePointerUp(e: React.PointerEvent) {
     const dy = e.clientY - dragStartY.current;
-    const velocity = Date.now() - dragStartTime.current > 0
-      ? (dy / (Date.now() - dragStartTime.current)) * 1000
-      : 0;
-    if (dy > 80 || velocity > 400) {
+    const vel = Date.now() - dragStartTime.current > 0
+      ? (dy / (Date.now() - dragStartTime.current)) * 1000 : 0;
+    if (dy > 80 || vel > 400) {
       setShowEventPicker(false);
     } else if (sheetRef.current) {
-      sheetRef.current.style.transition = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1)';
+      sheetRef.current.style.transition = 'transform 0.32s cubic-bezier(0.22,1,0.36,1)';
       sheetRef.current.style.transform  = '';
       setTimeout(() => { if (sheetRef.current) sheetRef.current.style.transition = ''; }, 320);
     }
   }
 
-  // ── データ取得 ──────────────────────────────────────────────────────────────
+  // toast auto-close
   useEffect(() => {
     if (!showPermissionToast) return;
     const t = setTimeout(() => setShowPermissionToast(false), 2500);
     return () => clearTimeout(t);
   }, [showPermissionToast]);
 
+  // staff data
   useEffect(() => {
     setStaffLoading(true);
     fetchTodayStaffBreakdown()
@@ -303,14 +341,39 @@ export default function HomeView({
       .finally(() => setStaffLoading(false));
   }, [today]);
 
-  // ── GSAP ScrollTrigger ──────────────────────────────────────────────────────
+  // ── Lenis smooth scroll on the App scroll container ──────────────────────────
+  useEffect(() => {
+    const wrapper = scrollContainerRef?.current;
+    if (!wrapper) return;
+
+    const lenis = new Lenis({
+      wrapper,
+      lerp: 0.1,
+      duration: 1.4,
+      smoothWheel: true,
+      syncTouch: false,
+    } as ConstructorParameters<typeof Lenis>[0]);
+
+    const raf = (time: number) => lenis.raf(time);
+    gsap.ticker.add(raf);
+    gsap.ticker.lagSmoothing(0);
+    lenis.on('scroll', () => ScrollTrigger.update());
+
+    return () => {
+      lenis.off('scroll', () => ScrollTrigger.update());
+      gsap.ticker.remove(raf);
+      lenis.destroy();
+    };
+  }, [scrollContainerRef]);
+
+  // ── GSAP: section reveals + fish scrub ───────────────────────────────────────
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     const scroller = scrollContainerRef?.current ?? undefined;
 
     const ctx = gsap.context(() => {
-      // 魚セクションのスクロール進捗 (scrub=1 でスムーズ追従)
+      // fish scrub
       if (fishSectionRef.current && scroller) {
         ScrollTrigger.create({
           trigger: fishSectionRef.current,
@@ -322,17 +385,36 @@ export default function HomeView({
         });
       }
 
-      // 各セクションのフェードイン
+      // section reveals with stagger for card lists
       gsap.utils.toArray<HTMLElement>('.hv-reveal', root).forEach(el => {
         gsap.from(el, {
-          y: 36,
+          y: 32,
           opacity: 0,
-          duration: 0.7,
+          duration: 0.65,
           ease: 'power3.out',
           scrollTrigger: {
             trigger: el,
             scroller,
-            start: 'top 85%',
+            start: 'top 88%',
+            toggleActions: 'play none none reverse',
+          },
+        });
+      });
+
+      // card stagger within lists
+      gsap.utils.toArray<HTMLElement>('.hv-card-list', root).forEach(list => {
+        const cards = list.querySelectorAll<HTMLElement>('.hv-card');
+        if (cards.length === 0) return;
+        gsap.from(cards, {
+          y: 24,
+          opacity: 0,
+          duration: 0.5,
+          stagger: 0.07,
+          ease: 'power2.out',
+          scrollTrigger: {
+            trigger: list,
+            scroller,
+            start: 'top 88%',
             toggleActions: 'play none none reverse',
           },
         });
@@ -342,7 +424,7 @@ export default function HomeView({
     return () => ctx.revert();
   }, [scrollContainerRef]);
 
-  // ── イベント計算 ────────────────────────────────────────────────────────────
+  // ── event calculations ────────────────────────────────────────────────────────
   const in7 = useMemo(() => addDays(today, 7), [today]);
 
   const { todayEvents, upcomingWeek } = useMemo(() => {
@@ -358,10 +440,9 @@ export default function HomeView({
   }, [events, today, in7]);
 
   const nextEvent = useMemo(
-    () =>
-      events
-        .filter(e => e.status !== 'cancelled' && e.start >= today)
-        .sort((a, b) => a.start.localeCompare(b.start))[0] ?? null,
+    () => events
+      .filter(e => e.status !== 'cancelled' && e.start >= today)
+      .sort((a, b) => a.start.localeCompare(b.start))[0] ?? null,
     [events, today],
   );
   const daysToNext = nextEvent
@@ -372,10 +453,9 @@ export default function HomeView({
     : null;
 
   const pickerEvents = useMemo(
-    () =>
-      events
-        .filter(ev => ev.status !== 'cancelled' && (ev.end || ev.start) >= today)
-        .sort((a, b) => a.start.localeCompare(b.start)),
+    () => events
+      .filter(ev => ev.status !== 'cancelled' && (ev.end || ev.start) >= today)
+      .sort((a, b) => a.start.localeCompare(b.start)),
     [events, today],
   );
 
@@ -395,86 +475,149 @@ export default function HomeView({
 
   return (
     <div ref={rootRef}>
-
       <div className="relative" style={{ zIndex: 1 }}>
 
-        {/* ════════════════════════════════════════════════════════════════════
-            SECTION 1 — EXロゴ + ライブ時計
-        ════════════════════════════════════════════════════════════════════ */}
-        <section className="min-h-[90svh] flex flex-col items-center justify-center gap-6 pt-8 pb-12 px-4 relative">
-          <motion.div
-            initial={{ scale: 0.7, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1] }}
-          >
-            <EXBadge size={88} />
-          </motion.div>
+        {/* ══════════════════════════════════════════════════════════════════════
+            SECTION 1 — HERO: Mercury mark + EX badge + clock
+        ══════════════════════════════════════════════════════════════════════ */}
+        <section className="min-h-[100svh] flex flex-col px-5 md:px-8 lg:px-12 pt-5 pb-8 relative">
 
+          {/* Top brand bar */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            className="flex items-center justify-between shrink-0"
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.15, ease: EASE_OUT }}
+            transition={{ duration: 0.5, delay: 0.05 }}
           >
-            <LiveClock />
+            <div className="flex items-center gap-2.5">
+              <MercuryMark size={26} color="rgba(255,255,255,0.45)" />
+              <span className="text-[9px] font-bold text-white/22 uppercase tracking-[0.35em]">Mercury Group</span>
+            </div>
+            <span className="text-[9px] font-bold text-white/18 uppercase tracking-[0.3em]">EX事業部</span>
           </motion.div>
 
-          <motion.div
-            className="text-center space-y-0.5"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.28, ease: EASE_OUT }}
-          >
-            <div className="text-base font-bold text-white/80">{dateStr}</div>
+          {/* Center content */}
+          <div className="flex-1 flex flex-col items-center justify-center gap-8 py-10">
 
-            {/* 次イベントの callout */}
-            {nextEvent && daysToNext !== null && daysToNext <= 7 && (
-              <button
-                onClick={() => onSelectEvent(nextEvent)}
-                className="mt-3 flex items-center gap-1.5 group mx-auto"
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    daysToNext === 0 ? 'bg-rose-400 animate-pulse' : 'bg-amber-300'
-                  }`}
-                />
-                <span className="text-xs font-medium text-white/60 group-hover:text-white transition-colors">
-                  {nextEvent.venue}
-                  <span className={`ml-1.5 font-bold ${daysToNext === 0 ? 'text-rose-300' : 'text-amber-300'}`}>
-                    {daysToNext === 0 ? '今日開催' : `あと${daysToNext}日`}
-                  </span>
-                </span>
-                <ChevronRight size={12} className="text-slate-300 group-hover:text-slate-400 shrink-0" />
-              </button>
-            )}
-          </motion.div>
-
-          {/* スクロールヒント */}
-          <motion.div
-            className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.9, duration: 0.5 }}
-          >
+            {/* EXBadge with neon halo rings */}
             <motion.div
-              animate={{ y: [0, 7, 0] }}
-              transition={{ repeat: Infinity, duration: 1.9, ease: 'easeInOut' }}
-              className="flex flex-col items-center gap-1"
+              className="relative"
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.9, delay: 0.15, ease: [0.34, 1.56, 0.64, 1] }}
             >
-              <span className="text-[10px] font-medium text-white/30 uppercase tracking-widest">scroll</span>
-              <ChevronDown size={14} className="text-white/25" />
+              {/* outer pulse ring */}
+              <motion.div
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+                style={{ width: 140, height: 140, border: '1px solid rgba(59,130,246,0.22)' }}
+                animate={{ scale: [1, 1.7, 1], opacity: [0.7, 0, 0.7] }}
+                transition={{ repeat: Infinity, duration: 3.5, ease: 'easeOut' }}
+              />
+              {/* inner pulse ring */}
+              <motion.div
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+                style={{ width: 140, height: 140, border: '1px solid rgba(99,102,241,0.18)' }}
+                animate={{ scale: [1, 2.2, 1], opacity: [0.5, 0, 0.5] }}
+                transition={{ repeat: Infinity, duration: 3.5, delay: 0.7, ease: 'easeOut' }}
+              />
+              {/* glow halo */}
+              <div
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+                style={{
+                  width: 160,
+                  height: 160,
+                  background: 'radial-gradient(circle, rgba(59,130,246,0.18) 0%, transparent 70%)',
+                  filter: 'blur(8px)',
+                }}
+              />
+              <EXBadge size={100} duration={6} />
             </motion.div>
-          </motion.div>
+
+            {/* Headline */}
+            <motion.div
+              className="text-center"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.65, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <h1 className="text-3xl sm:text-4xl font-black text-white leading-tight tracking-tight">
+                今日も、最高の
+              </h1>
+              <h1
+                className="text-3xl sm:text-4xl font-black leading-tight tracking-tight"
+                style={{
+                  background: 'linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #67e8f9 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                イベントを。
+              </h1>
+            </motion.div>
+
+            {/* Date + next event */}
+            <motion.div
+              className="text-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5, duration: 0.5 }}
+            >
+              <div className="text-xs font-bold text-white/35 tracking-wide">{dateStr}</div>
+              {nextEvent && daysToNext !== null && daysToNext <= 7 && (
+                <button
+                  onClick={() => onSelectEvent(nextEvent)}
+                  className="mt-2 flex items-center gap-1.5 group mx-auto"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${daysToNext === 0 ? 'bg-rose-400 animate-pulse' : 'bg-amber-300'}`} />
+                  <span className="text-xs font-medium text-white/40 group-hover:text-white/70 transition-colors">
+                    {nextEvent.venue}
+                    <span className={`ml-1.5 font-bold ${daysToNext === 0 ? 'text-rose-300' : 'text-amber-300'}`}>
+                      {daysToNext === 0 ? '今日開催' : `あと${daysToNext}日`}
+                    </span>
+                  </span>
+                  <ChevronRight size={11} className="text-white/20 group-hover:text-white/45 shrink-0 transition-colors" />
+                </button>
+              )}
+            </motion.div>
+          </div>
+
+          {/* Bottom bar: clock (left) + scroll hint (right) */}
+          <div className="flex items-end justify-between shrink-0">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6, duration: 0.5 }}
+            >
+              <LiveClock />
+            </motion.div>
+
+            <motion.div
+              className="flex flex-col items-center gap-1 pb-1"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.1, duration: 0.5 }}
+            >
+              <motion.div
+                animate={{ y: [0, 5, 0] }}
+                transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}
+                className="flex flex-col items-center gap-0.5"
+              >
+                <span className="text-[8px] font-medium text-white/18 uppercase tracking-widest">scroll</span>
+                <ChevronDown size={11} className="text-white/12" />
+              </motion.div>
+            </motion.div>
+          </div>
         </section>
 
-        {/* ════════════════════════════════════════════════════════════════════
-            SECTION 2 — 3D 魚シーン（スクロール連動）
-        ════════════════════════════════════════════════════════════════════ */}
+        {/* ══════════════════════════════════════════════════════════════════════
+            SECTION 2 — 3D Fish (scroll-scrubbed)
+        ══════════════════════════════════════════════════════════════════════ */}
         <section
           ref={fishSectionRef}
           className="relative overflow-hidden"
-          style={{ height: '60svh' }}
+          style={{ height: '55svh' }}
         >
-          {/* 透明 Canvas: 背後の GLSL 海が透けて見える */}
           {showBg && (
             <div className="absolute inset-0">
               <Suspense fallback={null}>
@@ -482,39 +625,40 @@ export default function HomeView({
               </Suspense>
             </div>
           )}
-          <div className="relative z-10 h-full flex items-end justify-center pb-6 pointer-events-none">
+          <div className="relative z-10 h-full flex items-end justify-center pb-5 pointer-events-none">
             <motion.p
-              className="text-[10px] font-medium text-white/25 uppercase tracking-[0.3em]"
-              animate={{ opacity: [0.25, 0.55, 0.25] }}
-              transition={{ repeat: Infinity, duration: 2.6 }}
+              className="text-[9px] font-medium text-white/18 uppercase tracking-[0.35em]"
+              animate={{ opacity: [0.18, 0.4, 0.18] }}
+              transition={{ repeat: Infinity, duration: 3 }}
             >
               scroll to see the world move
             </motion.p>
           </div>
         </section>
 
-        {/* ════════════════════════════════════════════════════════════════════
-            SECTION 3 — 今日のイベント
-        ════════════════════════════════════════════════════════════════════ */}
-        <section className="min-h-[80svh] flex flex-col justify-center gap-6 px-4 md:px-6 lg:px-8 py-12">
+        {/* ══════════════════════════════════════════════════════════════════════
+            SECTION 3 — Today's events
+        ══════════════════════════════════════════════════════════════════════ */}
+        <section className="min-h-[75svh] flex flex-col justify-center gap-6 px-4 md:px-6 lg:px-8 py-12">
 
           <div className="hv-reveal">
-            <SectionLabel text="本日のイベント" count={todayEvents.length} />
+            <SectionLabel text="Events Today" count={todayEvents.length} />
             {todayEvents.length === 0 ? (
               <SectionEmpty
                 label="本日のイベントはありません"
                 sub="次のイベントに備えて準備を進めましょう"
               />
             ) : (
-              <div className="flex flex-col gap-2">
+              <div className="hv-card-list flex flex-col gap-2">
                 {todayEvents.map(ev => (
-                  <SwipeActionCard
-                    key={ev.id}
-                    onAction={() => onSelectPrepEvent(ev)}
-                    onTap={() => onSelectEvent(ev)}
-                  >
-                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
-                  </SwipeActionCard>
+                  <div key={ev.id} className="hv-card">
+                    <SwipeActionCard
+                      onAction={() => onSelectPrepEvent(ev)}
+                      onTap={() => onSelectEvent(ev)}
+                    >
+                      <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
+                    </SwipeActionCard>
+                  </div>
                 ))}
               </div>
             )}
@@ -522,16 +666,17 @@ export default function HomeView({
 
           {upcomingWeek.length > 0 && (
             <div className="hv-reveal">
-              <SectionLabel text="直近7日のイベント" />
-              <div className="flex flex-col gap-2">
+              <SectionLabel text="Coming This Week" />
+              <div className="hv-card-list flex flex-col gap-2">
                 {upcomingWeek.map(ev => (
-                  <SwipeActionCard
-                    key={ev.id}
-                    onAction={() => onSelectPrepEvent(ev)}
-                    onTap={() => onSelectEvent(ev)}
-                  >
-                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
-                  </SwipeActionCard>
+                  <div key={ev.id} className="hv-card">
+                    <SwipeActionCard
+                      onAction={() => onSelectPrepEvent(ev)}
+                      onTap={() => onSelectEvent(ev)}
+                    >
+                      <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
+                    </SwipeActionCard>
+                  </div>
                 ))}
               </div>
             </div>
@@ -539,39 +684,40 @@ export default function HomeView({
 
           <button
             onClick={onNavigateCalendar}
-            className="hv-reveal flex items-center gap-1.5 text-xs font-bold text-cyan-300/80 hover:text-cyan-200 transition-colors self-start"
+            className="hv-reveal flex items-center gap-1.5 text-[11px] font-bold text-white/30 hover:text-white/60 transition-colors self-start"
           >
-            <CalendarDays size={13} />
+            <CalendarDays size={12} />
             カレンダーをすべて見る
-            <ChevronRight size={13} />
+            <ChevronRight size={12} />
           </button>
         </section>
 
-        {/* ════════════════════════════════════════════════════════════════════
-            SECTION 4 — 今日の稼働人数
-        ════════════════════════════════════════════════════════════════════ */}
-        <section className="min-h-[80svh] flex flex-col justify-center gap-6 px-4 md:px-6 lg:px-8 py-12">
+        {/* ══════════════════════════════════════════════════════════════════════
+            SECTION 4 — Staff KPI
+        ══════════════════════════════════════════════════════════════════════ */}
+        <section className="min-h-[75svh] flex flex-col justify-center gap-6 px-4 md:px-6 lg:px-8 py-12">
 
           <div className="hv-reveal">
-            <SectionLabel text="本日の稼働人数" />
+            <SectionLabel text="Team Operations" sub="本日の稼働状況" />
             <div className="flex items-baseline gap-3 mb-6">
               {staffLoading ? (
                 <Skeleton className="h-28 w-48 rounded-xl" />
               ) : staffBreakdown !== null ? (
-                <div style={{ textShadow: '0 0 50px rgba(34,200,216,0.45), 0 2px 10px rgba(0,0,0,0.5)' }}>
-                  <CountUp
-                    value={staffBreakdown.total}
-                    className="text-[5.5rem] sm:text-[7rem] font-black text-white leading-none tabular-nums inline-block"
-                  />
-                  <span className="text-3xl font-black text-white/40 ml-2">人</span>
+                <div>
+                  <div style={{ textShadow: '0 0 40px rgba(59,130,246,0.5), 0 0 80px rgba(59,130,246,0.2)' }}>
+                    <CountUp
+                      value={staffBreakdown.total}
+                      className="text-[5.5rem] sm:text-[7rem] font-black text-white leading-none tabular-nums inline-block"
+                    />
+                  </div>
+                  <span className="text-3xl font-black text-white/25 ml-2">人</span>
                 </div>
               ) : (
-                <span className="text-[5.5rem] font-black text-white/20">—</span>
+                <span className="text-[5.5rem] font-black text-white/15">—</span>
               )}
             </div>
           </div>
 
-          {/* 内訳グリッド */}
           <div className="hv-reveal grid grid-cols-3 gap-2">
             {staffLoading
               ? Array.from({ length: 6 }).map((_, i) => (
@@ -579,16 +725,16 @@ export default function HomeView({
                 ))
               : staffBreakdown !== null
               ? ([
-                  { label: '本社',    value: staffBreakdown.office,   cls: 'bg-blue-500/25 border-blue-400/40 text-blue-100' },
-                  { label: 'イベント', value: staffBreakdown.event,   cls: 'bg-emerald-500/25 border-emerald-400/40 text-emerald-100' },
-                  { label: '外出',    value: staffBreakdown.dispatch, cls: 'bg-amber-500/25 border-amber-400/40 text-amber-100' },
-                  { label: '公休',    value: staffBreakdown.rest,     cls: 'bg-violet-500/25 border-violet-400/40 text-violet-100' },
-                  { label: '希望休',  value: staffBreakdown.request,  cls: 'bg-pink-500/25 border-pink-400/40 text-pink-100' },
-                  { label: 'その他',  value: staffBreakdown.other,    cls: 'bg-slate-500/25 border-slate-400/40 text-slate-200' },
+                  { label: '本社',    value: staffBreakdown.office,   glow: 'rgba(59,130,246,0.5)',  cls: 'bg-blue-500/12 border-blue-400/18 text-blue-300' },
+                  { label: 'イベント', value: staffBreakdown.event,   glow: 'rgba(16,185,129,0.5)',  cls: 'bg-emerald-500/12 border-emerald-400/18 text-emerald-300' },
+                  { label: '外出',    value: staffBreakdown.dispatch, glow: 'rgba(245,158,11,0.5)',  cls: 'bg-amber-500/12 border-amber-400/18 text-amber-300' },
+                  { label: '公休',    value: staffBreakdown.rest,     glow: 'rgba(139,92,246,0.5)',  cls: 'bg-violet-500/12 border-violet-400/18 text-violet-300' },
+                  { label: '希望休',  value: staffBreakdown.request,  glow: 'rgba(236,72,153,0.5)',  cls: 'bg-pink-500/12 border-pink-400/18 text-pink-300' },
+                  { label: 'その他',  value: staffBreakdown.other,    glow: 'rgba(100,116,139,0.5)', cls: 'bg-slate-500/12 border-slate-400/18 text-slate-300' },
                 ] as const).map(({ label, value, cls }) => (
-                  <div key={label} className={`rounded-xl py-3 px-2 text-center border ${cls}`}>
+                  <div key={label} className={`rounded-xl py-3 px-2 text-center border backdrop-blur-sm ${cls}`}>
                     <CountUp value={value} className="block font-black text-xl leading-none" />
-                    <div className="text-[11px] font-medium text-white/60 mt-1">{label}</div>
+                    <div className="text-[10px] font-medium text-white/40 mt-1">{label}</div>
                   </div>
                 ))
               : null}
@@ -596,32 +742,33 @@ export default function HomeView({
 
           <button
             onClick={onOpenSchedule}
-            className="hv-reveal flex items-center gap-1.5 text-xs font-bold text-cyan-300/80 hover:text-cyan-200 transition-colors self-start"
+            className="hv-reveal flex items-center gap-1.5 text-[11px] font-bold text-white/30 hover:text-white/60 transition-colors self-start"
           >
-            <CalendarDays size={13} />
+            <CalendarDays size={12} />
             スケジュール詳細を確認
-            <ChevronRight size={13} />
+            <ChevronRight size={12} />
           </button>
         </section>
 
-        {/* ════════════════════════════════════════════════════════════════════
-            SECTION 5 — 準備物リストを開く
-        ════════════════════════════════════════════════════════════════════ */}
-        <section className="min-h-[70svh] flex flex-col items-center justify-center gap-6 px-4 md:px-6 lg:px-8 py-12">
+        {/* ══════════════════════════════════════════════════════════════════════
+            SECTION 5 — Prep CTA
+        ══════════════════════════════════════════════════════════════════════ */}
+        <section className="min-h-[65svh] flex flex-col items-center justify-center gap-5 px-4 md:px-6 lg:px-8 py-12">
 
           <div className="hv-reveal text-center w-full max-w-sm">
-            <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">
-              準備リスト
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-white mb-7 leading-tight">
+            <SectionLabel text="Preparation" />
+            <h2 className="text-2xl sm:text-3xl font-black text-white mb-8 leading-tight">
               今日の準備は<br />できていますか？
             </h2>
             <RippleButton
               onClick={() => setShowEventPicker(true)}
-              className="flex items-center justify-center gap-3 w-full rounded-2xl px-6 py-5 font-black text-lg text-white shadow-lg active:scale-[0.98] transition-all"
-              style={{ background: 'linear-gradient(135deg, #0e7490 0%, #0891b2 60%, #0e7490 100%)' }}
+              className="flex items-center justify-center gap-3 w-full rounded-2xl px-6 py-5 font-black text-base text-white active:scale-[0.98] transition-all"
+              style={{
+                background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #1d4ed8 100%)',
+                boxShadow: '0 0 30px rgba(37,99,235,0.35), 0 4px 20px rgba(0,0,0,0.4)',
+              }}
             >
-              <ClipboardList size={22} />
+              <ClipboardList size={20} />
               準備物リストを開く
             </RippleButton>
           </div>
@@ -632,48 +779,56 @@ export default function HomeView({
                 if (canEditEvent) onCreateEvent();
                 else setShowPermissionToast(true);
               }}
-              className="flex items-center justify-center gap-2 bg-white/10 border border-white/20 text-white rounded-2xl px-5 py-3.5 font-bold text-sm hover:bg-white/15 active:scale-[0.98] transition-all w-full"
+              className="flex items-center justify-center gap-2 rounded-2xl px-5 py-3.5 font-bold text-sm text-white/60 hover:text-white active:scale-[0.98] transition-all w-full"
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
             >
-              <Plus size={16} />
+              <Plus size={15} />
               新規イベントを追加する
             </RippleButton>
           </div>
         </section>
 
-        {/* ════════════════════════════════════════════════════════════════════
-            SECTION 6 — マーキュリーサービス
-        ════════════════════════════════════════════════════════════════════ */}
-        <section className="min-h-[70svh] flex flex-col justify-center gap-4 px-4 md:px-6 lg:px-8 pb-28 md:pb-12 py-12">
+        {/* ══════════════════════════════════════════════════════════════════════
+            SECTION 6 — Mercury Services
+        ══════════════════════════════════════════════════════════════════════ */}
+        <section className="min-h-[60svh] flex flex-col justify-center gap-4 px-4 md:px-6 lg:px-8 pb-28 md:pb-12 py-12">
 
           <div className="hv-reveal">
-            <SectionLabel text="マーキュリーサービス" />
-            <div className="flex flex-col gap-2">
+            <SectionLabel text="Mercury Services" />
+            <div className="hv-card-list flex flex-col gap-2">
               {SERVICES.map(svc => (
                 <a
                   key={svc.label}
                   href={svc.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between bg-white/10 border border-white/15 text-white rounded-2xl px-5 py-4 hover:bg-white/15 active:scale-[0.98] transition-all"
+                  className="hv-card flex items-center justify-between rounded-2xl px-5 py-4 active:scale-[0.98] transition-all group"
+                  style={{
+                    background: 'rgba(0,0,0,0.4)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}
                 >
                   <div className="min-w-0">
-                    <div className="font-bold text-sm text-white leading-tight">{svc.label}</div>
-                    <div className="text-xs font-medium text-white/50 mt-0.5">{svc.sub}</div>
+                    <div className="font-bold text-sm text-white/75 group-hover:text-white leading-tight transition-colors">{svc.label}</div>
+                    <div className="text-xs font-medium text-white/30 mt-0.5">{svc.sub}</div>
                   </div>
-                  <ExternalLink size={14} className="text-white/35 shrink-0 ml-3" />
+                  <ExternalLink size={13} className="text-white/20 group-hover:text-white/45 shrink-0 ml-3 transition-colors" />
                 </a>
               ))}
             </div>
           </div>
 
-          <button
-            onClick={onOpenSchedule}
-            className="hv-reveal flex items-center gap-2 text-sm font-medium text-white/50 hover:text-white/80 transition-colors"
-          >
-            <CalendarDays size={14} className="text-white/35 shrink-0" />
-            スケジュール確認
-            <ChevronRight size={14} />
-          </button>
+          {/* Mercury mark watermark */}
+          <div className="hv-reveal flex justify-center mt-4 opacity-[0.08]">
+            <MercuryMark size={48} color="white" />
+          </div>
         </section>
 
       </div>
@@ -684,7 +839,7 @@ export default function HomeView({
           {showEventPicker && (
             <>
               <motion.div
-                className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+                className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -692,7 +847,7 @@ export default function HomeView({
               />
               <motion.div
                 ref={sheetRef}
-                className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl max-h-[82dvh] flex flex-col overflow-hidden border-t border-slate-100 shadow-2xl"
+                className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl max-h-[82dvh] flex flex-col overflow-hidden shadow-2xl"
                 initial={{ y: '100%' }}
                 animate={{ y: 0 }}
                 exit={{ y: '100%' }}
@@ -708,7 +863,7 @@ export default function HomeView({
                 </div>
                 <div className="flex items-center justify-between px-5 pt-1 pb-3 shrink-0 border-b border-slate-100">
                   <div>
-                    <div className="text-[10px] font-bold text-cyan-600 uppercase tracking-wider mb-0.5">準備物リスト</div>
+                    <div className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-0.5">準備物リスト</div>
                     <h2 className="text-base font-black text-slate-900">どのイベントを開きますか？</h2>
                   </div>
                   <button
@@ -722,7 +877,7 @@ export default function HomeView({
                 <div ref={contentScrollRef} className="overflow-y-auto px-4 pt-3 pb-12 space-y-4">
                   {pickerEvents.length === 0 ? (
                     <div className="py-16 text-center">
-                      <div className="text-3xl mb-3" aria-hidden="true">🐟</div>
+                      <div className="text-3xl mb-3 opacity-30" aria-hidden="true">◦</div>
                       <div className="text-sm font-medium text-slate-400">進行中のイベントがありません</div>
                     </div>
                   ) : (
