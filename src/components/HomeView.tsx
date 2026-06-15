@@ -229,7 +229,7 @@ function EventCard({
 
 function SectionLabel({ text, count, sub }: { text: string; count?: number; sub?: string }) {
   return (
-    <div className="mb-5">
+    <div className="mb-3 md:mb-5">
       <div className="flex items-center gap-3">
         <div className="text-[9px] font-black text-white/25 uppercase tracking-[0.4em] shrink-0">{text}</div>
         {count !== undefined && count > 0 && (
@@ -480,7 +480,7 @@ export default function HomeView({
         {/* ══════════════════════════════════════════════════════════════════════
             SECTION 1 — HERO: Mercury mark + EX badge + clock
         ══════════════════════════════════════════════════════════════════════ */}
-        <section className="min-h-[100svh] flex flex-col px-5 md:px-8 lg:px-12 pt-5 pb-8 relative">
+        <section className="flex flex-col px-4 md:px-8 lg:px-12 pt-4 md:pt-5 pb-5 md:pb-8 relative md:min-h-[100svh]">
 
           {/* Top brand bar */}
           <motion.div
@@ -497,11 +497,11 @@ export default function HomeView({
           </motion.div>
 
           {/* Center content */}
-          <div className="flex-1 flex flex-col items-center justify-center gap-8 py-10">
+          <div className="flex flex-col items-center justify-center gap-4 py-5 md:flex-1 md:gap-8 md:py-10">
 
             {/* EXBadge with neon halo rings */}
             <motion.div
-              className="relative"
+              className="relative hidden md:block"
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.9, delay: 0.15, ease: [0.34, 1.56, 0.64, 1] }}
@@ -540,11 +540,11 @@ export default function HomeView({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.65, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
             >
-              <h1 className="text-3xl sm:text-4xl font-black text-white leading-tight tracking-tight">
+              <h1 className="text-2xl sm:text-4xl font-black text-white leading-tight tracking-tight">
                 今日も、最高の
               </h1>
               <h1
-                className="text-3xl sm:text-4xl font-black leading-tight tracking-tight"
+                className="text-2xl sm:text-4xl font-black leading-tight tracking-tight"
                 style={{
                   background: 'linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #67e8f9 100%)',
                   WebkitBackgroundClip: 'text',
@@ -583,7 +583,7 @@ export default function HomeView({
           </div>
 
           {/* Bottom bar: clock (left) + scroll hint (right) */}
-          <div className="flex items-end justify-between shrink-0">
+          <div className="hidden md:flex items-end justify-between shrink-0">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -615,7 +615,7 @@ export default function HomeView({
         ══════════════════════════════════════════════════════════════════════ */}
         <section
           ref={fishSectionRef}
-          className="relative overflow-hidden"
+          className="relative overflow-hidden hidden md:block"
           style={{ height: '55svh' }}
         >
           {showBg && (
@@ -639,7 +639,7 @@ export default function HomeView({
         {/* ══════════════════════════════════════════════════════════════════════
             SECTION 3 — Today's events
         ══════════════════════════════════════════════════════════════════════ */}
-        <section className="min-h-[75svh] flex flex-col justify-center gap-6 px-4 md:px-6 lg:px-8 py-12">
+        <section className="flex flex-col gap-5 px-4 md:px-6 lg:px-8 py-5 md:py-12 md:min-h-[75svh] md:justify-center">
 
           <div className="hv-reveal">
             <SectionLabel text="Events Today" count={todayEvents.length} />
@@ -695,7 +695,7 @@ export default function HomeView({
         {/* ══════════════════════════════════════════════════════════════════════
             SECTION 4 — Staff KPI
         ══════════════════════════════════════════════════════════════════════ */}
-        <section className="min-h-[75svh] flex flex-col justify-center gap-6 px-4 md:px-6 lg:px-8 py-12">
+        <section className="flex flex-col gap-5 px-4 md:px-6 lg:px-8 py-5 md:py-12 md:min-h-[75svh] md:justify-center">
 
           <div className="hv-reveal">
             <SectionLabel text="Team Operations" sub="本日の稼働状況" />
@@ -707,13 +707,13 @@ export default function HomeView({
                   <div style={{ textShadow: '0 0 40px rgba(59,130,246,0.5), 0 0 80px rgba(59,130,246,0.2)' }}>
                     <CountUp
                       value={staffBreakdown.total}
-                      className="text-[5.5rem] sm:text-[7rem] font-black text-white leading-none tabular-nums inline-block"
+                      className="text-5xl sm:text-[7rem] font-black text-white leading-none tabular-nums inline-block"
                     />
                   </div>
                   <span className="text-3xl font-black text-white/25 ml-2">人</span>
                 </div>
               ) : (
-                <span className="text-[5.5rem] font-black text-white/15">—</span>
+                <span className="text-5xl sm:text-[5.5rem] font-black text-white/15">—</span>
               )}
             </div>
           </div>
@@ -753,16 +753,16 @@ export default function HomeView({
         {/* ══════════════════════════════════════════════════════════════════════
             SECTION 5 — Prep CTA
         ══════════════════════════════════════════════════════════════════════ */}
-        <section className="min-h-[65svh] flex flex-col items-center justify-center gap-5 px-4 md:px-6 lg:px-8 py-12">
+        <section className="flex flex-col items-center gap-4 px-4 md:px-6 lg:px-8 py-5 md:py-12 md:min-h-[65svh] md:justify-center">
 
           <div className="hv-reveal text-center w-full max-w-sm">
             <SectionLabel text="Preparation" />
-            <h2 className="text-2xl sm:text-3xl font-black text-white mb-8 leading-tight">
+            <h2 className="text-xl sm:text-3xl font-black text-white mb-4 md:mb-8 leading-tight">
               今日の準備は<br />できていますか？
             </h2>
             <RippleButton
               onClick={() => setShowEventPicker(true)}
-              className="flex items-center justify-center gap-3 w-full rounded-2xl px-6 py-5 font-black text-base text-white active:scale-[0.98] transition-all"
+              className="flex items-center justify-center gap-3 w-full rounded-2xl px-5 py-4 md:px-6 md:py-5 font-black text-base text-white active:scale-[0.98] transition-all"
               style={{
                 background: 'linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #1d4ed8 100%)',
                 boxShadow: '0 0 30px rgba(37,99,235,0.35), 0 4px 20px rgba(0,0,0,0.4)',
@@ -794,7 +794,7 @@ export default function HomeView({
         {/* ══════════════════════════════════════════════════════════════════════
             SECTION 6 — Mercury Services
         ══════════════════════════════════════════════════════════════════════ */}
-        <section className="min-h-[60svh] flex flex-col justify-center gap-4 px-4 md:px-6 lg:px-8 pb-28 md:pb-12 py-12">
+        <section className="flex flex-col gap-3 px-4 md:px-6 lg:px-8 pb-28 md:pb-12 py-5 md:py-12 md:min-h-[60svh] md:justify-center">
 
           <div className="hv-reveal">
             <SectionLabel text="Mercury Services" />
@@ -805,7 +805,7 @@ export default function HomeView({
                   href={svc.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hv-card flex items-center justify-between rounded-2xl px-5 py-4 active:scale-[0.98] transition-all group"
+                  className="hv-card flex items-center justify-between rounded-2xl px-4 py-3 md:px-5 md:py-4 active:scale-[0.98] transition-all group"
                   style={{
                     background: 'rgba(0,0,0,0.4)',
                     border: '1px solid rgba(255,255,255,0.06)',
@@ -826,7 +826,7 @@ export default function HomeView({
           </div>
 
           {/* Mercury mark watermark */}
-          <div className="hv-reveal flex justify-center mt-4 opacity-[0.08]">
+          <div className="hv-reveal hidden md:flex justify-center mt-4 opacity-[0.08]">
             <MercuryMark size={48} color="white" />
           </div>
         </section>
