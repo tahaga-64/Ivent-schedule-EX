@@ -67,7 +67,7 @@ export default function AppHeader({
 
   return (
     <header
-      className="sticky top-0 z-30 border-b border-white/10 bg-black/25 backdrop-blur-xl"
+      className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--header-bg)]"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div className="px-3 sm:px-4 pt-2 pb-2.5 space-y-2">
@@ -76,15 +76,15 @@ export default function AppHeader({
           <div className="flex items-center gap-2 shrink-0 min-w-0">
             <button
               onClick={onToggleSidebar}
-              className="hidden md:flex p-2 -ml-1 rounded-xl text-white/60 hover:bg-white/10 active:bg-white/15 transition-colors"
+              className="hidden md:flex p-2 -ml-1 rounded-xl text-slate-500 hover:bg-slate-100 active:bg-slate-200 transition-colors"
               aria-label="フィルターを開く"
             >
               <Menu size={20} />
             </button>
             <div className="md:hidden flex flex-col min-w-0 max-w-[40vw]">
-              <div className="font-black text-sm text-white leading-tight truncate">{viewLabel}</div>
+              <div className="font-black text-sm text-slate-900 leading-tight truncate">{viewLabel}</div>
               {view === 'calendar' && (
-                <div className="text-[10px] font-bold text-white/50 tabular-nums">{calYear}年{calMonth}月</div>
+                <div className="text-[10px] font-bold text-slate-400 tabular-nums">{calYear}年{calMonth}月</div>
               )}
             </div>
           </div>
@@ -97,7 +97,7 @@ export default function AppHeader({
                 title={v.label}
                 className={`
                   flex items-center gap-1.5 px-2 xl:px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 whitespace-nowrap
-                  ${view === v.id ? 'bg-white/15 text-cyan-300 border border-cyan-400/30' : 'text-white/50 hover:text-white hover:bg-white/10'}
+                  ${view === v.id ? 'bg-[var(--accent-l)] text-[var(--accent)] border border-[var(--accent)]/20' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}
                 `}
               >
                 {v.icon}
@@ -119,7 +119,7 @@ export default function AppHeader({
             <PushNotificationButton user={user} />
             <button
               onClick={onShowHelp}
-              className="hidden sm:flex p-1.5 rounded-lg text-white/50 hover:bg-white/10 hover:text-white transition-colors"
+              className="hidden sm:flex p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
               title="使い方"
             >
               <HelpCircle size={16} />

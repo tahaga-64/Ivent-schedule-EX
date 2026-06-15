@@ -1143,7 +1143,7 @@ VITE_FIREBASE_DATABASE_ID`}
 
   return (
     <>
-    {fxLevel() !== 'off' && (
+    {fxLevel() !== 'off' && view !== 'home' && (
       <Suspense fallback={null}>
         <GlBackground />
       </Suspense>

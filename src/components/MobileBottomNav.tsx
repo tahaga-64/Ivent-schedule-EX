@@ -60,7 +60,7 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
   return (
     <>
       <nav
-        className="fixed bottom-0 left-0 right-0 border-t border-white/10 bg-black/25 backdrop-blur-xl z-20 md:hidden"
+        className="fixed bottom-0 left-0 right-0 border-t border-[var(--border)] bg-[var(--header-bg)] z-20 md:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex items-stretch justify-around px-1">
@@ -71,7 +71,7 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
                 key={tab.id}
                 onClick={(e) => handleTab(tab.id, e)}
                 className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[3.25rem] py-2 text-[10px] font-bold transition-colors active:scale-95 ${
-                  active ? 'text-cyan-300' : 'text-white/50'
+                  active ? 'text-[var(--accent)]' : 'text-slate-400'
                 }`}
               >
                 {tab.icon}
@@ -79,7 +79,7 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
                 {active && (
                   <motion.div
                     layoutId="nav-indicator"
-                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-cyan-400"
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-[var(--accent)]"
                     transition={{ type: 'spring', stiffness: 400, damping: 35 }}
                   />
                 )}

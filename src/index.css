@@ -62,7 +62,7 @@
 
   html {
     overflow-x: clip;
-    background: #041122;
+    background: var(--bg-app);
     width: 100%;
     height: 100%;
   }
