@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid, Images, Archive, MoreHorizontal, X, CalendarDays, Boxes, Sparkles } from 'lucide-react';
+import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid, Images, Archive, MoreHorizontal, X, CalendarDays, Boxes } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { burstAt } from '../lib/fx';
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container" | "experience";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container";
 
 interface MobileBottomNavProps {
   view: ViewMode;
@@ -26,7 +26,6 @@ const MORE_ITEMS: { id: ViewMode; icon: React.ReactNode; label: string; sub: str
   { id: "container", icon: <Boxes size={20} />,    label: "コンテナボックス", sub: "備品の計算・確認" },
   { id: "album",   icon: <Images size={20} />,     label: "アルバム",     sub: "イベント写真" },
   { id: "archive", icon: <Archive size={20} />,    label: "アーカイブ",   sub: "終了したイベント" },
-  { id: "experience", icon: <Sparkles size={20} />, label: "体験",        sub: "没入型シネマティック" },
 ];
 
 const MORE_VIEW_IDS = new Set<ViewMode>(MORE_ITEMS.map(i => i.id));
@@ -60,7 +59,7 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
   return (
     <>
       <nav
-        className="fixed bottom-0 left-0 right-0 border-t border-[var(--border)] bg-[var(--header-bg)] z-20 md:hidden"
+        className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white/95 backdrop-blur-md z-20 md:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex items-stretch justify-around px-1">
@@ -71,7 +70,7 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
                 key={tab.id}
                 onClick={(e) => handleTab(tab.id, e)}
                 className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[3.25rem] py-2 text-[10px] font-bold transition-colors active:scale-95 ${
-                  active ? 'text-[var(--accent)]' : 'text-slate-400'
+                  active ? 'text-indigo-600' : 'text-slate-500'
                 }`}
               >
                 {tab.icon}
@@ -79,7 +78,7 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
                 {active && (
                   <motion.div
                     layoutId="nav-indicator"
-                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-[var(--accent)]"
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-indigo-500"
                     transition={{ type: 'spring', stiffness: 400, damping: 35 }}
                   />
                 )}

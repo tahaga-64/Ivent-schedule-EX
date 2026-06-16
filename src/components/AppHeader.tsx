@@ -1,5 +1,5 @@
 import { User } from 'firebase/auth';
-import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Images, Plus, HelpCircle, CalendarDays, Boxes, Sparkles } from 'lucide-react';
+import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Images, Plus, HelpCircle, CalendarDays, Boxes } from 'lucide-react';
 import PushNotificationButton from './PushNotificationButton';
 import AppSearch from './AppSearch';
 import { Event } from '../types';
@@ -34,7 +34,6 @@ const desktopNavItems: { id: ViewMode; icon: React.ReactNode; label: string }[] 
   { id: 'layout', icon: <LayoutGrid size={14} />, label: 'レイアウト' },
   { id: 'album', icon: <Images size={14} />, label: 'アルバム' },
   { id: 'container', icon: <Boxes size={14} />, label: 'コンテナボックス' },
-  { id: 'experience', icon: <Sparkles size={14} />, label: '体験' },
 ];
 
 export default function AppHeader({
@@ -62,12 +61,11 @@ export default function AppHeader({
     view === 'layout' ? 'レイアウト' :
     view === 'album' ? 'アルバム' :
     view === 'schedule' ? 'スケジュール' :
-    view === 'container' ? 'コンテナボックス' :
-    view === 'experience' ? '体験' : '';
+    view === 'container' ? 'コンテナボックス' : '';
 
   return (
     <header
-      className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--header-bg)]"
+      className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-md"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div className="px-3 sm:px-4 pt-2 pb-2.5 space-y-2">
@@ -76,7 +74,7 @@ export default function AppHeader({
           <div className="flex items-center gap-2 shrink-0 min-w-0">
             <button
               onClick={onToggleSidebar}
-              className="hidden md:flex p-2 -ml-1 rounded-xl text-slate-500 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+              className="hidden md:flex p-2 -ml-1 rounded-xl text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
               aria-label="フィルターを開く"
             >
               <Menu size={20} />
@@ -84,7 +82,7 @@ export default function AppHeader({
             <div className="md:hidden flex flex-col min-w-0 max-w-[40vw]">
               <div className="font-black text-sm text-slate-900 leading-tight truncate">{viewLabel}</div>
               {view === 'calendar' && (
-                <div className="text-[10px] font-bold text-slate-400 tabular-nums">{calYear}年{calMonth}月</div>
+                <div className="text-[10px] font-bold text-slate-500 tabular-nums">{calYear}年{calMonth}月</div>
               )}
             </div>
           </div>
@@ -97,7 +95,7 @@ export default function AppHeader({
                 title={v.label}
                 className={`
                   flex items-center gap-1.5 px-2 xl:px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 whitespace-nowrap
-                  ${view === v.id ? 'bg-[var(--accent-l)] text-[var(--accent)] border border-[var(--accent)]/20' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}
+                  ${view === v.id ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-200' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}
                 `}
               >
                 {v.icon}
@@ -119,16 +117,16 @@ export default function AppHeader({
             <PushNotificationButton user={user} />
             <button
               onClick={onShowHelp}
-              className="hidden sm:flex p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+              className="hidden sm:flex p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
               title="使い方"
             >
               <HelpCircle size={16} />
             </button>
             {!user.isAnonymous && (
               user.photoURL ? (
-                <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-white/20 hidden sm:block" />
+                <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-slate-200 hidden sm:block" />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-amber-200 hidden sm:flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-white/20">
+                <div className="w-8 h-8 rounded-full bg-amber-200 hidden sm:flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-slate-200">
                   {user.displayName?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
                 </div>
               )
