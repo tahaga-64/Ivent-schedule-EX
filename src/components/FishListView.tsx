@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -7,10 +7,6 @@ import { Fish, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { notifyPush, isPushNotificationConfigured } from '../lib/pushNotifications';
 import { fmtDateJPFull } from '../lib/eventHelpers';
-import { cachedFxLevel } from '../lib/deviceTier';
-import { lazyWithRetry } from '../lib/lazyWithRetry';
-
-const AquariumScene = lazyWithRetry(() => import('./fx/AquariumScene'));
 
 interface Props {
   events: Event[];
@@ -49,7 +45,7 @@ export default function FishListView({ events, canEdit, isActive = true, initial
   const [fishItems, setFishItems] = useState<FishItem[]>([]);
   const [newName, setNewName] = useState('');
   const [newCount, setNewCount] = useState<number>(1);
-  const [newNote, setNewNote] = useState('');
+  const [newNote, setNewNote] = useState('');  
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { runWithGuard } = useUnsavedChanges();
@@ -194,34 +190,27 @@ export default function FishListView({ events, canEdit, isActive = true, initial
     }
   }
 
-  const showScene = cachedFxLevel() !== 'off';
-
   return (
-    <div className="relative min-h-screen" style={{ background: showScene ? '#082f49' : 'var(--bg-app)' }}>
-      {showScene && (
-        <Suspense fallback={null}>
-          <AquariumScene fishItems={fishItems} active={isActive} />
-        </Suspense>
-      )}
+    <div className="relative min-h-screen" style={{ background: 'var(--bg-app)' }}>
       <div className="relative z-10 w-full max-w-none px-4 md:px-6 lg:px-8 py-6 pb-28 md:pb-8">
 
         {aquariumEvents.length === 0 ? (
-          <div className={`flex flex-col items-center justify-center h-64 gap-3 ${showScene ? 'text-cyan-300' : 'text-slate-500'}`}>
+          <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-500">
             <Fish size={40} strokeWidth={1.5} />
             <p className="text-sm font-medium">水族館イベントがありません</p>
           </div>
         ) : (
           <>
             <div className="mb-6">
-              <div className={`text-[10px] font-black uppercase tracking-widest mb-1 ${showScene ? 'text-cyan-400' : 'text-slate-500'}`}>AQUARIUM</div>
-              <h2 className={`text-2xl font-black ${showScene ? 'text-white' : 'text-slate-900'}`}>魚リスト</h2>
+              <div className="text-[10px] font-black uppercase tracking-widest mb-1 text-slate-500">AQUARIUM</div>
+              <h2 className="text-2xl font-black text-slate-900">魚リスト</h2>
             </div>
 
             {/* イベント選択 */}
             <div className="mb-6">
               {aquariumEvents.length === 1 ? (
-                <div className={`flex items-center gap-2 px-4 py-3 rounded-2xl ${showScene ? 'tank-card' : 'bg-white border border-slate-200 shadow-sm'}`}>
-                  <Fish size={15} className={`shrink-0 ${showScene ? 'text-cyan-400' : 'text-slate-400'}`} />
+                <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                  <Fish size={15} className="shrink-0 text-slate-400" />
                   <span className="text-sm font-black text-slate-900">{aquariumEvents[0].venue}</span>
                   {aquariumEvents[0].start && (
                     <span className="ml-auto text-xs text-slate-500 shrink-0">
@@ -230,7 +219,7 @@ export default function FishListView({ events, canEdit, isActive = true, initial
                   )}
                 </div>
               ) : (
-                <div className={`rounded-2xl p-1 ${showScene ? 'tank-card' : 'bg-white border border-slate-200 shadow-sm'}`}>
+                <div className="rounded-2xl p-1 bg-white border border-slate-200 shadow-sm">
                   <div className="flex gap-1 overflow-x-auto p-1 scrollbar-hide">
                     {aquariumEvents.map(ev => (
                       <button
@@ -261,9 +250,9 @@ export default function FishListView({ events, canEdit, isActive = true, initial
                 <div className="md:sticky md:top-4 space-y-4">
                   {/* 合計バッジ */}
                   {fishItems.length > 0 && (
-                    <div className={`flex items-center gap-3 rounded-2xl px-4 py-3 ${showScene ? 'tank-card' : 'bg-white border border-slate-200 shadow-sm'}`}>
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${showScene ? 'bg-cyan-500/20' : 'bg-slate-50'}`}>
-                        <Fish size={18} className={showScene ? 'text-cyan-400' : 'text-slate-500'} />
+                    <div className="flex items-center gap-3 rounded-2xl px-4 py-3 bg-white border border-slate-200 shadow-sm">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-slate-50">
+                        <Fish size={18} className="text-slate-500" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-black text-slate-900 text-sm truncate">{selectedEvent.venue}</div>
@@ -278,7 +267,7 @@ export default function FishListView({ events, canEdit, isActive = true, initial
                   )}
 
                   {canEdit && (
-                    <div className={`rounded-2xl p-4 ${showScene ? 'tank-card' : 'bg-white border border-slate-200 shadow-sm'}`}>
+                    <div className="rounded-2xl p-4 bg-white border border-slate-200 shadow-sm">
                       <div className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">観賞魚を追加</div>
                       <div className="flex flex-col gap-2">
                         <input
@@ -328,19 +317,19 @@ export default function FishListView({ events, canEdit, isActive = true, initial
                   )}
 
                   {fishItems.length > 0 && (
-                    <div className={`mb-3 flex items-center justify-between gap-3 rounded-xl px-4 py-2.5 ${showScene ? 'bg-white/10 border border-white/15' : 'border border-slate-200 bg-slate-50'}`}>
-                      <span className={`text-xs font-black uppercase tracking-widest ${showScene ? 'text-cyan-300' : 'text-slate-500'}`}>登録一覧</span>
-                      <span className={`text-sm font-black tabular-nums ${showScene ? 'text-white' : 'text-slate-800'}`}>
+                    <div className="mb-3 flex items-center justify-between gap-3 rounded-xl px-4 py-2.5 border border-slate-200 bg-slate-50">
+                      <span className="text-xs font-black uppercase tracking-widest text-slate-500">登録一覧</span>
+                      <span className="text-sm font-black tabular-nums text-slate-800">
                         {fishItems.length}種 / 合計 {totalFishCount}匹
                       </span>
                     </div>
                   )}
 
                   {fishItems.length === 0 ? (
-                    <div className={`text-center py-16 ${showScene ? 'text-cyan-300' : 'text-slate-500'}`}>
+                    <div className="text-center py-16 text-slate-500">
                       <Fish size={32} className="mx-auto mb-3 opacity-50" />
                       <div className="text-sm">観賞魚が登録されていません</div>
-                      {canEdit && <div className={`text-xs mt-1 ${showScene ? 'text-cyan-400/70' : 'text-slate-400'}`}>左のフォームから追加してください</div>}
+                      {canEdit && <div className="text-xs mt-1 text-slate-400">左のフォームから追加してください</div>}
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -353,7 +342,7 @@ export default function FishListView({ events, canEdit, isActive = true, initial
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
                             transition={{ duration: 0.15 }}
-                            className={`rounded-2xl p-4 transition-colors group relative ${showScene ? 'tank-card hover:brightness-[1.04]' : 'bg-white border border-slate-200 hover:border-slate-300 shadow-sm'}`}
+                            className="rounded-2xl p-4 transition-colors group relative bg-white border border-slate-200 hover:border-slate-300 shadow-sm"
                           >
                             <div className="absolute top-2.5 left-3 text-[10px] font-black text-slate-300 tabular-nums">
                               #{index + 1}
