@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { motion } from 'motion/react';
 import { Calendar, ClipboardList, Building2, Plus, X, Mail } from 'lucide-react';
 import { REGIONS } from '../constants';
 import { rs } from '../lib/eventHelpers';
@@ -210,23 +209,14 @@ export default function AppSidebar({
           <button
             key={value}
             onClick={() => afterFilter(() => setStatusFilter(value))}
-            className={`relative w-full text-left px-4 py-3 md:py-2.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 ${
+            className={`w-full text-left px-4 py-3 md:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
               statusFilter === value
-                ? 'text-white'
+                ? 'bg-amber-500 text-white shadow-md'
                 : 'text-slate-700 hover:text-amber-700 hover:bg-slate-50 active:bg-slate-100'
             }`}
           >
-            {statusFilter === value && (
-              <motion.span
-                layoutId="sidebar-status-active"
-                className="absolute inset-0 rounded-xl bg-amber-500 shadow-md"
-                transition={{ type: 'spring', stiffness: 400, damping: 34 }}
-              />
-            )}
-            <span className="relative flex items-center gap-2">
-              {dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusFilter === value ? 'white' : dot }} />}
-              {label}
-            </span>
+            {dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusFilter === value ? 'white' : dot }} />}
+            {label}
           </button>
         ))}
       </div>

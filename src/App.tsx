@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef, Suspense, type MouseEvent as ReactMouseEvent } from 'react';
 import { lazyWithRetry } from './lib/lazyWithRetry';
-import { fxLevel } from './lib/deviceTier';
 import { db, auth, ensureAnonymousAuth, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
@@ -60,10 +59,8 @@ const MobileTimelineView = lazyWithRetry(() => import('./components/CalendarComp
 const MobileWeekStrip = lazyWithRetry(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileWeekStrip })));
 const MobileDayAgendaView = lazyWithRetry(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileDayAgendaView })));
 const EventDetailModal = lazyWithRetry(() => import('./components/EventDetailModal'));
-const ExperienceView = lazyWithRetry(() => import('./components/ExperienceView'));
-const GlBackground = lazyWithRetry(() => import('./components/webgl/GlBackground'));
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container" | "experience";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container";
 type ModalTab = "detail" | "photos" | "financial";
 
 // 安全なlocalStorage読み込み
@@ -142,7 +139,6 @@ function buildCalendarDensityPreviewEvents(
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [splashMinElapsed, setSplashMinElapsed] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setSplashMinElapsed(true), SPLASH_MIN_MS);
@@ -150,7 +146,7 @@ export default function App() {
   }, []);
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
-    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout', 'album', 'schedule', 'container', 'experience'];
+    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout', 'album', 'schedule', 'container'];
     return valid.includes(saved as ViewMode) ? saved as ViewMode : 'home';
   });
   // 遷移方向を計算するために直前のビューを追跡
@@ -1096,7 +1092,6 @@ VITE_FIREBASE_DATABASE_ID`}
           onOpenSchedule={() => applySetView('schedule')}
           onNavigateCalendar={() => applySetView('calendar')}
           canEditEvent={canEditEvent}
-          scrollContainerRef={scrollContainerRef}
         />
       )}
       {v === "master" && (
@@ -1132,23 +1127,8 @@ VITE_FIREBASE_DATABASE_ID`}
     </>
   );
 
-  // 没入型シネマティック体験 — ヘッダー/サイドバー外のフルスクリーンテイクオーバー
-  if (view === 'experience') {
-    return (
-      <Suspense fallback={<LoadingSplash />}>
-        <ExperienceView onBack={() => navigateToView('home')} />
-      </Suspense>
-    );
-  }
-
   return (
-    <>
-    {fxLevel() !== 'off' && view !== 'home' && (
-      <Suspense fallback={null}>
-        <GlBackground />
-      </Suspense>
-    )}
-    <div className="relative isolate flex flex-col h-dvh min-h-dvh overflow-hidden">
+    <div className="relative isolate flex flex-col h-dvh min-h-dvh overflow-hidden bg-[var(--bg-app)]">
 
       {/* Header */}
       <AppHeader
@@ -1224,7 +1204,6 @@ VITE_FIREBASE_DATABASE_ID`}
             <AnimatePresence mode="wait" custom={viewDir}>
               <motion.div
                 key={view === 'prep' || view === 'archive' ? `${view}-${prepEvent?.id ?? 'list'}` : view}
-                ref={scrollContainerRef}
                 custom={viewDir}
                 className={`absolute inset-0 overflow-y-auto w-full max-w-none overscroll-contain ${
                   isMobile ? 'p-3 sm:p-4 pb-[calc(3.75rem+env(safe-area-inset-bottom))]' : 'p-4 md:p-6 lg:p-8 pb-20 md:pb-8'
@@ -1373,6 +1352,5 @@ VITE_FIREBASE_DATABASE_ID`}
       {/* Global bubble burst FX portal */}
       <BubbleBurstPortal />
     </div>
-    </>
   );
 }
