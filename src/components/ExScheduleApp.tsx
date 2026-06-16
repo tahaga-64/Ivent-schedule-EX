@@ -103,7 +103,7 @@ class ErrorBoundary extends React.Component<any, any> {
 
   render() {
     if (this.state.hasError) {
-      let message = "申し訳ございません。エラーが発生しました。";
+      let message = "申し訳ありません。エラーが発生しました。";
       try {
         const parsed = JSON.parse((this.state.error as any)?.message || "");
         if (parsed.error && parsed.error.includes("insufficient permissions")) {
@@ -146,7 +146,7 @@ const getType = (s: string | { type: StatusType; detail: string }): StatusType =
   if (s.startsWith('研修')) return 'training';
   if (s.includes('待機')) return 'standby';
   if (s.includes('イベント')) return 'event';
-  if (s === '○') return 'normal';
+  if (s === '〇') return 'normal';
   if (s === '◎') return 'request';
   if (s === '未定') return 'rest';
   if (s.includes('海浜幕張') || s.includes('鳥浜') || s.includes('外販')) return 'dispatch';
@@ -428,8 +428,8 @@ function App({ currentUser }: { currentUser: User | null }) {
     const migratedSched: Record<string, { type: StatusType, detail: string }[]> = {};
     
     // Name migration for existing Firestore data
-    const OLD_NAME = '岸田　音敗';
-    const NEW_NAME = '深瀬　音敗';
+    const OLD_NAME = '岸田　音楓';
+    const NEW_NAME = '深瀬　音楓';
 
     // Migrate schedule
     for (const member of MEMBERS) {
@@ -594,7 +594,7 @@ function App({ currentUser }: { currentUser: User | null }) {
     };
 
     // タブ切替直後は ref が未設定 / テーブル未描画のことがあるため、
-    // 今日のセルが見つかりスクロール可能になるまでリトライする（最夢70 2.5秒）
+    // 今日のセルが見つかりスクロール可能になるまでリトライする（最大2.5秒）
     const startedAt = performance.now();
     const tryScroll = () => {
       if (cancelled) return;
@@ -1002,7 +1002,7 @@ function App({ currentUser }: { currentUser: User | null }) {
 
       {/* Header */}
       <header className="bg-white border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-[1600px] mx-auto px-4 h-16 flex items-center justify-between">
           {/* Month Selector */}
           <div className="flex items-center gap-2 bg-bg rounded-lg p-1 border border-border">
             <button 
@@ -1054,7 +1054,7 @@ function App({ currentUser }: { currentUser: User | null }) {
 
       {/* Navigation */}
       <nav className="bg-white border-b border-border px-4 flex overflow-x-auto shadow-sm scrollbar-hide">
-        <div className="max-w-7xl mx-auto w-full flex">
+        <div className="max-w-[1600px] mx-auto w-full flex">
           {[
             { id: 'schedule', label: 'スケジュール', icon: Calendar },
             { id: 'overall', label: '全体表示', icon: Info },
@@ -1076,7 +1076,7 @@ function App({ currentUser }: { currentUser: User | null }) {
       </nav>
 
       {/* Content */}
-      <main className="px-2 py-4 md:p-6 max-w-7xl mx-auto w-full flex-grow">
+      <main className="px-2 py-4 md:p-6 max-w-[1600px] mx-auto w-full flex-grow">
         <AnimatePresence mode="wait">
           {activeTab === 'schedule' && (
             <motion.div
@@ -1335,7 +1335,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                 </div>
 
                 {/* 縦スクロールもコンテナ内で行うことで、日付ヘッダー（sticky top-0）が下スクロールに追従する */}
-                <div ref={overallTableRef} className="overflow-auto max-h-[75vh] relative border-b border-border">
+                <div ref={overallTableRef} className="overflow-auto max-h-[85vh] relative border-b border-border">
                   <table className="w-full text-[10px] border-separate border-spacing-0 min-w-[max-content]">
                     <thead className="relative z-30">
                       <tr className="bg-slate-100 text-slate-900">
@@ -1350,7 +1350,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                           const _t = new Date();
                           const isToday = currentYear === _t.getFullYear() && currentMonth === _t.getMonth() && day === _t.getDate();
                           return (
-                            <th key={day} data-today={isToday ? 'true' : undefined} className={`p-0.5 border font-bold text-center min-w-[30px] text-[10px] sticky top-0 z-30 ${
+                            <th key={day} data-today={isToday ? 'true' : undefined} className={`p-0.5 border font-bold text-center min-w-[26px] text-[10px] sticky top-0 z-30 ${
                               isToday ? 'border-indigo-400 ring-1 ring-indigo-400' : 'border-border'
                             } ${
                               isSun ? 'text-red-600 bg-red-50' : isSat ? 'text-blue-600 bg-blue-50' : 'bg-slate-100 text-slate-900'
@@ -1369,7 +1369,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                           場所
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
-                          <td key={i} className="p-0.5 border border-border min-w-[30px]">
+                          <td key={i} className="p-0.5 border border-border min-w-[26px]">
                             <LocalInput
                               className="w-full px-0.5 py-0 rounded border border-orange-200 text-[9px] outline-none focus:border-orange-400 bg-white focus:bg-white h-5 text-center font-bold text-orange-800"
                               size={8}
@@ -1388,7 +1388,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                           時間
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
-                          <td key={i} className="p-0.5 border border-border min-w-[30px]">
+                          <td key={i} className="p-0.5 border border-border min-w-[26px]">
                             <LocalInput
                               className="w-full px-0.5 py-0 rounded border border-blue-200 text-[9px] outline-none focus:border-blue-400 bg-white focus:bg-white h-5 text-center font-bold text-blue-800"
                               size={8}
@@ -1415,7 +1415,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                             }
                           });
                           return (
-                            <td key={i} className="p-0.5 border border-border text-center font-bold text-text text-[9px] min-w-[30px]">
+                            <td key={i} className="p-0.5 border border-border text-center font-bold text-text text-[9px] min-w-[26px]">
                               {count}人
                             </td>
                           );
@@ -1454,7 +1454,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                             {Array.from({ length: daysInMonth }).map((_, i) => {
                               const item = currentMonthData.schedule[name]?.[i] || { type: 'rest', detail: '' };
                               return (
-                                <td key={i} className="p-[1px] border border-border min-w-[30px]">
+                                <td key={i} className="p-[1px] border border-border min-w-[26px]">
                                   <div className="flex flex-col gap-0.5 text-center justify-center mx-auto">
                                     <select
                                       className={`w-full px-0.5 py-0.5 rounded-full text-[9px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all disabled:opacity-100 ${TYPE_CLASS[item.type]}`}
