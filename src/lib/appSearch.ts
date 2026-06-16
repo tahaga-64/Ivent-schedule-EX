@@ -1,7 +1,7 @@
 import { Event } from '../types';
 import { normalizeRegion, fmtDateJP } from './eventHelpers';
 
-export type AppViewMode = 'calendar' | 'prep' | 'archive' | 'home' | 'master' | 'fish' | 'layout' | 'album' | 'schedule' | 'container' | 'experience';
+export type AppViewMode = 'calendar' | 'prep' | 'archive' | 'home' | 'master' | 'fish' | 'layout' | 'album' | 'schedule' | 'container';
 
 export const SEARCH_FEATURES: { id: AppViewMode; label: string; keywords: string[] }[] = [
   { id: 'home', label: 'ホーム', keywords: ['ホーム', 'home', 'トップ', '直近', 'ダッシュボード'] },
@@ -14,7 +14,6 @@ export const SEARCH_FEATURES: { id: AppViewMode; label: string; keywords: string
   { id: 'album', label: 'アルバム', keywords: ['アルバム', '写真', 'album', 'photo', '画像'] },
   { id: 'container', label: 'コンテナボックス', keywords: ['コンテナ', 'ボックス', 'container', '備品計算', '積載', '持ち物'] },
   { id: 'archive', label: 'アーカイブ', keywords: ['アーカイブ', 'archive', '過去', '終了'] },
-  { id: 'experience', label: '体験', keywords: ['体験', 'experience', 'シネマティック', '没入', 'アート', 'art', 'webgl', '3d'] },
 ];
 
 function eventHaystack(ev: Event): string {

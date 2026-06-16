@@ -1,22 +1,5 @@
 /// <reference types="vite/client" />
 
-declare module 'troika-three-text' {
-  import { Object3D } from 'three';
-  export class Text extends Object3D {
-    text: string;
-    fontSize: number;
-    color: string | number;
-    fillOpacity: number;
-    outlineWidth: string | number;
-    outlineColor: string | number;
-    anchorX: string;
-    anchorY: string;
-    maxWidth: number;
-    sync(callback?: () => void): void;
-    dispose(): void;
-  }
-}
-
 interface ImportMetaEnv {
   readonly VITE_FIREBASE_API_KEY: string;
   readonly VITE_FIREBASE_AUTH_DOMAIN: string;
@@ -36,10 +19,6 @@ interface ImportMetaEnv {
   readonly VITE_EX_SCHEDULE_API_KEY: string;
   readonly VITE_EX_SCHEDULE_PROJECT_ID: string;
   readonly VITE_EX_SCHEDULE_DATABASE_ID: string;
-  /** Spline 3D シーンの公開 URL（省略可: 未設定時はグラデーション fallback） */
-  readonly VITE_SPLINE_SCENE_URL?: string;
-  /** Rive スプラッシュアニメーション .riv ファイルの URL（省略可） */
-  readonly VITE_RIVE_SPLASH_SRC?: string;
 }
 
 interface ImportMeta {
