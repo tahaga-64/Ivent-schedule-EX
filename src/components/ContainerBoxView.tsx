@@ -116,10 +116,11 @@ function ContainerDetail({
         }
 
         // マスターの在庫を差分だけ加減算（持ち出し増加→減算、返却→加算）
-        batch.update(doc(db, 'masterItems', master.id), {
+        // update() はドキュメント不在でエラーになるため set+merge を使う
+        batch.set(doc(db, 'masterItems', master.id), {
           defaultQuantity: increment(-delta),
           updatedAt: serverTimestamp(),
-        });
+        }, { merge: true });
       }
 
       await batch.commit();
