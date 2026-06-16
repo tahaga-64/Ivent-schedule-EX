@@ -146,7 +146,7 @@ const getType = (s: string | { type: StatusType; detail: string }): StatusType =
   if (s.startsWith('研修')) return 'training';
   if (s.includes('待機')) return 'standby';
   if (s.includes('イベント')) return 'event';
-  if (s === '「') return 'normal';
+  if (s === '〇') return 'normal';
   if (s === '◎') return 'request';
   if (s === '未定') return 'rest';
   if (s.includes('海浜幕張') || s.includes('鳥浜') || s.includes('外販')) return 'dispatch';
@@ -324,7 +324,7 @@ function App({ currentUser }: { currentUser: User | null }) {
     return () => window.removeEventListener('resize', onResize);
   }, []);
   const isEditor = EVENT_EDITOR_EMAILS.includes(currentUser?.email ?? '');
-  const readOnly = isMobile && !isEditor;
+  const readOnly = isMobile;
 
   // Initialize from current real date to ensure the app opens with the latest current month always
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
@@ -428,8 +428,8 @@ function App({ currentUser }: { currentUser: User | null }) {
     const migratedSched: Record<string, { type: StatusType, detail: string }[]> = {};
     
     // Name migration for existing Firestore data
-    const OLD_NAME = '岸田　音樓';
-    const NEW_NAME = '深瀬　音樓';
+    const OLD_NAME = '岸田　音楓';
+    const NEW_NAME = '深瀬　音楓';
 
     // Migrate schedule
     for (const member of MEMBERS) {
@@ -594,7 +594,7 @@ function App({ currentUser }: { currentUser: User | null }) {
     };
 
     // タブ切替直後は ref が未設定 / テーブル未描画のことがあるため、
-    // 今日のセルが見つかりスクロール可能になるまでリトライする（最央2.5秒）
+    // 今日のセルが見つかりスクロール可能になるまでリトライする（最大2.5秒）
     const startedAt = performance.now();
     const tryScroll = () => {
       if (cancelled) return;
@@ -704,7 +704,7 @@ function App({ currentUser }: { currentUser: User | null }) {
         }, { merge: true });
       }
       console.log('Saved successfully:', updates);
-      // スケジュール更新を全購読端末へ通知（更新者名つき・5分スロットで連発防止）
+      // スケジュール更新を全購読端末へ通知（更新者名つき・5分スロットルで連発防止）
       if (isPushNotificationConfigured() && currentUser) {
         const now = Date.now();
         if (now - lastScheduleNotifyRef.current > 5 * 60 * 1000) {
@@ -1294,7 +1294,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                     <option value="海浜幕張" />
                     <option value="鳥浜" />
                     <option value="外販ミステリー1" />
-                    <option value="イベントメンバー選択" />
+                    <option value="イベントメンバー選抜" />
                     <option value="VR" />
                     <option value="販売" />
                   </datalist>
@@ -1339,7 +1339,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                   <table className="w-full text-[10px] border-separate border-spacing-0 min-w-[max-content]">
                     <thead className="relative z-30">
                       <tr className="bg-slate-100 text-slate-900">
-                        <th className="p-1 border border-border font-bold sticky left-0 top-0 bg-slate-100 z-50 min-w-[52px] text-[10px] text-left leading-tight">
+                        <th className="p-1 border border-border font-bold sticky left-0 top-0 bg-slate-100 z-50 min-w-[44px] text-[9px] text-left leading-tight">
                           人 / 累計
                         </th>
                         {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -1350,13 +1350,13 @@ function App({ currentUser }: { currentUser: User | null }) {
                           const _t = new Date();
                           const isToday = currentYear === _t.getFullYear() && currentMonth === _t.getMonth() && day === _t.getDate();
                           return (
-                            <th key={day} data-today={isToday ? 'true' : undefined} className={`p-0.5 border font-bold text-center min-w-[26px] text-[10px] sticky top-0 z-30 ${
+                            <th key={day} data-today={isToday ? 'true' : undefined} className={`p-0 border font-bold text-center min-w-[20px] text-[9px] sticky top-0 z-30 ${
                               isToday ? 'border-indigo-400 ring-1 ring-indigo-400' : 'border-border'
                             } ${
                               isSun ? 'text-red-600 bg-red-50' : isSat ? 'text-blue-600 bg-blue-50' : 'bg-slate-100 text-slate-900'
                             }`}>
                               <span className="block font-mono leading-none">{day}</span>
-                              <span className="block text-[8px] leading-none opacity-80">{['月','火','水','木','金','土','日'][dow]}</span>
+                              <span className="block text-[7px] leading-none opacity-70">{['月','火','水','木','金','土','日'][dow]}</span>
                             </th>
                           );
                         })}
@@ -1369,13 +1369,13 @@ function App({ currentUser }: { currentUser: User | null }) {
                           場所
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
-                          <td key={i} className="p-0.5 border border-border min-w-[26px]">
+                          <td key={i} className="p-0 border border-border min-w-[20px]">
                             <LocalInput
-                              className="w-full px-0.5 py-0 rounded border border-orange-200 text-[9px] outline-none focus:border-orange-400 bg-white focus:bg-white h-5 text-center font-bold text-orange-800"
-                              size={8}
+                              className="w-full px-0 py-0 rounded border border-orange-200 text-[8px] outline-none focus:border-orange-400 bg-white focus:bg-white h-4 text-center font-bold text-orange-800"
+                              size={7}
                               value={globalLocations[i + 1] || ''}
                               onChange={(val: string) => handleGlobalLocationChange(i + 1, val)}
-                              placeholder="場所"
+                              placeholder="場"
                               disabled={readOnly}
                             />
                           </td>
@@ -1388,13 +1388,13 @@ function App({ currentUser }: { currentUser: User | null }) {
                           時間
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
-                          <td key={i} className="p-0.5 border border-border min-w-[26px]">
+                          <td key={i} className="p-0 border border-border min-w-[20px]">
                             <LocalInput
-                              className="w-full px-0.5 py-0 rounded border border-blue-200 text-[9px] outline-none focus:border-blue-400 bg-white focus:bg-white h-5 text-center font-bold text-blue-800"
-                              size={8}
+                              className="w-full px-0 py-0 rounded border border-blue-200 text-[8px] outline-none focus:border-blue-400 bg-white focus:bg-white h-4 text-center font-bold text-blue-800"
+                              size={7}
                               value={globalTimes[i + 1] || ''}
                               onChange={(val: string) => handleGlobalTimeChange(i + 1, val)}
-                              placeholder="時間"
+                              placeholder="時"
                               disabled={readOnly}
                             />
                           </td>
@@ -1415,8 +1415,8 @@ function App({ currentUser }: { currentUser: User | null }) {
                             }
                           });
                           return (
-                            <td key={i} className="p-0.5 border border-border text-center font-bold text-text text-[9px] min-w-[26px]">
-                              {count}人
+                            <td key={i} className="p-0 border border-border text-center font-bold text-text text-[8px] min-w-[20px]">
+                              {count}
                             </td>
                           );
                         })}
@@ -1432,18 +1432,18 @@ function App({ currentUser }: { currentUser: User | null }) {
                           <tr key={name} data-member={name} className={`transition-colors ${isMe ? 'bg-indigo-100 hover:bg-indigo-200/60' : 'hover:bg-bg/40'}`}>
                             <td className={`p-1 border border-border sticky left-0 z-20 shadow-[2px_0_8px_-2px_rgba(0,0,0,0.08)] ${isMe ? 'bg-indigo-100 border-l-2 border-l-indigo-500' : 'bg-white'}`}>
                               <div className="flex flex-col gap-0.5">
-                                <div className="flex items-center justify-between gap-1">
-                                  <div className={`font-bold text-[10px] truncate max-w-[40px] ${isMe ? 'text-indigo-700' : 'text-slate-900'}`}>
+                                <div className="flex items-center justify-between gap-0.5">
+                                  <div className={`font-bold text-[9px] truncate max-w-[30px] ${isMe ? 'text-indigo-700' : 'text-slate-900'}`}>
                                     {name.replace('　', '')}
                                   </div>
-                                  <div className="flex flex-col text-[8px] font-bold leading-tight shrink-0">
-                                    <span className="text-slate-500">公{normalCount}</span>
-                                    <span className="text-pink-600">希{requestCount}</span>
+                                  <div className="flex flex-col text-[7px] font-bold leading-tight shrink-0">
+                                    <span className="text-slate-400">公{normalCount}</span>
+                                    <span className="text-pink-500">希{requestCount}</span>
                                   </div>
                                 </div>
                                 <LocalInput
-                                  className="w-full px-0.5 py-0 rounded border border-slate-200 text-[8px] outline-none focus:border-accent bg-slate-50 text-slate-900 font-normal h-4"
-                                  size={8}
+                                  className="w-full px-0 py-0 rounded border border-slate-200 text-[7px] outline-none focus:border-accent bg-slate-50 text-slate-900 font-normal h-3"
+                                  size={7}
                                   value={globalStations[name] || currentMonthData.memberStations?.[name] || ''}
                                   onChange={(val: string) => handleMemberStationChange(name, val)}
                                   placeholder="駅"
@@ -1454,27 +1454,22 @@ function App({ currentUser }: { currentUser: User | null }) {
                             {Array.from({ length: daysInMonth }).map((_, i) => {
                               const item = currentMonthData.schedule[name]?.[i] || { type: 'rest', detail: '' };
                               return (
-                                <td key={i} className="p-[1px] border border-border min-w-[26px]">
-                                  <div className="flex flex-col gap-0.5 text-center justify-center mx-auto">
+                                <td key={i} className="p-0 border border-border min-w-[20px]" title={item.detail || undefined}>
+                                  {readOnly ? (
+                                    <div className={`w-full text-center text-[8px] font-bold py-[3px] leading-none ${TYPE_CLASS[item.type]}`}>
+                                      {TYPE_LABEL[item.type as StatusType]?.slice(0, 2) ?? ''}
+                                    </div>
+                                  ) : (
                                     <select
-                                      className={`w-full px-0.5 py-0.5 rounded-full text-[9px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all disabled:opacity-100 ${TYPE_CLASS[item.type]}`}
+                                      className={`w-full px-0 py-[3px] text-[8px] font-bold outline-none border-0 focus:ring-1 focus:ring-accent/30 transition-all ${TYPE_CLASS[item.type]}`}
                                       value={item.type}
-                                      disabled={readOnly}
                                       onChange={(e) => handleScheduleTypeChange(name, i, e.target.value as StatusType)}
                                     >
                                       {Object.keys(TYPE_LABEL).map(t => (
                                         <option key={t} value={t}>{TYPE_LABEL[t as StatusType].split('(')[0]}</option>
                                       ))}
                                     </select>
-                                    <LocalInput
-                                      className="w-full px-0.5 py-0 rounded border border-slate-200 text-[9px] text-slate-900 outline-none focus:border-accent bg-slate-50 focus:bg-white h-4 text-center mx-auto"
-                                      size={9}
-                                      value={item.detail || ''}
-                                      onChange={(val: string) => handleScheduleDetailChange(name, i, val)}
-                                      placeholder="..."
-                                      disabled={readOnly}
-                                    />
-                                  </div>
+                                  )}
                                 </td>
                               );
                             })}
