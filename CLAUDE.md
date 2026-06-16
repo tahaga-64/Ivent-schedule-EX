@@ -18,7 +18,7 @@ npm test         # Vitest テスト実行
 ## 技術スタック
 
 | 項目 | 内容 |
-|------|------|
+|------|——--|
 | フレームワーク | React 19 + TypeScript |
 | ビルド | Vite 6 |
 | スタイル | Tailwind CSS v4（`@import "tailwindcss"` 形式） |
@@ -64,7 +64,7 @@ src/
 ## Firestore コレクション
 
 | コレクション | 用途 |
-|---|---|
+|——|——|
 | `events` | イベント本体 |
 | `events/{id}/preparationItems` | 準備物リスト |
 | `allowedUsers` | ログイン許可ユーザー（メール or UID でドキュメントID） |
@@ -90,7 +90,7 @@ src/
 `ViewMode` = `"home" | "calendar" | "kanban" | "prep" | "archive" | "master"`
 
 | ビュー | 説明 |
-|---|---|
+|——|——|
 | `home` | 直近イベント・開催中・期限超過の一覧（デフォルト起動） |
 | `calendar` | 月グリッドカレンダー（デスクトップ）/ タイムライン一覧（モバイル） |
 | `kanban` | 予定→準備中→入荷待ち→準備完了→完了の5列カンバン |
@@ -156,4 +156,4 @@ FIREBASE_SERVICE_ACCOUNT_JSON  # サーバーサイドのみ
 - `CalendarView`（月グリッド、約300行）
 - `MobileTimelineView` / `MobileWeekStrip` / `MobileDayAgendaView`（約300行）
 - イベント詳細モーダル（約400行）
-- アーカイブ一覧（約200行）
+- アーカイブ一覧（約20 0行）
