@@ -19,7 +19,6 @@ import {
   ChevronRight as ChevronRightIcon,
   AlertCircle,
   Share2,
-  Upload,
   X,
 } from 'lucide-react';
 import { 
@@ -104,7 +103,7 @@ class ErrorBoundary extends React.Component<any, any> {
 
   render() {
     if (this.state.hasError) {
-      let message = "申し訳ありません。エラーが発生しました。";
+      let message = "申し訳ございません。エラーが発生しました。";
       try {
         const parsed = JSON.parse((this.state.error as any)?.message || "");
         if (parsed.error && parsed.error.includes("insufficient permissions")) {
@@ -147,7 +146,7 @@ const getType = (s: string | { type: StatusType; detail: string }): StatusType =
   if (s.startsWith('研修')) return 'training';
   if (s.includes('待機')) return 'standby';
   if (s.includes('イベント')) return 'event';
-  if (s === '〇') return 'normal';
+  if (s === '○') return 'normal';
   if (s === '◎') return 'request';
   if (s === '未定') return 'rest';
   if (s.includes('海浜幕張') || s.includes('鳥浜') || s.includes('外販')) return 'dispatch';
@@ -301,88 +300,6 @@ const MemberTabs = ({ members, current, myName, onSelect }: { members: string[],
   );
 };
 
-const BulkImportModal = ({ isOpen, onClose, onImport }: { isOpen: boolean, onClose: () => void, onImport: (data: Record<string, string[]>) => void }) => {
-  const [text, setText] = React.useState('');
-
-  const handleImport = () => {
-    if (!text.trim()) return;
-    const lines = text.trim().split('\n');
-    const result: Record<string, string[]> = {};
-    const normalizeName = (n: string) => n.replace(/[\s　]+/g, '').trim();
-    const normalizedMembers = MEMBERS.map(normalizeName);
-    lines.forEach(line => {
-      const parts = line.split('\t');
-      if (parts.length > 1) {
-        const name = parts[0].trim();
-        const normName = normalizeName(name);
-        const memberIndex = normalizedMembers.indexOf(normName);
-        if (memberIndex !== -1) {
-          result[MEMBERS[memberIndex]] = parts.slice(1).map(p => p.trim());
-        }
-      }
-    });
-    if (Object.keys(result).length === 0) {
-      alert('有効なメンバー名が見つかりませんでした。スプレッドシートから名前を含めてコピーしてください。');
-      return;
-    }
-    onImport(result);
-    setText('');
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
-      >
-        <div className="p-6 border-b border-border flex items-center justify-between bg-accent text-white">
-          <div>
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <Upload size={24} />
-              一括インポート
-            </h2>
-            <p className="text-xs opacity-80 mt-1">スプレッドシートからコピーしたデータを貼り付けてください。</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <X size={24} />
-          </button>
-        </div>
-        <div className="p-6 flex-grow overflow-y-auto">
-          <p className="text-xs text-text2 mb-3">
-            書式: <code className="bg-bg px-1 py-0.5 rounded">名前 [TAB] 1日 [TAB] 2日 [TAB] ...</code>
-          </p>
-          <textarea
-            className="w-full h-48 p-3 border border-border rounded-xl text-xs font-mono outline-none focus:border-accent resize-none bg-bg"
-            placeholder={"山田太郎\t研修\t研修\t休み\n鈴木花子\t待機\t研修\t研修"}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            style={{ fontSize: '14px' }}
-          />
-        </div>
-        <div className="p-4 border-t border-border flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm font-bold text-text2 hover:bg-bg border border-border transition-colors"
-          >
-            キャンセル
-          </button>
-          <button
-            onClick={handleImport}
-            className="px-4 py-2 rounded-xl text-sm font-bold bg-accent text-white hover:bg-accent-d transition-colors flex items-center gap-2"
-          >
-            <Upload size={14} />
-            インポート
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
-
 export default function AppWrapper({ currentUser }: { currentUser?: User | null }) {
   return (
     <ErrorBoundary>
@@ -426,8 +343,6 @@ function App({ currentUser }: { currentUser: User | null }) {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showSaveOk, setShowSaveOk] = useState<Record<string, boolean>>({});
-  const [hideDone, setHideDone] = useState(false);
-  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
     const errInfo: FirestoreErrorInfo = {
@@ -513,8 +428,8 @@ function App({ currentUser }: { currentUser: User | null }) {
     const migratedSched: Record<string, { type: StatusType, detail: string }[]> = {};
     
     // Name migration for existing Firestore data
-    const OLD_NAME = '岸田　音楓';
-    const NEW_NAME = '深瀬　音楓';
+    const OLD_NAME = '岸田　音敗';
+    const NEW_NAME = '深瀬　音敗';
 
     // Migrate schedule
     for (const member of MEMBERS) {
@@ -679,7 +594,7 @@ function App({ currentUser }: { currentUser: User | null }) {
     };
 
     // タブ切替直後は ref が未設定 / テーブル未描画のことがあるため、
-    // 今日のセルが見つかりスクロール可能になるまでリトライする（最大2.5秒）
+    // 今日のセルが見つかりスクロール可能になるまでリトライする（最夢70 2.5秒）
     const startedAt = performance.now();
     const tryScroll = () => {
       if (cancelled) return;
@@ -905,39 +820,6 @@ function App({ currentUser }: { currentUser: User | null }) {
     });
   };
 
-
-  const handleResetMonth = () => {
-    if (!window.confirm(`${currentYear}年${currentMonth + 1}月のスケジュールを全て空欄にリセットしますか？`)) return;
-    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
-    const blankSched: Record<string, { type: StatusType, detail: string }[]> = {};
-    for (const member of MEMBERS) {
-      blankSched[member] = Array(daysInMonth).fill(null).map(() => ({ type: 'rest' as StatusType, detail: '' }));
-    }
-    updateCurrentMonthData({ schedule: blankSched });
-  };
-
-  const handleBulkImport = (importedData: Record<string, string[]>) => {
-    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
-    const newSched = { ...currentMonthData.schedule };
-    Object.keys(importedData).forEach(member => {
-      const rawData = importedData[member];
-      const processed = rawData.map(s => ({ type: getType(s), detail: s }));
-      if (processed.length < daysInMonth) {
-        const extra = Array(daysInMonth - processed.length).fill(null).map(() => ({ type: 'rest' as StatusType, detail: '' }));
-        newSched[member] = [...processed, ...extra];
-      } else {
-        newSched[member] = processed.slice(0, daysInMonth);
-      }
-    });
-    updateCurrentMonthData({ schedule: newSched });
-    triggerSaveOk('bulk-import');
-  };
-
-  const handleDoneChange = (member: string, day: number, checked: boolean) => {
-    const newDones = { ...currentMonthData.dones };
-    newDones[member] = { ...(newDones[member] || {}), [day]: checked };
-    updateCurrentMonthData({ dones: newDones });
-  };
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -1215,35 +1097,8 @@ function App({ currentUser }: { currentUser: User | null }) {
               
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <span className="text-sm font-bold text-slate-900">{currentYear}年{currentMonth + 1}月</span>
-                    {!readOnly && (
-                      <button
-                        onClick={() => setHideDone(!hideDone)}
-                        className={`px-3 py-1 rounded-md text-xs transition-all border ${
-                          hideDone ? 'bg-accent border-accent text-white' : 'bg-bg border-border2 text-text2'
-                        }`}
-                      >
-                        完了済みを非表示
-                      </button>
-                    )}
-                    {!readOnly && (
-                      <button
-                        onClick={() => setIsImportOpen(true)}
-                        className="px-3 py-1 rounded-md text-xs transition-all border bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100 flex items-center gap-1"
-                      >
-                        <Upload size={12} />
-                        一括インポート
-                      </button>
-                    )}
-                    {!readOnly && (
-                      <button
-                        onClick={handleResetMonth}
-                        className="px-3 py-1 rounded-md text-xs transition-all border bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
-                      >
-                        この月をリセット
-                      </button>
-                    )}
                     {currentYear === 2026 && currentMonth === 3 && !readOnly && (
                       <button
                         onClick={handleRestoreInitial}
@@ -1267,22 +1122,18 @@ function App({ currentUser }: { currentUser: User | null }) {
                         const type = item.type;
                         const detail = item.detail;
                         const memo = currentMonthData.memos[currentSchedMember]?.[day] || '';
-                        const isDone = currentMonthData.dones[currentSchedMember]?.[day] || false;
                         const isSat = dow === 5;
                         const isSun = dow === 6;
                         const dowLabel = ['月', '火', '水', '木', '金', '土', '日'][dow];
                         const _today = new Date();
                         const isToday = currentYear === _today.getFullYear() && currentMonth === _today.getMonth() && day === _today.getDate();
 
-                        if (isDone && hideDone) return null;
-
                         return (
                           <div
                             key={day}
                             data-today={isToday ? 'true' : undefined}
-                            className={`flex items-stretch gap-2.5 rounded-xl border p-2.5 transition-all ${
-                              isDone ? 'opacity-50 bg-slate-50' : 'bg-white'
-                            } ${isSun ? 'border-red-200 bg-red-50/40' : isSat ? 'border-blue-200 bg-blue-50/40' : 'border-border'
+                            className={`flex items-stretch gap-2.5 rounded-xl border p-2.5 transition-all bg-white ${
+                              isSun ? 'border-red-200 bg-red-50/40' : isSat ? 'border-blue-200 bg-blue-50/40' : 'border-border'
                             } ${isToday ? 'ring-2 ring-indigo-400' : ''}`}
                           >
                             {/* 日付列 */}
@@ -1343,18 +1194,6 @@ function App({ currentUser }: { currentUser: User | null }) {
                                 </>
                               )}
                             </div>
-                            {!readOnly && (
-                              <div className="flex items-center self-center shrink-0">
-                                <input
-                                  type="checkbox"
-                                  id={`mob-chk-${day}`}
-                                  className="accent-accent w-4 h-4"
-                                  checked={isDone}
-                                  onChange={(e) => handleDoneChange(currentSchedMember, day, e.target.checked)}
-                                />
-                                <label htmlFor={`mob-chk-${day}`} className="text-[10px] text-text2 ml-1">完了</label>
-                              </div>
-                            )}
                           </div>
                         );
                       })}
@@ -1389,21 +1228,17 @@ function App({ currentUser }: { currentUser: User | null }) {
                             const type = item.type;
                             const detail = item.detail;
                             const memo = currentMonthData.memos[currentSchedMember]?.[day] || '';
-                            const isDone = currentMonthData.dones[currentSchedMember]?.[day] || false;
                             const isSat = dow === 5;
                             const isSun = dow === 6;
                             const _today = new Date();
                             const isToday = currentYear === _today.getFullYear() && currentMonth === _today.getMonth() && day === _today.getDate();
 
-                            if (isDone && hideDone) return null;
-
                             return (
                               <div
                                 key={day}
                                 data-today={isToday ? 'true' : undefined}
-                                className={`border border-border rounded p-1 min-h-[110px] transition-all relative flex flex-col ${
-                                  isDone ? 'opacity-50 bg-slate-50' : 'bg-white'
-                                } ${isSun ? 'bg-red-50' : isSat ? 'bg-blue-50' : ''
+                                className={`border border-border rounded p-1 min-h-[110px] transition-all relative flex flex-col bg-white ${
+                                  isSun ? 'bg-red-50' : isSat ? 'bg-blue-50' : ''
                                 } ${isToday ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-white' : ''}`}
                               >
                                 <span className={`font-mono text-[11px] font-black mb-0.5 flex items-center gap-1 ${
@@ -1442,19 +1277,6 @@ function App({ currentUser }: { currentUser: User | null }) {
                                   value={memo}
                                   onChange={(val: string) => handleMemoChange(currentSchedMember, day, val)}
                                 />
-
-                                {!readOnly && (
-                                  <div className="flex items-center gap-1 mt-1 text-[10px] text-text2">
-                                    <input
-                                      type="checkbox"
-                                      id={`chk-${day}`}
-                                      className="accent-accent w-3 h-3"
-                                      checked={isDone}
-                                      onChange={(e) => handleDoneChange(currentSchedMember, day, e.target.checked)}
-                                    />
-                                    <label htmlFor={`chk-${day}`}>完了</label>
-                                  </div>
-                                )}
                               </div>
                             );
                           })}
@@ -1512,11 +1334,12 @@ function App({ currentUser }: { currentUser: User | null }) {
                   </div>
                 </div>
 
+                {/* 縦スクロールもコンテナ内で行うことで、日付ヘッダー（sticky top-0）が下スクロールに追従する */}
                 <div ref={overallTableRef} className="overflow-auto max-h-[75vh] relative border-b border-border">
-                  <table className="w-full text-[9px] border-separate border-spacing-0 min-w-[max-content]">
+                  <table className="w-full text-[10px] border-separate border-spacing-0 min-w-[max-content]">
                     <thead className="relative z-30">
                       <tr className="bg-slate-100 text-slate-900">
-                        <th className="p-0.5 border border-border font-bold sticky left-0 top-0 bg-slate-100 z-50 min-w-[44px] text-[9px] text-left leading-tight">
+                        <th className="p-1 border border-border font-bold sticky left-0 top-0 bg-slate-100 z-50 min-w-[52px] text-[10px] text-left leading-tight">
                           人 / 累計
                         </th>
                         {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -1527,13 +1350,13 @@ function App({ currentUser }: { currentUser: User | null }) {
                           const _t = new Date();
                           const isToday = currentYear === _t.getFullYear() && currentMonth === _t.getMonth() && day === _t.getDate();
                           return (
-                            <th key={day} data-today={isToday ? 'true' : undefined} className={`p-0.5 border font-bold text-center min-w-[26px] text-[9px] sticky top-0 z-30 ${
+                            <th key={day} data-today={isToday ? 'true' : undefined} className={`p-0.5 border font-bold text-center min-w-[30px] text-[10px] sticky top-0 z-30 ${
                               isToday ? 'border-indigo-400 ring-1 ring-indigo-400' : 'border-border'
                             } ${
                               isSun ? 'text-red-600 bg-red-50' : isSat ? 'text-blue-600 bg-blue-50' : 'bg-slate-100 text-slate-900'
                             }`}>
                               <span className="block font-mono leading-none">{day}</span>
-                              <span className="block text-[7px] leading-none opacity-80">{['月','火','水','木','金','土','日'][dow]}</span>
+                              <span className="block text-[8px] leading-none opacity-80">{['月','火','水','木','金','土','日'][dow]}</span>
                             </th>
                           );
                         })}
@@ -1542,14 +1365,14 @@ function App({ currentUser }: { currentUser: User | null }) {
                     <tbody>
                       {/* Row for Global Location (場所) */}
                       <tr className="bg-amber-50">
-                        <td className="p-0.5 border border-border sticky left-0 bg-amber-50 z-20 font-bold text-orange-800 text-[8px] leading-tight">
+                        <td className="p-1 border border-border sticky left-0 bg-amber-50 z-20 font-bold text-orange-800 text-[9px] leading-tight">
                           場所
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
-                          <td key={i} className="p-0.5 border border-border min-w-[26px]">
+                          <td key={i} className="p-0.5 border border-border min-w-[30px]">
                             <LocalInput
-                              className="w-full px-0.5 py-0 rounded border border-orange-200 text-[8px] outline-none focus:border-orange-400 bg-white focus:bg-white h-4 text-center font-bold text-orange-800"
-                              size={7}
+                              className="w-full px-0.5 py-0 rounded border border-orange-200 text-[9px] outline-none focus:border-orange-400 bg-white focus:bg-white h-5 text-center font-bold text-orange-800"
+                              size={8}
                               value={globalLocations[i + 1] || ''}
                               onChange={(val: string) => handleGlobalLocationChange(i + 1, val)}
                               placeholder="場所"
@@ -1561,14 +1384,14 @@ function App({ currentUser }: { currentUser: User | null }) {
 
                       {/* Row for Global Time (時間) */}
                       <tr className="bg-blue-50">
-                        <td className="p-0.5 border border-border sticky left-0 bg-blue-50 z-20 font-bold text-blue-800 text-[8px] leading-tight">
+                        <td className="p-1 border border-border sticky left-0 bg-blue-50 z-20 font-bold text-blue-800 text-[9px] leading-tight">
                           時間
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
-                          <td key={i} className="p-0.5 border border-border min-w-[26px]">
+                          <td key={i} className="p-0.5 border border-border min-w-[30px]">
                             <LocalInput
-                              className="w-full px-0.5 py-0 rounded border border-blue-200 text-[8px] outline-none focus:border-blue-400 bg-white focus:bg-white h-4 text-center font-bold text-blue-800"
-                              size={7}
+                              className="w-full px-0.5 py-0 rounded border border-blue-200 text-[9px] outline-none focus:border-blue-400 bg-white focus:bg-white h-5 text-center font-bold text-blue-800"
+                              size={8}
                               value={globalTimes[i + 1] || ''}
                               onChange={(val: string) => handleGlobalTimeChange(i + 1, val)}
                               placeholder="時間"
@@ -1580,7 +1403,7 @@ function App({ currentUser }: { currentUser: User | null }) {
 
                       {/* Row for workingCount (稼働数) */}
                       <tr className="bg-bg/50">
-                        <td className="p-0.5 border border-border sticky left-0 bg-bg z-20 font-bold text-text text-[8px] leading-tight">
+                        <td className="p-1 border border-border sticky left-0 bg-bg z-20 font-bold text-text text-[9px] leading-tight">
                           稼働人数
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -1592,7 +1415,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                             }
                           });
                           return (
-                            <td key={i} className="p-0.5 border border-border text-center font-bold text-text text-[8px] min-w-[26px]">
+                            <td key={i} className="p-0.5 border border-border text-center font-bold text-text text-[9px] min-w-[30px]">
                               {count}人
                             </td>
                           );
@@ -1607,20 +1430,20 @@ function App({ currentUser }: { currentUser: User | null }) {
                         const requestCount = schedule.filter(s => s.type === 'request').length;
                         return (
                           <tr key={name} data-member={name} className={`transition-colors ${isMe ? 'bg-indigo-100 hover:bg-indigo-200/60' : 'hover:bg-bg/40'}`}>
-                            <td className={`p-0.5 border border-border sticky left-0 z-20 shadow-[2px_0_8px_-2px_rgba(0,0,0,0.08)] ${isMe ? 'bg-indigo-100 border-l-2 border-l-indigo-500' : 'bg-white'}`}>
+                            <td className={`p-1 border border-border sticky left-0 z-20 shadow-[2px_0_8px_-2px_rgba(0,0,0,0.08)] ${isMe ? 'bg-indigo-100 border-l-2 border-l-indigo-500' : 'bg-white'}`}>
                               <div className="flex flex-col gap-0.5">
                                 <div className="flex items-center justify-between gap-1">
-                                  <div className={`font-bold text-[9px] truncate max-w-[34px] ${isMe ? 'text-indigo-700' : 'text-slate-900'}`}>
+                                  <div className={`font-bold text-[10px] truncate max-w-[40px] ${isMe ? 'text-indigo-700' : 'text-slate-900'}`}>
                                     {name.replace('　', '')}
                                   </div>
-                                  <div className="flex flex-col text-[7px] font-bold leading-tight shrink-0">
+                                  <div className="flex flex-col text-[8px] font-bold leading-tight shrink-0">
                                     <span className="text-slate-500">公{normalCount}</span>
                                     <span className="text-pink-600">希{requestCount}</span>
                                   </div>
                                 </div>
                                 <LocalInput
-                                  className="w-full px-0.5 py-0 rounded border border-slate-200 text-[7px] outline-none focus:border-accent bg-slate-50 text-slate-900 font-normal h-4"
-                                  size={7}
+                                  className="w-full px-0.5 py-0 rounded border border-slate-200 text-[8px] outline-none focus:border-accent bg-slate-50 text-slate-900 font-normal h-4"
+                                  size={8}
                                   value={globalStations[name] || currentMonthData.memberStations?.[name] || ''}
                                   onChange={(val: string) => handleMemberStationChange(name, val)}
                                   placeholder="駅"
@@ -1631,10 +1454,10 @@ function App({ currentUser }: { currentUser: User | null }) {
                             {Array.from({ length: daysInMonth }).map((_, i) => {
                               const item = currentMonthData.schedule[name]?.[i] || { type: 'rest', detail: '' };
                               return (
-                                <td key={i} className="p-[1px] border border-border min-w-[26px]">
+                                <td key={i} className="p-[1px] border border-border min-w-[30px]">
                                   <div className="flex flex-col gap-0.5 text-center justify-center mx-auto">
                                     <select
-                                      className={`w-full px-0.5 py-0.5 rounded-full text-[8px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all disabled:opacity-100 ${TYPE_CLASS[item.type]}`}
+                                      className={`w-full px-0.5 py-0.5 rounded-full text-[9px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all disabled:opacity-100 ${TYPE_CLASS[item.type]}`}
                                       value={item.type}
                                       disabled={readOnly}
                                       onChange={(e) => handleScheduleTypeChange(name, i, e.target.value as StatusType)}
@@ -1644,8 +1467,8 @@ function App({ currentUser }: { currentUser: User | null }) {
                                       ))}
                                     </select>
                                     <LocalInput
-                                      className="w-full px-0.5 py-0 rounded border border-slate-200 text-[8px] text-slate-900 outline-none focus:border-accent bg-slate-50 focus:bg-white h-4 text-center mx-auto"
-                                      size={8}
+                                      className="w-full px-0.5 py-0 rounded border border-slate-200 text-[9px] text-slate-900 outline-none focus:border-accent bg-slate-50 focus:bg-white h-4 text-center mx-auto"
+                                      size={9}
                                       value={item.detail || ''}
                                       onChange={(val: string) => handleScheduleDetailChange(name, i, val)}
                                       placeholder="..."
@@ -1714,12 +1537,6 @@ function App({ currentUser }: { currentUser: User | null }) {
           <span>データはサーバーにリアルタイム保存されます。リンクを知っている全員が閲覧・編集可能です。</span>
         </div>
       </footer>
-
-      <BulkImportModal
-        isOpen={isImportOpen}
-        onClose={() => setIsImportOpen(false)}
-        onImport={handleBulkImport}
-      />
 
     </div>
   );
