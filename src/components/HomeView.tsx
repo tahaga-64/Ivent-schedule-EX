@@ -237,7 +237,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
       <div className="relative z-10 flex flex-col gap-5 px-4 md:px-6 lg:px-8 pt-6 pb-32 md:pb-8 w-full max-w-none">
 
-        {/* Date header — 日付 / 時計+EXロゴ(右) */}
+        {/* Date header — モバイル: 日付/時計+EXロゴ(右) / PC: 日付(左)・EXロゴ(中央)・時計(右) */}
         <motion.div {...sectionAnim(0)} className="flex items-center gap-3 text-slate-900">
           <div className="flex-1 flex items-end gap-2 min-w-0">
             <div className="text-6xl sm:text-7xl md:text-8xl font-black leading-none tracking-tighter tabular-nums">
@@ -253,13 +253,19 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               <div className="text-xs sm:text-sm font-bold text-slate-400">{new Date().getFullYear()}</div>
             </div>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+
+          {/* PC: EXロゴを中央に配置 */}
+          <div className="hidden md:flex md:flex-1 justify-center">
+            <EXBadge size={104} />
+          </div>
+
+          {/* 右: 時計 + モバイル用EXロゴ */}
+          <div className="flex items-center gap-3 shrink-0 md:flex-1 md:justify-end">
             <div className="hidden min-[400px]:block">
               <AnalogClock />
             </div>
             <div className="sm:hidden"><EXBadge size={64} /></div>
             <div className="hidden sm:block md:hidden"><EXBadge size={80} /></div>
-            <div className="hidden md:block"><EXBadge size={104} /></div>
           </div>
         </motion.div>
 
