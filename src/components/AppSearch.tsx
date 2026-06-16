@@ -115,8 +115,8 @@ export default function AppSearch({
 
   return (
     <div className="relative w-full">
-      <div className="flex items-center gap-2.5 bg-white/10 border border-white/15 rounded-xl px-3 sm:px-4 py-2.5">
-        <Search size={16} className="text-white/50 shrink-0" aria-hidden />
+      <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 shadow-sm">
+        <Search size={16} className="text-slate-500 shrink-0" aria-hidden />
         <input
           ref={inputRef}
           type="search"
@@ -130,9 +130,9 @@ export default function AppSearch({
           onBlur={() => setTimeout(() => setOpen(false), 180)}
           onKeyDown={onInputKeyDown}
           placeholder="会場・クライアント・機能を検索…"
-          className="flex-1 min-w-0 bg-transparent text-sm text-white placeholder-white/35 outline-none"
+          className="flex-1 min-w-0 bg-transparent text-sm text-slate-900 placeholder-slate-400 outline-none"
         />
-        <kbd className="hidden md:inline-flex shrink-0 text-[10px] text-white/35 font-medium bg-white/10 border border-white/15 px-1.5 py-0.5 rounded">
+        <kbd className="hidden md:inline-flex shrink-0 text-[10px] text-slate-500 font-medium bg-white border border-slate-200 px-1.5 py-0.5 rounded">
           ⌘K
         </kbd>
       </div>
