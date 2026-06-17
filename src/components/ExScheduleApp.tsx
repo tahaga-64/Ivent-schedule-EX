@@ -27,6 +27,7 @@ import {
   MEMBERS, 
   StatusType,
   TYPE_LABEL,
+  TYPE_LABEL_SHORT,
   TYPE_CLASS,
   GoalRow,
   INITIAL_SCHEDULE_DATA,
@@ -344,25 +345,88 @@ const TrainingInfo = ({
 };
 
 
-const MemberTabs = ({ members, current, onSelect }: { members: string[], current: string, onSelect: (n: string) => void }) => (
+const MemberTabs = ({ members, current, onSelect, compact }: { members: string[], current: string, onSelect: (n: string) => void, compact?: boolean }) => (
   <div className="bg-white rounded-xl shadow-sm mb-4 overflow-hidden border border-border">
-    <div className="flex overflow-x-auto p-2 gap-1.5 border-b border-border scrollbar-hide">
+    <div className={`flex p-2 gap-1.5 border-b border-border ${compact ? 'flex-wrap' : 'overflow-x-auto scrollbar-hide'}`}>
       {members.map(name => (
         <button
           key={name}
           onClick={() => onSelect(name)}
-          className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition-all duration-200 border ${
+          className={`${compact ? 'px-2 py-1 text-[11px]' : 'px-3 py-1.5 text-xs'} rounded-full whitespace-nowrap transition-all duration-200 border ${
             name === current 
               ? 'bg-accent border-accent text-white font-semibold' 
               : 'bg-bg border-border2 text-text2 hover:border-accent-m hover:text-accent hover:bg-accent-l'
           }`}
         >
-          {name.replace('　', '')}
+          {compact ? name.replace('　', '').slice(0, 3) : name.replace('　', '')}
         </button>
       ))}
     </div>
   </div>
 );
+
+/** モバイルの全体表を画面幅に収める（縦スクロールのみ） */
+function FitWidthScaler({
+  children,
+  enabled,
+  minScale = 0.5,
+}: {
+  children: React.ReactNode;
+  enabled: boolean;
+  minScale?: number;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [height, setHeight] = useState<number | undefined>();
+
+  useEffect(() => {
+    if (!enabled) {
+      setScale(1);
+      setHeight(undefined);
+      return;
+    }
+    const container = containerRef.current;
+    const inner = innerRef.current;
+    if (!container || !inner) return;
+
+    const update = () => {
+      const cw = container.clientWidth;
+      const tw = inner.scrollWidth;
+      if (tw <= 0) return;
+      const next = Math.min(1, Math.max(minScale, cw / tw));
+      setScale(next);
+      setHeight(inner.offsetHeight * next);
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(container);
+    ro.observe(inner);
+    return () => ro.disconnect();
+  }, [enabled, minScale]);
+
+  if (!enabled) return <>{children}</>;
+
+  return (
+    <div
+      ref={containerRef}
+      className="w-full overflow-hidden"
+      style={height !== undefined ? { height: `${height}px` } : undefined}
+    >
+      <div
+        ref={innerRef}
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          width: scale < 1 ? `${100 / scale}%` : '100%',
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function AppWrapper({ currentUser }: { currentUser?: User | null }) {
   return (
@@ -381,6 +445,17 @@ function App({ currentUser }: { currentUser: User | null }) {
   // Initialize from current real date to ensure the app opens with the latest current month always
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
+  const [isNarrow, setIsNarrow] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const apply = () => setIsNarrow(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
 
   // 注: 元 EX-schedule の URL 同期（?year=&month=）は Ivent に埋め込むと
   // 親アプリの URL/履歴を汚すため除去。月の状態は内部 state のみで保持する。
@@ -920,7 +995,7 @@ function App({ currentUser }: { currentUser: User | null }) {
   }
 
   return (
-    <div className="min-h-full bg-transparent text-text font-sans pb-20">
+    <div className="min-h-full min-w-0 bg-transparent text-text font-sans pb-20 overflow-x-hidden">
       {/* Non-blocking Save Error Banner */}
       <AnimatePresence>
         {saveError && (
@@ -1014,7 +1089,7 @@ function App({ currentUser }: { currentUser: User | null }) {
       </nav>
 
       {/* Content */}
-      <main className="p-4 md:p-6 max-w-7xl mx-auto w-full flex-grow">
+      <main className="p-2 sm:p-4 md:p-6 max-w-7xl mx-auto w-full flex-grow min-w-0">
         <AnimatePresence mode="wait">
           {activeTab === 'schedule' && (
             <motion.div
@@ -1027,10 +1102,11 @@ function App({ currentUser }: { currentUser: User | null }) {
               <MemberTabs 
                 members={MEMBERS} 
                 current={currentSchedMember} 
-                onSelect={setCurrentSchedMember} 
+                onSelect={setCurrentSchedMember}
+                compact={isNarrow}
               />
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 ${isNarrow ? 'hidden sm:grid' : ''}`}>
                 <div className="lg:col-span-1">
                   <Legend />
                 </div>
@@ -1044,7 +1120,17 @@ function App({ currentUser }: { currentUser: User | null }) {
                 </div>
               </div>
               
-              <div>
+              {isNarrow && (
+                <div className="flex flex-wrap gap-1 sm:hidden">
+                  {(Object.keys(TYPE_LABEL_SHORT) as StatusType[]).map(type => (
+                    <span key={type} className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold leading-none ${TYPE_CLASS[type]}`}>
+                      {TYPE_LABEL_SHORT[type]}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="min-w-0">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-bold text-slate-900">{currentYear}年{currentMonth + 1}月</span>
@@ -1057,19 +1143,20 @@ function App({ currentUser }: { currentUser: User | null }) {
                       </button>
                     )}
                   </div>
-                  <div className="text-[11px] text-text2 flex items-center gap-1">
-                    <ChevronRight size={12} className="animate-pulse" />
-                    横スクロールで全体表示
-                  </div>
+                  {!isNarrow && (
+                    <div className="text-[11px] text-text2 hidden sm:flex items-center gap-1">
+                      <ChevronRight size={12} className="animate-pulse" />
+                      カレンダーで日ごとに編集
+                    </div>
+                  )}
                 </div>
 
-                {/* Scrollable Calendar Container */}
-                <div className="overflow-x-auto pb-2 -mx-0">
-                  <div className="min-w-[700px]">
+                <div className="w-full min-w-0">
+                  <div className="w-full">
                     {/* Calendar Grid Header */}
-                    <div className="grid grid-cols-7 gap-1 md:gap-2 mb-1">
+                    <div className="grid grid-cols-7 gap-px sm:gap-1 md:gap-2 mb-0.5 sm:mb-1">
                       {['月', '火', '水', '木', '金', '土', '日'].map((day, i) => (
-                        <div key={day} className={`text-center text-[11px] font-bold py-1 font-mono ${
+                        <div key={day} className={`text-center text-[9px] sm:text-[11px] font-bold py-0.5 sm:py-1 font-mono leading-none ${
                           i === 5 ? 'text-blue-600' : i === 6 ? 'text-red-600' : 'text-text2'
                         }`}>
                           {day}
@@ -1078,10 +1165,10 @@ function App({ currentUser }: { currentUser: User | null }) {
                     </div>
 
                     {/* Calendar Grid Body */}
-                    <div className="grid grid-cols-7 gap-1 md:gap-2">
+                    <div className="grid grid-cols-7 gap-px sm:gap-1 md:gap-2">
                       {/* Offset cells */}
                       {Array.from({ length: startOffset }).map((_, i) => (
-                        <div key={`offset-${i}`} className="min-h-[100px] md:min-h-[130px]" />
+                        <div key={`offset-${i}`} className="min-h-[76px] sm:min-h-[100px] md:min-h-[130px]" />
                       ))}
 
                       {/* Day cells */}
@@ -1095,47 +1182,48 @@ function App({ currentUser }: { currentUser: User | null }) {
                         const isSun = dow === 6;
                         const _today = new Date();
                         const isToday = currentYear === _today.getFullYear() && currentMonth === _today.getMonth() && day === _today.getDate();
+                        const typeLabel = (t: StatusType) => isNarrow ? TYPE_LABEL_SHORT[t] : TYPE_LABEL[t];
 
                         return (
                           <div
                             key={day}
-                            className={`border border-border rounded-lg p-1.5 md:p-2 min-h-[100px] md:min-h-[130px] transition-all relative flex flex-col bg-white ${
+                            className={`border border-border rounded sm:rounded-lg p-0.5 sm:p-1.5 md:p-2 min-h-[76px] sm:min-h-[100px] md:min-h-[130px] transition-all relative flex flex-col bg-white overflow-hidden ${
                               isSun ? 'bg-red-50' : isSat ? 'bg-blue-50' : ''
-                            } ${isToday ? 'ring-2 ring-indigo-400 ring-offset-2 ring-offset-white' : ''}`}
+                            } ${isToday ? 'ring-1 sm:ring-2 ring-indigo-400 ring-offset-1 sm:ring-offset-2 ring-offset-white' : ''}`}
                           >
-                            <span className={`font-mono text-sm font-black mb-1.5 flex items-center gap-1.5 ${
+                            <span className={`font-mono text-[10px] sm:text-sm font-black mb-0.5 sm:mb-1.5 flex items-center gap-0.5 leading-none ${
                               isSun ? 'text-red-600' : isSat ? 'text-blue-600' : 'text-slate-900'
                             }`}>
                               {day}
-                              {isToday && <span className="text-[8px] font-black bg-indigo-500 text-white px-1.5 py-0.5 rounded-full leading-none">今日</span>}
+                              {isToday && <span className="text-[7px] sm:text-[8px] font-black bg-indigo-500 text-white px-1 py-px rounded-full leading-none">今</span>}
                             </span>
 
-                            <div className="flex flex-col gap-1 mb-1">
+                            <div className="flex flex-col gap-0.5 sm:gap-1 mb-0.5 sm:mb-1 min-w-0">
                               <select
-                                className={`w-full px-1.5 py-1 rounded-full text-[11px] md:text-xs font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[type]}`}
+                                className={`w-full min-w-0 px-0.5 sm:px-1.5 py-0.5 sm:py-1 rounded sm:rounded-full text-[9px] sm:text-[11px] md:text-xs font-bold outline-none border border-transparent focus:border-accent/30 transition-all leading-tight ${TYPE_CLASS[type]}`}
                                 value={type}
                                 onChange={(e) => handleScheduleTypeChange(currentSchedMember, i, e.target.value as StatusType)}
                               >
                                 {Object.keys(TYPE_LABEL).map(t => (
-                                  <option key={t} value={t}>{TYPE_LABEL[t as StatusType]}</option>
+                                  <option key={t} value={t}>{typeLabel(t as StatusType)}</option>
                                 ))}
                               </select>
                               {(type !== 'normal' && type !== 'request' && type !== 'rest') && (
                                 <LocalInput
-                                  className="w-full px-1.5 py-0.5 rounded border border-slate-200 text-[11px] md:text-xs text-slate-900 outline-none focus:border-accent bg-slate-50"
-                                  size={11}
+                                  className="w-full min-w-0 px-0.5 sm:px-1.5 py-0.5 rounded border border-slate-200 text-[9px] sm:text-[11px] md:text-xs text-slate-900 outline-none focus:border-accent bg-slate-50"
+                                  size={isNarrow ? 9 : 11}
                                   value={detail}
                                   onChange={(val: string) => handleScheduleDetailChange(currentSchedMember, i, val)}
-                                  placeholder="詳細..."
+                                  placeholder="詳細"
                                   list="status-suggestions"
                                 />
                               )}
                             </div>
 
                             <LocalTextarea
-                              className="w-full border border-slate-200 rounded p-1.5 text-[11px] md:text-xs text-slate-900 bg-slate-50 focus:bg-white focus:border-accent outline-none resize-none flex-grow mt-1 placeholder:text-slate-400"
-                              rows={2}
-                              placeholder="メモ..."
+                              className="w-full min-w-0 border border-slate-200 rounded p-0.5 sm:p-1.5 text-[9px] sm:text-[11px] md:text-xs text-slate-900 bg-slate-50 focus:bg-white focus:border-accent outline-none resize-none flex-grow mt-0.5 sm:mt-1 placeholder:text-slate-400"
+                              rows={isNarrow ? 1 : 2}
+                              placeholder="メモ"
                               value={currentMonthData.memos[currentSchedMember]?.[day] || ''}
                               onChange={(val: string) => handleMemoChange(currentSchedMember, day, val)}
                             />
@@ -1171,13 +1259,13 @@ function App({ currentUser }: { currentUser: User | null }) {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-4"
             >
-              <div className="bg-white rounded-xl shadow-sm p-5 border border-border">
-                <div className="flex items-center justify-between gap-4 mb-4">
+              <div className="bg-white rounded-xl shadow-sm p-3 sm:p-5 border border-border min-w-0">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
                   <div className="flex items-center gap-2 text-sm font-bold text-text">
                     <div className="w-1 h-4 bg-accent rounded-full" />
                     全体稼働状況 ({currentYear}年{currentMonth + 1}月)
                   </div>
-                  <div className="flex items-center gap-2 flex-grow max-w-md">
+                  <div className="flex items-center gap-2 sm:flex-grow sm:max-w-md">
                     <div className="relative flex-grow">
                       <LocalInput
                         className="w-full px-3 py-2 rounded-lg border border-accent/20 bg-accent-l/30 focus:bg-white outline-none text-xs font-bold text-slate-900"
@@ -1193,12 +1281,27 @@ function App({ currentUser }: { currentUser: User | null }) {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto relative border-b border-border">
-                  <table className="w-full text-[10px] border-separate border-spacing-0 min-w-[max-content]">
+                <FitWidthScaler enabled={isNarrow} minScale={0.52} key={`${currentYear}-${currentMonth}-${daysInMonth}`}>
+                <div className={`relative border-b border-border ${isNarrow ? 'w-full' : 'overflow-x-auto'}`}>
+                  <table className={`border-separate border-spacing-0 ${
+                    isNarrow
+                      ? 'w-full table-fixed text-[13px] leading-tight'
+                      : 'w-full text-[10px] min-w-[max-content]'
+                  }`}>
+                    {isNarrow && (
+                      <colgroup>
+                        <col style={{ width: '13%' }} />
+                        {Array.from({ length: daysInMonth }).map((_, i) => (
+                          <col key={i} />
+                        ))}
+                      </colgroup>
+                    )}
                     <thead className="relative z-30">
                       <tr className="bg-slate-100 text-slate-900">
-                        <th className="p-1.5 border border-border font-bold sticky left-0 top-0 bg-slate-100 z-50 min-w-[56px] text-[10px] text-left leading-tight">
-                          人 / 累計
+                        <th className={`border border-border font-bold sticky left-0 top-0 bg-slate-100 z-50 text-left leading-tight ${
+                          isNarrow ? 'p-1 text-[11px] min-w-0' : 'p-1.5 min-w-[56px] text-[10px]'
+                        }`}>
+                          {isNarrow ? '人' : '人 / 累計'}
                         </th>
                         {Array.from({ length: daysInMonth }).map((_, i) => {
                           const day = i + 1;
@@ -1206,10 +1309,19 @@ function App({ currentUser }: { currentUser: User | null }) {
                           const isSat = dow === 5;
                           const isSun = dow === 6;
                           return (
-                            <th key={day} className={`p-0.5 border border-border font-bold text-center min-w-[44px] min-w-max text-[10px] sticky top-0 z-30 ${
+                            <th key={day} className={`border border-border font-bold text-center sticky top-0 z-30 ${
+                              isNarrow ? 'p-0 text-[11px] leading-none' : 'p-0.5 min-w-[44px] min-w-max text-[10px]'
+                            } ${
                               isSun ? 'text-red-600 bg-red-50' : isSat ? 'text-blue-600 bg-blue-50' : 'bg-slate-100 text-slate-900'
                             }`}>
-                              {day}({['月','火','水','木','金','土','日'][dow]})
+                              {isNarrow ? (
+                                <span className="flex flex-col items-center gap-0">
+                                  <span>{day}</span>
+                                  <span className="text-[9px] font-bold opacity-80">{['月','火','水','木','金','土','日'][dow]}</span>
+                                </span>
+                              ) : (
+                                <>{day}({['月','火','水','木','金','土','日'][dow]})</>
+                              )}
                             </th>
                           );
                         })}
@@ -1218,14 +1330,14 @@ function App({ currentUser }: { currentUser: User | null }) {
                     <tbody>
                       {/* Row for Global Location (場所) */}
                       <tr className="bg-amber-50">
-                        <td className="p-1 border border-border sticky left-0 bg-amber-50 z-20 font-bold text-orange-800 text-[8px]">
-                          場所 (固定表示)
+                        <td className={`border border-border sticky left-0 bg-amber-50 z-20 font-bold text-orange-800 ${isNarrow ? 'p-0.5 text-[10px]' : 'p-1 text-[8px]'}`}>
+                          {isNarrow ? '場所' : '場所 (固定表示)'}
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
-                          <td key={i} className="p-0.5 border border-border min-w-[42px] min-w-max">
+                          <td key={i} className={`border border-border ${isNarrow ? 'p-px' : 'p-0.5 min-w-[42px] min-w-max'}`}>
                             <LocalInput
-                              className="w-full px-0.5 py-0.5 rounded border border-orange-200 text-[7.5px] outline-none focus:border-orange-400 bg-white focus:bg-white h-5 text-center font-bold text-orange-800"
-                              size={7.5}
+                              className={`w-full px-0.5 py-0.5 rounded border border-orange-200 outline-none focus:border-orange-400 bg-white focus:bg-white text-center font-bold text-orange-800 ${isNarrow ? 'h-4 text-[10px]' : 'h-5 text-[7.5px]'}`}
+                              size={isNarrow ? 10 : 7.5}
                               value={globalLocations[i + 1] || ''}
                               onChange={(val: string) => handleGlobalLocationChange(i + 1, val)}
                               placeholder="場所"
@@ -1236,14 +1348,14 @@ function App({ currentUser }: { currentUser: User | null }) {
 
                       {/* Row for Global Time (時間) */}
                       <tr className="bg-blue-50">
-                        <td className="p-1 border border-border sticky left-0 bg-blue-50 z-20 font-bold text-blue-800 text-[8px]">
-                          時間 (固定表示)
+                        <td className={`border border-border sticky left-0 bg-blue-50 z-20 font-bold text-blue-800 ${isNarrow ? 'p-0.5 text-[10px]' : 'p-1 text-[8px]'}`}>
+                          {isNarrow ? '時間' : '時間 (固定表示)'}
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
-                          <td key={i} className="p-0.5 border border-border min-w-[42px] min-w-max">
+                          <td key={i} className={`border border-border ${isNarrow ? 'p-px' : 'p-0.5 min-w-[42px] min-w-max'}`}>
                             <LocalInput
-                              className="w-full px-0.5 py-0.5 rounded border border-blue-200 text-[7.5px] outline-none focus:border-blue-400 bg-white focus:bg-white h-5 text-center font-bold text-blue-800"
-                              size={7.5}
+                              className={`w-full px-0.5 py-0.5 rounded border border-blue-200 outline-none focus:border-blue-400 bg-white focus:bg-white text-center font-bold text-blue-800 ${isNarrow ? 'h-4 text-[10px]' : 'h-5 text-[7.5px]'}`}
+                              size={isNarrow ? 10 : 7.5}
                               value={globalTimes[i + 1] || ''}
                               onChange={(val: string) => handleGlobalTimeChange(i + 1, val)}
                               placeholder="時間"
@@ -1254,8 +1366,8 @@ function App({ currentUser }: { currentUser: User | null }) {
 
                       {/* Row for workingCount (稼働数) */}
                       <tr className="bg-bg/50">
-                        <td className="p-1 border border-border sticky left-0 bg-bg z-20 font-bold text-text text-[8px]">
-                          稼働人数 (合計)
+                        <td className={`border border-border sticky left-0 bg-bg z-20 font-bold text-text ${isNarrow ? 'p-0.5 text-[10px]' : 'p-1 text-[8px]'}`}>
+                          {isNarrow ? '稼働' : '稼働人数 (合計)'}
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => {
                           let count = 0;
@@ -1266,8 +1378,8 @@ function App({ currentUser }: { currentUser: User | null }) {
                             }
                           });
                           return (
-                            <td key={i} className="p-0.5 border border-border text-center font-bold text-text text-[8px] min-w-[42px] min-w-max">
-                              {count}人
+                            <td key={i} className={`border border-border text-center font-bold text-text ${isNarrow ? 'p-px text-[10px]' : 'p-0.5 text-[8px] min-w-[42px] min-w-max'}`}>
+                              {isNarrow ? count : `${count}人`}
                             </td>
                           );
                         })}
@@ -1280,45 +1392,59 @@ function App({ currentUser }: { currentUser: User | null }) {
                         const requestCount = schedule.filter(s => s.type === 'request').length;
                         return (
                           <tr key={name} className="hover:bg-bg/40 transition-colors">
-                            <td className="p-1 border border-border sticky left-0 bg-white z-20 shadow-[2px_0_8px_-2px_rgba(0,0,0,0.08)]">
-                              <div className="flex flex-col gap-0.5">
-                                <div className="flex items-center justify-between gap-1">
-                                  <div className="font-bold text-slate-900 text-[9px] truncate max-w-[40px]">{name.replace('　', '')}</div>
-                                  <div className="flex flex-col text-[7px] font-bold leading-tight shrink-0">
-                                    <span className="text-slate-500">公{normalCount}</span>
-                                    <span className="text-pink-600">希{requestCount}</span>
+                            <td className={`border border-border sticky left-0 bg-white z-20 shadow-[2px_0_8px_-2px_rgba(0,0,0,0.08)] ${isNarrow ? 'p-0.5' : 'p-1'}`}>
+                              <div className="flex flex-col gap-0.5 min-w-0">
+                                <div className={`flex items-center ${isNarrow ? 'flex-col gap-0' : 'justify-between gap-1'}`}>
+                                  <div className={`font-bold text-slate-900 truncate ${isNarrow ? 'text-[10px] max-w-full leading-tight' : 'text-[9px] max-w-[40px]'}`}>
+                                    {isNarrow ? name.replace('　', '').slice(0, 3) : name.replace('　', '')}
                                   </div>
+                                  {!isNarrow && (
+                                    <div className="flex flex-col text-[7px] font-bold leading-tight shrink-0">
+                                      <span className="text-slate-500">公{normalCount}</span>
+                                      <span className="text-pink-600">希{requestCount}</span>
+                                    </div>
+                                  )}
                                 </div>
-                                <LocalInput
-                                  className="w-full px-0.5 py-0 rounded border border-slate-200 text-[7.5px] outline-none focus:border-accent bg-slate-50 text-slate-900 font-normal h-3"
-                                  size={7.5}
-                                  value={globalStations[name] || currentMonthData.memberStations?.[name] || ''}
-                                  onChange={(val: string) => handleMemberStationChange(name, val)}
-                                  placeholder="駅"
-                                />
+                                {!isNarrow && (
+                                  <LocalInput
+                                    className="w-full px-0.5 py-0 rounded border border-slate-200 text-[7.5px] outline-none focus:border-accent bg-slate-50 text-slate-900 font-normal h-3"
+                                    size={7.5}
+                                    value={globalStations[name] || currentMonthData.memberStations?.[name] || ''}
+                                    onChange={(val: string) => handleMemberStationChange(name, val)}
+                                    placeholder="駅"
+                                  />
+                                )}
                               </div>
                             </td>
                             {Array.from({ length: daysInMonth }).map((_, i) => {
                               const item = currentMonthData.schedule[name]?.[i] || { type: 'rest', detail: '' };
                               return (
-                                <td key={i} className="p-0.5 border border-border min-w-[42px] min-w-max">
-                                  <div className="flex flex-col gap-0.5 min-w-full w-max text-center justify-center mx-auto">
+                                <td key={i} className={`border border-border ${isNarrow ? 'p-px' : 'p-0.5 min-w-[42px] min-w-max'}`}>
+                                  <div className={`flex flex-col text-center justify-center mx-auto min-w-0 ${isNarrow ? 'gap-0' : 'gap-0.5 min-w-full w-max'}`}>
                                     <select
-                                      className={`w-full px-0.5 py-0.5 rounded-full text-[9px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[item.type]}`}
+                                      className={`w-full min-w-0 font-bold outline-none border border-transparent focus:border-accent/30 transition-all leading-tight ${
+                                        isNarrow ? 'px-0 py-0.5 rounded text-[10px]' : 'px-0.5 py-0.5 rounded-full text-[9px]'
+                                      } ${TYPE_CLASS[item.type]}`}
                                       value={item.type}
                                       onChange={(e) => handleScheduleTypeChange(name, i, e.target.value as StatusType)}
                                     >
                                       {Object.keys(TYPE_LABEL).map(t => (
-                                        <option key={t} value={t}>{TYPE_LABEL[t as StatusType].split('(')[0]}</option>
+                                        <option key={t} value={t}>
+                                          {isNarrow
+                                            ? TYPE_LABEL_SHORT[t as StatusType]
+                                            : TYPE_LABEL[t as StatusType].split('(')[0]}
+                                        </option>
                                       ))}
                                     </select>
-                                    <LocalInput
-                                      className="min-w-full w-max px-0.5 py-0.5 rounded border border-slate-200 text-[8px] text-slate-900 outline-none focus:border-accent bg-slate-50 focus:bg-white h-4 text-center justify-center mx-auto"
-                                      size={8}
-                                      value={item.detail || ''}
-                                      onChange={(val: string) => handleScheduleDetailChange(name, i, val)}
-                                      placeholder="..."
-                                    />
+                                    {!isNarrow && (
+                                      <LocalInput
+                                        className="min-w-full w-max px-0.5 py-0.5 rounded border border-slate-200 text-[8px] text-slate-900 outline-none focus:border-accent bg-slate-50 focus:bg-white h-4 text-center justify-center mx-auto"
+                                        size={8}
+                                        value={item.detail || ''}
+                                        onChange={(val: string) => handleScheduleDetailChange(name, i, val)}
+                                        placeholder="..."
+                                      />
+                                    )}
                                   </div>
                                 </td>
                               );
@@ -1329,8 +1455,9 @@ function App({ currentUser }: { currentUser: User | null }) {
                     </tbody>
                   </table>
                 </div>
+                </FitWidthScaler>
 
-                <div className="mt-6 bg-accent-l/20 rounded-xl p-5 border border-accent/10">
+                <div className="mt-4 sm:mt-6 bg-accent-l/20 rounded-xl p-3 sm:p-5 border border-accent/10">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2 text-xs font-bold text-accent">
                       <Info size={14} />
