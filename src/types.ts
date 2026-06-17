@@ -55,7 +55,7 @@ export interface Event {
   prepItemDone?: number;
 }
 
-export type OrderStatus = 'unordered' | 'ordered' | 'shipping' | 'arrived';
+export type OrderStatus = 'unordered' | 'ordered' | 'shipping' | 'arrived' | 'completed';
 
 export interface PreparationItem {
   id: string;

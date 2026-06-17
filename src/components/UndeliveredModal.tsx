@@ -6,7 +6,7 @@ import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { normalizeOrderStatus } from '../lib/orderStatus';
 import { notifyPush } from '../lib/pushNotifications';
-import type { Event, PreparationItem, OrderStatus } from '../types';
+import type { Event, PreparationItem } from '../types';
 
 interface UndeliveredItem extends PreparationItem {
   eventId: string;
@@ -81,7 +81,7 @@ export default function UndeliveredModal({ events, onClose }: Props) {
       try {
         await updateDoc(
           doc(db, `events/${item.eventId}/preparationItems/${item.id}`),
-          { orderStatus: 'completed' as OrderStatus },
+          { orderStatus: 'completed' },
         );
         setItems(prev =>
           prev.filter(i => !(i.id === item.id && i.eventId === item.eventId)),
@@ -102,10 +102,10 @@ export default function UndeliveredModal({ events, onClose }: Props) {
   );
 
   const groups = useMemo(() => {
-    const map = new Map<string, { venue: string; items: UndeliveredItem[] }>();
+    const map = new Map<string, { eventId: string; venue: string; items: UndeliveredItem[] }>();
     for (const item of items) {
       if (!map.has(item.eventId)) {
-        map.set(item.eventId, { venue: item.eventVenue, items: [] });
+        map.set(item.eventId, { eventId: item.eventId, venue: item.eventVenue, items: [] });
       }
       map.get(item.eventId)!.items.push(item);
     }
@@ -178,7 +178,7 @@ export default function UndeliveredModal({ events, onClose }: Props) {
             ) : (
               <div className="space-y-5">
                 {groups.map(group => (
-                  <div key={group.venue}>
+                  <div key={group.eventId}>
                     <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">
                       {group.venue}
                     </div>
