@@ -60,6 +60,7 @@ export interface EventDetailModalProps {
   onSave: () => Promise<boolean>;
   onDelete: () => void;
   onOpenPrepList: () => void;
+  onOpenFishList?: () => void;
   photoUploading: boolean;
   uploadProgress: number;
   photoError: string | null;
@@ -92,6 +93,7 @@ export default function EventDetailModal({
   onSave,
   onDelete,
   onOpenPrepList,
+  onOpenFishList,
   photoUploading,
   uploadProgress,
   photoError,
@@ -398,7 +400,7 @@ export default function EventDetailModal({
           </div>
 
           {/* 統計パネル */}
-          <div className="mt-6 bg-gray-50 rounded-2xl p-5 grid grid-cols-3 divide-x divide-gray-200">
+          <div className="mt-6 bg-gray-50 rounded-2xl p-5 grid grid-cols-2 divide-x divide-gray-200">
             <div className="pr-5">
               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">ITEMS</div>
               <div className="text-2xl font-black text-gray-800">{eventStats.itemCount}</div>
@@ -408,10 +410,6 @@ export default function EventDetailModal({
               <div className="text-2xl font-black text-indigo-600">
                 {eventStats.preparedCount}/{eventStats.itemCount}
               </div>
-            </div>
-            <div className="pl-5">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">BUDGET</div>
-              <div className="text-2xl font-black text-gray-800">¥{eventStats.budget.toLocaleString()}</div>
             </div>
           </div>
 
@@ -434,6 +432,14 @@ export default function EventDetailModal({
               <ClipboardList size={18} />
               準備物リストを開く
             </button>
+            {selected.type === '水族館' && onOpenFishList && (
+              <button
+                onClick={onOpenFishList}
+                className="flex-1 py-4 rounded-2xl bg-sky-500 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-sky-600 transition-colors shadow-lg shadow-sky-500/20"
+              >
+                🐟 魚リストを確認
+              </button>
+            )}
           </div>
           {isNewEvent && (
             <button

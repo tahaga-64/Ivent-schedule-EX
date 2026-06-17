@@ -202,7 +202,7 @@ export function MobileMonthWeekGrid({
                 style={{ maxHeight: CAL_DAY_CELL_EVENTS_MAX_HEIGHT_NARROW }}
               >
                 {visible.map((ev) => {
-                  const typeSty = ts(ev.type || "");
+                  const regionColor = rs(ev.region || "").dot;
                   const captionNd = buildEventOptionalCaption(ev, { includeDates: false });
                   return (
                     <button
@@ -212,7 +212,7 @@ export function MobileMonthWeekGrid({
                       title={ev.status === 'completed' ? '完了済み' : undefined}
                       style={{
                         borderLeftWidth: 3,
-                        borderLeftColor: typeSty.border,
+                        borderLeftColor: regionColor,
                         minHeight: CAL_EVENT_ROW_MIN_HEIGHT_TOUCH,
                       }}
                       aria-label={captionNd ? `${ev.venue}。${captionNd}` : ev.venue}
@@ -326,7 +326,7 @@ export function MobileDayAgendaView({
       ) : (
         <div className="space-y-2">
           {visible.map((ev) => {
-            const typeSty = ts(ev.type || "");
+            const regionColor = rs(ev.region || "").dot;
             const meta = buildEventOptionalCaption(ev);
             return (
               <button
@@ -334,12 +334,12 @@ export function MobileDayAgendaView({
                 type="button"
                 onClick={() => onSelect(ev)}
                 title={ev.status === 'completed' ? '完了済み' : undefined}
-                style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border }}
+                style={{ borderLeftWidth: 3, borderLeftColor: regionColor }}
                 className="flex min-h-11 w-full items-start gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm ring-1 ring-inset ring-slate-900/[0.04]"
               >
                 <span
                   className="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-slate-900/15"
-                  style={{ backgroundColor: typeSty.border }}
+                  style={{ backgroundColor: regionColor }}
                   aria-hidden
                 />
                 <span className="min-w-0 flex-1">
@@ -513,7 +513,7 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
                     style={{ maxHeight: eventsPanelMaxHeight }}
                   >
                     {visibleEvents.map((ev) => {
-                      const typeSty = ts(ev.type || "");
+                      const regionColor = rs(ev.region || "").dot;
                       const captionNoDates = buildEventOptionalCaption(ev, { includeDates: false });
                       const captionFull = buildEventOptionalCaption(ev);
                       return (
@@ -525,7 +525,7 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
                         onMouseLeave={onHoverEnd}
                         style={{
                           borderLeftWidth: 3,
-                          borderLeftColor: typeSty.border,
+                          borderLeftColor: regionColor,
                           minHeight: eventRowMinHeight,
                         }}
                         aria-label={
@@ -538,7 +538,7 @@ export function CalendarView({ events, year, month, setYear, setMonth, onSelect,
                       >
                         <span
                           className="h-1.5 w-1.5 shrink-0 rounded-full border border-slate-900/20"
-                          style={{ backgroundColor: typeSty.border }}
+                          style={{ backgroundColor: regionColor }}
                           aria-hidden
                         />
                         <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[12px] font-semibold leading-tight text-slate-900 max-xl:text-[11px]">

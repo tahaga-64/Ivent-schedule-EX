@@ -462,6 +462,18 @@ export default function App() {
     return [...merged, ...firestoreOnly];
   }, [dbEvents, eventsMigrated]);
 
+  // 日付が過ぎたイベントを自動的に「完了」にする
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const toComplete = allEvents.filter(ev =>
+      ev.status !== 'completed' &&
+      ev.status !== 'cancelled' &&
+      (ev.end || ev.start) < today
+    );
+    toComplete.forEach(ev => handleUpdateEventStatus(ev.id, 'completed'));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allEvents]);
+
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     let filtered = allEvents.filter(d => {
@@ -1553,6 +1565,7 @@ VITE_FIREBASE_DATABASE_ID`}
             onSave={handleSaveEvent}
             onDelete={handleDeleteEvent}
             onOpenPrepList={() => { setPrepEvent(selected); setView('prep'); setSelected(null); }}
+            onOpenFishList={() => { setSelected(null); setView('fish'); }}
             photoUploading={photoUploading}
             uploadProgress={uploadProgress}
             photoError={photoError}
