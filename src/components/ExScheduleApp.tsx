@@ -1068,7 +1068,11 @@ function App({ currentUser }: { currentUser: User | null }) {
       </nav>
 
       {/* Content */}
-      <main className="px-2 py-4 md:p-6 max-w-[1600px] mx-auto w-full flex-grow">
+      <main className={`mx-auto w-full flex-grow max-w-[1600px] ${
+        activeTab === 'overall'
+          ? 'px-0 py-2 md:px-6 md:py-6'
+          : 'px-2 py-4 md:p-6'
+      }`}>
         <AnimatePresence mode="wait">
           {activeTab === 'schedule' && (
             <motion.div
@@ -1301,15 +1305,17 @@ function App({ currentUser }: { currentUser: User | null }) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="space-y-4"
+              className={`space-y-3 ${isMobile ? '-mx-1 sm:mx-0' : ''}`}
             >
-              <div className="bg-white rounded-xl shadow-sm p-2 md:p-5 border border-border">
-                <div className="flex items-center justify-between gap-4 mb-4">
-                  <div className="flex items-center gap-2 text-sm font-bold text-text">
+              <div className={`bg-white shadow-sm border border-border ${
+                isMobile ? 'rounded-none border-x-0 px-1 py-2' : 'rounded-xl p-2 md:p-5'
+              }`}>
+                <div className={`flex flex-col gap-2 mb-3 ${isMobile ? 'px-1' : ''} sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:mb-4`}>
+                  <div className="flex items-center gap-2 text-sm font-bold text-text shrink-0">
                     <div className="w-1 h-4 bg-accent rounded-full" />
                     全体稼働状況 ({currentYear}年{currentMonth + 1}月)
                   </div>
-                  <div className="flex items-center gap-2 flex-grow max-w-md">
+                  <div className="flex items-center gap-2 w-full sm:flex-grow sm:max-w-md">
                     <div className="relative flex-grow">
                       <LocalInput
                         className="w-full px-3 py-2 rounded-lg border border-accent/20 bg-accent-l/30 focus:bg-white outline-none text-xs font-bold text-slate-900"
@@ -1327,11 +1333,11 @@ function App({ currentUser }: { currentUser: User | null }) {
                 </div>
 
                 {/* 縦スクロールもコンテナ内で行うことで、日付ヘッダー（sticky top-0）が下スクロールに追従する */}
-                <div ref={overallTableRef} className="overflow-auto max-h-[85vh] relative border-b border-border">
+                <div ref={overallTableRef} className="overflow-auto max-h-[85vh] relative border-b border-border w-full -mx-px">
                   <table className="w-full text-[9px] border-separate border-spacing-0 min-w-[max-content]">
                     <thead className="relative z-30">
                       <tr className="bg-slate-100 text-slate-900">
-                        <th className="p-1 border border-border font-bold sticky left-0 top-0 bg-slate-100 z-50 min-w-[52px] text-[9px] text-left leading-tight">
+                        <th className="p-1 border border-border font-bold sticky left-0 top-0 bg-slate-100 z-50 min-w-[3.75rem] sm:min-w-[52px] text-[9px] text-left leading-tight">
                           人 / 累計
                         </th>
                         {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -1342,7 +1348,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                           const _t = new Date();
                           const isToday = currentYear === _t.getFullYear() && currentMonth === _t.getMonth() && day === _t.getDate();
                           return (
-                            <th key={day} data-today={isToday ? 'true' : undefined} className={`p-0.5 border font-bold text-center min-w-[26px] text-[9px] sticky top-0 z-30 ${
+                            <th key={day} data-today={isToday ? 'true' : undefined} className={`p-0.5 border font-bold text-center min-w-[1.75rem] sm:min-w-[26px] text-[9px] sticky top-0 z-30 ${
                               isToday ? 'border-indigo-400 ring-1 ring-indigo-400' : 'border-border'
                             } ${
                               isSun ? 'text-red-600 bg-red-50' : isSat ? 'text-blue-600 bg-blue-50' : 'bg-slate-100 text-slate-900'
@@ -1361,7 +1367,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                           場所
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
-                          <td key={i} className="p-0.5 border border-border min-w-[26px]">
+                          <td key={i} className="p-0.5 border border-border min-w-[1.75rem] sm:min-w-[26px]">
                             <LocalInput
                               className="w-full px-0.5 py-0 rounded border border-orange-200 text-[8px] outline-none focus:border-orange-400 bg-white focus:bg-white h-[18px] text-center font-bold text-orange-800"
                               size={8}
@@ -1380,7 +1386,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                           時間
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
-                          <td key={i} className="p-0.5 border border-border min-w-[26px]">
+                          <td key={i} className="p-0.5 border border-border min-w-[1.75rem] sm:min-w-[26px]">
                             <LocalInput
                               className="w-full px-0.5 py-0 rounded border border-blue-200 text-[8px] outline-none focus:border-blue-400 bg-white focus:bg-white h-[18px] text-center font-bold text-blue-800"
                               size={8}
@@ -1407,7 +1413,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                             }
                           });
                           return (
-                            <td key={i} className="p-0.5 border border-border text-center font-bold text-text text-[8px] min-w-[26px]">
+                            <td key={i} className="p-0.5 border border-border text-center font-bold text-text text-[8px] min-w-[1.75rem] sm:min-w-[26px]">
                               {count}人
                             </td>
                           );
@@ -1425,7 +1431,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                             <td className={`p-1 border border-border sticky left-0 z-20 shadow-[2px_0_8px_-2px_rgba(0,0,0,0.08)] ${isMe ? 'bg-indigo-100 border-l-2 border-l-indigo-500' : 'bg-white'}`}>
                               <div className="flex flex-col gap-0.5">
                                 <div className="flex items-center justify-between gap-1">
-                                  <div className={`font-bold text-[9px] truncate max-w-[40px] ${isMe ? 'text-indigo-700' : 'text-slate-900'}`}>
+                                  <div className={`font-bold text-[9px] truncate max-w-[3.25rem] sm:max-w-[40px] ${isMe ? 'text-indigo-700' : 'text-slate-900'}`}>
                                     {name.replace('　', '')}
                                   </div>
                                   <div className="flex flex-col text-[7px] font-bold leading-tight shrink-0">
@@ -1446,7 +1452,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                             {Array.from({ length: daysInMonth }).map((_, i) => {
                               const item = currentMonthData.schedule[name]?.[i] || { type: 'rest', detail: '' };
                               return (
-                                <td key={i} className="p-[1px] border border-border min-w-[26px]">
+                                <td key={i} className="p-[1px] border border-border min-w-[1.75rem] sm:min-w-[26px]">
                                   <div className="flex flex-col gap-0.5 text-center justify-center mx-auto">
                                     <select
                                       className={`w-full px-0.5 py-0.5 rounded-full text-[8px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all disabled:opacity-100 ${TYPE_CLASS[item.type]}`}
@@ -1477,7 +1483,9 @@ function App({ currentUser }: { currentUser: User | null }) {
                   </table>
                 </div>
 
-                <div className="mt-6 bg-accent-l/20 rounded-xl p-5 border border-accent/10">
+                <div className={`mt-4 md:mt-6 bg-accent-l/20 rounded-xl border border-accent/10 ${
+                  isMobile ? 'mx-1 p-3 rounded-lg' : 'p-5'
+                }`}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2 text-xs font-bold text-accent">
                       <Info size={14} />
