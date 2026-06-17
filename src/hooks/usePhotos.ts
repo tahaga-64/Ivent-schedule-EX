@@ -1,7 +1,7 @@
 ﻿import { useState } from 'react';
 import { doc, setDoc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { deleteStoredPhoto, syncPhotoToDrive, uploadEventPhoto, validateImageFile } from '../lib/photoStorage';
+import { deleteStoredPhoto, uploadEventPhoto, validateImageFile } from '../lib/photoStorage';
 import { EventPhoto } from '../types';
 
 export function usePhotos(eventId: string) {
@@ -9,10 +9,7 @@ export function usePhotos(eventId: string) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  async function uploadPhoto(
-    file: File,
-    meta?: { venue?: string; start?: string },
-  ): Promise<EventPhoto | null> {
+  async function uploadPhoto(file: File): Promise<EventPhoto | null> {
     const validationError = validateImageFile(file);
     if (validationError) { setError(validationError); return null; }
 
@@ -23,23 +20,6 @@ export function usePhotos(eventId: string) {
     try {
       setUploadProgress(20);
       uploadedPhoto = await uploadEventPhoto(eventId, file);
-      setUploadProgress(50);
-
-      const driveResult = await syncPhotoToDrive({
-        imageUrl: uploadedPhoto.url,
-        eventId,
-        venue: meta?.venue,
-        start: meta?.start,
-        fileName: file.name,
-      });
-      if (driveResult) {
-        uploadedPhoto = {
-          ...uploadedPhoto,
-          driveFileId: driveResult.fileId,
-          driveViewUrl: driveResult.webViewLink,
-        };
-      }
-
       setUploadProgress(80);
       await setDoc(doc(db, 'events', eventId), { photos: arrayUnion(uploadedPhoto) }, { merge: true });
       setUploadProgress(100);

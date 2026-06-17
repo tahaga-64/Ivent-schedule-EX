@@ -1281,10 +1281,7 @@ VITE_FIREBASE_DATABASE_ID`}
             uploadProgress={uploadProgress}
             photoError={photoError}
             onUploadPhoto={async (file) => {
-              const newPhoto = await uploadPhoto(file, {
-                venue: selected?.venue,
-                start: selected?.start,
-              });
+              const newPhoto = await uploadPhoto(file);
               if (newPhoto && hasUnsavedChanges) {
                 setSelected(prev => prev ? { ...prev, photos: [...(prev.photos ?? []), newPhoto] } : prev);
               }

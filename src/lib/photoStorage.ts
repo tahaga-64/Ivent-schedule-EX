@@ -52,48 +52,6 @@ export async function uploadEventPhoto(eventId: string, file: File): Promise<Eve
 
 export const GOOGLE_DRIVE_FOLDER_URL = 'https://drive.google.com/drive/folders/1CsKYdRqSYrf5XzHsX4hqAalg5JFc3ieZ';
 
-export interface DriveUploadResult {
-  fileId: string;
-  webViewLink?: string;
-}
-
-/** Cloudinary URL から Google Drive へ同期（未設定時は null を返す） */
-export async function syncPhotoToDrive(params: {
-  imageUrl: string;
-  eventId: string;
-  venue?: string;
-  start?: string;
-  fileName?: string;
-}): Promise<DriveUploadResult | null> {
-  try {
-    const token = await auth?.currentUser?.getIdToken();
-    if (!token) return null;
-
-    const res = await fetch('/api/uploadToDrive', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(params),
-    });
-
-    if (res.status === 503) return null;
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.warn('Drive sync failed:', err);
-      return null;
-    }
-
-    const data = await res.json() as { fileId?: string; webViewLink?: string };
-    if (!data.fileId) return null;
-    return { fileId: data.fileId, webViewLink: data.webViewLink };
-  } catch (e) {
-    console.warn('Drive sync error:', e);
-    return null;
-  }
-}
-
 export async function deleteStoredPhoto(photo: EventPhoto): Promise<void> {
   if (!photo.storagePath) return;
   try {
