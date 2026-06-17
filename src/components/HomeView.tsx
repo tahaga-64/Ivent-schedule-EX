@@ -1,8 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ChevronRight, ClipboardList, Plus, CalendarDays } from 'lucide-react';
-import type { Event } from '../types';
+import { ChevronRight, ClipboardList, Plus, CalendarDays, Truck } from 'lucide-react';
+import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import type { Event, PreparationItem } from '../types';
 import { rs, ts } from '../lib/eventHelpers';
+import UndeliveredModal from './UndeliveredModal';
 
 interface Props {
   events: Event[];
@@ -120,6 +123,40 @@ function SectionEmpty({ label }: { label: string }) {
 export default function HomeView({ events, prepProgressMap, onSelectEvent, onNavigateToPrepList, onCreateEvent, onOpenSchedule }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const in7  = addDays(today, 7);
+  const [showUndelivered, setShowUndelivered] = useState(false);
+
+  // 長南着で到着予定日を過ぎたアイテムを自動完了
+  useEffect(() => {
+    const activeEvents = events.filter(e => e.status !== 'cancelled' && e.status !== 'completed');
+    if (!activeEvents.length) return;
+
+    const autoComplete = async () => {
+      const toComplete: { eventId: string; itemId: string }[] = [];
+      for (const ev of activeEvents) {
+        const snap = await getDocs(collection(db, `events/${ev.id}/preparationItems`));
+        snap.docs.forEach(d => {
+          const data = d.data() as PreparationItem;
+          if (
+            data.name?.trim() &&
+            data.arrivalDestination === '長南' &&
+            data.arrivalDate && data.arrivalDate <= today &&
+            data.orderStatus !== 'completed'
+          ) {
+            toComplete.push({ eventId: ev.id, itemId: d.id });
+          }
+        });
+      }
+      if (!toComplete.length) return;
+      const batch = writeBatch(db);
+      toComplete.forEach(({ eventId, itemId }) => {
+        batch.update(doc(db, `events/${eventId}/preparationItems/${itemId}`), { orderStatus: 'completed' });
+      });
+      await batch.commit();
+    };
+
+    autoComplete().catch(console.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events.map(e => e.id).join(','), today]);
 
   const { todayEvents, upcomingWeek } = useMemo(() => {
     const active = events.filter(e => e.status !== 'cancelled');
@@ -232,6 +269,14 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
           <div className="text-[11px] font-black text-white/70 uppercase tracking-widest mb-1">クイックアクション</div>
 
           <button
+            onClick={() => setShowUndelivered(true)}
+            className="flex items-center gap-3 bg-white text-slate-800 rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/90 active:scale-[0.98] transition-all shadow-lg"
+          >
+            <Truck size={18} className="text-sky-500 shrink-0" />
+            未着一覧
+          </button>
+
+          <button
             onClick={onNavigateToPrepList}
             className="flex items-center gap-3 bg-white text-slate-800 rounded-2xl px-5 py-4 font-black text-sm hover:bg-white/90 active:scale-[0.98] transition-all shadow-lg"
           >
@@ -259,6 +304,13 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onNav
           </button>
         </div>
       </div>
+
+      {showUndelivered && (
+        <UndeliveredModal
+          events={events}
+          onClose={() => setShowUndelivered(false)}
+        />
+      )}
     </div>
   );
 }
