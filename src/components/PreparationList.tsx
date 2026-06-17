@@ -2,23 +2,23 @@ import { useState, useEffect, useMemo, useRef, useLayoutEffect, useCallback } fr
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { User } from 'firebase/auth';
-import { PreparationItem, Event, OrderStatus } from '../types';
+import { PreparationItem, Event, type OrderStatus } from '../types';
 import { Trash2, Plus, ArrowLeft, Save, ExternalLink, ClipboardList, Printer, FileSpreadsheet, LayoutGrid, List } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
-import { computePrepProgressFields, effectiveArrived } from '../lib/prepProgress';
+import { computePrepProgressFields, isPrepItemCompleted } from '../lib/prepProgress';
 import { ARRIVAL_DESTINATIONS } from '../constants';
 import { notifyPush } from '../lib/pushNotifications';
 import { syncNewPrepItemsToMaster } from '../lib/masterItemSync';
 import { burstAt } from '../lib/fx';
+import { normalizeOrderStatus, ORDER_STATUS_LABELS } from '../lib/orderStatus';
 
-// ─── 発注ステータス ──────────────────────────────────────────────────────────
+// ─── 発注ステータス（未発注 / 発注済み / 完了）────────────────────────────────
 
 const ORDER_STEPS: Array<{ key: OrderStatus; label: string; activeCls: string; rowBg: string }> = [
   { key: 'unordered', label: '未発注', activeCls: 'bg-slate-100 text-slate-700 border-slate-300', rowBg: '' },
-  { key: 'ordered',   label: '発注済', activeCls: 'bg-amber-50 text-amber-800 border-amber-200', rowBg: 'bg-amber-50/60' },
-  { key: 'shipping',  label: '配送中', activeCls: 'bg-blue-50 text-blue-800 border-blue-200', rowBg: 'bg-blue-50/60' },
-  { key: 'arrived',   label: '着荷',   activeCls: 'bg-emerald-50 text-emerald-800 border-emerald-200', rowBg: 'bg-emerald-50/60' },
+  { key: 'ordered',   label: '発注済み', activeCls: 'bg-amber-50 text-amber-800 border-amber-200', rowBg: 'bg-amber-50/60' },
+  { key: 'completed', label: '完了', activeCls: 'bg-emerald-50 text-emerald-800 border-emerald-200', rowBg: 'bg-emerald-50/60' },
 ];
 
 const PREP_LABEL = 'text-[10px] font-black uppercase tracking-wide mb-0.5 text-slate-500';
@@ -27,17 +27,15 @@ const PREP_MONEY_INPUT = `${PREP_INPUT} py-2 text-sm font-mono`;
 const PREP_PANEL = 'bg-white border border-slate-200 shadow-sm';
 
 function prepRowBorderClass(item: PreparationItem): string {
-  if (item.prepared) return 'border-l-indigo-500';
-  if (effectiveArrived(item)) return 'border-l-emerald-500';
-  const os = item.orderStatus ?? 'unordered';
-  if (os === 'shipping') return 'border-l-blue-500';
+  const os = normalizeOrderStatus(item.orderStatus);
+  if (os === 'completed') return 'border-l-emerald-500';
   if (os === 'ordered') return 'border-l-amber-500';
   return 'border-l-slate-200';
 }
 
 function prepItemCardClass(item: PreparationItem): string {
   const base = PREP_PANEL;
-  if (item.prepared) return `${base} opacity-80`;
+  if (normalizeOrderStatus(item.orderStatus) === 'completed') return `${base} opacity-90`;
   return base;
 }
 
@@ -119,8 +117,7 @@ async function handleExportExcel(event: Event, items: PreparationItem[]): Promis
       '#': idx + 1,
       '到着予定日': item.arrivalDate ?? '',
       '到着先': item.arrivalDestination ?? '',
-      '発注状況': ORDER_STEPS.find(s => s.key === (item.orderStatus ?? 'unordered'))?.label ?? '未発注',
-      '準備完了': item.prepared ? '✓' : '',
+      '発注状況': ORDER_STATUS_LABELS[normalizeOrderStatus(item.orderStatus)],
       '品名': item.name,
       '数量': item.quantity,
       '単価': item.unitPrice,
@@ -164,7 +161,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
   const [isExporting, setIsExporting] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   // 一覧（グリッド）と詳細（スクロール式カード）の切替。開いた直後は一覧で全体を把握できるようにする
-  const [viewMode, setViewMode] = useState<'overview' | 'detail'>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'detail' | 'proposal'>('overview');
   const [focusItemId, setFocusItemId] = useState<string | null>(null);
   const listScrollRef = useRef<HTMLDivElement>(null);
   const hasChangesRef = useRef(hasChanges);
@@ -316,13 +313,11 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
     const filled = items.filter(i => !isEmptyItem(i));
     const subtotal = items.reduce((s, i) => s + (i.amount || 0), 0);
     const shipping = items.reduce((s, i) => s + (i.shippingFee || 0), 0);
-    const arrived = filled.filter(i => effectiveArrived(i)).length;
-    const prepared = filled.filter(i => i.prepared).length;
-    const done = filled.filter(i => effectiveArrived(i) && i.prepared).length;
-    const orderedCount = filled.filter(i => i.orderStatus === 'ordered').length;
-    const shippingCount = filled.filter(i => i.orderStatus === 'shipping').length;
-    const unorderedCount = filled.filter(i => (i.orderStatus ?? 'unordered') === 'unordered').length;
-    return { subtotal, shipping, total: subtotal + shipping, arrived, prepared, done, orderedCount, shippingCount, unorderedCount };
+    const done = filled.filter(i => isPrepItemCompleted(i)).length;
+    const orderedCount = filled.filter(i => normalizeOrderStatus(i.orderStatus) === 'ordered').length;
+    const completedCount = filled.filter(i => isPrepItemCompleted(i)).length;
+    const unorderedCount = filled.filter(i => normalizeOrderStatus(i.orderStatus) === 'unordered').length;
+    return { subtotal, shipping, total: subtotal + shipping, done, orderedCount, completedCount, unorderedCount };
   }, [items]);
 
   // 一覧でアイテムをクリック → 詳細表示に切り替えて該当カードを画面中央へモーション付きスクロール
@@ -440,7 +435,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
           </div>
         </div>
         <div className="flex items-center justify-between gap-2">
-          {/* 一覧 / 詳細 切替 */}
+          {/* 一覧 / 詳細 / 提案用 切替 */}
           <div className="flex items-center rounded-xl border border-slate-200 bg-white p-0.5 shadow-sm shrink-0">
             <button
               type="button"
@@ -461,6 +456,16 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
             >
               <List size={13} />
               詳細
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('proposal')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-[10px] text-[11px] font-black transition-colors ${
+                viewMode === 'proposal' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <ClipboardList size={13} />
+              提案用
             </button>
           </div>
           {canEdit && (
@@ -508,7 +513,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                 onClick={() => openItemDetail(item.id)}
                 className={`group relative text-left bg-white border border-slate-200 border-l-4 ${prepRowBorderClass(item)} rounded-xl px-3 py-3 shadow-sm hover:shadow-md hover:border-indigo-300 active:scale-[0.97] transition-all`}
               >
-                <span className={`block text-sm font-bold leading-snug break-words ${item.prepared ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                <span className={`block text-sm font-bold leading-snug break-words ${isPrepItemCompleted(item) ? 'line-through text-slate-400' : 'text-slate-900'}`}>
                   {item.name || '（名称未設定）'}
                 </span>
                 <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-1.5 -translate-y-full z-20 hidden md:group-hover:block whitespace-nowrap rounded-lg bg-slate-900 text-white text-[11px] font-bold px-2.5 py-1.5 shadow-lg">
@@ -529,10 +534,60 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
           </motion.div>
         )}
 
+        {viewMode === 'proposal' && (
+          <div className="proposal-print-area space-y-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm">
+              <h3 className="text-lg font-black text-slate-900 mb-1">{event.venue}</h3>
+              <p className="text-xs text-slate-500 font-mono mb-4">{event.start} → {event.end}</p>
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b-2 border-slate-300">
+                    <th className="py-2 px-2 text-left font-black text-slate-700">#</th>
+                    <th className="py-2 px-2 text-left font-black text-slate-700">品名</th>
+                    <th className="py-2 px-2 text-right font-black text-slate-700">数量</th>
+                    <th className="py-2 px-2 text-right font-black text-slate-700">単価</th>
+                    <th className="py-2 px-2 text-right font-black text-slate-700">金額</th>
+                    <th className="py-2 px-2 text-left font-black text-slate-700">備考</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.filter(i => !isEmptyItem(i)).map((item, idx) => (
+                    <tr key={item.id} className="border-b border-slate-200">
+                      <td className="py-2 px-2 text-slate-500 font-mono">{idx + 1}</td>
+                      <td className="py-2 px-2 font-bold text-slate-900">{item.name}</td>
+                      <td className="py-2 px-2 text-right font-mono">{item.quantity}</td>
+                      <td className="py-2 px-2 text-right font-mono">¥{(item.unitPrice || 0).toLocaleString()}</td>
+                      <td className="py-2 px-2 text-right font-mono font-black">¥{(item.amount || 0).toLocaleString()}</td>
+                      <td className="py-2 px-2 text-slate-600 text-xs">{item.note || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-slate-300">
+                    <td colSpan={4} className="py-2 px-2 text-right font-black text-slate-700">合計</td>
+                    <td className="py-2 px-2 text-right font-black text-indigo-700 font-mono">¥{totals.total.toLocaleString()}</td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <div className="flex justify-end print:hidden">
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-1 px-3 py-2 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-lg font-bold text-xs transition-colors border border-slate-200"
+              >
+                <Printer size={13} />
+                提案用を印刷
+              </button>
+            </div>
+          </div>
+        )}
+
         {viewMode === 'detail' && (<>
         {items.filter(item => canEdit || !isEmptyItem(item)).map((item, idx) => {
-          const os = item.orderStatus ?? 'unordered';
+          const os = normalizeOrderStatus(item.orderStatus);
           const step = ORDER_STEPS.find(s => s.key === os) ?? ORDER_STEPS[0];
+          const isCompleted = os === 'completed';
           return (
           <div
             key={item.id}
@@ -541,7 +596,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
               focusItemId === item.id ? 'ring-2 ring-indigo-500 ring-offset-2 shadow-xl' : ''
             }`}
           >
-            {/* Row 1: # + 品名 + 状態バッジ + 完了トグル + delete */}
+            {/* Row 1: # + 品名 + 状態バッジ + delete */}
             <div className="flex items-center gap-2 px-3 md:px-4 py-1.5">
               <span className="text-[11px] text-slate-500 font-mono w-5 shrink-0">{idx + 1}</span>
               <input
@@ -550,37 +605,13 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                 value={item.name}
                 onChange={e => updateItem(item.id, { name: e.target.value })}
                 placeholder="アイテム名..."
-                className={`flex-1 min-w-0 text-base font-black ${PREP_INPUT} placeholder:text-slate-400 ${item.prepared ? 'line-through text-slate-400' : 'text-slate-900'}`}
+                className={`flex-1 min-w-0 text-base font-black ${PREP_INPUT} placeholder:text-slate-400 ${isCompleted ? 'line-through text-slate-400' : 'text-slate-900'}`}
               />
-              {!item.prepared && os !== 'unordered' && (
+              {os !== 'unordered' && (
                 <span className={`shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-full border ${step.activeCls}`}>
                   {step.label}
                 </span>
               )}
-              <button
-                type="button"
-                onClick={(e) => {
-                  if (!canEdit) return;
-                  if (!item.prepared) {
-                    const r = (e.target as HTMLElement).getBoundingClientRect();
-                    burstAt(r.left + r.width / 2, r.top + r.height / 2, 6);
-                  }
-                  updateItem(item.id, { prepared: !item.prepared });
-                }}
-                disabled={!canEdit}
-                className={`shrink-0 flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-black transition-colors disabled:pointer-events-none ${
-                  item.prepared
-                    ? 'bg-indigo-600 border-indigo-600 text-white'
-                    : 'bg-white border-slate-300 text-slate-500 hover:border-indigo-400'
-                }`}
-              >
-                <span className={`w-3 h-3 rounded-[3px] border flex items-center justify-center ${item.prepared ? 'border-white' : 'border-slate-400'}`}>
-                  {item.prepared && (
-                    <svg className="w-2 h-2" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  )}
-                </span>
-                完了
-              </button>
               <button
                 type="button"
                 onClick={() => removeItem(item.id)}
@@ -621,10 +652,16 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
               <div className="col-span-2">
                 <div className={PREP_LABEL}>発注状況</div>
                 <OrderStatusPicker
-                  status={item.orderStatus}
+                  status={normalizeOrderStatus(item.orderStatus)}
                   itemUrl={item.url}
                   disabled={!canEdit}
-                  onChange={(s) => updateItem(item.id, { orderStatus: s, arrived: s === 'arrived' })}
+                  onChange={(s) => {
+                    if (s === 'completed' && canEdit) {
+                      const r = document.activeElement?.getBoundingClientRect();
+                      if (r) burstAt(r.left + r.width / 2, r.top + r.height / 2, 6);
+                    }
+                    updateItem(item.id, { orderStatus: s, arrived: s === 'completed', prepared: s === 'completed' });
+                  }}
                 />
               </div>
             </div>
@@ -741,7 +778,6 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
               <th className="px-2 py-2 text-left border border-slate-300">到着予定日</th>
               <th className="px-2 py-2 text-left border border-slate-300">到着先</th>
               <th className="px-2 py-2 text-left border border-slate-300">発注状況</th>
-              <th className="px-2 py-2 text-center border border-slate-300">準備完了</th>
               <th className="px-2 py-2 text-left border border-slate-300">品名</th>
               <th className="px-2 py-2 text-right border border-slate-300">数量</th>
               <th className="px-2 py-2 text-right border border-slate-300">単価</th>
@@ -753,14 +789,14 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
           </thead>
           <tbody>
             {items.filter(i => !isEmptyItem(i)).map((item, idx) => {
-              const rowStep = ORDER_STEPS.find(s => s.key === (item.orderStatus ?? 'unordered')) ?? ORDER_STEPS[0];
+              const os = normalizeOrderStatus(item.orderStatus);
+              const rowStep = ORDER_STEPS.find(s => s.key === os) ?? ORDER_STEPS[0];
               return (
                 <tr key={item.id}>
                   <td className="px-2 py-2 border border-slate-300 text-center">{idx + 1}</td>
                   <td className="px-2 py-2 border border-slate-300">{item.arrivalDate || '—'}</td>
                   <td className="px-2 py-2 border border-slate-300">{item.arrivalDestination || '—'}</td>
                   <td className="px-2 py-2 border border-slate-300">{rowStep.label}</td>
-                  <td className="px-2 py-2 border border-slate-300 text-center">{item.prepared ? '✓' : '—'}</td>
                   <td className="px-2 py-2 border border-slate-300">{item.name}</td>
                   <td className="px-2 py-2 border border-slate-300 text-right">{item.quantity ?? ''}</td>
                   <td className="px-2 py-2 border border-slate-300 text-right">¥{(item.unitPrice || 0).toLocaleString()}</td>
@@ -813,10 +849,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
             <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
               {totals.unorderedCount > 0 && <span className="text-[11px] font-black text-slate-600">📋 {totals.unorderedCount}</span>}
               {totals.orderedCount > 0 && <span className="text-[11px] font-black text-amber-700">🛒 {totals.orderedCount}</span>}
-              {totals.shippingCount > 0 && <span className="text-[11px] font-black text-blue-700">🚚 {totals.shippingCount}</span>}
-              {totals.arrived > 0 && <span className="text-[11px] font-black text-emerald-700">✅ {totals.arrived}</span>}
-              <span className="text-slate-300">·</span>
-              <span className="text-[11px] font-black text-indigo-600">✓ {totals.prepared}</span>
+              {totals.completedCount > 0 && <span className="text-[11px] font-black text-emerald-700">✅ {totals.completedCount}</span>}
               <span className="text-slate-300">·</span>
               <span className="text-xs font-black text-slate-900">{items.filter(i => !isEmptyItem(i)).length}件</span>
             </div>
@@ -866,13 +899,13 @@ function OrderStatusPicker({
   compact,
   onChange,
 }: {
-  status: OrderStatus | undefined;
+  status: OrderStatus;
   itemUrl?: string;
   disabled?: boolean;
   compact?: boolean;
   onChange: (s: OrderStatus) => void;
 }) {
-  const current: OrderStatus = status ?? 'unordered';
+  const current = status;
   return (
     <div className={`flex items-center flex-wrap ${compact ? 'gap-0.5' : 'gap-1'}`}>
       {ORDER_STEPS.map(step => {

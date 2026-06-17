@@ -4,13 +4,14 @@
  * 保存時にマスターの在庫（defaultQuantity）を差分分だけ加減算する。
  */
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import type { Event } from '../types';
+import type { Event, InventorySettlement } from '../types';
 import { db } from '../lib/firebase';
 import {
   collection, onSnapshot, doc, writeBatch, increment, serverTimestamp,
 } from 'firebase/firestore';
 import type { MasterItem } from './MasterItemsView';
-import { Boxes, ChevronRight, Minus, Plus, Save, Package } from 'lucide-react';
+import { applyInventorySettlement } from '../lib/inventorySettlement';
+import { Boxes, ChevronRight, Minus, Plus, Save, Package, ClipboardCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Props {
@@ -52,6 +53,12 @@ function ContainerDetail({
   const [isSaving, setIsSaving] = useState(false);
   const [saveOk, setSaveOk] = useState(false);
   const savedRef = useRef<Record<string, number>>({});
+  const [localConsumed, setLocalConsumed] = useState<Record<string, number>>({});
+  const [savedConsumed, setSavedConsumed] = useState<Record<string, number>>({});
+  const [savedReturned, setSavedReturned] = useState<Record<string, number>>({});
+  const [isSettling, setIsSettling] = useState(false);
+  const [settleOk, setSettleOk] = useState(false);
+  const settlementDirtyRef = useRef(false);
 
   // 備品マスター購読
   useEffect(() => {
@@ -79,6 +86,50 @@ function ContainerDetail({
     return unsub;
   }, [event.id]);
 
+  // 在庫精算データ購読
+  useEffect(() => {
+    const path = `events/${event.id}/inventorySettlements`;
+    const unsub = onSnapshot(collection(db, path), snap => {
+      const returned: Record<string, number> = {};
+      const consumed: Record<string, number> = {};
+      snap.docs.forEach(d => {
+        const data = d.data() as InventorySettlement;
+        returned[data.masterItemId] = data.returnedQuantity ?? 0;
+        consumed[data.masterItemId] = data.consumedQuantity ?? 0;
+      });
+      setSavedReturned(returned);
+      setSavedConsumed(consumed);
+      if (!settlementDirtyRef.current) {
+        setLocalConsumed(consumed);
+      }
+    });
+    return unsub;
+  }, [event.id]);
+
+  const settlementItems = useMemo(() => {
+    return Object.entries(savedContainer)
+      .filter(([, qty]) => qty > 0)
+      .map(([masterItemId, takenQuantity]) => {
+        const master = masterItems.find(m => m.id === masterItemId);
+        return {
+          masterItemId,
+          name: master?.name ?? masterItemId,
+          takenQuantity,
+          consumedQuantity: localConsumed[masterItemId] ?? 0,
+        } satisfies InventorySettlement;
+      });
+  }, [savedContainer, masterItems, localConsumed]);
+
+  const settlementDirty = useMemo(() => {
+    return settlementItems.some(s =>
+      (localConsumed[s.masterItemId] ?? 0) !== (savedConsumed[s.masterItemId] ?? 0),
+    );
+  }, [settlementItems, localConsumed, savedConsumed]);
+
+  useEffect(() => {
+    settlementDirtyRef.current = settlementDirty;
+  }, [settlementDirty]);
+
   const hasChanges = useMemo(() => {
     const saved = savedRef.current;
     return masterItems.some(m => (localQty[m.id] ?? 0) !== (saved[m.id] ?? 0));
@@ -88,6 +139,30 @@ function ContainerDetail({
     if (!canEdit) return;
     setLocalQty(prev => ({ ...prev, [masterItemId]: Math.max(0, qty) }));
   }, [canEdit]);
+
+  const setConsumed = useCallback((masterItemId: string, qty: number) => {
+    if (!canEdit) return;
+    setLocalConsumed(prev => ({ ...prev, [masterItemId]: Math.max(0, qty) }));
+  }, [canEdit]);
+
+  const handleSettle = useCallback(async () => {
+    if (!canEdit || isSettling || settlementItems.length === 0) return;
+    setIsSettling(true);
+    try {
+      const payload = settlementItems.map(s => ({
+        ...s,
+        consumedQuantity: Math.min(localConsumed[s.masterItemId] ?? 0, s.takenQuantity),
+      }));
+      await applyInventorySettlement(event.id, payload, savedReturned);
+      settlementDirtyRef.current = false;
+      setSettleOk(true);
+      setTimeout(() => setSettleOk(false), 2500);
+    } catch (err) {
+      console.error('Inventory settlement error:', err);
+    } finally {
+      setIsSettling(false);
+    }
+  }, [canEdit, isSettling, settlementItems, localConsumed, savedReturned, event.id]);
 
   const handleSave = useCallback(async () => {
     if (!canEdit || isSaving) return;
@@ -260,6 +335,76 @@ function ContainerDetail({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* イベント終了時の在庫精算 */}
+        {settlementItems.length > 0 && (
+          <div className="mt-8 pt-6 border-t border-slate-200">
+            <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck size={16} className="text-emerald-600" />
+                <h3 className="text-sm font-black text-slate-900">イベント終了・在庫精算</h3>
+              </div>
+              {canEdit && settlementDirty && (
+                <button
+                  type="button"
+                  onClick={handleSettle}
+                  disabled={isSettling}
+                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-black px-3 py-1.5 rounded-xl transition-colors"
+                >
+                  <Save size={13} />
+                  {isSettling ? '反映中...' : '精算を反映'}
+                </button>
+              )}
+              <AnimatePresence>
+                {settleOk && !settlementDirty && (
+                  <motion.span
+                    className="text-xs font-black text-emerald-600"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    ✓ マスター在庫を更新しました
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </div>
+            <p className="text-[11px] text-slate-500 mb-3">
+              持ち出した備品のうち、イベントで減った（消費・破損等）個数を入力してください。エプロンや芝など減らないものは 0 のままで構いません。未消費分は備品マスターへ自動返却されます。
+            </p>
+            <div className="space-y-2">
+              {settlementItems.map(item => {
+                const consumed = localConsumed[item.masterItemId] ?? 0;
+                const clamped = Math.min(consumed, item.takenQuantity);
+                const returned = item.takenQuantity - clamped;
+                return (
+                  <div key={item.masterItemId} className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 border border-slate-200">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-black text-slate-900 truncate">{item.name}</div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        持ち出し {item.takenQuantity}個 → 返却予定 {returned}個
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-[10px] font-black text-slate-500 mb-0.5">減った個数</div>
+                      {canEdit ? (
+                        <input
+                          type="number"
+                          min={0}
+                          max={item.takenQuantity}
+                          value={consumed}
+                          onChange={e => setConsumed(item.masterItemId, parseInt(e.target.value) || 0)}
+                          className="w-16 text-center text-sm font-black border border-slate-200 rounded-lg py-1.5 font-mono"
+                        />
+                      ) : (
+                        <span className="text-sm font-black font-mono">{consumed}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

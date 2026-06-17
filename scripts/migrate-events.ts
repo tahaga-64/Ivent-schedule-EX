@@ -35,7 +35,6 @@ const DATA = [
   { id: "17", start: "2026-06-03", end: "2026-06-07", region: "関東", dept: "", type: "水族館", venue: "モラージュ菖蒲", client: "㈱ヒトノワコーポレーション", note: "" },
   { id: "18", start: "2026-05-06", end: "2026-05-10", region: "関東", dept: "", type: "DJI", venue: "ヨドバシ秋葉原", client: "", note: "" },
   { id: "19", start: "2026-05-23", end: "2026-05-23", region: "関東", dept: "", type: "超メタフェス", venue: "秋葉原UDX 4F UDXギャラリー", client: "", note: "" },
-  { id: "20", start: "", end: "", region: "近畿", dept: "", type: "水族館", venue: "エディオンくずはモール【8月予定】", client: "ソフトバンク㈱", note: "8/8-8/9 or 8/15-8/16" },
   { id: "21", start: "2026-06-03", end: "2026-06-07", region: "関東", dept: "", type: "水族館", venue: "モラージュ菖蒲（第2弾）", client: "", note: "" },
   { id: "22", start: "2026-06-06", end: "2026-06-07", region: "近畿", dept: "", type: "ワークショップ", venue: "エディオン販路（高槻宮田/豊中/EXPOCITY/くずは）", client: "KDDI×ビッグローブ", note: "" },
   { id: "23", start: "2026-06-13", end: "2026-06-14", region: "近畿", dept: "", type: "ワークショップ", venue: "エディオン販路（高槻宮田/豊中/EXPOCITY/くずは）", client: "KDDI×ビッグローブ", note: "" },

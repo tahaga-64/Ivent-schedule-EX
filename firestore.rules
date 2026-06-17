@@ -65,6 +65,12 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow create, update, delete: if isAuthenticated();
       }
+
+      // イベント終了時の在庫精算
+      match /inventorySettlements/{itemId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if isAuthenticated();
+      }
     }
 
     match /staff/{staffId} {

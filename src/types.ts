@@ -55,7 +55,32 @@ export interface Event {
   prepItemDone?: number;
 }
 
-export type OrderStatus = 'unordered' | 'ordered' | 'shipping' | 'arrived';
+export type OrderStatus = 'unordered' | 'ordered' | 'completed';
+
+/** 備品マスター（masterItems）の型 */
+export interface MasterItem {
+  id: string;
+  name: string;
+  unitPrice: number;
+  defaultQuantity: number;
+  note: string;
+  url?: string;
+}
+
+/** イベント終了時の在庫精算（events/{eventId}/inventorySettlements） */
+export interface InventorySettlement {
+  masterItemId: string;
+  name: string;
+  /** コンテナから持ち出した数量 */
+  takenQuantity: number;
+  /** イベントで消費・減少した数量（0も可） */
+  consumedQuantity: number;
+  /** 精算済みか（返却分をマスターへ反映済み） */
+  settled?: boolean;
+  /** マスターへ返却した数量 */
+  returnedQuantity?: number;
+  updatedAt?: unknown;
+}
 
 export interface PreparationItem {
   id: string;

@@ -1,6 +1,7 @@
 import { collection, getDocs, addDoc, doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import type { PreparationItem } from '../types';
+import { normalizeOrderStatus } from './orderStatus';
 
 /** 名前比較用の正規化（前後・内部の空白を無視） */
 function normalizeName(name: string): string {
@@ -33,10 +34,9 @@ export async function syncNewPrepItemsToMaster(
   const candidates = saved.filter(i => {
     const n = normalizeName(i.name);
     if (n === '') return false;
-    if (i.orderStatus !== 'ordered') return false;
+    if (normalizeOrderStatus(i.orderStatus) !== 'ordered') return false;
     const prevStatus = prevStatusById.get(i.id);
-    // 前回スナップショットに存在しなかった（新規）場合は prevStatus === undefined
-    return prevStatus !== 'ordered';
+    return normalizeOrderStatus(prevStatus) !== 'ordered';
   });
 
   if (candidates.length === 0) return;

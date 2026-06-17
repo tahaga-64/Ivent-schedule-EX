@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Calendar, ClipboardList, Building2, Plus, X, Mail } from 'lucide-react';
+import { Calendar, ClipboardList, Building2, Plus, X } from 'lucide-react';
 import { REGIONS } from '../constants';
 import { rs } from '../lib/eventHelpers';
 import { type StaffMember } from '../types';
@@ -30,7 +30,6 @@ export interface AppSidebarProps {
   canEditEvent: boolean;
   onAddStaff: () => void;
   onDeleteStaff: (staff: StaffMember) => void;
-  onEditStaffEmail: (staff: StaffMember) => void;
   onDeleteType: (label: string) => void;
 }
 
@@ -53,7 +52,6 @@ export default function AppSidebar({
   canEditEvent,
   onAddStaff,
   onDeleteStaff,
-  onEditStaffEmail,
   onDeleteType,
 }: AppSidebarProps) {
   const sortedStaff = useMemo(
@@ -247,23 +245,10 @@ export default function AppSidebar({
             <div key={staff.id} className="group relative flex items-center">
               <div className="flex-1 flex items-center gap-3 px-3 py-2.5 md:py-2 rounded-lg text-slate-700 min-w-0">
                 <span className="text-sm shrink-0">👤</span>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-xs font-bold font-sans text-slate-900">{staff.name}</span>
-                  {staff.email && (
-                    <span className="text-[10px] text-slate-500 truncate">{staff.email}</span>
-                  )}
-                </div>
+                <span className="text-xs font-bold font-sans text-slate-900 truncate">{staff.name}</span>
               </div>
               {canEditEvent && (
                 <div className="absolute right-1 md:opacity-0 md:group-hover:opacity-100 flex items-center gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => onEditStaffEmail(staff)}
-                    className="w-8 h-8 md:w-5 md:h-5 flex items-center justify-center rounded text-slate-500 hover:text-indigo-600 hover:bg-slate-100 transition-all"
-                    aria-label={`${staff.name}のGmailアドレスを設定`}
-                  >
-                    <Mail size={11} />
-                  </button>
                   <button
                     type="button"
                     onClick={() => onDeleteStaff(staff)}

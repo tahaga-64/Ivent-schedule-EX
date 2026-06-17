@@ -2,8 +2,8 @@ import { useState, useMemo, useEffect, useCallback, useRef, Suspense, type Mouse
 import { lazyWithRetry } from './lib/lazyWithRetry';
 import { db, auth, ensureAnonymousAuth, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
-import { buildPrepProgressMap } from './lib/prepProgress';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
+import { buildPrepProgressMap, isPrepItemCompleted } from './lib/prepProgress';
 import {
   notifyPush,
   registerPushServiceWorker,
@@ -26,7 +26,6 @@ import {
   canEditFishList as computeCanEditFishList,
 } from './lib/permissions';
 import HelpModal from './components/HelpModal';
-import StaffEmailPicker from './components/StaffEmailPicker';
 import AppSidebar from './components/AppSidebar';
 import AppHeader from './components/AppHeader';
 import DayDetailModal from './components/DayDetailModal';
@@ -228,8 +227,6 @@ export default function App() {
   }, [sidebarTypes]);
 
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
-  const [knownUsers, setKnownUsers] = useState<{ email: string; displayName: string }[]>([]);
-  const [emailPickerStaff, setEmailPickerStaff] = useState<StaffMember | null>(null);
   const [staffExpanded, setStaffExpanded] = useState(false);
   const [pendingNewEventId, setPendingNewEventId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 768 : false));
@@ -332,17 +329,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // ログイン実績ユーザー購読（スタッフの email 連携ピッカー用）
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'userProfiles'), (snap) => {
-      const list = snap.docs
-        .map(d => ({ email: (d.data().email as string) ?? '', displayName: (d.data().displayName as string) ?? '' }))
-        .filter(u => u.email);
-      setKnownUsers(list);
-    }, () => {});
-    return () => unsubscribe();
-  }, []);
-
   const [narrowViewport, setNarrowViewport] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches
   );
@@ -428,7 +414,7 @@ export default function App() {
         const items = snapshot.docs.map(d => d.data() as PreparationItem);
         setEventStats({
           itemCount: items.length,
-          preparedCount: items.filter(i => i.arrived && i.prepared).length,
+          preparedCount: items.filter(i => isPrepItemCompleted(i)).length,
           budget: items.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0),
         });
       }
@@ -835,12 +821,8 @@ export default function App() {
     const trimmed = name?.trim() ?? '';
     if (!trimmed || trimmed.length > 50) return;
     if (staffList.some(s => s.name === trimmed)) { alert('その名前は既に登録されています'); return; }
-    const emailInput = prompt('Gmailアドレスを入力してください（省略可）:') ?? '';
-    const emailTrimmed = emailInput.trim();
-    const staffData: Record<string, unknown> = { name: trimmed, createdAt: serverTimestamp() };
-    if (emailTrimmed) staffData.email = emailTrimmed;
     try {
-      await addDoc(collection(db, 'staff'), staffData);
+      await addDoc(collection(db, 'staff'), { name: trimmed, createdAt: serverTimestamp() });
     } catch {
       alert('スタッフの追加に失敗しました');
     }
@@ -852,22 +834,6 @@ export default function App() {
       await deleteDoc(doc(db, 'staff', staff.id));
     } catch {
       alert('スタッフの削除に失敗しました');
-    }
-  };
-
-  const handleEditStaffEmail = (staff: StaffMember) => {
-    setEmailPickerStaff(staff);
-  };
-
-  const saveStaffEmail = async (email: string) => {
-    if (!emailPickerStaff) return;
-    const trimmed = email.trim();
-    try {
-      await updateDoc(doc(db, 'staff', emailPickerStaff.id), { email: trimmed || deleteField() });
-    } catch {
-      alert('メールアドレスの更新に失敗しました');
-    } finally {
-      setEmailPickerStaff(null);
     }
   };
 
@@ -1167,15 +1133,6 @@ VITE_FIREBASE_DATABASE_ID`}
 
       <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
 
-      {emailPickerStaff && (
-        <StaffEmailPicker
-          staff={emailPickerStaff}
-          knownUsers={knownUsers}
-          onSave={saveStaffEmail}
-          onClose={() => setEmailPickerStaff(null)}
-        />
-      )}
-
       {/* 初期データ移行バナー（編集者のみ・未移行時） */}
       {canEditEvent && !eventsMigrated && (
         <MigrationBanner
@@ -1206,7 +1163,6 @@ VITE_FIREBASE_DATABASE_ID`}
             canEditEvent={canEditEvent}
             onAddStaff={handleAddStaff}
             onDeleteStaff={handleDeleteStaff}
-            onEditStaffEmail={handleEditStaffEmail}
             onDeleteType={handleDeleteType}
           />
 
