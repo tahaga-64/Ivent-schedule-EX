@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, X, Images, Trash2 } from 'lucide-react';
 import type { Event, EventPhoto } from '../types';
 import { rs } from '../lib/eventHelpers';
 import { usePhotos } from '../hooks/usePhotos';
+import GoogleDriveSaveLink from './photos/GoogleDriveSaveLink';
 
 interface Props {
   events: Event[];
@@ -58,6 +59,10 @@ function AlbumDetail({ event, onBack }: { event: Event; onBack: () => void }) {
           <div className="font-black text-sm text-slate-900 truncate">{event.venue}</div>
           <div className="text-[10px] text-slate-500">{fmtDate(event.start, event.end)} · {lbPhotos.length}枚</div>
         </div>
+      </div>
+
+      <div className="px-4 py-2 border-b border-slate-100 bg-white flex justify-end">
+        <GoogleDriveSaveLink />
       </div>
 
       {/* Photo grid */}
@@ -157,14 +162,18 @@ export default function AlbumView({ events }: Props) {
           <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PHOTOS</div>
           <h2 className="text-2xl font-black text-slate-900">アルバム</h2>
         </div>
-        <div className="text-xs font-bold text-slate-400">{albumEvents.length}件のアルバム</div>
+        <div className="flex flex-col items-end gap-1.5">
+          <GoogleDriveSaveLink />
+          <div className="text-xs font-bold text-slate-400">{albumEvents.length}件のアルバム</div>
+        </div>
       </div>
 
       {albumEvents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center flex-1 gap-3 py-20 text-slate-400">
+        <div className="flex flex-col items-center justify-center flex-1 gap-3 py-20 text-slate-400 px-4">
           <Images size={40} className="opacity-40" />
           <div className="text-sm font-bold">写真がありません</div>
-          <div className="text-xs">イベント詳細の「写真」タブからアップロードできます</div>
+          <div className="text-xs text-center">イベント詳細の「写真」タブからアップロードできます</div>
+          <GoogleDriveSaveLink className="mt-2" />
         </div>
       ) : (
         <div className="p-4 pb-28">

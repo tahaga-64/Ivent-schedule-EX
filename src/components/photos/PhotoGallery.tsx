@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Trash2, ChevronLeft, ChevronRight, Edit3, Check, ExternalLink } from 'lucide-react';
+import { X, Trash2, ChevronLeft, ChevronRight, Edit3, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { EventPhoto } from '../../types';
-import { GOOGLE_DRIVE_FOLDER_URL } from '../../lib/photoStorage';
+import GoogleDriveSaveLink from './GoogleDriveSaveLink';
 
 interface Props {
   photos: EventPhoto[];
@@ -22,10 +22,15 @@ export default function PhotoGallery({ photos, onDelete, onUpdateCaption, canEdi
   }, [photos.length, lightbox]);
 
   if (photos.length === 0) return (
-    <div className="text-center py-8 text-slate-400">
-      <p className="text-sm font-bold">写真はありません</p>
-      <p className="text-xs mt-1">上のエリアから追加してください</p>
-    </div>
+    <>
+      <div className="mb-3 flex justify-end">
+        <GoogleDriveSaveLink />
+      </div>
+      <div className="text-center py-8 text-slate-400">
+        <p className="text-sm font-bold">写真はありません</p>
+        <p className="text-xs mt-1">上のエリアから追加してください</p>
+      </div>
+    </>
   );
 
   function openLightbox(i: number) { setLightbox(i); setConfirming(null); }
@@ -51,15 +56,7 @@ export default function PhotoGallery({ photos, onDelete, onUpdateCaption, canEdi
   return (
     <>
       <div className="mb-3 flex justify-end">
-        <a
-          href={GOOGLE_DRIVE_FOLDER_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800"
-        >
-          <ExternalLink size={12} />
-          Googleドライブへの保存はこちら
-        </a>
+        <GoogleDriveSaveLink />
       </div>
       <div className="space-y-3">
         {photos.map((photo, i) => (
