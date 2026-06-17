@@ -10,6 +10,7 @@ import { fmtDateJPFull } from '../lib/eventHelpers';
 
 interface Props {
   events: Event[];
+  /** 編集可否（ログイン済みユーザー全員。スマホ含む） */
   canEdit: boolean;
   isActive?: boolean;
   /** イベント詳細から開いたとき最初に表示するイベントID */
@@ -297,9 +298,10 @@ export default function FishListView({ events, canEdit, isActive = true, initial
                           />
                         </div>
                         <button
+                          type="button"
                           onClick={handleAdd}
                           disabled={!newName.trim() || saving}
-                          className="flex items-center justify-center gap-2 w-full rounded-xl bg-slate-900 hover:bg-slate-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-black text-sm py-2.5 transition-colors"
+                          className="flex items-center justify-center gap-2 w-full min-h-[44px] rounded-xl bg-slate-900 hover:bg-slate-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-black text-sm py-2.5 transition-colors touch-manipulation active:scale-[0.98]"
                         >
                           <Plus size={14} />
                           {saving ? '追加中...' : '追加'}
@@ -329,7 +331,7 @@ export default function FishListView({ events, canEdit, isActive = true, initial
                     <div className="text-center py-16 text-slate-500">
                       <Fish size={32} className="mx-auto mb-3 opacity-50" />
                       <div className="text-sm">観賞魚が登録されていません</div>
-                      {canEdit && <div className="text-xs mt-1 text-slate-400">左のフォームから追加してください</div>}
+                      {canEdit && <div className="text-xs mt-1 text-slate-400">上のフォームから追加してください</div>}
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -349,9 +351,10 @@ export default function FishListView({ events, canEdit, isActive = true, initial
                             </div>
                             {canEdit && (
                               <button
+                                type="button"
                                 onClick={() => handleDelete(item.id)}
                                 aria-label={`${item.name}を削除`}
-                                className="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+                                className="absolute top-2 right-2 p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 touch-manipulation"
                               >
                                 <Trash2 size={12} />
                               </button>

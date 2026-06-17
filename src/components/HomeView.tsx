@@ -94,10 +94,12 @@ function daysUntil(start: string, today: string): number {
   return Math.ceil((new Date(start + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000);
 }
 
-function EventCard({ ev, prog, today }: {
+function EventCard({ ev, prog, today, onSelect, onSelectPrep }: {
   ev: Event;
   prog?: { total: number; done: number };
   today: string;
+  onSelect: (e: Event) => void;
+  onSelectPrep: (e: Event) => void;
 }) {
   const past = effectivePast(ev, today);
   const st = statusPill(ev.status, past);
@@ -108,49 +110,60 @@ function EventCard({ ev, prog, today }: {
   return (
     <motion.div
       whileHover={{ y: -2, boxShadow: '0 8px 24px rgba(8,47,73,0.10)' }}
-      className="w-full text-left rounded-2xl transition-all group overflow-hidden shadow-sm hover:shadow-md cursor-pointer"
+      className="w-full rounded-2xl transition-all group overflow-hidden shadow-sm hover:shadow-md flex items-stretch"
       style={{
         background: 'rgba(255,255,255,0.82)',
         border: '1px solid rgba(103,232,249,0.28)',
         boxShadow: '0 1px 0 rgba(103,232,249,0.35) inset, 0 1px 3px rgba(8,47,73,0.06)',
       }}
     >
-      <div className="flex items-stretch">
-        <div className="w-1 shrink-0" style={{ background: regionColor }} />
-        <div className="flex-1 min-w-0 p-4">
-          <div className="flex items-start gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                <span className="text-base font-black text-slate-900 truncate">{ev.venue}</span>
-                {st && (
-                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black ${st.cls}`}>{st.label}</span>
-                )}
-                {!past && days === 0 && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-500 text-white">今日</span>
-                )}
-                {!past && days > 0 && days <= 3 && (
-                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/80 text-white">{days}日後</span>
-                )}
-              </div>
-              <div className="text-xs text-slate-500 font-mono">
-                {ev.type || ''}
-              </div>
-              {pct >= 0 && (
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-indigo-400' : 'bg-amber-400'}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-mono shrink-0">{prog!.done}/{prog!.total}</span>
-                </div>
+      <div className="w-1 shrink-0" style={{ background: regionColor }} />
+      <button
+        type="button"
+        onClick={() => onSelect(ev)}
+        className="flex-1 min-w-0 p-4 text-left touch-manipulation active:scale-[0.99] transition-transform"
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+              <span className="text-base font-black text-slate-900 truncate">{ev.venue}</span>
+              {st && (
+                <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black ${st.cls}`}>{st.label}</span>
+              )}
+              {!past && days === 0 && (
+                <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-500 text-white">今日</span>
+              )}
+              {!past && days > 0 && days <= 3 && (
+                <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/80 text-white">{days}日後</span>
               )}
             </div>
-            <ChevronRight size={15} className="text-slate-300 group-hover:text-slate-600 shrink-0 mt-1 transition-colors" />
+            <div className="text-xs text-slate-500 font-mono">
+              {ev.type || ''}
+            </div>
+            {pct >= 0 && (
+              <div className="flex items-center gap-2 mt-2">
+                <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-400' : pct >= 70 ? 'bg-indigo-400' : 'bg-amber-400'}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-slate-400 font-mono shrink-0">{prog!.done}/{prog!.total}</span>
+              </div>
+            )}
           </div>
+          <ChevronRight size={15} className="text-slate-300 group-hover:text-slate-600 shrink-0 mt-1 transition-colors" />
         </div>
-      </div>
+      </button>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onSelectPrep(ev); }}
+        className="shrink-0 w-[52px] sm:w-14 border-l border-slate-100 flex flex-col items-center justify-center gap-0.5 px-1 text-[9px] sm:text-[10px] font-black text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors touch-manipulation leading-tight text-center"
+        aria-label={`${ev.venue}の準備物リストを開く`}
+      >
+        <span>準備物</span>
+        <span>リスト</span>
+      </button>
     </motion.div>
   );
 }
@@ -354,9 +367,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             ? <SectionEmpty label="本日のイベントはありません" />
             : <div className="flex flex-col gap-2">
                 {todayEvents.map(ev => (
-                  <SwipeActionCard key={ev.id} onAction={() => onSelectPrepEvent(ev)} onTap={() => onSelectEvent(ev)}>
-                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
-                  </SwipeActionCard>
+                  <EventCard key={ev.id} ev={ev} prog={prepProgressMap[ev.id]} today={today} onSelect={onSelectEvent} onSelectPrep={onSelectPrepEvent} />
                 ))}
               </div>
           }
@@ -372,9 +383,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             ? <SectionEmpty label="来週のイベントはありません" />
             : <div className="flex flex-col gap-2">
                 {upcomingWeek.map(ev => (
-                  <SwipeActionCard key={ev.id} onAction={() => onSelectPrepEvent(ev)} onTap={() => onSelectEvent(ev)}>
-                    <EventCard ev={ev} prog={prepProgressMap[ev.id]} today={today} />
-                  </SwipeActionCard>
+                  <EventCard key={ev.id} ev={ev} prog={prepProgressMap[ev.id]} today={today} onSelect={onSelectEvent} onSelectPrep={onSelectPrepEvent} />
                 ))}
               </div>
           }

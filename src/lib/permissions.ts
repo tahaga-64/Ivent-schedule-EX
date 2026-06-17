@@ -37,10 +37,8 @@ export function canEditPreparationList(user: User | null | undefined): boolean {
 
 /**
  * 魚リストの編集可否。
- * 仕様: デスクトップはログイン済みユーザー全員可。モバイルは編集者のみ可。
+ * 仕様: ログイン済みユーザー全員が可（スマホ含む）。
  */
-export function canEditFishList(user: User | null | undefined, isMobile = false): boolean {
-  if (!isSignedIn(user)) return false;
-  if (isMobile) return EVENT_EDITOR_EMAILS.includes(user.email ?? '');
-  return true;
+export function canEditFishList(user: User | null | undefined): boolean {
+  return isSignedIn(user);
 }

@@ -69,6 +69,20 @@ export const TYPE_LABEL: Record<StatusType, string> = {
   rest: '未定'
 };
 
+/** モバイルのカレンダー・全体表向けの短縮ラベル */
+export const TYPE_LABEL_SHORT: Record<StatusType, string> = {
+  normal: '〇',
+  request: '◎',
+  training: '研修',
+  dispatch: '外出',
+  standby: '待機',
+  event: 'イベ',
+  office: '本社',
+  absence: '欠勤',
+  other: '他',
+  rest: '未定',
+};
+
 export const TYPE_CLASS: Record<StatusType, string> = {
   normal: 'bg-gray-100 text-gray-600',
   request: 'bg-pink-100 text-pink-700',

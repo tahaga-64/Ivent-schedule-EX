@@ -57,6 +57,8 @@ interface MonthData {
   trainingLabels?: Record<string, string>;
   trainingLocations?: Record<string, string>;
   memberStations?: Record<string, string>;
+  dailyLocations?: Record<number, string>;
+  dailyTimes?: Record<number, string>;
 }
 
 enum OperationType {
@@ -886,31 +888,21 @@ function App({ currentUser }: { currentUser: User | null }) {
     }
   };
 
-  const handleGlobalLocationChange = async (day: number, val: string) => {
-    const newLocations = { ...globalLocations, [day]: val };
-    setGlobalLocations(newLocations);
-    try {
-      await setDoc(doc(db, 'settings', 'global'), {
-        dailyLocations: newLocations,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-    } catch (err) {
-      console.error('Failed to save global location:', err);
-    }
+  const handleDailyLocationChange = (day: number, val: string) => {
+    const prev = currentMonthData.dailyLocations ?? {};
+    updateCurrentMonthData({ dailyLocations: { ...prev, [day]: val } });
   };
 
-  const handleGlobalTimeChange = async (day: number, val: string) => {
-    const newTimes = { ...globalTimes, [day]: val };
-    setGlobalTimes(newTimes);
-    try {
-      await setDoc(doc(db, 'settings', 'global'), {
-        dailyTimes: newTimes,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-    } catch (err) {
-      console.error('Failed to save global time:', err);
-    }
+  const handleDailyTimeChange = (day: number, val: string) => {
+    const prev = currentMonthData.dailyTimes ?? {};
+    updateCurrentMonthData({ dailyTimes: { ...prev, [day]: val } });
   };
+
+  const getDisplayLocation = (day: number) =>
+    currentMonthData.dailyLocations?.[day] ?? globalLocations[day] ?? '';
+
+  const getDisplayTime = (day: number) =>
+    currentMonthData.dailyTimes?.[day] ?? globalTimes[day] ?? '';
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const startOffset = getStartOffset(currentYear, currentMonth);
@@ -1373,8 +1365,8 @@ function App({ currentUser }: { currentUser: User | null }) {
                             <LocalInput
                               className="w-full px-0.5 py-0 rounded border border-orange-200 text-[9px] outline-none focus:border-orange-400 bg-white focus:bg-white h-5 text-center font-bold text-orange-800"
                               size={8}
-                              value={globalLocations[i + 1] || ''}
-                              onChange={(val: string) => handleGlobalLocationChange(i + 1, val)}
+                              value={getDisplayLocation(i + 1)}
+                              onChange={(val: string) => handleDailyLocationChange(i + 1, val)}
                               placeholder="場所"
                               disabled={readOnly}
                             />
@@ -1392,8 +1384,8 @@ function App({ currentUser }: { currentUser: User | null }) {
                             <LocalInput
                               className="w-full px-0.5 py-0 rounded border border-blue-200 text-[9px] outline-none focus:border-blue-400 bg-white focus:bg-white h-5 text-center font-bold text-blue-800"
                               size={8}
-                              value={globalTimes[i + 1] || ''}
-                              onChange={(val: string) => handleGlobalTimeChange(i + 1, val)}
+                              value={getDisplayTime(i + 1)}
+                              onChange={(val: string) => handleDailyTimeChange(i + 1, val)}
                               placeholder="時間"
                               disabled={readOnly}
                             />
