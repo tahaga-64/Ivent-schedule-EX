@@ -7,6 +7,7 @@ export const AUTHENTICATED_PUSH_TYPES = new Set([
   'event_created',
   'event_updated',
   'event_deleted',
+  'event_status_updated',
   'fish_added',
   'photo_added',
   'schedule_updated',

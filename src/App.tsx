@@ -14,7 +14,7 @@ import {
 import MobilePushBanner from './components/MobilePushBanner';
 import { DATA } from './constants';
 import { Event, EventPhoto, PreparationItem, EventStatus, type StaffMember } from './types';
-import { buildMonthGridCells, type ValidationError, validateEvent, fmtDateJPFull, normalizeRegion } from './lib/eventHelpers';
+import { buildMonthGridCells, type ValidationError, validateEvent, fmtDateJPFull, normalizeRegion, statusStyle } from './lib/eventHelpers';
 import { eventMatchesQuery } from './lib/appSearch';
 import { applyEventSnapshotChanges } from './lib/firestoreSnapshot';
 import { Plus } from 'lucide-react';
@@ -564,11 +564,29 @@ export default function App() {
     }
   };
 
-  // Kanbanビュー用: イベントステータスを直接Firestoreに保存
+  // ステータス変更: Firestore に即時保存し、操作端末以外（スマホ等）へ Push 通知
   const handleUpdateEventStatus = async (eventId: string, status: EventStatus) => {
+    const event = dbEvents[eventId];
+    const previousStatus = event?.status;
+    if (previousStatus === status) return;
+
     setDbEvents(prev => ({ ...prev, [eventId]: { ...prev[eventId], status } }));
+    if (selected?.id === eventId) {
+      setSelected(prev => prev ? { ...prev, status } : prev);
+    }
+
     try {
       await updateDoc(doc(db, 'events', eventId), { status });
+      if (isPushNotificationConfigured()) {
+        const sty = statusStyle(status);
+        const venue = event?.venue || 'イベント';
+        notifyPush({
+          type: 'event_status_updated',
+          title: 'ステータスが更新されました',
+          message: `${venue} → ${sty.label}`,
+          eventId,
+        });
+      }
     } catch (e) {
       console.error('status update failed', e);
     }
@@ -1254,6 +1272,7 @@ VITE_FIREBASE_DATABASE_ID`}
             modalTab={modalTab}
             setModalTab={setModalTab}
             onUpdate={handleUpdateEvent}
+            onStatusChange={handleUpdateEventStatus}
             onSave={handleSaveEvent}
             onDelete={handleDeleteEvent}
             onOpenPrepList={() => {

@@ -59,6 +59,7 @@ export interface EventDetailModalProps {
   modalTab: ModalTab;
   setModalTab: React.Dispatch<React.SetStateAction<ModalTab>>;
   onUpdate: (id: string, updates: Partial<Event>) => void;
+  onStatusChange?: (id: string, status: EventStatus) => void | Promise<void>;
   onSave: () => Promise<boolean>;
   onDelete: () => void;
   onOpenPrepList: () => void;
@@ -96,6 +97,7 @@ export default function EventDetailModal({
   modalTab,
   setModalTab,
   onUpdate,
+  onStatusChange,
   onSave,
   onDelete,
   onOpenPrepList,
@@ -473,7 +475,13 @@ export default function EventDetailModal({
                       <button
                         key={s}
                         type="button"
-                        onClick={() => onUpdate(selected.id, { status: s })}
+                        onClick={() => {
+                          if (onStatusChange) {
+                            void onStatusChange(selected.id, s);
+                          } else {
+                            onUpdate(selected.id, { status: s });
+                          }
+                        }}
                         className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all ${
                           isActive
                             ? `${sty.bg} ${sty.text} border-current`
