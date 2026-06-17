@@ -1,7 +1,13 @@
 ﻿import { useState } from 'react';
 import { doc, setDoc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { deleteStoredPhoto, uploadEventPhoto, validateImageFile } from '../lib/photoStorage';
+import {
+  deleteDriveFile,
+  deleteStoredPhoto,
+  syncPhotoToDrive,
+  uploadEventPhoto,
+  validateImageFile,
+} from '../lib/photoStorage';
 import { EventPhoto } from '../types';
 
 export function usePhotos(eventId: string) {
@@ -9,9 +15,17 @@ export function usePhotos(eventId: string) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  async function uploadPhoto(file: File): Promise<EventPhoto | null> {
+  async function uploadPhoto(
+    file: File,
+    opts: { targetFolderId: string; venue?: string; start?: string },
+  ): Promise<EventPhoto | null> {
     const validationError = validateImageFile(file);
     if (validationError) { setError(validationError); return null; }
+
+    if (!opts.targetFolderId) {
+      setError('保存先フォルダを選択してください');
+      return null;
+    }
 
     setUploading(true);
     setUploadProgress(0);
@@ -20,6 +34,23 @@ export function usePhotos(eventId: string) {
     try {
       setUploadProgress(20);
       uploadedPhoto = await uploadEventPhoto(eventId, file);
+      setUploadProgress(50);
+
+      const driveResult = await syncPhotoToDrive({
+        imageUrl: uploadedPhoto.url,
+        eventId,
+        targetFolderId: opts.targetFolderId,
+        fileName: file.name,
+      });
+      if (driveResult) {
+        uploadedPhoto = {
+          ...uploadedPhoto,
+          driveFileId: driveResult.fileId,
+          driveFolderId: driveResult.folderId,
+          driveViewUrl: driveResult.webViewLink,
+        };
+      }
+
       setUploadProgress(80);
       await setDoc(doc(db, 'events', eventId), { photos: arrayUnion(uploadedPhoto) }, { merge: true });
       setUploadProgress(100);
@@ -30,6 +61,11 @@ export function usePhotos(eventId: string) {
         deleteStoredPhoto(uploadedPhoto).catch(err => {
           console.error('Uploaded photo cleanup failed:', err);
         });
+        if (uploadedPhoto.driveFileId) {
+          deleteDriveFile(uploadedPhoto.driveFileId).catch(err => {
+            console.error('Drive cleanup failed:', err);
+          });
+        }
       }
       const msg = e instanceof Error ? e.message : String(e);
       setError(`アップロードに失敗しました: ${msg}`);
@@ -52,9 +88,15 @@ export function usePhotos(eventId: string) {
         storedPhoto = photos.find(p => p.id === photo.id);
         tx.update(eventRef, { photos: photos.filter(p => p.id !== photo.id) });
       });
-      deleteStoredPhoto(storedPhoto ?? photo).catch(err => {
-        console.error('Stored photo delete failed:', err);
+      const toDelete = storedPhoto ?? photo;
+      deleteStoredPhoto(toDelete).catch(err => {
+        console.error('Cloudinary delete failed:', err);
       });
+      if (toDelete.driveFileId) {
+        deleteDriveFile(toDelete.driveFileId).catch(err => {
+          console.error('Drive file delete failed:', err);
+        });
+      }
     } catch (e) {
       setError('削除に失敗しました');
     }

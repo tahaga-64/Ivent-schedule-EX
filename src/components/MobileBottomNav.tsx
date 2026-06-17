@@ -12,20 +12,20 @@ interface MobileBottomNavProps {
 }
 
 const PRIMARY_TABS: { id: ViewMode | 'more'; icon: React.ReactNode; label: string }[] = [
-  { id: "home",     icon: <Home size={22} />,           label: "ホーム" },
-  { id: "calendar", icon: <Calendar size={22} />,       label: "カレンダー" },
-  { id: "prep",     icon: <ClipboardList size={22} />,  label: "準備物" },
-  { id: "more",     icon: <MoreHorizontal size={22} />, label: "その他" },
+  { id: "home",     icon: <Home size={24} />,           label: "ホーム" },
+  { id: "calendar", icon: <Calendar size={24} />,       label: "カレンダー" },
+  { id: "prep",     icon: <ClipboardList size={24} />,  label: "準備物" },
+  { id: "more",     icon: <MoreHorizontal size={24} />, label: "その他" },
 ];
 
 const MORE_ITEMS: { id: ViewMode; icon: React.ReactNode; label: string; sub: string }[] = [
-  { id: "schedule", icon: <CalendarDays size={20} />, label: "スケジュール",  sub: "スタッフ予定表" },
-  { id: "master",  icon: <Package size={20} />,    label: "備品マスター", sub: "備品の登録・管理" },
-  { id: "fish",    icon: <Fish size={20} />,       label: "魚リスト",     sub: "水族館イベント用" },
-  { id: "layout",  icon: <LayoutGrid size={20} />, label: "レイアウト",   sub: "会場配置図" },
-  { id: "container", icon: <Boxes size={20} />,    label: "コンテナボックス", sub: "備品の計算・確認" },
-  { id: "album",   icon: <Images size={20} />,     label: "アルバム",     sub: "イベント写真" },
-  { id: "archive", icon: <Archive size={20} />,    label: "アーカイブ",   sub: "終了したイベント" },
+  { id: "schedule", icon: <CalendarDays size={22} />, label: "スケジュール",  sub: "スタッフ予定表" },
+  { id: "master",  icon: <Package size={22} />,    label: "備品マスター", sub: "備品の登録・管理" },
+  { id: "fish",    icon: <Fish size={22} />,       label: "魚リスト",     sub: "水族館イベント用" },
+  { id: "layout",  icon: <LayoutGrid size={22} />, label: "レイアウト",   sub: "会場配置図" },
+  { id: "container", icon: <Boxes size={22} />,    label: "コンテナボックス", sub: "備品の計算・確認" },
+  { id: "album",   icon: <Images size={22} />,     label: "Drive",     sub: "写真フォルダ" },
+  { id: "archive", icon: <Archive size={22} />,    label: "アーカイブ",   sub: "終了したイベント" },
 ];
 
 const MORE_VIEW_IDS = new Set<ViewMode>(MORE_ITEMS.map(i => i.id));
@@ -69,7 +69,7 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
               <button
                 key={tab.id}
                 onClick={(e) => handleTab(tab.id, e)}
-                className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[3.25rem] py-2 text-[10px] font-bold transition-colors active:scale-95 ${
+                className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[3.25rem] py-2 text-[11px] font-bold transition-colors active:scale-95 ${
                   active ? 'text-indigo-600' : 'text-slate-500'
                 }`}
               >

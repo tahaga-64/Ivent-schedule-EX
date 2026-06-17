@@ -302,7 +302,6 @@ export function LayoutCanvas({ eventId, eventName, canEdit, isPublic = false }: 
     photosRef.current = next;
     setPhotos(next);
     await flushSave();
-    // Cloudinary 側の削除（認証が必要なため公開ビューでは失敗しうるが致命的ではない）
     deleteStoredPhoto(photo).catch(() => {});
   }
 

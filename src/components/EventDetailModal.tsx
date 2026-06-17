@@ -68,7 +68,7 @@ export interface EventDetailModalProps {
   photoUploading: boolean;
   uploadProgress: number;
   photoError: string | null;
-  onUploadPhoto: (file: File) => Promise<EventPhoto | null | undefined>;
+  onUploadPhoto: (file: File, targetFolderId: string) => Promise<EventPhoto | null | undefined>;
   onDeletePhoto: (photo: EventPhoto) => Promise<void>;
   onUpdatePhotoCaption: (photo: EventPhoto, caption: string) => Promise<void>;
   isNewEvent?: boolean;
@@ -244,9 +244,8 @@ export default function EventDetailModal({
             <div className="space-y-4">
               {canUploadPhoto && (selected.photos?.length ?? 0) < MAX_PHOTOS && (
                 <PhotoUpload
-                  onUpload={async (file) => {
-                    // hasUnsavedChanges=true のとき onSnapshot が selected を更新しないため手動反映は呼び出し元で行う
-                    await onUploadPhoto(file);
+                  onUpload={async (file, targetFolderId) => {
+                    await onUploadPhoto(file, targetFolderId);
                   }}
                   uploading={photoUploading}
                   uploadProgress={photoUploading ? uploadProgress : 0}
@@ -506,7 +505,7 @@ export default function EventDetailModal({
               <div className="text-2xl font-black text-gray-800">{eventStats.itemCount}</div>
             </div>
             <div className="px-5">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">PREPARED</div>
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">着荷</div>
               <div className="text-2xl font-black text-indigo-600">
                 {eventStats.preparedCount}/{eventStats.itemCount}
               </div>

@@ -24,7 +24,7 @@ export default function PushNotificationButton({ user }: { user: User }) {
         title="プッシュ通知"
         aria-label="プッシュ通知の設定"
       >
-        <Icon size={16} />
+        <Icon size={18} />
         {dotClass && (
           <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${dotClass}`} />
         )}

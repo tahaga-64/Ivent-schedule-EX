@@ -2,8 +2,8 @@ import { useState, useMemo, useEffect, useCallback, useRef, Suspense, type Mouse
 import { lazyWithRetry } from './lib/lazyWithRetry';
 import { db, auth, ensureAnonymousAuth, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
-import { buildPrepProgressMap, isPrepItemCompleted } from './lib/prepProgress';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, getDocs, writeBatch, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
+import { buildPrepProgressMap, effectiveArrived } from './lib/prepProgress';
 import {
   notifyPush,
   registerPushServiceWorker,
@@ -14,16 +14,9 @@ import {
 import MobilePushBanner from './components/MobilePushBanner';
 import { DATA } from './constants';
 import { Event, EventPhoto, PreparationItem, EventStatus, type StaffMember } from './types';
-import { buildMonthGridCells, type ValidationError, validateEvent, fmtDateJPFull, normalizeRegion, statusStyle } from './lib/eventHelpers';
+import { buildMonthGridCells, type ValidationError, validateEvent, fmtDateJPFull, normalizeRegion } from './lib/eventHelpers';
 import { eventMatchesQuery } from './lib/appSearch';
 import { applyEventSnapshotChanges } from './lib/firestoreSnapshot';
-import {
-  createDefaultProposalEvent,
-  isProposalEvent,
-  isScheduleEvent,
-  PROPOSAL_EVENT_ID,
-} from './lib/systemEvents';
-import { purgeObsoleteEvents } from './lib/purgeObsoleteEvents';
 import { Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePhotos } from './hooks/usePhotos';
@@ -33,6 +26,7 @@ import {
   canEditFishList as computeCanEditFishList,
 } from './lib/permissions';
 import HelpModal from './components/HelpModal';
+import StaffEmailPicker from './components/StaffEmailPicker';
 import AppSidebar from './components/AppSidebar';
 import AppHeader from './components/AppHeader';
 import DayDetailModal from './components/DayDetailModal';
@@ -234,6 +228,8 @@ export default function App() {
   }, [sidebarTypes]);
 
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [knownUsers, setKnownUsers] = useState<{ email: string; displayName: string }[]>([]);
+  const [emailPickerStaff, setEmailPickerStaff] = useState<StaffMember | null>(null);
   const [staffExpanded, setStaffExpanded] = useState(false);
   const [pendingNewEventId, setPendingNewEventId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 768 : false));
@@ -336,6 +332,17 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // ログイン実績ユーザー購読（スタッフの email 連携ピッカー用）
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'userProfiles'), (snap) => {
+      const list = snap.docs
+        .map(d => ({ email: (d.data().email as string) ?? '', displayName: (d.data().displayName as string) ?? '' }))
+        .filter(u => u.email);
+      setKnownUsers(list);
+    }, () => {});
+    return () => unsubscribe();
+  }, []);
+
   const [narrowViewport, setNarrowViewport] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches
   );
@@ -353,21 +360,7 @@ export default function App() {
   const canEditFishList = computeCanEditFishList(user);
   const canUploadPhoto = !!user;
 
-  // 提案用リスト（常駐）の Firestore ドキュメントを確保
-  useEffect(() => {
-    if (!user) return;
-    const def = createDefaultProposalEvent();
-    setDoc(doc(db, 'events', PROPOSAL_EVENT_ID), { ...def, isSystemEvent: true }, { merge: true }).catch(() => {});
-  }, [user]);
-
-  // 廃止イベント（エディオンくずはモール等）を削除（編集者のみ・1回）
-  const purgedRef = useRef(false);
-  useEffect(() => {
-    if (!canEditEvent || purgedRef.current) return;
-    purgedRef.current = true;
-    purgeObsoleteEvents().catch(() => {});
-  }, [canEditEvent]);
-
+  // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "events"), (snapshot) => {
       setDbEvents(prev => applyEventSnapshotChanges(prev, snapshot) ?? prev);
@@ -435,7 +428,7 @@ export default function App() {
         const items = snapshot.docs.map(d => d.data() as PreparationItem);
         setEventStats({
           itemCount: items.length,
-          preparedCount: items.filter(i => isPrepItemCompleted(i)).length,
+          preparedCount: items.filter(i => effectiveArrived(i)).length,
           budget: items.reduce((s, i) => s + (i.amount || 0) + (i.shippingFee || 0), 0),
         });
       }
@@ -474,36 +467,20 @@ export default function App() {
 
   // 移行後はFirestoreのみを正とする（削除も反映）。移行前は従来どおり静的DATAとマージ
   const allEvents = useMemo(() => {
-    let list: Event[];
     if (eventsMigrated) {
-      list = Object.values(dbEvents);
-    } else {
-      const staticIds = new Set(DATA.map(d => d.id));
-      const merged = DATA.map(item => dbEvents[item.id] || item);
-      const firestoreOnly = Object.values(dbEvents).filter((e: Event) => !staticIds.has(e.id));
-      list = [...merged, ...firestoreOnly];
+      return Object.values(dbEvents);
     }
-    if (!list.some(isProposalEvent)) {
-      list = [createDefaultProposalEvent(), ...list];
-    }
-    return list;
+    const staticIds = new Set(DATA.map(d => d.id));
+    const merged = DATA.map(item => dbEvents[item.id] || item);
+    const firestoreOnly = Object.values(dbEvents).filter((e: Event) => !staticIds.has(e.id));
+    return [...merged, ...firestoreOnly];
   }, [dbEvents, eventsMigrated]);
 
-  const scheduleEvents = useMemo(
-    () => allEvents.filter(isScheduleEvent),
-    [allEvents],
-  );
-
-  const proposalEvent = useMemo(
-    () => allEvents.find(isProposalEvent) ?? createDefaultProposalEvent(),
-    [allEvents],
-  );
-
-  const prepProgressMap = useMemo(() => buildPrepProgressMap(scheduleEvents), [scheduleEvents]);
+  const prepProgressMap = useMemo(() => buildPrepProgressMap(allEvents), [allEvents]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim();
-    let filtered = scheduleEvents.filter(d => {
+    let filtered = allEvents.filter(d => {
       if (regionFilter !== "すべて" && normalizeRegion(d.region) !== regionFilter) return false;
       if (typeFilter !== "すべて" && d.type !== typeFilter) return false;
       if (monthFilter !== "すべて") {
@@ -517,7 +494,7 @@ export default function App() {
       filtered = filtered.filter(ev => (ev.status ?? 'scheduled') === statusFilter);
     }
     return filtered.sort((a, b) => (a.start || "9999") < (b.start || "9999") ? -1 : 1);
-  }, [scheduleEvents, regionFilter, typeFilter, monthFilter, searchQuery, statusFilter]);
+  }, [allEvents, regionFilter, typeFilter, monthFilter, searchQuery, statusFilter]);
 
   const calendarDensityPreview =
     import.meta.env.DEV &&
@@ -548,7 +525,7 @@ export default function App() {
 
   const stats = useMemo(() => {
     const todayStr = new Date().toISOString().slice(0, 10);
-    const activeEvents = scheduleEvents.filter(ev =>
+    const activeEvents = allEvents.filter(ev =>
       ev.status !== 'completed' &&
       ev.status !== 'cancelled' &&
       (ev.end || ev.start || '') >= todayStr
@@ -571,7 +548,7 @@ export default function App() {
     });
 
     return { total: activeEvents.length, byRegion, byType, byStatus };
-  }, [scheduleEvents, filtered]);
+  }, [allEvents, filtered]);
 
   const handleUpdateEvent = (id: string, updates: Partial<Event>) => {
     if (!selected || selected.id !== id) return;
@@ -587,29 +564,11 @@ export default function App() {
     }
   };
 
-  // ステータス変更: Firestore に即時保存し、操作端末以外（スマホ等）へ Push 通知
+  // Kanbanビュー用: イベントステータスを直接Firestoreに保存
   const handleUpdateEventStatus = async (eventId: string, status: EventStatus) => {
-    const event = dbEvents[eventId];
-    const previousStatus = event?.status;
-    if (previousStatus === status) return;
-
     setDbEvents(prev => ({ ...prev, [eventId]: { ...prev[eventId], status } }));
-    if (selected?.id === eventId) {
-      setSelected(prev => prev ? { ...prev, status } : prev);
-    }
-
     try {
       await updateDoc(doc(db, 'events', eventId), { status });
-      if (isPushNotificationConfigured()) {
-        const sty = statusStyle(status);
-        const venue = event?.venue || 'イベント';
-        notifyPush({
-          type: 'event_status_updated',
-          title: 'ステータスが更新されました',
-          message: `${venue} → ${sty.label}`,
-          eventId,
-        });
-      }
     } catch (e) {
       console.error('status update failed', e);
     }
@@ -819,7 +778,7 @@ export default function App() {
 
   // 種別削除：該当種別を持つイベントのtypeをFirestoreから一括クリア
   const handleDeleteType = async (label: string) => {
-    const affected = scheduleEvents.filter(e => e.type === label);
+    const affected = allEvents.filter(e => e.type === label);
     const msg = affected.length > 0
       ? `「${label}」を削除します。\nこの種別が設定されている ${affected.length} 件のイベントから種別をクリアします。\n続行しますか？`
       : `「${label}」を削除しますか？`;
@@ -858,8 +817,12 @@ export default function App() {
     const trimmed = name?.trim() ?? '';
     if (!trimmed || trimmed.length > 50) return;
     if (staffList.some(s => s.name === trimmed)) { alert('その名前は既に登録されています'); return; }
+    const emailInput = prompt('Gmailアドレスを入力してください（省略可）:') ?? '';
+    const emailTrimmed = emailInput.trim();
+    const staffData: Record<string, unknown> = { name: trimmed, createdAt: serverTimestamp() };
+    if (emailTrimmed) staffData.email = emailTrimmed;
     try {
-      await addDoc(collection(db, 'staff'), { name: trimmed, createdAt: serverTimestamp() });
+      await addDoc(collection(db, 'staff'), staffData);
     } catch {
       alert('スタッフの追加に失敗しました');
     }
@@ -871,6 +834,22 @@ export default function App() {
       await deleteDoc(doc(db, 'staff', staff.id));
     } catch {
       alert('スタッフの削除に失敗しました');
+    }
+  };
+
+  const handleEditStaffEmail = (staff: StaffMember) => {
+    setEmailPickerStaff(staff);
+  };
+
+  const saveStaffEmail = async (email: string) => {
+    if (!emailPickerStaff) return;
+    const trimmed = email.trim();
+    try {
+      await updateDoc(doc(db, 'staff', emailPickerStaff.id), { email: trimmed || deleteField() });
+    } catch {
+      alert('メールアドレスの更新に失敗しました');
+    } finally {
+      setEmailPickerStaff(null);
     }
   };
 
@@ -1105,7 +1084,7 @@ VITE_FIREBASE_DATABASE_ID`}
       )}
       {v === "home" && (
         <HomeView
-          events={scheduleEvents}
+          events={allEvents}
           prepProgressMap={prepProgressMap}
           onSelectEvent={handleEventSelect}
           onSelectPrepEvent={(ev) => { runWithGuard(() => { setPrepEvent(ev); applySetView('prep'); }); }}
@@ -1119,16 +1098,16 @@ VITE_FIREBASE_DATABASE_ID`}
         <MasterItemsView canEdit={canEditPreparationList} isActive />
       )}
       {v === "fish" && (
-        <FishListView events={scheduleEvents} canEdit={canEditFishList} isActive initialEventId={fishFocusEventId} />
+        <FishListView events={allEvents} canEdit={canEditFishList} isActive initialEventId={fishFocusEventId} />
       )}
       {v === "layout" && (
-        <LayoutView events={scheduleEvents} canEdit={canEditPreparationList} initialEventId={layoutFocusEventId} />
+        <LayoutView events={allEvents} canEdit={canEditPreparationList} initialEventId={layoutFocusEventId} />
       )}
       {v === "container" && (
-        <ContainerBoxView events={scheduleEvents} canEdit={canEditPreparationList} />
+        <ContainerBoxView events={allEvents} canEdit={canEditPreparationList} />
       )}
       {v === "album" && (
-        <AlbumView events={scheduleEvents} />
+        <AlbumView />
       )}
       {v === "schedule" && (
         <ScheduleView currentUser={user} />
@@ -1141,13 +1120,9 @@ VITE_FIREBASE_DATABASE_ID`}
           user={user ?? null}
         />
       ) : v === "prep" ? (
-        <PrepEventList
-          proposalEvent={proposalEvent}
-          events={scheduleEvents}
-          onSelectEvent={handleSetPrepEvent}
-        />
+        <PrepEventList events={allEvents} onSelectEvent={handleSetPrepEvent} />
       ) : v === "archive" ? (
-        <ArchiveView events={scheduleEvents} onSelectEvent={handleSetPrepEvent} />
+        <ArchiveView events={allEvents} onSelectEvent={handleSetPrepEvent} />
       ) : null}
     </>
   );
@@ -1162,7 +1137,7 @@ VITE_FIREBASE_DATABASE_ID`}
         calYear={calYear}
         calMonth={calMonth}
         searchQuery={searchQuery}
-        events={scheduleEvents}
+        events={allEvents}
         narrowViewport={narrowViewport}
         onToggleSidebar={() => setSideOpen(v => !v)}
         onSetView={navigateToView}
@@ -1173,6 +1148,15 @@ VITE_FIREBASE_DATABASE_ID`}
       />
 
       <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
+
+      {emailPickerStaff && (
+        <StaffEmailPicker
+          staff={emailPickerStaff}
+          knownUsers={knownUsers}
+          onSave={saveStaffEmail}
+          onClose={() => setEmailPickerStaff(null)}
+        />
+      )}
 
       {/* 初期データ移行バナー（編集者のみ・未移行時） */}
       {canEditEvent && !eventsMigrated && (
@@ -1204,6 +1188,7 @@ VITE_FIREBASE_DATABASE_ID`}
             canEditEvent={canEditEvent}
             onAddStaff={handleAddStaff}
             onDeleteStaff={handleDeleteStaff}
+            onEditStaffEmail={handleEditStaffEmail}
             onDeleteType={handleDeleteType}
           />
 
@@ -1221,9 +1206,7 @@ VITE_FIREBASE_DATABASE_ID`}
                 key={view === 'prep' || view === 'archive' ? `${view}-${prepEvent?.id ?? 'list'}` : view}
                 custom={viewDir}
                 className={`absolute inset-0 overflow-y-auto w-full max-w-none overscroll-contain ${
-                  isMobile
-                    ? `${view === 'schedule' ? 'px-1 py-3' : 'p-3'} sm:p-4 pb-[calc(3.75rem+env(safe-area-inset-bottom))]`
-                    : 'p-4 md:p-6 lg:p-8 pb-20 md:pb-8'
+                  isMobile ? 'p-3 sm:p-4 pb-[calc(3.75rem+env(safe-area-inset-bottom))]' : 'p-4 md:p-6 lg:p-8 pb-20 md:pb-8'
                 }`}
                 variants={viewVariants}
                 initial="initial"
@@ -1271,7 +1254,6 @@ VITE_FIREBASE_DATABASE_ID`}
             modalTab={modalTab}
             setModalTab={setModalTab}
             onUpdate={handleUpdateEvent}
-            onStatusChange={handleUpdateEventStatus}
             onSave={handleSaveEvent}
             onDelete={handleDeleteEvent}
             onOpenPrepList={() => {
@@ -1298,8 +1280,12 @@ VITE_FIREBASE_DATABASE_ID`}
             photoUploading={photoUploading}
             uploadProgress={uploadProgress}
             photoError={photoError}
-            onUploadPhoto={async (file) => {
-              const newPhoto = await uploadPhoto(file);
+            onUploadPhoto={async (file, targetFolderId) => {
+              const newPhoto = await uploadPhoto(file, {
+                targetFolderId,
+                venue: selected?.venue,
+                start: selected?.start,
+              });
               if (newPhoto && hasUnsavedChanges) {
                 setSelected(prev => prev ? { ...prev, photos: [...(prev.photos ?? []), newPhoto] } : prev);
               }
@@ -1309,7 +1295,7 @@ VITE_FIREBASE_DATABASE_ID`}
                   .filter(Boolean);
                 notifyPush({
                   type: 'photo_added',
-                  title: 'アルバムに写真が追加されました',
+                  title: 'Driveに写真が追加されました',
                   message: parts.join(' / ') || '写真が追加されました',
                   eventId: selected.id,
                 });

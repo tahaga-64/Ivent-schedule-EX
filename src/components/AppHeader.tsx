@@ -24,16 +24,16 @@ interface AppHeaderProps {
 }
 
 const desktopNavItems: { id: ViewMode; icon: React.ReactNode; label: string }[] = [
-  { id: 'home', icon: <Home size={14} />, label: 'ホーム' },
-  { id: 'calendar', icon: <Calendar size={14} />, label: 'カレンダー' },
-  { id: 'prep', icon: <ClipboardList size={14} />, label: '準備物' },
-  { id: 'archive', icon: <Archive size={14} />, label: 'アーカイブ' },
-  { id: 'master', icon: <Package size={14} />, label: '備品' },
-  { id: 'schedule', icon: <CalendarDays size={14} />, label: 'スケジュール' },
-  { id: 'fish', icon: <Fish size={14} />, label: '魚リスト' },
-  { id: 'layout', icon: <LayoutGrid size={14} />, label: 'レイアウト' },
-  { id: 'album', icon: <Images size={14} />, label: 'アルバム' },
-  { id: 'container', icon: <Boxes size={14} />, label: 'コンテナボックス' },
+  { id: 'home', icon: <Home size={18} />, label: 'ホーム' },
+  { id: 'calendar', icon: <Calendar size={18} />, label: 'カレンダー' },
+  { id: 'prep', icon: <ClipboardList size={18} />, label: '準備物' },
+  { id: 'archive', icon: <Archive size={18} />, label: 'アーカイブ' },
+  { id: 'master', icon: <Package size={18} />, label: '備品' },
+  { id: 'schedule', icon: <CalendarDays size={18} />, label: 'スケジュール' },
+  { id: 'fish', icon: <Fish size={18} />, label: '魚リスト' },
+  { id: 'layout', icon: <LayoutGrid size={18} />, label: 'レイアウト' },
+  { id: 'album', icon: <Images size={18} />, label: 'Drive' },
+  { id: 'container', icon: <Boxes size={18} />, label: 'コンテナ' },
 ];
 
 export default function AppHeader({
@@ -59,7 +59,7 @@ export default function AppHeader({
     view === 'master' ? '備品マスター' :
     view === 'fish' ? '魚リスト' :
     view === 'layout' ? 'レイアウト' :
-    view === 'album' ? 'アルバム' :
+    view === 'album' ? 'Drive' :
     view === 'schedule' ? 'スケジュール' :
     view === 'container' ? 'コンテナボックス' : '';
 
@@ -94,12 +94,12 @@ export default function AppHeader({
                 onClick={() => onSetView(v.id)}
                 title={v.label}
                 className={`
-                  flex items-center gap-1.5 px-2 xl:px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 whitespace-nowrap
+                  flex items-center gap-2 px-2.5 lg:px-3 py-2 rounded-lg text-sm font-bold transition-all shrink-0 whitespace-nowrap
                   ${view === v.id ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-200' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}
                 `}
               >
                 {v.icon}
-                <span className="hidden xl:inline">{v.label}</span>
+                <span className="hidden lg:inline">{v.label}</span>
               </button>
             ))}
           </div>
@@ -110,7 +110,7 @@ export default function AppHeader({
                 onClick={onCreateEvent}
                 className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all shadow-indigo-200 shadow-md"
               >
-                <Plus size={14} strokeWidth={3} />
+                <Plus size={16} strokeWidth={3} />
                 <span className="hidden sm:inline">新規</span>
               </button>
             )}
@@ -120,7 +120,7 @@ export default function AppHeader({
               className="hidden sm:flex p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
               title="使い方"
             >
-              <HelpCircle size={16} />
+              <HelpCircle size={18} />
             </button>
             {!user.isAnonymous && (
               user.photoURL ? (

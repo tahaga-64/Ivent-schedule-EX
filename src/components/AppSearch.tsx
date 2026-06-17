@@ -14,16 +14,16 @@ type ResultItem =
 
 function featureIcon(id: AppViewMode) {
   switch (id) {
-    case 'home': return <Home size={14} />;
-    case 'calendar': return <Calendar size={14} />;
-    case 'prep': return <ClipboardList size={14} />;
-    case 'schedule': return <CalendarDays size={14} />;
-    case 'fish': return <Fish size={14} />;
-    case 'master': return <Package size={14} />;
-    case 'layout': return <LayoutGrid size={14} />;
-    case 'album': return <Images size={14} />;
-    case 'archive': return <Archive size={14} />;
-    default: return <Search size={14} />;
+    case 'home': return <Home size={16} />;
+    case 'calendar': return <Calendar size={16} />;
+    case 'prep': return <ClipboardList size={16} />;
+    case 'schedule': return <CalendarDays size={16} />;
+    case 'fish': return <Fish size={16} />;
+    case 'master': return <Package size={16} />;
+    case 'layout': return <LayoutGrid size={16} />;
+    case 'album': return <Images size={16} />;
+    case 'archive': return <Archive size={16} />;
+    default: return <Search size={16} />;
   }
 }
 

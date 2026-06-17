@@ -1,14 +1,8 @@
 import type { Event, PreparationItem } from '../types';
-import { normalizeOrderStatus } from './orderStatus';
 
-export function isPrepItemCompleted(item: PreparationItem): boolean {
-  return normalizeOrderStatus(item.orderStatus) === 'completed';
-}
-
-/** @deprecated 旧 arrived フィールド互換。新ロジックは isPrepItemCompleted を使用 */
 export function effectiveArrived(item: PreparationItem): boolean {
-  if (item.orderStatus !== undefined) return normalizeOrderStatus(item.orderStatus) === 'completed';
-  return item.arrived || item.prepared;
+  if (item.orderStatus !== undefined) return item.orderStatus === 'arrived';
+  return item.arrived;
 }
 
 export function isEmptyPrepItem(item: PreparationItem): boolean {
@@ -34,7 +28,7 @@ export function computePrepProgressFields(items: PreparationItem[]): {
   const filled = items.filter(i => !isEmptyPrepItem(i));
   return {
     prepItemTotal: filled.length,
-    prepItemDone: filled.filter(i => isPrepItemCompleted(i)).length,
+    prepItemDone: filled.filter(i => effectiveArrived(i)).length,
   };
 }
 

@@ -11,7 +11,7 @@ export const SEARCH_FEATURES: { id: AppViewMode; label: string; keywords: string
   { id: 'fish', label: '魚リスト', keywords: ['魚', 'さかな', 'fish', '水族館', '生体'] },
   { id: 'master', label: '備品マスター', keywords: ['備品', 'マスター', 'master', '在庫', '機材'] },
   { id: 'layout', label: 'レイアウト', keywords: ['レイアウト', 'layout', '配置', '会場図', '図面'] },
-  { id: 'album', label: 'アルバム', keywords: ['アルバム', '写真', 'album', 'photo', '画像'] },
+  { id: 'album', label: 'Drive', keywords: ['drive', 'アルバム', '写真', 'album', 'photo', '画像', 'google'] },
   { id: 'container', label: 'コンテナボックス', keywords: ['コンテナ', 'ボックス', 'container', '備品計算', '積載', '持ち物'] },
   { id: 'archive', label: 'アーカイブ', keywords: ['アーカイブ', 'archive', '過去', '終了'] },
 ];

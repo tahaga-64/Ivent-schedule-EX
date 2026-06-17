@@ -338,8 +338,6 @@ function App({ currentUser }: { currentUser: User | null }) {
   // Data States
   const [allData, setAllData] = useState<Record<string, MonthData>>({});
   const [globalStations, setGlobalStations] = useState<Record<string, string>>({});
-  const [globalLocations, setGlobalLocations] = useState<Record<number, string>>({});
-  const [globalTimes, setGlobalTimes] = useState<Record<number, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -538,12 +536,6 @@ function App({ currentUser }: { currentUser: User | null }) {
         const data = snapshot.data();
         if (data.memberStations) {
           setGlobalStations(data.memberStations);
-        }
-        if (data.dailyLocations) {
-          setGlobalLocations(data.dailyLocations);
-        }
-        if (data.dailyTimes) {
-          setGlobalTimes(data.dailyTimes);
         }
       } else {
         // Fallback: If global settings don't exist yet, try to pull from April 2026
@@ -899,10 +891,10 @@ function App({ currentUser }: { currentUser: User | null }) {
   };
 
   const getDisplayLocation = (day: number) =>
-    currentMonthData.dailyLocations?.[day] ?? globalLocations[day] ?? '';
+    currentMonthData.dailyLocations?.[day] ?? '';
 
   const getDisplayTime = (day: number) =>
-    currentMonthData.dailyTimes?.[day] ?? globalTimes[day] ?? '';
+    currentMonthData.dailyTimes?.[day] ?? '';
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const startOffset = getStartOffset(currentYear, currentMonth);

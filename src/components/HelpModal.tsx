@@ -74,14 +74,14 @@ export default function HelpModal({ open, onClose }: { open: boolean; onClose: (
               <Section title="4. 準備物リスト">
                 <ul className="list-disc pl-5 space-y-0.5">
                   <li>「新しい項目を追加」で品名・数量・単価などを入力（金額は自動計算されます）</li>
-                  <li>到着 / 準備完了 をチェックで進捗管理</li>
+                  <li>発注状況（未発注→発注済→配送中→着荷）と追跡番号で進捗管理</li>
                   <li>印刷・Excel出力が可能</li>
                 </ul>
                 <Callout tone="emerald">自動保存です（「保存」ボタン不要）。上部の「✓ 自動保存済み」を確認すればOK。</Callout>
               </Section>
 
               <Section title="5. 写真">
-                <p>イベント詳細の「写真」タブから、1イベント最大5枚・1枚10MBまでアップロードできます。上がらないときはサイズ・画像形式を確認してください。</p>
+                <p>イベント詳細の「写真」タブからアップロードします。Cloudinary でアプリ内表示し、選択した Google Drive フォルダにも同期します（最大5枚・1枚10MB）。</p>
               </Section>
 
               <Section title="6. レイアウト">

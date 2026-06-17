@@ -51,7 +51,7 @@ export interface Event {
   financials?: EventFinancials;
   /** 準備物の件数（空行を除く）。collectionGroup 購読の代替 */
   prepItemTotal?: number;
-  /** 到着＋準備完了の件数 */
+  /** 到着（着荷）の件数 */
   prepItemDone?: number;
   /** システム常駐イベント（提案用リスト等）。スケジュールには表示しない */
   isSystemEvent?: boolean;
@@ -102,18 +102,27 @@ export interface PreparationItem {
   noteUpdatedAt?: string;
   orderStatus?: OrderStatus;
   url?: string;
+  /** 配送追跡番号（17TRACK 連携） */
+  trackingNumber?: string;
+  /** 17TRACK キャリアコード */
+  carrierCode?: string;
+  lastTrackedAt?: string;
+  trackingStatus?: string;
   order: number;
 }
 
 export interface EventPhoto {
   id: string;
+  /** 表示用 URL（Cloudinary 最適化 URL または Drive サムネイル） */
   url: string;
-  storagePath?: string;
   uploadedAt: string;
   caption?: string;
   thumbnailUrl?: string;
+  /** Cloudinary public_id */
+  storagePath?: string;
   thumbnailStoragePath?: string;
   driveFileId?: string;
+  driveFolderId?: string;
   driveViewUrl?: string;
 }
 
