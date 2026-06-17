@@ -1,4 +1,3 @@
-import { useState, useMemo, useEffect, useCallback, useRef, Suspense, type MouseEvent as ReactMouseEvent } from 'react';
 import { lazyWithRetry } from './lib/lazyWithRetry';
 import { fxLevel } from './lib/deviceTier';
 import { db, auth, ensureAnonymousAuth, firebaseConfigError } from './lib/firebase';
@@ -1096,7 +1095,6 @@ VITE_FIREBASE_DATABASE_ID`}
           onOpenSchedule={() => applySetView('schedule')}
           onNavigateCalendar={() => applySetView('calendar')}
           canEditEvent={canEditEvent}
-          scrollContainerRef={scrollContainerRef}
         />
       )}
       {v === "master" && (

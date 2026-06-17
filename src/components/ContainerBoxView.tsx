@@ -117,7 +117,12 @@ function ContainerDetail({
 
         // マスターの在庫を差分だけ加減算（持ち出し増加→減算、返却→加算）
         // update() はドキュメント不在でエラーになるため set+merge を使う
+        // 万が一ドキュメントが消えていた場合でも必須フィールドを保持する
         batch.set(doc(db, 'masterItems', master.id), {
+          name: master.name,
+          unitPrice: master.unitPrice ?? 0,
+          note: master.note ?? '',
+          url: master.url ?? '',
           defaultQuantity: increment(-delta),
           updatedAt: serverTimestamp(),
         }, { merge: true });
