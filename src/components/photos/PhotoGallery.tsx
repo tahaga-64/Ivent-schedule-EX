@@ -50,18 +50,15 @@ export default function PhotoGallery({ photos, onDelete, onUpdateCaption, canEdi
 
   return (
     <>
-      <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-indigo-100 bg-indigo-50/60 px-3 py-2">
-        <p className="text-[11px] leading-snug text-slate-600">
-          バックアップは Google Drive フォルダへ手動で保存してください
-        </p>
+      <div className="mb-3 flex justify-end">
         <a
           href={GOOGLE_DRIVE_FOLDER_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-indigo-600 shadow-sm ring-1 ring-indigo-100 hover:text-indigo-800"
+          className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800"
         >
           <ExternalLink size={12} />
-          フォルダを開く
+          Googleドライブへの保存はこちら
         </a>
       </div>
       <div className="space-y-3">
