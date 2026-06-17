@@ -2,7 +2,11 @@ type KVNamespace = {
   get(key: string): Promise<string | null>;
   put(key: string, value: string): Promise<void>;
   delete(key: string): Promise<void>;
-  list(options?: { prefix?: string }): Promise<{ keys: Array<{ name: string }> }>;
+  list(options?: { prefix?: string; cursor?: string }): Promise<{
+    keys: Array<{ name: string }>;
+    list_complete: boolean;
+    cursor?: string;
+  }>;
 };
 
 type Env = {
@@ -38,6 +42,7 @@ type PushPayload = {
   message?: string;
   eventId?: string;
   targetEmail?: string;
+  excludeEndpoint?: string;
   data?: Record<string, unknown>;
 };
 
@@ -106,17 +111,14 @@ async function handleSend(request: Request, env: Env): Promise<Response> {
     return json({ error: 'Forbidden' }, 403);
   }
 
-  const list = await env.PUSH_SUBSCRIPTIONS.list({ prefix: 'sub:' });
-  const allSubscriptions = await Promise.all(
-    list.keys.map(async key => {
-      const raw = await env.PUSH_SUBSCRIPTIONS.get(key.name);
-      return raw ? JSON.parse(raw) as StoredSubscription : null;
-    })
-  );
+  const allSubscriptions = await listAllSubscriptions(env.PUSH_SUBSCRIPTIONS);
 
-  const subscriptions = payload.targetEmail
-    ? allSubscriptions.filter(s => s?.email === payload.targetEmail)
-    : allSubscriptions;
+  const subscriptions = allSubscriptions.filter(subscription => {
+    if (!subscription) return false;
+    if (payload.excludeEndpoint && subscription.endpoint === payload.excludeEndpoint) return false;
+    if (payload.targetEmail) return subscription.email === payload.targetEmail;
+    return true;
+  });
 
   const results = await Promise.allSettled(
     subscriptions.flatMap(subscription => subscription ? [sendWebPush(subscription, payload, env)] : [])
@@ -141,6 +143,7 @@ function canSendNotificationType(type: string, email: string | undefined, env: E
   // イベント系・準備物等は Firebase 認証済みなら送信可（匿名認証 PWA 含む）
   if (
     type === 'event_created' || type === 'event_updated' || type === 'event_deleted'
+    || type === 'event_status_updated'
     || type === 'fish_added' || type === 'photo_added' || type === 'schedule_updated' || type === 'prep_updated'
   ) {
     return true;
@@ -314,6 +317,25 @@ async function verifyFirebaseUser(request: Request, env: Env): Promise<FirebaseU
 
 function subscriptionKey(endpoint: string): string {
   return `sub:${base64UrlEncode(textEncoder.encode(endpoint))}`;
+}
+
+async function listAllSubscriptions(kv: KVNamespace): Promise<StoredSubscription[]> {
+  const subscriptions: StoredSubscription[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const list = await kv.list({ prefix: 'sub:', ...(cursor ? { cursor } : {}) });
+    const batch = await Promise.all(
+      list.keys.map(async key => {
+        const raw = await kv.get(key.name);
+        return raw ? JSON.parse(raw) as StoredSubscription : null;
+      })
+    );
+    subscriptions.push(...batch.filter((item): item is StoredSubscription => item !== null));
+    cursor = list.list_complete ? undefined : list.cursor;
+  } while (cursor);
+
+  return subscriptions;
 }
 
 async function hkdfExtract(salt: Uint8Array, ikm: Uint8Array): Promise<CryptoKey> {

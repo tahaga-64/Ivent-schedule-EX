@@ -26,6 +26,8 @@ export type PushNotificationPayload = {
   message: string;
   eventId?: string;
   targetEmail?: string;
+  /** 送信元端末の Push endpoint（他端末のみに配信する） */
+  excludeEndpoint?: string;
   data?: Record<string, unknown>;
 };
 
@@ -193,10 +195,23 @@ export async function syncPushSubscriptionIfGranted(user: User): Promise<boolean
   }
 }
 
+async function getCurrentPushEndpoint(): Promise<string | undefined> {
+  if (!('serviceWorker' in navigator)) return undefined;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    return subscription?.endpoint;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function sendPushNotification(payload: PushNotificationPayload): Promise<void> {
   if (!PUSH_WORKER_URL) return;
   const currentUser = auth.currentUser;
   if (!currentUser) return;
+
+  const excludeEndpoint = payload.excludeEndpoint ?? await getCurrentPushEndpoint();
 
   const response = await fetch(`${PUSH_WORKER_URL}/send`, {
     method: 'POST',
@@ -204,7 +219,10 @@ export async function sendPushNotification(payload: PushNotificationPayload): Pr
       'Content-Type': 'application/json',
       ...await getAuthHeader(currentUser),
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      ...payload,
+      ...(excludeEndpoint ? { excludeEndpoint } : {}),
+    }),
   });
 
   if (!response.ok) {
