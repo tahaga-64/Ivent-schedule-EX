@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Trash2, ChevronLeft, ChevronRight, Edit3, Check } from 'lucide-react';
+import { X, Trash2, ChevronLeft, ChevronRight, Edit3, Check, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { EventPhoto } from '../../types';
+import { GOOGLE_DRIVE_FOLDER_URL } from '../../lib/photoStorage';
 
 interface Props {
   photos: EventPhoto[];
@@ -49,6 +50,17 @@ export default function PhotoGallery({ photos, onDelete, onUpdateCaption, canEdi
 
   return (
     <>
+      <div className="mb-3 flex justify-end">
+        <a
+          href={GOOGLE_DRIVE_FOLDER_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800"
+        >
+          <ExternalLink size={12} />
+          Google Drive フォルダ
+        </a>
+      </div>
       <div className="space-y-3">
         {photos.map((photo, i) => (
           <motion.div
@@ -149,6 +161,18 @@ export default function PhotoGallery({ photos, onDelete, onUpdateCaption, canEdi
               <p className="text-[10px] text-slate-300 mt-1.5">
                 {new Date(photo.uploadedAt).toLocaleDateString('ja-JP')}
               </p>
+              {photo.driveViewUrl && (
+                <a
+                  href={photo.driveViewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-indigo-600 hover:text-indigo-800"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <ExternalLink size={11} />
+                  Driveで開く
+                </a>
+              )}
             </div>
           </motion.div>
         ))}

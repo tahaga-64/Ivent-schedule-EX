@@ -86,6 +86,8 @@ export interface EventPhoto {
   caption?: string;
   thumbnailUrl?: string;
   thumbnailStoragePath?: string;
+  driveFileId?: string;
+  driveViewUrl?: string;
 }
 
 export interface FishItem {

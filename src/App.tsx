@@ -347,7 +347,7 @@ export default function App() {
   const { isEventEditor } = useRoles();
   const canEditEvent = !narrowViewport && !!user && isEventEditor(user.email);
   const canEditPreparationList = computeCanEditPreparationList(user);
-  const canEditFishList = computeCanEditFishList(user, narrowViewport);
+  const canEditFishList = computeCanEditFishList(user);
   const canUploadPhoto = !!user;
 
   // Firestoreから書き換えられたイベントデータを購読
@@ -1253,7 +1253,10 @@ VITE_FIREBASE_DATABASE_ID`}
             uploadProgress={uploadProgress}
             photoError={photoError}
             onUploadPhoto={async (file) => {
-              const newPhoto = await uploadPhoto(file);
+              const newPhoto = await uploadPhoto(file, {
+                venue: selected?.venue,
+                start: selected?.start,
+              });
               if (newPhoto && hasUnsavedChanges) {
                 setSelected(prev => prev ? { ...prev, photos: [...(prev.photos ?? []), newPhoto] } : prev);
               }

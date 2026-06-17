@@ -934,31 +934,23 @@ function App({ currentUser }: { currentUser: User | null }) {
     }
   };
 
-  const handleGlobalLocationChange = async (day: number, val: string) => {
-    const newLocations = { ...globalLocations, [day]: val };
-    setGlobalLocations(newLocations);
-    try {
-      await setDoc(doc(db, 'settings', 'global'), {
-        dailyLocations: newLocations,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-    } catch (err) {
-      console.error('Failed to save global location:', err);
-    }
+  const handleDailyLocationChange = (day: number, val: string) => {
+    const prev = currentMonthData.dailyLocations ?? {};
+    const newLocations = { ...prev, [day]: val };
+    updateCurrentMonthData({ dailyLocations: newLocations });
   };
 
-  const handleGlobalTimeChange = async (day: number, val: string) => {
-    const newTimes = { ...globalTimes, [day]: val };
-    setGlobalTimes(newTimes);
-    try {
-      await setDoc(doc(db, 'settings', 'global'), {
-        dailyTimes: newTimes,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-    } catch (err) {
-      console.error('Failed to save global time:', err);
-    }
+  const handleDailyTimeChange = (day: number, val: string) => {
+    const prev = currentMonthData.dailyTimes ?? {};
+    const newTimes = { ...prev, [day]: val };
+    updateCurrentMonthData({ dailyTimes: newTimes });
   };
+
+  const getDisplayLocation = (day: number) =>
+    currentMonthData.dailyLocations?.[day] ?? globalLocations[day] ?? '';
+
+  const getDisplayTime = (day: number) =>
+    currentMonthData.dailyTimes?.[day] ?? globalTimes[day] ?? '';
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const startOffset = getStartOffset(currentYear, currentMonth);
@@ -1281,16 +1273,16 @@ function App({ currentUser }: { currentUser: User | null }) {
                   </div>
                 </div>
 
-                <FitWidthScaler enabled={isNarrow} minScale={0.52} key={`${currentYear}-${currentMonth}-${daysInMonth}`}>
+                <FitWidthScaler enabled={isNarrow} minScale={0.42} key={`${currentYear}-${currentMonth}-${daysInMonth}`}>
                 <div className={`relative border-b border-border ${isNarrow ? 'w-full' : 'overflow-x-auto'}`}>
                   <table className={`border-separate border-spacing-0 ${
                     isNarrow
-                      ? 'w-full table-fixed text-[13px] leading-tight'
+                      ? 'w-full table-fixed text-[10px] leading-tight'
                       : 'w-full text-[10px] min-w-[max-content]'
                   }`}>
                     {isNarrow && (
                       <colgroup>
-                        <col style={{ width: '13%' }} />
+                        <col style={{ width: '11%' }} />
                         {Array.from({ length: daysInMonth }).map((_, i) => (
                           <col key={i} />
                         ))}
@@ -1299,7 +1291,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                     <thead className="relative z-30">
                       <tr className="bg-slate-100 text-slate-900">
                         <th className={`border border-border font-bold sticky left-0 top-0 bg-slate-100 z-50 text-left leading-tight ${
-                          isNarrow ? 'p-1 text-[11px] min-w-0' : 'p-1.5 min-w-[56px] text-[10px]'
+                          isNarrow ? 'p-0.5 text-[9px] min-w-0' : 'p-1.5 min-w-[56px] text-[10px]'
                         }`}>
                           {isNarrow ? '人' : '人 / 累計'}
                         </th>
@@ -1310,14 +1302,14 @@ function App({ currentUser }: { currentUser: User | null }) {
                           const isSun = dow === 6;
                           return (
                             <th key={day} className={`border border-border font-bold text-center sticky top-0 z-30 ${
-                              isNarrow ? 'p-0 text-[11px] leading-none' : 'p-0.5 min-w-[44px] min-w-max text-[10px]'
+                              isNarrow ? 'p-0 text-[9px] leading-none' : 'p-0.5 min-w-[44px] min-w-max text-[10px]'
                             } ${
                               isSun ? 'text-red-600 bg-red-50' : isSat ? 'text-blue-600 bg-blue-50' : 'bg-slate-100 text-slate-900'
                             }`}>
                               {isNarrow ? (
                                 <span className="flex flex-col items-center gap-0">
                                   <span>{day}</span>
-                                  <span className="text-[9px] font-bold opacity-80">{['月','火','水','木','金','土','日'][dow]}</span>
+                                  <span className="text-[8px] font-bold opacity-80">{['月','火','水','木','金','土','日'][dow]}</span>
                                 </span>
                               ) : (
                                 <>{day}({['月','火','水','木','金','土','日'][dow]})</>
@@ -1330,16 +1322,16 @@ function App({ currentUser }: { currentUser: User | null }) {
                     <tbody>
                       {/* Row for Global Location (場所) */}
                       <tr className="bg-amber-50">
-                        <td className={`border border-border sticky left-0 bg-amber-50 z-20 font-bold text-orange-800 ${isNarrow ? 'p-0.5 text-[10px]' : 'p-1 text-[8px]'}`}>
+                        <td className={`border border-border sticky left-0 bg-amber-50 z-20 font-bold text-orange-800 ${isNarrow ? 'p-px text-[8px]' : 'p-1 text-[8px]'}`}>
                           {isNarrow ? '場所' : '場所 (固定表示)'}
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
                           <td key={i} className={`border border-border ${isNarrow ? 'p-px' : 'p-0.5 min-w-[42px] min-w-max'}`}>
                             <LocalInput
-                              className={`w-full px-0.5 py-0.5 rounded border border-orange-200 outline-none focus:border-orange-400 bg-white focus:bg-white text-center font-bold text-orange-800 ${isNarrow ? 'h-4 text-[10px]' : 'h-5 text-[7.5px]'}`}
-                              size={isNarrow ? 10 : 7.5}
-                              value={globalLocations[i + 1] || ''}
-                              onChange={(val: string) => handleGlobalLocationChange(i + 1, val)}
+                              className={`w-full px-0.5 py-0.5 rounded border border-orange-200 outline-none focus:border-orange-400 bg-white focus:bg-white text-center font-bold text-orange-800 ${isNarrow ? 'h-3.5 text-[8px]' : 'h-5 text-[7.5px]'}`}
+                              size={isNarrow ? 8 : 7.5}
+                              value={getDisplayLocation(i + 1)}
+                              onChange={(val: string) => handleDailyLocationChange(i + 1, val)}
                               placeholder="場所"
                             />
                           </td>
@@ -1348,16 +1340,16 @@ function App({ currentUser }: { currentUser: User | null }) {
 
                       {/* Row for Global Time (時間) */}
                       <tr className="bg-blue-50">
-                        <td className={`border border-border sticky left-0 bg-blue-50 z-20 font-bold text-blue-800 ${isNarrow ? 'p-0.5 text-[10px]' : 'p-1 text-[8px]'}`}>
+                        <td className={`border border-border sticky left-0 bg-blue-50 z-20 font-bold text-blue-800 ${isNarrow ? 'p-px text-[8px]' : 'p-1 text-[8px]'}`}>
                           {isNarrow ? '時間' : '時間 (固定表示)'}
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
                           <td key={i} className={`border border-border ${isNarrow ? 'p-px' : 'p-0.5 min-w-[42px] min-w-max'}`}>
                             <LocalInput
-                              className={`w-full px-0.5 py-0.5 rounded border border-blue-200 outline-none focus:border-blue-400 bg-white focus:bg-white text-center font-bold text-blue-800 ${isNarrow ? 'h-4 text-[10px]' : 'h-5 text-[7.5px]'}`}
-                              size={isNarrow ? 10 : 7.5}
-                              value={globalTimes[i + 1] || ''}
-                              onChange={(val: string) => handleGlobalTimeChange(i + 1, val)}
+                              className={`w-full px-0.5 py-0.5 rounded border border-blue-200 outline-none focus:border-blue-400 bg-white focus:bg-white text-center font-bold text-blue-800 ${isNarrow ? 'h-3.5 text-[8px]' : 'h-5 text-[7.5px]'}`}
+                              size={isNarrow ? 8 : 7.5}
+                              value={getDisplayTime(i + 1)}
+                              onChange={(val: string) => handleDailyTimeChange(i + 1, val)}
                               placeholder="時間"
                             />
                           </td>
@@ -1378,7 +1370,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                             }
                           });
                           return (
-                            <td key={i} className={`border border-border text-center font-bold text-text ${isNarrow ? 'p-px text-[10px]' : 'p-0.5 text-[8px] min-w-[42px] min-w-max'}`}>
+                            <td key={i} className={`border border-border text-center font-bold text-text ${isNarrow ? 'p-px text-[8px]' : 'p-0.5 text-[8px] min-w-[42px] min-w-max'}`}>
                               {isNarrow ? count : `${count}人`}
                             </td>
                           );
@@ -1423,7 +1415,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                                   <div className={`flex flex-col text-center justify-center mx-auto min-w-0 ${isNarrow ? 'gap-0' : 'gap-0.5 min-w-full w-max'}`}>
                                     <select
                                       className={`w-full min-w-0 font-bold outline-none border border-transparent focus:border-accent/30 transition-all leading-tight ${
-                                        isNarrow ? 'px-0 py-0.5 rounded text-[10px]' : 'px-0.5 py-0.5 rounded-full text-[9px]'
+                                        isNarrow ? 'px-0 py-0.5 rounded text-[8px]' : 'px-0.5 py-0.5 rounded-full text-[9px]'
                                       } ${TYPE_CLASS[item.type]}`}
                                       value={item.type}
                                       onChange={(e) => handleScheduleTypeChange(name, i, e.target.value as StatusType)}
