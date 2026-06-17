@@ -9,6 +9,7 @@ import EXBadge from './EXBadge';
 import SwipeActionCard from './fx/SwipeActionCard';
 import RippleButton from './fx/RippleButton';
 import { EASE_OUT } from '../lib/motionTokens';
+import UndeliveredModal from './UndeliveredModal';
 
 interface Props {
   events: Event[];
@@ -165,6 +166,7 @@ function SectionEmpty({ label }: { label: string }) {
 
 export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, onNavigateCalendar, canEditEvent }: Props) {
   const [showEventPicker, setShowEventPicker] = useState(false);
+  const [showUndelivered, setShowUndelivered] = useState(false);
   const [showPermissionToast, setShowPermissionToast] = useState(false);
   const [staffBreakdown, setStaffBreakdown] = useState<StaffBreakdown | null>(null);
   const [staffLoading, setStaffLoading] = useState(true);
@@ -407,6 +409,13 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             スケジュール
           </RippleButton>
 
+          <RippleButton
+            onClick={() => setShowUndelivered(true)}
+            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
+          >
+            未着一覧
+          </RippleButton>
+
         </div>
 
         {/* マーキュリー サービス */}
@@ -549,6 +558,10 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         )}
       </AnimatePresence>
       , document.body)}
+
+      {showUndelivered && (
+        <UndeliveredModal events={events} onClose={() => setShowUndelivered(false)} />
+      )}
     </div>
   );
 }
