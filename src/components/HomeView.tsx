@@ -1,8 +1,11 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, ExternalLink, X, ArrowRight } from 'lucide-react';
-import type { Event } from '../types';
+import { ChevronRight, ExternalLink, X, ArrowRight, Truck } from 'lucide-react';
+import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import type { Event, PreparationItem } from '../types';
+import UndeliveredModal from './UndeliveredModal';
 import { rs, ts, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
 import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule';
 import EXBadge from './EXBadge';
@@ -179,6 +182,7 @@ function SectionEmpty({ label }: { label: string }) {
 export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, onNavigateCalendar, canEditEvent }: Props) {
   const [showEventPicker, setShowEventPicker] = useState(false);
   const [showPermissionToast, setShowPermissionToast] = useState(false);
+  const [showUndelivered, setShowUndelivered] = useState(false);
   const [staffBreakdown, setStaffBreakdown] = useState<StaffBreakdown | null>(null);
   const [staffLoading, setStaffLoading] = useState(true);
   const today = new Date().toISOString().slice(0, 10);
@@ -195,6 +199,36 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
       .then(bd => setStaffBreakdown(bd))
       .finally(() => setStaffLoading(false));
   }, [today]);
+
+  // 長南着で到着予定日を過ぎた準備物を自動完了
+  useEffect(() => {
+    const activeEvents = events.filter(e => e.status !== 'cancelled' && e.status !== 'completed');
+    if (!activeEvents.length) return;
+    let cancelled = false;
+    const autoComplete = async () => {
+      const toComplete: { eventId: string; itemId: string }[] = [];
+      for (const ev of activeEvents) {
+        const snap = await getDocs(collection(db, `events/${ev.id}/preparationItems`));
+        snap.docs.forEach(d => {
+          const data = d.data() as PreparationItem;
+          if (data.name?.trim() && data.arrivalDestination === '長南' &&
+              data.arrivalDate && data.arrivalDate <= today && data.orderStatus !== 'completed') {
+            toComplete.push({ eventId: ev.id, itemId: d.id });
+          }
+        });
+      }
+      if (!toComplete.length || cancelled) return;
+      const batch = writeBatch(db);
+      toComplete.forEach(({ eventId, itemId }) => {
+        batch.update(doc(db, `events/${eventId}/preparationItems/${itemId}`), { orderStatus: 'completed' });
+      });
+      await batch.commit();
+    };
+    autoComplete().catch(console.error);
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events.map(e => e.id).join(','), today]);
+
   const in7  = addDays(today, 7);
 
   const { todayEvents, upcomingWeek } = useMemo(() => {
@@ -396,6 +430,14 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
           <div className="text-[11px] font-black text-slate-600 uppercase tracking-widest mb-1">クイックアクション</div>
 
           <RippleButton
+            onClick={() => setShowUndelivered(true)}
+            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
+          >
+            <Truck size={16} className="text-sky-500 shrink-0" />
+            未着一覧
+          </RippleButton>
+
+          <RippleButton
             onClick={() => setShowEventPicker(true)}
             className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
           >
@@ -539,6 +581,10 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         )}
       </AnimatePresence>
       , document.body)}
+
+      {showUndelivered && (
+        <UndeliveredModal events={events} onClose={() => setShowUndelivered(false)} />
+      )}
 
       {/* Permission toast — portal to escape carousel transform */}
       {createPortal(

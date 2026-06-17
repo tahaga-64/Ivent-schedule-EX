@@ -478,6 +478,18 @@ export default function App() {
 
   const prepProgressMap = useMemo(() => buildPrepProgressMap(allEvents), [allEvents]);
 
+  // 日付が過ぎたイベントを自動的に「完了」にする
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const toComplete = allEvents.filter(ev =>
+      ev.status !== 'completed' &&
+      ev.status !== 'cancelled' &&
+      (ev.end || ev.start) < today
+    );
+    toComplete.forEach(ev => handleUpdateEventStatus(ev.id, 'completed'));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allEvents]);
+
   const filtered = useMemo(() => {
     const q = searchQuery.trim();
     let filtered = allEvents.filter(d => {

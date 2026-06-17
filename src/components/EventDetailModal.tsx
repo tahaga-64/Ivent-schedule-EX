@@ -499,7 +499,7 @@ export default function EventDetailModal({
           </div>
 
           {/* 統計パネル */}
-          <div className="mt-6 bg-gray-50 rounded-2xl p-5 grid grid-cols-3 divide-x divide-gray-200">
+          <div className="mt-6 bg-gray-50 rounded-2xl p-5 grid grid-cols-2 divide-x divide-gray-200">
             <div className="pr-5">
               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">ITEMS</div>
               <div className="text-2xl font-black text-gray-800">{eventStats.itemCount}</div>
@@ -509,31 +509,6 @@ export default function EventDetailModal({
               <div className="text-2xl font-black text-indigo-600">
                 {eventStats.preparedCount}/{eventStats.itemCount}
               </div>
-            </div>
-            <div className="pl-5">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">BUDGET</div>
-              {selected.prepBudget ? (
-                <>
-                  <div className={`text-xl font-black leading-tight ${eventStats.budget > selected.prepBudget ? 'text-red-600' : 'text-gray-800'}`}>
-                    ¥{eventStats.budget.toLocaleString()}
-                    <span className="text-xs font-medium text-gray-400"> / ¥{selected.prepBudget.toLocaleString()}</span>
-                  </div>
-                  <div className="mt-1.5 w-full bg-gray-200 rounded-full h-1.5">
-                    <div
-                      className={`h-1.5 rounded-full transition-all ${
-                        eventStats.budget > selected.prepBudget ? 'bg-red-500' :
-                        eventStats.budget > selected.prepBudget * 0.8 ? 'bg-amber-500' : 'bg-emerald-500'
-                      }`}
-                      style={{ width: `${Math.min(100, (eventStats.budget / selected.prepBudget) * 100)}%` }}
-                    />
-                  </div>
-                  <div className="text-[10px] text-gray-400 mt-0.5">
-                    {Math.round((eventStats.budget / selected.prepBudget) * 100)}% 使用
-                  </div>
-                </>
-              ) : (
-                <div className="text-2xl font-black text-gray-800">¥{eventStats.budget.toLocaleString()}</div>
-              )}
             </div>
           </div>
 
@@ -557,13 +532,15 @@ export default function EventDetailModal({
               準備物リストを開く
             </button>
             <div className="flex gap-2">
-              <button
-                onClick={onOpenFishList}
-                className="flex-1 py-3 rounded-2xl bg-cyan-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-cyan-700 transition-colors"
-              >
-                <Fish size={16} />
-                魚リストを確認
-              </button>
+              {selected.type === '水族館' && (
+                <button
+                  onClick={onOpenFishList}
+                  className="flex-1 py-3 rounded-2xl bg-cyan-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-cyan-700 transition-colors"
+                >
+                  <Fish size={16} />
+                  魚リストを確認
+                </button>
+              )}
               <button
                 onClick={onOpenLayout}
                 className="flex-1 py-3 rounded-2xl bg-violet-600 text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-violet-700 transition-colors"

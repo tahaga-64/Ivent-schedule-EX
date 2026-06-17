@@ -124,7 +124,7 @@ export function CalendarView({
                 <div className="mt-1 flex min-h-0 flex-1 flex-col">
                   <div className="flex min-h-0 flex-col gap-1 overflow-hidden" style={{ maxHeight: eventsPanelMaxHeight }}>
                     {visibleEvents.map((ev) => {
-                      const typeSty = ts(ev.type || '');
+                      const regionColor = rs(ev.region || '').dot;
                       const captionNoDates = buildEventOptionalCaption(ev, { includeDates: false });
                       const captionFull = buildEventOptionalCaption(ev);
                       const prog = prepProgressMap[ev.id];
@@ -136,7 +136,7 @@ export function CalendarView({
                           onClick={() => onSelect(ev)}
                           onMouseEnter={(e) => onHover(ev, e)}
                           onMouseLeave={onHoverEnd}
-                          style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border, minHeight: eventRowMinHeight }}
+                          style={{ borderLeftWidth: 3, borderLeftColor: regionColor, minHeight: eventRowMinHeight }}
                           aria-label={narrowViewport
                             ? (captionNoDates ? `${ev.venue}。${captionNoDates}` : ev.venue)
                             : (captionFull ? `${ev.venue}。${captionFull}` : ev.venue)
@@ -144,7 +144,7 @@ export function CalendarView({
                           title={ev.status === 'completed' ? '完了済み' : undefined}
                           className="relative overflow-hidden flex w-full shrink-0 items-center gap-1.5 rounded-md border border-solid border-slate-200 bg-white px-1.5 py-0.5 text-left shadow-sm ring-1 ring-inset ring-slate-900/[0.04] transition hover:border-slate-300 hover:bg-slate-50/90"
                         >
-                          <span className="h-1.5 w-1.5 shrink-0 rounded-full border border-slate-900/20" style={{ backgroundColor: typeSty.border }} aria-hidden />
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full border border-slate-900/20" style={{ backgroundColor: regionColor }} aria-hidden />
                           <span className="min-w-0 flex-1 truncate whitespace-nowrap text-[12px] font-semibold leading-tight text-slate-900 max-xl:text-[11px]">
                             {ev.venue}
                           </span>

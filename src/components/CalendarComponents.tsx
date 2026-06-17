@@ -46,13 +46,13 @@ export function MobileTimelineView({ events, onSelect }: MobileTimelineViewProps
           </div>
           <div className="space-y-2">
             {evs.map((ev) => {
-              const typeSty = ts(ev.type || "");
+              const regionColor = rs(ev.region || "").dot;
               return (
               <button
                 key={ev.id}
                 onClick={() => onSelect(ev)}
                 title={ev.status === 'completed' ? '完了済み' : undefined}
-                style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border }}
+                style={{ borderLeftWidth: 3, borderLeftColor: regionColor }}
                 className="w-full border border-slate-200 bg-white rounded-2xl flex items-center gap-3 text-left shadow-sm transition-all overflow-hidden hover:bg-slate-50 active:scale-[0.99] min-h-12"
               >
                 <div className="flex-1 py-4 min-w-0 px-3">
@@ -206,7 +206,7 @@ export function MobileMonthWeekGrid({
                 style={{ maxHeight: CAL_DAY_CELL_EVENTS_MAX_HEIGHT_NARROW }}
               >
                 {visible.map((ev) => {
-                  const typeSty = ts(ev.type || "");
+                  const regionColor = rs(ev.region || "").dot;
                   const captionNd = buildEventOptionalCaption(ev, { includeDates: false });
                   return (
                     <button
@@ -216,7 +216,7 @@ export function MobileMonthWeekGrid({
                       title={ev.status === 'completed' ? '完了済み' : undefined}
                       style={{
                         borderLeftWidth: 3,
-                        borderLeftColor: typeSty.border,
+                        borderLeftColor: regionColor,
                         minHeight: CAL_EVENT_ROW_MIN_HEIGHT_TOUCH,
                       }}
                       aria-label={captionNd ? `${ev.venue}。${captionNd}` : ev.venue}
@@ -334,7 +334,7 @@ export function MobileDayAgendaView({
       ) : (
         <div className="space-y-2">
           {visible.map((ev) => {
-            const typeSty = ts(ev.type || "");
+            const regionColor = rs(ev.region || "").dot;
             const meta = buildEventOptionalCaption(ev);
             return (
               <button
@@ -342,12 +342,12 @@ export function MobileDayAgendaView({
                 type="button"
                 onClick={() => onSelect(ev)}
                 title={ev.status === 'completed' ? '完了済み' : undefined}
-                style={{ borderLeftWidth: 3, borderLeftColor: typeSty.border }}
+                style={{ borderLeftWidth: 3, borderLeftColor: regionColor }}
                 className="flex min-h-12 w-full items-start gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left shadow-sm active:scale-[0.99] transition-all hover:bg-slate-50"
               >
                 <span
                   className="mt-1.5 h-2 w-2 shrink-0 rounded-full border border-slate-200"
-                  style={{ backgroundColor: typeSty.border }}
+                  style={{ backgroundColor: regionColor }}
                   aria-hidden
                 />
                 <span className="min-w-0 flex-1">
