@@ -994,7 +994,7 @@ function App({ currentUser }: { currentUser: User | null }) {
 
       {/* Header */}
       <header className="bg-white border-b border-border shadow-sm">
-        <div className="max-w-[1600px] mx-auto px-4 h-16 flex items-center justify-between">
+        <div className={`${activeTab === 'overall' ? 'w-full max-w-none px-2 md:px-4' : 'max-w-[1600px] mx-auto px-4'} h-16 flex items-center justify-between`}>
           {/* Month Selector */}
           <div className="flex items-center gap-2 bg-bg rounded-lg p-1 border border-border">
             <button 
@@ -1046,7 +1046,7 @@ function App({ currentUser }: { currentUser: User | null }) {
 
       {/* Navigation */}
       <nav className="bg-white border-b border-border px-4 flex overflow-x-auto shadow-sm scrollbar-hide">
-        <div className="max-w-[1600px] mx-auto w-full flex">
+        <div className={`${activeTab === 'overall' ? 'w-full max-w-none' : 'max-w-[1600px] mx-auto'} w-full flex`}>
           {[
             { id: 'schedule', label: 'スケジュール', icon: Calendar },
             { id: 'overall', label: '全体表示', icon: Info },
@@ -1068,10 +1068,8 @@ function App({ currentUser }: { currentUser: User | null }) {
       </nav>
 
       {/* Content */}
-      <main className={`mx-auto w-full flex-grow max-w-[1600px] ${
-        activeTab === 'overall'
-          ? 'px-0 py-2 md:px-6 md:py-6'
-          : 'px-2 py-4 md:p-6'
+      <main className={`mx-auto w-full flex-grow ${
+        activeTab === 'overall' ? 'max-w-none px-0 py-1 md:py-2' : 'max-w-[1600px] px-2 py-4 md:p-6'
       }`}>
         <AnimatePresence mode="wait">
           {activeTab === 'schedule' && (
@@ -1333,7 +1331,7 @@ function App({ currentUser }: { currentUser: User | null }) {
                 </div>
 
                 {/* 縦スクロールもコンテナ内で行うことで、日付ヘッダー（sticky top-0）が下スクロールに追従する */}
-                <div ref={overallTableRef} className="overflow-auto max-h-[85vh] relative border-b border-border w-full -mx-px">
+                <div ref={overallTableRef} className="overflow-auto max-h-[calc(100dvh-10rem)] relative border-b border-border w-full">
                   <table className="w-full text-[9px] border-separate border-spacing-0 min-w-[max-content]">
                     <thead className="relative z-30">
                       <tr className="bg-slate-100 text-slate-900">

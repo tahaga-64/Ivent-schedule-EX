@@ -12,6 +12,7 @@ import { notifyPush } from '../lib/pushNotifications';
 import { syncNewPrepItemsToMaster } from '../lib/masterItemSync';
 import { burstAt } from '../lib/fx';
 import { normalizeOrderStatus, ORDER_STATUS_LABELS } from '../lib/orderStatus';
+import { isProposalEvent } from '../lib/systemEvents';
 
 // ─── 発注ステータス（未発注 / 発注済み / 完了）────────────────────────────────
 
@@ -153,6 +154,7 @@ function formatNoteDate(iso: string): string {
 }
 
 export default function PreparationList({ event, onBack, canEdit, user }: Props) {
+  const isProposal = isProposalEvent(event);
   const [items, setItems] = useState<PreparationItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -161,7 +163,10 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
   const [isExporting, setIsExporting] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   // 一覧（グリッド）と詳細（スクロール式カード）の切替。開いた直後は一覧で全体を把握できるようにする
-  const [viewMode, setViewMode] = useState<'overview' | 'detail' | 'proposal'>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'detail' | 'proposal'>(() =>
+    isProposalEvent(event) ? 'proposal' : 'overview',
+  );
+  const [venueName, setVenueName] = useState(event.venue);
   const [focusItemId, setFocusItemId] = useState<string | null>(null);
   const listScrollRef = useRef<HTMLDivElement>(null);
   const hasChangesRef = useRef(hasChanges);
@@ -174,6 +179,22 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
   const deletedIdsRef = useRef<string[]>([]);
   const lastPrepNotifyRef = useRef(0);
   const { runWithGuard, showSaveToast } = useUnsavedChanges();
+
+  useEffect(() => {
+    setVenueName(event.venue);
+    setViewMode(isProposalEvent(event) ? 'proposal' : 'overview');
+  }, [event.id, event.venue]);
+
+  const saveVenueName = useCallback(async () => {
+    if (!canEdit || !isProposal) return;
+    const trimmed = venueName.trim();
+    if (!trimmed || trimmed === event.venue) return;
+    try {
+      await updateDoc(doc(db, 'events', event.id), { venue: trimmed });
+    } catch (err) {
+      console.error('Proposal venue rename error:', err);
+    }
+  }, [canEdit, isProposal, venueName, event.id, event.venue]);
 
   useEffect(() => {
     const path = `events/${event.id}/preparationItems`;
@@ -229,7 +250,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
       }
       setLastSavedAt(Date.now());
       const now = Date.now();
-      if (now - lastPrepNotifyRef.current > 5 * 60 * 1000) {
+      if (now - lastPrepNotifyRef.current > 5 * 60 * 1000 && !isProposal) {
         lastPrepNotifyRef.current = now;
         const done = progress.prepItemDone;
         const total = progress.prepItemTotal;
@@ -248,7 +269,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
     } finally {
       setIsSaving(false);
     }
-  }, [canEdit, event.id, event.venue]);
+  }, [canEdit, event.id, event.venue, isProposal]);
 
   const discardChanges = useCallback(() => {
     deletedIdsRef.current = [];
@@ -412,10 +433,20 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
             <ArrowLeft size={20} />
           </button>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 min-w-0">
-              <h2 className="text-base md:text-lg font-black text-slate-900 leading-tight whitespace-nowrap overflow-hidden text-ellipsis min-w-0">
-                {event.venue}
-              </h2>
+            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+              {isProposal && canEdit ? (
+                <input
+                  type="text"
+                  value={venueName}
+                  onChange={e => setVenueName(e.target.value)}
+                  onBlur={() => void saveVenueName()}
+                  className="flex-1 min-w-[120px] text-base md:text-lg font-black text-slate-900 bg-white border border-indigo-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-400/50"
+                />
+              ) : (
+                <h2 className="text-base md:text-lg font-black text-slate-900 leading-tight whitespace-nowrap overflow-hidden text-ellipsis min-w-0">
+                  {event.venue}
+                </h2>
+              )}
               {(() => {
                 const filled = items.filter(i => !isEmptyItem(i)).length;
                 if (filled === 0) return null;
@@ -431,42 +462,64 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                 );
               })()}
             </div>
-            <span className="text-[11px] text-slate-500 font-mono">{event.start} → {event.end}</span>
+            {!isProposal && (
+              <span className="text-[11px] text-slate-500 font-mono">{event.start} → {event.end}</span>
+            )}
+            {isProposal && (
+              <span className="text-[11px] text-indigo-600 font-bold">常駐リスト · 商談・提案用</span>
+            )}
           </div>
         </div>
         <div className="flex items-center justify-between gap-2">
           {/* 一覧 / 詳細 / 提案用 切替 */}
           <div className="flex items-center rounded-xl border border-slate-200 bg-white p-0.5 shadow-sm shrink-0">
-            <button
-              type="button"
-              onClick={() => setViewMode('overview')}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-[10px] text-[11px] font-black transition-colors ${
-                viewMode === 'overview' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <LayoutGrid size={13} />
-              一覧
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('detail')}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-[10px] text-[11px] font-black transition-colors ${
-                viewMode === 'detail' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <List size={13} />
-              詳細
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('proposal')}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-[10px] text-[11px] font-black transition-colors ${
-                viewMode === 'proposal' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <ClipboardList size={13} />
-              提案用
-            </button>
+            {isProposal ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('proposal')}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-[10px] text-[11px] font-black transition-colors ${
+                    viewMode === 'proposal' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <ClipboardList size={13} />
+                  提案用
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('detail')}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-[10px] text-[11px] font-black transition-colors ${
+                    viewMode === 'detail' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <List size={13} />
+                  編集
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('overview')}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-[10px] text-[11px] font-black transition-colors ${
+                    viewMode === 'overview' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <LayoutGrid size={13} />
+                  一覧
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('detail')}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-[10px] text-[11px] font-black transition-colors ${
+                    viewMode === 'detail' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <List size={13} />
+                  詳細
+                </button>
+              </>
+            )}
           </div>
           {canEdit && (
             <div className="flex items-center gap-2 shrink-0">
@@ -537,8 +590,11 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
         {viewMode === 'proposal' && (
           <div className="proposal-print-area space-y-4">
             <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm">
-              <h3 className="text-lg font-black text-slate-900 mb-1">{event.venue}</h3>
-              <p className="text-xs text-slate-500 font-mono mb-4">{event.start} → {event.end}</p>
+              <h3 className="text-lg font-black text-slate-900 mb-1">{venueName}</h3>
+              {!isProposal && (
+                <p className="text-xs text-slate-500 font-mono mb-4">{event.start} → {event.end}</p>
+              )}
+              {isProposal && <div className="mb-4" />}
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="border-b-2 border-slate-300">

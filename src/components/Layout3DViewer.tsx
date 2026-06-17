@@ -52,6 +52,13 @@ function lambert(color: number, opts: { transparent?: boolean; opacity?: number 
   return new THREE.MeshLambertMaterial({ color, ...opts });
 }
 
+function standard(
+  color: number,
+  opts: { transparent?: boolean; opacity?: number; roughness?: number; metalness?: number; emissive?: number; emissiveIntensity?: number } = {},
+) {
+  return new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.08, ...opts });
+}
+
 function addMesh(
   parent: THREE.Object3D,
   geo: THREE.BufferGeometry,
@@ -71,9 +78,9 @@ function addMesh(
 /** 長机（白天板の会議テーブル + スチール脚）。着座SPも同一デザイン */
 function buildLongTable(w: number, d: number): THREE.Group {
   const g = new THREE.Group();
-  addMesh(g, new THREE.BoxGeometry(w, TOP_T, d), lambert(COLOR.tableTop), 0, TABLE_H - TOP_T / 2, 0);
+  addMesh(g, new THREE.BoxGeometry(w, TOP_T, d), standard(COLOR.tableTop, { roughness: 0.35 }), 0, TABLE_H - TOP_T / 2, 0);
   const legGeo = new THREE.BoxGeometry(0.12, TABLE_H - TOP_T, 0.12);
-  const legMat = lambert(COLOR.tableLeg);
+  const legMat = standard(COLOR.tableLeg, { metalness: 0.35, roughness: 0.4 });
   const lx = Math.max(0.2, w / 2 - 0.25);
   const lz = Math.max(0.15, d / 2 - 0.2);
   for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
@@ -86,9 +93,9 @@ function buildLongTable(w: number, d: number): THREE.Group {
 function buildRoundTable(w: number, d: number): THREE.Group {
   const g = new THREE.Group();
   const r = Math.min(w, d) / 2;
-  addMesh(g, new THREE.CylinderGeometry(r, r, TOP_T, 32), lambert(COLOR.tableTop), 0, TABLE_H - TOP_T / 2, 0);
-  addMesh(g, new THREE.CylinderGeometry(0.12, 0.16, TABLE_H - TOP_T, 16), lambert(COLOR.tableLeg), 0, (TABLE_H - TOP_T) / 2, 0);
-  addMesh(g, new THREE.CylinderGeometry(r * 0.45, r * 0.5, 0.08, 24), lambert(COLOR.tableLeg), 0, 0.04, 0);
+  addMesh(g, new THREE.CylinderGeometry(r, r, TOP_T, 48), standard(COLOR.tableTop, { roughness: 0.32 }), 0, TABLE_H - TOP_T / 2, 0);
+  addMesh(g, new THREE.CylinderGeometry(0.12, 0.16, TABLE_H - TOP_T, 24), standard(COLOR.tableLeg, { metalness: 0.4 }), 0, (TABLE_H - TOP_T) / 2, 0);
+  addMesh(g, new THREE.CylinderGeometry(r * 0.45, r * 0.5, 0.08, 32), standard(COLOR.tableLeg, { metalness: 0.35 }), 0, 0.04, 0);
   return g;
 }
 
@@ -98,17 +105,17 @@ function buildFishTank(w: number, d: number): THREE.Group {
   const standH = 1.3;
   const tankH = 1.2;
   // 台（キャビネット）
-  addMesh(g, new THREE.BoxGeometry(w, standH, d), lambert(COLOR.tankStand), 0, standH / 2, 0);
+  addMesh(g, new THREE.BoxGeometry(w, standH, d), standard(COLOR.tankStand, { roughness: 0.45 }), 0, standH / 2, 0);
   // ガラス
   addMesh(
     g, new THREE.BoxGeometry(w * 0.96, tankH, d * 0.9),
-    lambert(COLOR.glass, { transparent: true, opacity: 0.28 }),
+    standard(COLOR.glass, { transparent: true, opacity: 0.22, roughness: 0.05, metalness: 0.1 }),
     0, standH + tankH / 2, 0,
   );
   // 水
   addMesh(
     g, new THREE.BoxGeometry(w * 0.9, tankH * 0.72, d * 0.82),
-    lambert(COLOR.waterDeep, { transparent: true, opacity: 0.65 }),
+    standard(COLOR.waterDeep, { transparent: true, opacity: 0.72, roughness: 0.15, metalness: 0.05, emissive: 0x0369a1, emissiveIntensity: 0.15 }),
     0, standH + tankH * 0.4, 0,
   );
   // 上部フレーム
@@ -263,7 +270,7 @@ function buildItem(item: LayoutItemData): { group: THREE.Group; height: number }
 // ─── ラベルスプライト ─────────────────────────────────────────────────────
 function makeLabelSprite(text: string): THREE.Sprite {
   const measure = document.createElement('canvas').getContext('2d')!;
-  const fontSize = 44;
+  const fontSize = 52;
   measure.font = `900 ${fontSize}px sans-serif`;
   const tw = Math.ceil(measure.measureText(text).width);
   const cw = tw + 44;
@@ -289,6 +296,8 @@ function makeLabelSprite(text: string): THREE.Sprite {
   ctx.fillText(text, cw / 2, ch / 2 + 2);
 
   const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 8;
+  tex.colorSpace = THREE.SRGBColorSpace;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
   const s = 0.018;
   sprite.scale.set(cw * s, ch * s, 1);
@@ -313,41 +322,67 @@ export default function Layout3DViewer({ items }: Props) {
     if (!container) return;
 
     // ─── Scene setup ──────────────────────────────────────────────────────
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: false,
+      powerPreference: 'high-performance',
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
     renderer.setClearColor(0xdce5ee);
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0xdce5ee, 70, 140);
+    scene.fog = new THREE.Fog(0xdce5ee, 85, 165);
 
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 220);
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 280);
 
-    // ─── Lighting（明るい屋内モール風） ─────────────────────────────────────
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x94a3b8, 0.85));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.15);
-    sun.position.set(12, 24, 10);
+    // ─── Lighting（明るい屋内モール風・多光源） ─────────────────────────────
+    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8fa3b8, 0.95));
+    const sun = new THREE.DirectionalLight(0xfff7ed, 1.35);
+    sun.position.set(14, 28, 12);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.mapSize.set(4096, 4096);
+    sun.shadow.bias = -0.00015;
+    sun.shadow.normalBias = 0.02;
     sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far = 100;
-    sun.shadow.camera.left = -28;
-    sun.shadow.camera.right = 28;
-    sun.shadow.camera.top = 28;
-    sun.shadow.camera.bottom = -28;
+    sun.shadow.camera.far = 120;
+    sun.shadow.camera.left = -32;
+    sun.shadow.camera.right = 32;
+    sun.shadow.camera.top = 32;
+    sun.shadow.camera.bottom = -32;
     scene.add(sun);
+    const fill = new THREE.DirectionalLight(0xc7d2fe, 0.45);
+    fill.position.set(-10, 12, -8);
+    scene.add(fill);
+    const rim = new THREE.DirectionalLight(0xffffff, 0.55);
+    rim.position.set(0, 8, -18);
+    scene.add(rim);
 
     // ─── Floor（明るいタイル床） ─────────────────────────────────────────────
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(52, 52), new THREE.MeshLambertMaterial({ color: 0xe7ecf2 }));
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(52, 52),
+      standard(0xe7ecf2, { roughness: 0.82, metalness: 0.04 }),
+    );
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
     scene.add(new THREE.GridHelper(52, 26, 0xc3cfdd, 0xd5dde8));
 
     // ─── 会場の壁（薄い半透明） ──────────────────────────────────────────────
-    const wallMat = new THREE.MeshLambertMaterial({ color: 0xbcc8d6, transparent: true, opacity: 0.35, side: THREE.DoubleSide });
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0xbcc8d6,
+      transparent: true,
+      opacity: 0.38,
+      side: THREE.DoubleSide,
+      roughness: 0.9,
+      metalness: 0.02,
+    });
     ([
       { pos: [0, WALL_H / 2, -25], rot: [0, 0, 0] },
       { pos: [0, WALL_H / 2, 25], rot: [0, Math.PI, 0] },

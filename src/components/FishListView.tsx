@@ -7,6 +7,7 @@ import { Fish, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { notifyPush, isPushNotificationConfigured } from '../lib/pushNotifications';
 import { fmtDateJPFull } from '../lib/eventHelpers';
+import { isObsoleteEvent } from '../lib/systemEvents';
 
 interface Props {
   events: Event[];
@@ -35,7 +36,7 @@ function isEventPast(ev: Event): boolean {
 export default function FishListView({ events, canEdit, isActive = true, initialEventId }: Props) {
   const aquariumEvents = useMemo(
     () => events
-      .filter(ev => ev.type === '水族館' && ev.status !== 'cancelled' && !isEventPast(ev))
+      .filter(ev => ev.type === '水族館' && ev.status !== 'cancelled' && !isEventPast(ev) && !isObsoleteEvent(ev))
       .sort((a, b) => (a.start || '').localeCompare(b.start || '')),
     [events]
   );

@@ -252,7 +252,7 @@ function ContainerDetail({
         </AnimatePresence>
       </div>
 
-      <div className="px-4 md:px-6 lg:px-8 py-6 pb-32 md:pb-8 w-full max-w-3xl">
+      <div className="px-4 md:px-6 lg:px-8 py-6 pb-32 md:pb-8 w-full max-w-none">
         {/* タイトル */}
         <div className="mb-5">
           <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">CONTAINER BOX</div>
@@ -274,7 +274,7 @@ function ContainerDetail({
             <div className="text-xs mt-1">備品マスターページからアイテムを追加してください</div>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
             {masterItems.map(master => {
               const qty = localQty[master.id] ?? 0;
               const saved = savedRef.current[master.id] ?? 0;
@@ -283,7 +283,7 @@ function ContainerDetail({
               return (
                 <div
                   key={master.id}
-                  className={`flex items-center gap-3 bg-white rounded-2xl px-4 py-3 border transition-colors ${
+                  className={`flex flex-col gap-2 bg-white rounded-2xl px-4 py-3 border transition-colors h-full ${
                     qty > 0 ? 'border-indigo-200 shadow-sm' : 'border-slate-200'
                   }`}
                 >
@@ -307,7 +307,7 @@ function ContainerDetail({
 
                   {/* 数量コントロール */}
                   {canEdit ? (
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center justify-end gap-1.5 shrink-0">
                       <button
                         type="button"
                         onClick={() => setQty(master.id, qty - 1)}

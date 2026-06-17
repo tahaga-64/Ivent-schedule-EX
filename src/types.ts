@@ -53,6 +53,8 @@ export interface Event {
   prepItemTotal?: number;
   /** 到着＋準備完了の件数 */
   prepItemDone?: number;
+  /** システム常駐イベント（提案用リスト等）。スケジュールには表示しない */
+  isSystemEvent?: boolean;
 }
 
 export type OrderStatus = 'unordered' | 'ordered' | 'completed';
