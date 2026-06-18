@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
 // EX-schedule は ivent-schedule-EX とは別の独立した Firebase プロジェクトに
@@ -33,6 +33,12 @@ const exDb = getFirestore(exApp, EX_SCHEDULE_DATABASE_ID);
 // 直接利用するためにエクスポート。アプリは1つだけ初期化して共有する。
 export { exDb };
 export const exAuth = getAuth(exApp);
+
+/** スケジュール DB 閲覧用の匿名サインイン（Firestore ルール isAuthenticated 用） */
+export async function ensureAnonymousExAuth(): Promise<void> {
+  if (exAuth.currentUser) return;
+  await signInAnonymously(exAuth);
+}
 
 // ─── 定数（EX-schedule constants.ts から移植） ────────────────────────────────
 

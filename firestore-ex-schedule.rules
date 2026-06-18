@@ -1,0 +1,42 @@
+// EX-schedule プロジェクト (gen-lang-client-0070384633) 用 Firestore ルール。
+// Named database: ai-studio-e6c2ec46-2ca9-43b4-b057-65599668d27c
+// デプロイ: Firebase Console で対象 DB のルールに貼り付け、または
+//   firebase use gen-lang-client-0070384633 && firebase deploy --only firestore:rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // permissions.ts の EVENT_EDITOR_EMAILS と一致
+    function isEventEditor() {
+      return request.auth != null
+          && request.auth.token.email in [
+               'taoki0183@gmail.com',
+               'haruhito3901@gmail.com',
+               'm.takada.kp@gmail.com',
+               'pupupuon03nov1120@gmail.com',
+             ];
+    }
+
+    // 閲覧: 匿名含むログイン済み全員（モバイル閲覧専用）
+    // 書き込み: メイン編集者のみ（管理者ログイン後）
+    match /months/{monthId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isEventEditor();
+      allow delete: if isEventEditor();
+    }
+
+    match /settings/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isEventEditor();
+    }
+
+    match /test/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+  }
+}

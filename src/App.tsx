@@ -26,6 +26,7 @@ import {
   canEditPreparationList as computeCanEditPreparationList,
   canEditFishList as computeCanEditFishList,
 } from './lib/permissions';
+import { signInAsAdmin, signOutAdmin, isMobileAdminUser } from './lib/adminAuth';
 import HelpModal from './components/HelpModal';
 import StaffEmailPicker from './components/StaffEmailPicker';
 import AppSidebar from './components/AppSidebar';
@@ -192,6 +193,8 @@ export default function App() {
     typeof window !== 'undefined' ? window.innerWidth >= 768 : true
   );
   const [showHelp, setShowHelp] = useState(false);
+  const [adminAuthBusy, setAdminAuthBusy] = useState(false);
+  const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [prepEvent, setPrepEvent] = useState<Event | null>(null);
   // イベント詳細から魚リスト / レイアウトを開いたときに最初に表示するイベント
@@ -356,10 +359,35 @@ export default function App() {
   }, []);
 
   const { isEventEditor } = useRoles();
+  const isMobileAdmin = isMobileAdminUser(user);
   const canEditEvent = !!user && isEventEditor(user.email);
   const canEditPreparationList = computeCanEditPreparationList(user);
   const canEditFishList = computeCanEditFishList(user);
   const canUploadPhoto = !!user;
+
+  const handleAdminSignIn = useCallback(async () => {
+    setAdminAuthBusy(true);
+    setAdminAuthError(null);
+    try {
+      await signInAsAdmin();
+    } catch (e) {
+      setAdminAuthError(e instanceof Error ? e.message : 'ログインに失敗しました');
+    } finally {
+      setAdminAuthBusy(false);
+    }
+  }, []);
+
+  const handleAdminSignOut = useCallback(async () => {
+    setAdminAuthBusy(true);
+    setAdminAuthError(null);
+    try {
+      await signOutAdmin();
+    } catch (e) {
+      setAdminAuthError(e instanceof Error ? e.message : 'ログアウトに失敗しました');
+    } finally {
+      setAdminAuthBusy(false);
+    }
+  }, []);
 
   // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {
@@ -1162,6 +1190,11 @@ VITE_FIREBASE_DATABASE_ID`}
         onSelectEvent={handleEventSelect}
         onCreateEvent={() => handleCreateEvent()}
         onShowHelp={() => setShowHelp(true)}
+        isMobileAdmin={isMobileAdmin}
+        onAdminSignIn={handleAdminSignIn}
+        onAdminSignOut={handleAdminSignOut}
+        adminAuthBusy={adminAuthBusy}
+        adminAuthError={adminAuthError}
       />
 
       <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />

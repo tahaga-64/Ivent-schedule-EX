@@ -9,6 +9,6 @@ kv_namespaces = [
 [vars]
 FIREBASE_PROJECT_ID = "ivent-schedule-ex"
 VAPID_SUBJECT = "mailto:taoki0183@gmail.com"
-EDITOR_EMAILS = "taoki0183@gmail.com,haruhito3901@gmail.com,m.takada.kp@gmail.com"
+EDITOR_EMAILS = "taoki0183@gmail.com,haruhito3901@gmail.com,m.takada.kp@gmail.com,pupupuon03nov1120@gmail.com"
 ALLOWED_ORIGINS = "http://localhost:3000,https://ivent-schedule-ex.vercel.app,https://ivent-schedule-ex.web.app,https://ivent-schedule-ex.firebaseapp.com"
 WEB_PUSH_PUBLIC_KEY = "BMZYiQ9iKjpXpUi_8PfTddgeV5hNjTWRbA2NIL1dACiROUwsEBjpVlsAzG44PIvI2yM810XB6JVvVAdOTOnVKw8"
