@@ -145,6 +145,7 @@ function canSendNotificationType(type: string, email: string | undefined, env: E
     type === 'event_created' || type === 'event_updated' || type === 'event_deleted'
     || type === 'event_status_updated'
     || type === 'fish_added' || type === 'photo_added' || type === 'schedule_updated' || type === 'prep_updated'
+    || type === 'container_updated'
   ) {
     return true;
   }

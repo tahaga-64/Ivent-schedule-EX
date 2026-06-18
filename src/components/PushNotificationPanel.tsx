@@ -37,7 +37,7 @@ export default function PushNotificationPanel({ state, busy, error, onEnable, co
             <Check size={14} /> この端末で通知を受け取れます
           </div>
           <p className="text-xs text-slate-500 leading-relaxed mb-3">
-            イベントの追加・更新、担当追加、準備物・写真の変更などで通知が届きます。
+            イベントの追加・更新、担当追加、準備物・写真・コンテナ・魚リスト・スケジュールの変更などで通知が届きます。
           </p>
           <button
             type="button"
