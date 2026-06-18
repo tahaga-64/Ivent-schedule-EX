@@ -11,6 +11,8 @@ import {
 } from 'firebase/firestore';
 import type { MasterItem } from './MasterItemsView';
 import { applyInventorySettlement } from '../lib/inventorySettlement';
+import { notifyContainerBoxUpdated } from '../lib/pushNotifyActions';
+import { isPushNotificationConfigured } from '../lib/pushNotifications';
 import { Boxes, ChevronRight, Minus, Plus, Save, Package, ClipboardCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -157,6 +159,9 @@ function ContainerDetail({
       settlementDirtyRef.current = false;
       setSettleOk(true);
       setTimeout(() => setSettleOk(false), 2500);
+      if (isPushNotificationConfigured()) {
+        notifyContainerBoxUpdated(event, { kind: 'settle' });
+      }
     } catch (err) {
       console.error('Inventory settlement error:', err);
     } finally {
@@ -200,6 +205,11 @@ function ContainerDetail({
       await batch.commit();
       setSaveOk(true);
       setTimeout(() => setSaveOk(false), 2500);
+      if (isPushNotificationConfigured()) {
+        const itemCount = masterItems.filter(m => (localQty[m.id] ?? 0) > 0).length;
+        const totalQty = masterItems.reduce((s, m) => s + (localQty[m.id] ?? 0), 0);
+        notifyContainerBoxUpdated(event, { kind: 'save', itemCount, totalQty });
+      }
     } catch (err) {
       console.error('ContainerBox save error:', err);
     } finally {

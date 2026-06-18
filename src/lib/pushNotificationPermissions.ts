@@ -12,6 +12,7 @@ export const AUTHENTICATED_PUSH_TYPES = new Set([
   'photo_added',
   'schedule_updated',
   'prep_updated',
+  'container_updated',
 ]);
 
 export function canSendPushNotificationType(

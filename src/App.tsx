@@ -11,6 +11,7 @@ import {
   syncPushSubscriptionIfGranted,
   isPushNotificationConfigured,
 } from './lib/pushNotifications';
+import { notifyEventStatusChanged } from './lib/pushNotifyActions';
 import MobilePushBanner from './components/MobilePushBanner';
 import { DATA } from './constants';
 import { Event, EventPhoto, PreparationItem, EventStatus, type StaffMember } from './types';
@@ -578,9 +579,13 @@ export default function App() {
 
   // Kanbanビュー用: イベントステータスを直接Firestoreに保存
   const handleUpdateEventStatus = async (eventId: string, status: EventStatus) => {
+    const event = dbEvents[eventId];
     setDbEvents(prev => ({ ...prev, [eventId]: { ...prev[eventId], status } }));
     try {
       await updateDoc(doc(db, 'events', eventId), { status });
+      if (user && isPushNotificationConfigured() && event) {
+        notifyEventStatusChanged({ ...event, status }, status);
+      }
     } catch (e) {
       console.error('status update failed', e);
     }

@@ -9,7 +9,7 @@ import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedC
 import { computePrepProgressFields, effectiveArrived } from '../lib/prepProgress';
 import { registerTrackingNumber } from '../lib/photoStorage';
 import { ARRIVAL_DESTINATIONS } from '../constants';
-import { notifyPush } from '../lib/pushNotifications';
+import { notifyPrepListSaved } from '../lib/pushNotifyActions';
 import { syncNewPrepItemsToMaster } from '../lib/masterItemSync';
 import { burstAt } from '../lib/fx';
 
@@ -237,18 +237,7 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
         savedItemsRef.current = toSave;
       }
       setLastSavedAt(Date.now());
-      const now = Date.now();
-      if (now - lastPrepNotifyRef.current > 5 * 60 * 1000) {
-        lastPrepNotifyRef.current = now;
-        const done = progress.prepItemDone;
-        const total = progress.prepItemTotal;
-        notifyPush({
-          type: 'prep_updated',
-          title: '準備物リストが更新されました',
-          message: total > 0 ? `${event.venue}（着荷 ${done}/${total}）` : event.venue,
-          eventId: event.id,
-        });
-      }
+      notifyPrepListSaved(event, previousSaved, toSave, progress, lastPrepNotifyRef);
       return true;
     } catch (error) {
       console.error('PreparationList save error:', error);
