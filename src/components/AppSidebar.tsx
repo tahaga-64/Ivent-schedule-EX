@@ -30,6 +30,7 @@ export interface AppSidebarProps {
   canEditEvent: boolean;
   onAddStaff: () => void;
   onDeleteStaff: (staff: StaffMember) => void;
+  onEditStaffEmail?: (staff: StaffMember) => void;
   onDeleteType: (label: string) => void;
 }
 
@@ -52,6 +53,7 @@ export default function AppSidebar({
   canEditEvent,
   onAddStaff,
   onDeleteStaff,
+  onEditStaffEmail,
   onDeleteType,
 }: AppSidebarProps) {
   const sortedStaff = useMemo(
