@@ -1,5 +1,5 @@
 {
-  "crons": [{ "path": "/api/syncTracking", "schedule": "0 * * * *" }],
+  "crons": [{ "path": "/api/syncTracking", "schedule": "0 0 * * *" }],
   "rewrites": [
     { "source": "/((?!api/|push-sw\\.js|manifest\\.webmanifest|favicon\\.svg|icon|apple-touch-icon|mercury-).*)", "destination": "/index.html" }
   ],
