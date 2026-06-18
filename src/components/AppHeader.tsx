@@ -21,6 +21,11 @@ interface AppHeaderProps {
   onSelectEvent: (ev: Event) => void;
   onCreateEvent: () => void;
   onShowHelp: () => void;
+  isMobileAdmin?: boolean;
+  onAdminSignIn?: () => void;
+  onAdminSignOut?: () => void;
+  adminAuthBusy?: boolean;
+  adminAuthError?: string | null;
 }
 
 const desktopNavItems: { id: ViewMode; icon: React.ReactNode; label: string }[] = [
@@ -50,6 +55,11 @@ export default function AppHeader({
   onSelectEvent,
   onCreateEvent,
   onShowHelp,
+  isMobileAdmin = false,
+  onAdminSignIn,
+  onAdminSignOut,
+  adminAuthBusy = false,
+  adminAuthError = null,
 }: AppHeaderProps) {
   const viewLabel =
     view === 'home' ? 'ホーム' :
@@ -105,6 +115,39 @@ export default function AppHeader({
           </div>
 
           <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0 ml-auto">
+            {narrowViewport && view === 'schedule' && (
+              <div className="flex flex-col items-end gap-0.5">
+                {isMobileAdmin ? (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-bold text-indigo-700 max-w-[88px] truncate">
+                      {user.email?.split('@')[0]}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={onAdminSignOut}
+                      disabled={adminAuthBusy}
+                      className="px-2 py-1 rounded-lg text-[10px] font-black text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 transition-colors whitespace-nowrap"
+                    >
+                      ログアウト
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onAdminSignIn}
+                    disabled={adminAuthBusy}
+                    className="px-2 py-1 rounded-lg text-[10px] font-black text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+                  >
+                    {adminAuthBusy ? '認証中…' : '管理者ログイン'}
+                  </button>
+                )}
+                {adminAuthError && (
+                  <span className="text-[9px] font-bold text-red-600 max-w-[140px] text-right leading-tight">
+                    {adminAuthError}
+                  </span>
+                )}
+              </div>
+            )}
             {!narrowViewport && (
               <button
                 onClick={onCreateEvent}

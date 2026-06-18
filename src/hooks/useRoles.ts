@@ -17,6 +17,7 @@ const SEED_EDITORS: Array<{ email: string; displayName: string; role: UserRole }
   { email: 'taoki0183@gmail.com', displayName: '', role: 'event_editor' },
   { email: 'haruhito3901@gmail.com', displayName: '', role: 'event_editor' },
   { email: 'm.takada.kp@gmail.com', displayName: '', role: 'event_editor' },
+  { email: 'pupupuon03nov1120@gmail.com', displayName: '', role: 'event_editor' },
 ];
 
 export function useRoles() {

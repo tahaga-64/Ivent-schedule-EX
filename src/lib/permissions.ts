@@ -8,6 +8,7 @@ export const EVENT_EDITOR_EMAILS: readonly string[] = [
   'taoki0183@gmail.com',
   'haruhito3901@gmail.com',
   'm.takada.kp@gmail.com',
+  'pupupuon03nov1120@gmail.com',
 ];
 
 function isSignedIn(user: User | null | undefined): user is User {

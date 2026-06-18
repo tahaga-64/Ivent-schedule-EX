@@ -35,7 +35,7 @@ import {
 } from '../lib/exScheduleConstants';
 
 // Firebase imports（Ivent 側で初期化済みの共有 EX-schedule アプリを利用）
-import { exDb as db, exAuth as auth } from '../lib/exSchedule';
+import { exDb as db, exAuth as auth, ensureAnonymousExAuth } from '../lib/exSchedule';
 import { 
   doc, 
   onSnapshot, 
@@ -319,14 +319,27 @@ function App({ currentUser }: { currentUser: User | null }) {
   const schedCalendarRef = useRef<HTMLDivElement>(null);
   const overallTableRef = useRef<HTMLDivElement>(null);
 
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+  );
   useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    const mq = window.matchMedia('(max-width: 768px)');
+    const onResize = () => setIsMobile(mq.matches);
+    onResize();
+    mq.addEventListener('change', onResize);
+    return () => mq.removeEventListener('change', onResize);
   }, []);
-  const isEditor = EVENT_EDITOR_EMAILS.includes(currentUser?.email ?? '');
+  const isEditor =
+    !!currentUser?.email &&
+    !currentUser.isAnonymous &&
+    EVENT_EDITOR_EMAILS.includes(currentUser.email);
   const readOnly = isMobile && !isEditor;
+
+  useEffect(() => {
+    if (!isEditor) {
+      ensureAnonymousExAuth().catch(console.error);
+    }
+  }, [isEditor]);
 
   // Initialize from current real date to ensure the app opens with the latest current month always
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
@@ -641,6 +654,7 @@ function App({ currentUser }: { currentUser: User | null }) {
   }, [activeTab, myName, currentYear, currentMonth, isLoading]);
 
   const saveData = async (updates: Record<string, any>) => {
+    if (readOnly) return;
     if (!monthKey || monthKey.includes('NaN')) {
       console.error('Invalid monthKey for saving:', monthKey);
       return;
@@ -728,6 +742,7 @@ function App({ currentUser }: { currentUser: User | null }) {
 
   // --- Handlers ---
   const updateCurrentMonthData = (updates: Partial<MonthData>) => {
+    if (readOnly) return;
     setAllData(prev => ({
       ...prev,
       [monthKey]: { ...(prev[monthKey] || {} as MonthData), ...updates }
@@ -790,6 +805,7 @@ function App({ currentUser }: { currentUser: User | null }) {
 
 
   const handleRestoreInitial = () => {
+    if (readOnly) return;
     if (currentYear !== 2026 || currentMonth !== 3) return;
     if (!window.confirm("4月のスケジュールを初期データに復元しますか？（現在の入力内容は上書きされます）")) return;
     
@@ -867,6 +883,7 @@ function App({ currentUser }: { currentUser: User | null }) {
   };
 
   const handleMemberStationChange = async (member: string, val: string) => {
+    if (readOnly) return;
     const newStations = { ...globalStations, [member]: val };
     setGlobalStations(newStations); // Optimistic update
     
@@ -1235,34 +1252,53 @@ function App({ currentUser }: { currentUser: User | null }) {
                                 </span>
 
                                 <div className="flex flex-col gap-0.5 mb-0.5">
-                                  <select
-                                    className={`w-full px-1 py-0.5 rounded-full text-[11px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[type]}`}
-                                    value={type}
-                                    onChange={(e) => handleScheduleTypeChange(currentSchedMember, i, e.target.value as StatusType)}
-                                  >
-                                    {Object.keys(TYPE_LABEL).map(t => (
-                                      <option key={t} value={t}>{TYPE_LABEL[t as StatusType]}</option>
-                                    ))}
-                                  </select>
-                                  {(type !== 'normal' && type !== 'request' && type !== 'rest') && (
-                                    <LocalInput
-                                      className="w-full px-1 py-0.5 rounded border border-slate-200 text-[11px] text-slate-900 outline-none focus:border-accent bg-slate-50"
-                                      size={11}
-                                      value={detail}
-                                      onChange={(val: string) => handleScheduleDetailChange(currentSchedMember, i, val)}
-                                      placeholder="詳細..."
-                                      list="status-suggestions"
-                                    />
+                                  {readOnly ? (
+                                    <>
+                                      <div className={`w-full px-1 py-0.5 rounded-full text-[11px] font-bold ${TYPE_CLASS[type]}`}>
+                                        {TYPE_LABEL[type]}
+                                      </div>
+                                      {detail && (
+                                        <div className="text-[11px] font-bold text-slate-800 break-words leading-snug">{detail}</div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <select
+                                        className={`w-full px-1 py-0.5 rounded-full text-[11px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all ${TYPE_CLASS[type]}`}
+                                        value={type}
+                                        onChange={(e) => handleScheduleTypeChange(currentSchedMember, i, e.target.value as StatusType)}
+                                      >
+                                        {Object.keys(TYPE_LABEL).map(t => (
+                                          <option key={t} value={t}>{TYPE_LABEL[t as StatusType]}</option>
+                                        ))}
+                                      </select>
+                                      {(type !== 'normal' && type !== 'request' && type !== 'rest') && (
+                                        <LocalInput
+                                          className="w-full px-1 py-0.5 rounded border border-slate-200 text-[11px] text-slate-900 outline-none focus:border-accent bg-slate-50"
+                                          size={11}
+                                          value={detail}
+                                          onChange={(val: string) => handleScheduleDetailChange(currentSchedMember, i, val)}
+                                          placeholder="詳細..."
+                                          list="status-suggestions"
+                                        />
+                                      )}
+                                    </>
                                   )}
                                 </div>
 
-                                <LocalTextarea
-                                  className="w-full border border-slate-200 rounded p-1 text-[11px] text-slate-900 bg-slate-50 focus:bg-white focus:border-accent outline-none resize-none flex-grow placeholder:text-slate-300"
-                                  rows={2}
-                                  placeholder="メモ"
-                                  value={memo}
-                                  onChange={(val: string) => handleMemoChange(currentSchedMember, day, val)}
-                                />
+                                {readOnly ? (
+                                  memo ? (
+                                    <div className="text-[11px] text-slate-600 whitespace-pre-wrap break-words leading-snug flex-grow">{memo}</div>
+                                  ) : null
+                                ) : (
+                                  <LocalTextarea
+                                    className="w-full border border-slate-200 rounded p-1 text-[11px] text-slate-900 bg-slate-50 focus:bg-white focus:border-accent outline-none resize-none flex-grow placeholder:text-slate-300"
+                                    rows={2}
+                                    placeholder="メモ"
+                                    value={memo}
+                                    onChange={(val: string) => handleMemoChange(currentSchedMember, day, val)}
+                                  />
+                                )}
                               </div>
                             );
                           })}
