@@ -1155,7 +1155,7 @@ VITE_FIREBASE_DATABASE_ID`}
         <AlbumView />
       )}
       {v === "schedule" && (
-        <ScheduleView currentUser={user} />
+        <ScheduleView currentUser={user} allEvents={allEvents} />
       )}
       {(v === "prep" || v === "archive") && prepEvent ? (
         <PreparationList
