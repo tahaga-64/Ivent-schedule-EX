@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, ExternalLink, X, ArrowRight, Truck } from 'lucide-react';
+import { ChevronRight, ExternalLink, X, ArrowRight } from 'lucide-react';
 import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { Event, PreparationItem } from '../types';
@@ -433,7 +433,6 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             onClick={() => setShowUndelivered(true)}
             className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
           >
-            <Truck size={16} className="text-sky-500 shrink-0" />
             未着一覧
           </RippleButton>
 

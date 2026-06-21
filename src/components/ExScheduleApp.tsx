@@ -21,10 +21,10 @@ import {
   Share2,
   X,
 } from 'lucide-react';
-import { 
-  TRAINING_LABELS, 
-  TRAINING_LOCATIONS, 
-  MEMBERS, 
+import {
+  TRAINING_LABELS,
+  TRAINING_LOCATIONS,
+  MEMBERS,
   StatusType,
   TYPE_LABEL,
   TYPE_CLASS,
@@ -33,6 +33,8 @@ import {
   getDaysInMonth,
   getStartOffset
 } from '../lib/exScheduleConstants';
+import type { Event } from '../types';
+import StaffMonthlyStats from './StaffMonthlyStats';
 
 // Firebase imports（Ivent 側で初期化済みの共有 EX-schedule アプリを利用）
 import { exDb as db, exAuth as auth } from '../lib/exSchedule';
@@ -302,16 +304,16 @@ const MemberTabs = ({ members, current, myName, onSelect }: { members: string[],
   );
 };
 
-export default function AppWrapper({ currentUser }: { currentUser?: User | null }) {
+export default function AppWrapper({ currentUser, allEvents = [] }: { currentUser?: User | null; allEvents?: Event[] }) {
   return (
     <ErrorBoundary>
-      <App currentUser={currentUser ?? null} />
+      <App currentUser={currentUser ?? null} allEvents={allEvents} />
     </ErrorBoundary>
   );
 }
 
-function App({ currentUser }: { currentUser: User | null }) {
-  const [activeTab, setActiveTab] = useState<'schedule' | 'overall'>('schedule');
+function App({ currentUser, allEvents }: { currentUser: User | null; allEvents: Event[] }) {
+  const [activeTab, setActiveTab] = useState<'schedule' | 'overall' | 'stats'>('schedule');
   const lastScheduleNotifyRef = useRef(0);
   const [myName, setMyName] = useState<string>(() => localStorage.getItem('ex_schedule_my_name') || '');
   const [showNamePicker, setShowNamePicker] = useState(() => !localStorage.getItem('ex_schedule_my_name'));
@@ -565,7 +567,7 @@ function App({ currentUser }: { currentUser: User | null }) {
   useEffect(() => {
     const today = new Date();
     if (currentYear !== today.getFullYear() || currentMonth !== today.getMonth()) return;
-    if (activeTab !== 'schedule' && activeTab !== 'overall') return;
+    if (activeTab !== 'schedule' && activeTab !== 'overall' && activeTab !== 'stats') return;
 
     let cancelled = false;
     let rafId = 0;
@@ -1042,6 +1044,7 @@ function App({ currentUser }: { currentUser: User | null }) {
           {[
             { id: 'schedule', label: 'スケジュール', icon: Calendar },
             { id: 'overall', label: '全体表示', icon: Info },
+            { id: 'stats', label: '月次実績', icon: Star },
           ].map(tab => (
             <button
               key={tab.id}
@@ -1063,6 +1066,14 @@ function App({ currentUser }: { currentUser: User | null }) {
       <main className={`mx-auto w-full flex-grow ${
         activeTab === 'overall' ? 'max-w-none px-0 py-1 md:py-2' : 'max-w-[1600px] px-2 py-4 md:p-6'
       }`}>
+        {activeTab === 'stats' && (
+          <StaffMonthlyStats
+            monthData={currentMonthData as any}
+            allEvents={allEvents}
+            year={currentYear}
+            month={currentMonth}
+          />
+        )}
         <AnimatePresence mode="wait">
           {activeTab === 'schedule' && (
             <motion.div

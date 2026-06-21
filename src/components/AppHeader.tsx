@@ -32,7 +32,7 @@ const desktopNavItems: { id: ViewMode; icon: React.ReactNode; label: string }[] 
   { id: 'schedule', icon: <CalendarDays size={18} />, label: 'スケジュール' },
   { id: 'fish', icon: <Fish size={18} />, label: '魚リスト' },
   { id: 'layout', icon: <LayoutGrid size={18} />, label: 'レイアウト' },
-  { id: 'album', icon: <Images size={18} />, label: 'Drive' },
+  { id: 'album', icon: <Images size={18} />, label: 'アルバム' },
   { id: 'container', icon: <Boxes size={18} />, label: 'コンテナ' },
 ];
 
@@ -59,7 +59,7 @@ export default function AppHeader({
     view === 'master' ? '備品マスター' :
     view === 'fish' ? '魚リスト' :
     view === 'layout' ? 'レイアウト' :
-    view === 'album' ? 'Drive' :
+    view === 'album' ? 'アルバム' :
     view === 'schedule' ? 'スケジュール' :
     view === 'container' ? 'コンテナボックス' : '';
 

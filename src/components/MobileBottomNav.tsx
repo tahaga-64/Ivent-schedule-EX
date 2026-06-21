@@ -24,7 +24,7 @@ const MORE_ITEMS: { id: ViewMode; icon: React.ReactNode; label: string; sub: str
   { id: "fish",    icon: <Fish size={22} />,       label: "魚リスト",     sub: "水族館イベント用" },
   { id: "layout",  icon: <LayoutGrid size={22} />, label: "レイアウト",   sub: "会場配置図" },
   { id: "container", icon: <Boxes size={22} />,    label: "コンテナボックス", sub: "備品の計算・確認" },
-  { id: "album",   icon: <Images size={22} />,     label: "Drive",     sub: "写真フォルダ" },
+  { id: "album",   icon: <Images size={22} />,     label: "アルバム",     sub: "写真フォルダ" },
   { id: "archive", icon: <Archive size={22} />,    label: "アーカイブ",   sub: "終了したイベント" },
 ];
 
