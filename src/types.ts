@@ -51,38 +51,11 @@ export interface Event {
   financials?: EventFinancials;
   /** 準備物の件数（空行を除く）。collectionGroup 購読の代替 */
   prepItemTotal?: number;
-  /** 到着（着荷）の件数 */
+  /** 到着＋準備完了の件数 */
   prepItemDone?: number;
-  /** システム常駐イベント（提案用リスト等）。スケジュールには表示しない */
-  isSystemEvent?: boolean;
 }
 
-export type OrderStatus = 'unordered' | 'ordered' | 'completed';
-
-/** 備品マスター（masterItems）の型 */
-export interface MasterItem {
-  id: string;
-  name: string;
-  unitPrice: number;
-  defaultQuantity: number;
-  note: string;
-  url?: string;
-}
-
-/** イベント終了時の在庫精算（events/{eventId}/inventorySettlements） */
-export interface InventorySettlement {
-  masterItemId: string;
-  name: string;
-  /** コンテナから持ち出した数量 */
-  takenQuantity: number;
-  /** イベントで消費・減少した数量（0も可） */
-  consumedQuantity: number;
-  /** 精算済みか（返却分をマスターへ反映済み） */
-  settled?: boolean;
-  /** マスターへ返却した数量 */
-  returnedQuantity?: number;
-  updatedAt?: unknown;
-}
+export type OrderStatus = 'unordered' | 'ordered' | 'shipping' | 'arrived' | 'completed';
 
 export interface PreparationItem {
   id: string;
@@ -102,28 +75,17 @@ export interface PreparationItem {
   noteUpdatedAt?: string;
   orderStatus?: OrderStatus;
   url?: string;
-  /** 配送追跡番号（17TRACK 連携） */
-  trackingNumber?: string;
-  /** 17TRACK キャリアコード */
-  carrierCode?: string;
-  lastTrackedAt?: string;
-  trackingStatus?: string;
   order: number;
 }
 
 export interface EventPhoto {
   id: string;
-  /** 表示用 URL（Cloudinary 最適化 URL または Drive サムネイル） */
   url: string;
+  storagePath?: string;
   uploadedAt: string;
   caption?: string;
   thumbnailUrl?: string;
-  /** Cloudinary public_id */
-  storagePath?: string;
   thumbnailStoragePath?: string;
-  driveFileId?: string;
-  driveFolderId?: string;
-  driveViewUrl?: string;
 }
 
 export interface FishItem {

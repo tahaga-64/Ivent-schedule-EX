@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, CheckCircle, Truck } from 'lucide-react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { normalizeOrderStatus } from '../lib/orderStatus';
+import { notifyPush } from '../lib/pushNotifications';
 import type { Event, PreparationItem } from '../types';
 
 interface UndeliveredItem extends PreparationItem {
@@ -45,7 +47,7 @@ export default function UndeliveredModal({ events, onClose }: Props) {
               .filter(item =>
                 item.name?.trim() &&
                 item.arrivalDestination === '新宿' &&
-                item.orderStatus === 'ordered' &&
+                normalizeOrderStatus(item.orderStatus) === 'ordered' &&
                 !!item.arrivalDate &&
                 item.arrivalDate <= today,
               );
@@ -55,9 +57,9 @@ export default function UndeliveredModal({ events, onClose }: Props) {
         const flat = nested
           .flat()
           .sort((a, b) => {
-            if (a.orderStatus !== b.orderStatus) {
-              return a.orderStatus === 'ordered' ? -1 : 1;
-            }
+            const sa = normalizeOrderStatus(a.orderStatus);
+            const sb = normalizeOrderStatus(b.orderStatus);
+            if (sa !== sb) return sa === 'ordered' ? -1 : 1;
             const ev = a.eventVenue.localeCompare(b.eventVenue, 'ja');
             if (ev !== 0) return ev;
             return (a.order ?? 0) - (b.order ?? 0);
@@ -86,6 +88,12 @@ export default function UndeliveredModal({ events, onClose }: Props) {
         setItems(prev =>
           prev.filter(i => !(i.id === item.id && i.eventId === item.eventId)),
         );
+        notifyPush({
+          type: 'prep_arrived',
+          title: '配達完了',
+          message: `「${item.name}」が届きました（${item.eventVenue}）`,
+          eventId: item.eventId,
+        });
       } catch (err) {
         console.error('Failed to mark as complete:', err);
       } finally {
@@ -106,13 +114,12 @@ export default function UndeliveredModal({ events, onClose }: Props) {
     return [...map.values()];
   }, [items]);
 
-  const statusLabel = (status: string | undefined) =>
-    status === 'ordered' ? '発注済み' : '未発注';
-
-  const statusStyle = (status: string | undefined) =>
-    status === 'ordered'
-      ? { dot: 'bg-sky-400', badge: 'bg-sky-50 text-sky-700 border-sky-200' }
-      : { dot: 'bg-slate-300', badge: 'bg-slate-50 text-slate-500 border-slate-200' };
+  const statusStyle = (status: string | undefined) => {
+    const s = normalizeOrderStatus(status);
+    return s === 'ordered'
+      ? { dot: 'bg-sky-400', badge: 'bg-sky-50 text-sky-700 border-sky-200', label: '発注済み' }
+      : { dot: 'bg-slate-300', badge: 'bg-slate-50 text-slate-500 border-slate-200', label: '未発注' };
+  };
 
   return createPortal(
     <AnimatePresence>
@@ -194,7 +201,7 @@ export default function UndeliveredModal({ events, onClose }: Props) {
                               </div>
                               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${sc.badge}`}>
-                                  {statusLabel(item.orderStatus)}
+                                  {sc.label}
                                 </span>
                                 {item.arrivalDate ? (
                                   <span className="text-[10px] text-rose-400 font-mono">

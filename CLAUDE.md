@@ -145,7 +145,8 @@ FIREBASE_SERVICE_ACCOUNT_JSON  # サーバーサイドのみ
 
 - `main` → Vercel 自動デプロイ
 - 開発ブランチ: `claude/add-company-page-8uJvE`
-- 作業後は両方にプッシュ: `git push origin HEAD:main`
+- **作業完了後は開発ブランチへのプッシュのみ行うこと。`main` へのプッシュは禁止。**
+- **PR の作成はユーザーから明示的に指示があった場合のみ実施する。**
 
 ---
 

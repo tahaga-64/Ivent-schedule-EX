@@ -337,7 +337,8 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
     !!currentUser?.email &&
     !currentUser.isAnonymous &&
     EVENT_EDITOR_EMAILS.includes(currentUser.email);
-  const readOnly = isMobile && !isEditor;
+  // 編集は管理者のみに限定（デバイス問わず）
+  const readOnly = !isAdmin;
 
   useEffect(() => {
     if (!isEditor) {
