@@ -1,4 +1,4 @@
-export type EventStatus = 'scheduled' | 'in_progress' | 'waiting' | 'ready' | 'completed' | 'cancelled';
+export type EventStatus = 'scheduled' | 'decided' | 'in_progress' | 'waiting' | 'ready' | 'completed' | 'cancelled';
 
 /** 自由記入欄の「最終記入」（Firebase Auth を手がかりに保存） */
 export interface FieldAuthorAttribution {

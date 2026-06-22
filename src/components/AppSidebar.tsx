@@ -200,11 +200,10 @@ export default function AppSidebar({
       <div className="space-y-1 pt-2">
         <div className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-1 mb-3">ステータス</div>
         {[
-          { label: 'すべて',    value: 'all',         dot: null },
-          { label: '準備中',   value: 'in_progress',  dot: '#f59e0b' },
-          { label: '入荷待ち', value: 'waiting',       dot: '#3b82f6' },
-          { label: '準備完了', value: 'ready',         dot: '#10b981' },
-          { label: '終了',     value: 'completed',    dot: '#94a3b8' },
+          { label: 'すべて',   value: 'all',       dot: null },
+          { label: '予定',     value: 'scheduled', dot: '#cbd5e1' },
+          { label: '開催決定', value: 'decided',   dot: '#6366f1' },
+          { label: '終了',     value: 'completed', dot: '#94a3b8' },
         ].map(({ label, value, dot }) => (
           <button
             key={value}

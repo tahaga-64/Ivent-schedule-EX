@@ -1089,21 +1089,6 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
         activeTab === 'overall' ? 'max-w-none px-0 py-1 md:py-2' : 'max-w-[1600px] px-2 py-4 md:p-6'
       }`}>
         <AnimatePresence mode="wait">
-          {activeTab === 'stats' && (
-            <motion.div
-              key="stats"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-            >
-              <StaffMonthlyStats
-                monthData={currentMonthData as any}
-                allEvents={allEvents}
-                year={currentYear}
-                month={currentMonth}
-              />
-            </motion.div>
-          )}
           {activeTab === 'schedule' && (
             <motion.div
               key="schedule"
@@ -1578,6 +1563,31 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
           )}
         </AnimatePresence>
       </main>
+
+      {/* 記録 — フルスクリーン独立ページ */}
+      {activeTab === 'stats' && (
+        <div className="fixed inset-0 z-50 bg-[var(--bg-app)] overflow-y-auto flex flex-col">
+          <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-200 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setActiveTab('schedule')}
+              className="flex items-center gap-1 text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              <ChevronLeft size={18} />
+              スケジュールに戻る
+            </button>
+            <span className="font-black text-lg text-slate-900">記録</span>
+          </div>
+          <div className="flex-1">
+            <StaffMonthlyStats
+              monthData={currentMonthData as any}
+              allEvents={allEvents}
+              year={currentYear}
+              month={currentMonth}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Footer Info */}
       <footer className="bg-white border-t border-border p-4 text-center">

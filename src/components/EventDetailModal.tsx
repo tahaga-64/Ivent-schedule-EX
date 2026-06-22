@@ -467,9 +467,11 @@ export default function EventDetailModal({
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">ステータス</label>
                 <div className="flex flex-wrap gap-2">
-                  {(['scheduled','in_progress','waiting','ready','completed','cancelled'] as const).map(s => {
+                  {(['scheduled','decided','completed'] as const).map(s => {
                     const sty = statusStyle(s);
-                    const isActive = (selected?.status ?? 'scheduled') === s;
+                    const raw = selected?.status ?? 'scheduled';
+                    const normalized = (raw === 'in_progress' || raw === 'waiting' || raw === 'ready') ? 'decided' : raw === 'cancelled' ? 'scheduled' : raw;
+                    const isActive = normalized === s;
                     return (
                       <button
                         key={s}

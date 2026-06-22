@@ -5,11 +5,9 @@ import type { Event, EventStatus } from '../types';
 interface ColumnDef { status: string; label: string; dot: string; headerBg: string; headerText: string; cardBorder: string; badgeBg: string; badgeText: string }
 
 const COLUMNS: ColumnDef[] = [
-  { status: 'scheduled',   label: '予定',    dot: '#94a3b8', headerBg: 'rgba(148,163,184,0.15)', headerText: '#475569', cardBorder: 'rgba(148,163,184,0.35)', badgeBg: 'rgba(148,163,184,0.20)', badgeText: '#64748b' },
-  { status: 'in_progress', label: '準備中',  dot: '#f59e0b', headerBg: 'rgba(245,158,11,0.12)',  headerText: '#b45309', cardBorder: 'rgba(245,158,11,0.35)',  badgeBg: 'rgba(245,158,11,0.18)',  badgeText: '#d97706' },
-  { status: 'waiting',     label: '入荷待ち',dot: '#3b82f6', headerBg: 'rgba(59,130,246,0.10)',  headerText: '#1d4ed8', cardBorder: 'rgba(59,130,246,0.30)',  badgeBg: 'rgba(59,130,246,0.15)',  badgeText: '#2563eb' },
-  { status: 'ready',       label: '準備完了',dot: '#10b981', headerBg: 'rgba(16,185,129,0.10)',  headerText: '#047857', cardBorder: 'rgba(16,185,129,0.30)',  badgeBg: 'rgba(16,185,129,0.15)',  badgeText: '#059669' },
-  { status: 'completed',   label: '完了',    dot: '#f97316', headerBg: 'rgba(249,115,22,0.10)',  headerText: '#c2410c', cardBorder: 'rgba(249,115,22,0.30)',  badgeBg: 'rgba(249,115,22,0.15)',  badgeText: '#ea580c' },
+  { status: 'scheduled', label: '予定',    dot: '#94a3b8', headerBg: 'rgba(148,163,184,0.15)', headerText: '#475569', cardBorder: 'rgba(148,163,184,0.35)', badgeBg: 'rgba(148,163,184,0.20)', badgeText: '#64748b' },
+  { status: 'decided',   label: '開催決定',dot: '#6366f1', headerBg: 'rgba(99,102,241,0.12)',  headerText: '#4338ca', cardBorder: 'rgba(99,102,241,0.30)',  badgeBg: 'rgba(99,102,241,0.15)',  badgeText: '#4f46e5' },
+  { status: 'completed', label: '終了',    dot: '#f97316', headerBg: 'rgba(249,115,22,0.10)',  headerText: '#c2410c', cardBorder: 'rgba(249,115,22,0.30)',  badgeBg: 'rgba(249,115,22,0.15)',  badgeText: '#ea580c' },
 ];
 
 interface Props {
@@ -31,9 +29,14 @@ export default function KanbanView({ events, prepProgressMap, onSelectEvent, onU
     COLUMNS.forEach(c => { map[c.status] = []; });
     events.forEach(ev => {
       if (ev.status === 'cancelled') return;
-      const key = ev.status ?? 'scheduled';
-      if (map[key]) map[key].push(ev);
-      else map['scheduled'].push(ev);
+      const s = ev.status ?? 'scheduled';
+      if (s === 'in_progress' || s === 'waiting' || s === 'ready') {
+        map['decided'].push(ev);
+      } else if (map[s]) {
+        map[s].push(ev);
+      } else {
+        map['scheduled'].push(ev);
+      }
     });
     return map;
   }, [events]);

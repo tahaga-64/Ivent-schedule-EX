@@ -71,13 +71,13 @@ function effectivePast(ev: Event, today: string): boolean {
 }
 
 function statusPill(status: string | undefined, isPast: boolean): { label: string; cls: string } | null {
-  if (isPast || status === 'completed') return { label: '完了', cls: 'bg-slate-100 border border-slate-200 text-slate-600' };
+  if (isPast || status === 'completed') return { label: '終了', cls: 'bg-slate-100 border border-slate-200 text-slate-600' };
   switch (status) {
-    case 'in_progress': return { label: '準備中',    cls: 'bg-amber-50 border border-amber-200 text-amber-800' };
-    case 'waiting':     return { label: '入荷待ち',  cls: 'bg-blue-50 border border-blue-200 text-blue-800' };
-    case 'ready':       return { label: '準備完了',  cls: 'bg-indigo-50 border border-indigo-200 text-indigo-800' };
-    case 'cancelled':   return { label: 'キャンセル',cls: 'bg-red-50 border border-red-200 text-red-800' };
-    default:            return null;
+    case 'decided':
+    case 'in_progress':
+    case 'waiting':
+    case 'ready':     return { label: '開催決定', cls: 'bg-indigo-50 border border-indigo-200 text-indigo-800' };
+    default:          return null;
   }
 }
 
@@ -491,21 +491,21 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
           <RippleButton
             onClick={() => setShowUndelivered(true)}
-            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-3.5 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
+            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-3.5 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full min-h-[64px]"
           >
             未着一覧
           </RippleButton>
 
           <RippleButton
             onClick={() => { if (canEditEvent) { onCreateEvent(); } else { setShowPermissionToast(true); } }}
-            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-3.5 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
+            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-3.5 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full min-h-[64px]"
           >
             新規イベントを追加する
           </RippleButton>
 
           <RippleButton
             onClick={onOpenSchedule}
-            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-3.5 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
+            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-3.5 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full min-h-[64px]"
           >
             スケジュール
           </RippleButton>
@@ -525,7 +525,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
               href={svc.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between tank-card text-slate-900 rounded-2xl px-5 py-3.5 hover:brightness-[1.03] active:scale-[0.98] transition-all"
+              className="flex items-center justify-between tank-card text-slate-900 rounded-2xl px-5 py-3.5 hover:brightness-[1.03] active:scale-[0.98] transition-all min-h-[64px]"
             >
               <div className="min-w-0">
                 <div className="font-black text-sm leading-tight">{svc.label}</div>
