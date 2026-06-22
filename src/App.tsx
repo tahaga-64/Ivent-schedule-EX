@@ -1,3 +1,4 @@
+import { useState, useMemo, useEffect, useCallback, useRef, Suspense, type MouseEvent as ReactMouseEvent } from 'react';
 import { lazyWithRetry } from './lib/lazyWithRetry';
 import { db, auth, ensureAnonymousAuth, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
