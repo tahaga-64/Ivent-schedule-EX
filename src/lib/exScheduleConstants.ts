@@ -54,7 +54,7 @@ export const getStartOffset = (year: number, month: number) => {
   return (day + 6) % 7;
 };
 
-export type StatusType = 'normal' | 'request' | 'training' | 'dispatch' | 'standby' | 'event' | 'office' | 'absence' | 'other' | 'rest';
+export type StatusType = 'normal' | 'request' | 'training' | 'dispatch' | 'standby' | 'event' | 'office' | 'absence' | 'other' | 'rest' | 'carry';
 
 export const TYPE_LABEL: Record<StatusType, string> = {
   normal: '公休(〇)',
@@ -66,7 +66,8 @@ export const TYPE_LABEL: Record<StatusType, string> = {
   office: '本社出勤',
   absence: '欠勤',
   other: 'その他',
-  rest: '未定'
+  rest: '未定',
+  carry: '搬入・搬出'
 };
 
 /** モバイルのカレンダー・全体表向けの短縮ラベル */
@@ -81,6 +82,7 @@ export const TYPE_LABEL_SHORT: Record<StatusType, string> = {
   absence: '欠勤',
   other: '他',
   rest: '未定',
+  carry: '搬入出',
 };
 
 export const TYPE_CLASS: Record<StatusType, string> = {
@@ -93,7 +95,8 @@ export const TYPE_CLASS: Record<StatusType, string> = {
   office: 'bg-emerald-100 text-emerald-700',
   absence: 'bg-zinc-700 text-white',
   other: 'bg-blue-100 text-blue-700',
-  rest: 'bg-slate-50 text-slate-400'
+  rest: 'bg-slate-50 text-slate-400',
+  carry: 'bg-amber-100 text-amber-700'
 };
 
 export interface GoalRow {

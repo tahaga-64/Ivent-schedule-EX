@@ -149,6 +149,7 @@ const getType = (s: string | { type: StatusType; detail: string }): StatusType =
   if (!s || typeof s !== 'string') return 'rest';
   if (s.startsWith('研修')) return 'training';
   if (s.includes('待機')) return 'standby';
+  if (s.includes('搬入') || s.includes('搬出')) return 'carry';
   if (s.includes('イベント')) return 'event';
   if (s === '〇') return 'normal';
   if (s === '◎') return 'request';
@@ -304,19 +305,20 @@ const MemberTabs = ({ members, current, myName, onSelect }: { members: string[],
   );
 };
 
-export default function AppWrapper({ currentUser, allEvents = [] }: { currentUser?: User | null; allEvents?: Event[] }) {
+export default function AppWrapper({ currentUser, allEvents = [], isAdmin = false }: { currentUser?: User | null; allEvents?: Event[]; isAdmin?: boolean }) {
   return (
     <ErrorBoundary>
-      <App currentUser={currentUser ?? null} allEvents={allEvents} />
+      <App currentUser={currentUser ?? null} allEvents={allEvents} isAdmin={isAdmin} />
     </ErrorBoundary>
   );
 }
 
-function App({ currentUser, allEvents }: { currentUser: User | null; allEvents: Event[] }) {
+function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; allEvents: Event[]; isAdmin: boolean }) {
   const [activeTab, setActiveTab] = useState<'schedule' | 'overall' | 'stats'>('schedule');
   const lastScheduleNotifyRef = useRef(0);
   const [myName, setMyName] = useState<string>(() => localStorage.getItem('ex_schedule_my_name') || '');
-  const [showNamePicker, setShowNamePicker] = useState(() => !localStorage.getItem('ex_schedule_my_name'));
+  // 担当者(名前)設定は管理者のみ。未設定でも一般ユーザーには初期モーダルを出さない
+  const [showNamePicker, setShowNamePicker] = useState(() => isAdmin && !localStorage.getItem('ex_schedule_my_name'));
   const [currentSchedMember, setCurrentSchedMember] = useState<string>(() => localStorage.getItem('ex_schedule_my_name') || MEMBERS[0]);
   const schedCalendarRef = useRef<HTMLDivElement>(null);
   const overallTableRef = useRef<HTMLDivElement>(null);
@@ -335,7 +337,8 @@ function App({ currentUser, allEvents }: { currentUser: User | null; allEvents: 
     !!currentUser?.email &&
     !currentUser.isAnonymous &&
     EVENT_EDITOR_EMAILS.includes(currentUser.email);
-  const readOnly = isMobile && !isEditor;
+  // 編集は管理者のみに限定（デバイス問わず）
+  const readOnly = !isAdmin;
 
   useEffect(() => {
     if (!isEditor) {
@@ -1044,13 +1047,15 @@ function App({ currentUser, allEvents }: { currentUser: User | null; allEvents: 
                 </span>
               )}
             </button>
-            <button
-              onClick={() => setShowNamePicker(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 text-[10px] font-bold hover:bg-indigo-100 transition-colors"
-              title="自分の名前を変更"
-            >
-              ★ {myName ? myName.replace('　', '') : '名前設定'}
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setShowNamePicker(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 text-[10px] font-bold hover:bg-indigo-100 transition-colors"
+                title="担当者を変更"
+              >
+                <Star size={11} /> {myName ? myName.replace('　', '') : '担当者設定'}
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -1061,7 +1066,7 @@ function App({ currentUser, allEvents }: { currentUser: User | null; allEvents: 
           {[
             { id: 'schedule', label: 'スケジュール', icon: Calendar },
             { id: 'overall', label: '全体表示', icon: Info },
-            { id: 'stats', label: '月次実績', icon: Star },
+            { id: 'stats', label: '記録', icon: Star },
           ].map(tab => (
             <button
               key={tab.id}
@@ -1083,15 +1088,22 @@ function App({ currentUser, allEvents }: { currentUser: User | null; allEvents: 
       <main className={`mx-auto w-full flex-grow ${
         activeTab === 'overall' ? 'max-w-none px-0 py-1 md:py-2' : 'max-w-[1600px] px-2 py-4 md:p-6'
       }`}>
-        {activeTab === 'stats' && (
-          <StaffMonthlyStats
-            monthData={currentMonthData as any}
-            allEvents={allEvents}
-            year={currentYear}
-            month={currentMonth}
-          />
-        )}
         <AnimatePresence mode="wait">
+          {activeTab === 'stats' && (
+            <motion.div
+              key="stats"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <StaffMonthlyStats
+                monthData={currentMonthData as any}
+                allEvents={allEvents}
+                year={currentYear}
+                month={currentMonth}
+              />
+            </motion.div>
+          )}
           {activeTab === 'schedule' && (
             <motion.div
               key="schedule"

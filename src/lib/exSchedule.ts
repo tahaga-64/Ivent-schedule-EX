@@ -85,7 +85,7 @@ export const MEMBERS = Object.keys(INITIAL_SCHEDULE_DATA);
 
 // ─── 型定義 ──────────────────────────────────────────────────────────────────
 
-export type StatusType = 'normal' | 'request' | 'training' | 'dispatch' | 'standby' | 'event' | 'office' | 'absence' | 'other' | 'rest';
+export type StatusType = 'normal' | 'request' | 'training' | 'dispatch' | 'standby' | 'event' | 'office' | 'absence' | 'other' | 'rest' | 'carry';
 
 export const TYPE_LABEL: Record<StatusType, string> = {
   normal: '公休(〇)',
@@ -98,6 +98,7 @@ export const TYPE_LABEL: Record<StatusType, string> = {
   absence: '欠勤',
   other: 'その他',
   rest: '未定',
+  carry: '搬入・搬出',
 };
 
 export const TYPE_CLASS: Record<StatusType, string> = {
@@ -111,6 +112,7 @@ export const TYPE_CLASS: Record<StatusType, string> = {
   absence: 'bg-zinc-700 text-white',
   other: 'bg-blue-100 text-blue-700',
   rest: 'bg-slate-800 text-slate-400',
+  carry: 'bg-amber-100 text-amber-700',
 };
 
 export interface GoalRow {
@@ -192,6 +194,7 @@ export function getType(s: string | { type: StatusType; detail: string }): Statu
   if (!s || typeof s !== 'string') return 'rest';
   if (s.startsWith('研修')) return 'training';
   if (s.includes('待機')) return 'standby';
+  if (s.includes('搬入') || s.includes('搬出')) return 'carry';
   if (s.includes('イベント')) return 'event';
   if (s === '〇') return 'normal';
   if (s === '◎') return 'request';
@@ -230,6 +233,40 @@ export async function fetchTodayStaffBreakdown(): Promise<StaffBreakdown | null>
       }
     }
     return { total, office, event, dispatch, rest, request, other };
+  } catch {
+    return null;
+  }
+}
+
+/** 本日の各ステータスに該当するスタッフ名を取得（ホーム画面のホバー表示用） */
+export async function fetchTodayStaffByStatus(): Promise<Record<StatusType, string[]> | null> {
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+  const dayIndex = now.getDate() - 1;
+  try {
+    await ensureAnonymousExAuth();
+    const snap = await getDoc(doc(exDb, 'months', monthKey));
+    if (!snap.exists()) return null;
+    const schedule = snap.data().schedule as Record<string, unknown[]> | undefined;
+    if (!schedule) return null;
+    const result: Record<StatusType, string[]> = {
+      normal: [], request: [], training: [], dispatch: [], standby: [],
+      event: [], office: [], absence: [], other: [], rest: [], carry: [],
+    };
+    for (const [name, days] of Object.entries(schedule)) {
+      if (!Array.isArray(days)) continue;
+      const entry = days[dayIndex];
+      if (!entry) continue;
+      const type: StatusType =
+        typeof entry === 'string'
+          ? getType(entry)
+          : typeof entry === 'object' && entry !== null && typeof (entry as { type?: string }).type === 'string'
+            ? ((entry as { type: string }).type as StatusType) || 'rest'
+            : 'rest';
+      if (result[type]) result[type].push(name);
+      else result.other.push(name);
+    }
+    return result;
   } catch {
     return null;
   }
