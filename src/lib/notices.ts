@@ -38,7 +38,7 @@ export function subscribeNoticesByDate(date: string, cb: (notices: Notice[]) => 
         });
       cb(list);
     },
-    () => cb([]),
+    err => { console.error('notices subscription error:', err); cb([]); },
   );
 }
 
@@ -52,7 +52,7 @@ export function subscribePastNotices(beforeDate: string, cb: (notices: Notice[])
   return onSnapshot(
     q,
     snap => cb(snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<Notice, 'id'>) }))),
-    () => cb([]),
+    err => { console.error('past notices subscription error:', err); cb([]); },
   );
 }
 

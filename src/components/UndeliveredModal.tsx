@@ -24,7 +24,8 @@ export default function UndeliveredModal({ events, onClose }: Props) {
   const [completing, setCompleting] = useState<string | null>(null);
 
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     // キャンセル以外の全イベントを対象（完了イベントでも未着の新宿着があれば表示）
     const activeEvents = events.filter(e => e.status !== 'cancelled');
     let cancelled = false;

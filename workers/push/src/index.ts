@@ -329,7 +329,12 @@ async function listAllSubscriptions(kv: KVNamespace): Promise<StoredSubscription
     const batch = await Promise.all(
       list.keys.map(async key => {
         const raw = await kv.get(key.name);
-        return raw ? JSON.parse(raw) as StoredSubscription : null;
+        if (!raw) return null;
+        try {
+          return JSON.parse(raw) as StoredSubscription;
+        } catch {
+          return null;
+        }
       })
     );
     subscriptions.push(...batch.filter((item): item is StoredSubscription => item !== null));

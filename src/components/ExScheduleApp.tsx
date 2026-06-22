@@ -1088,15 +1088,22 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
       <main className={`mx-auto w-full flex-grow ${
         activeTab === 'overall' ? 'max-w-none px-0 py-1 md:py-2' : 'max-w-[1600px] px-2 py-4 md:p-6'
       }`}>
-        {activeTab === 'stats' && (
-          <StaffMonthlyStats
-            monthData={currentMonthData as any}
-            allEvents={allEvents}
-            year={currentYear}
-            month={currentMonth}
-          />
-        )}
         <AnimatePresence mode="wait">
+          {activeTab === 'stats' && (
+            <motion.div
+              key="stats"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <StaffMonthlyStats
+                monthData={currentMonthData as any}
+                allEvents={allEvents}
+                year={currentYear}
+                month={currentMonth}
+              />
+            </motion.div>
+          )}
           {activeTab === 'schedule' && (
             <motion.div
               key="schedule"

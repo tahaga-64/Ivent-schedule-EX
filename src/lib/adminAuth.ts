@@ -30,8 +30,7 @@ export async function signInAsAdmin(): Promise<User> {
     }
     await signInWithCredential(exAuth, credential);
   } catch (e) {
-    await signOut(auth).catch(() => {});
-    await ensureAnonymousAuth().catch(() => {});
+    await signOutAdmin().catch(() => {});
     throw e instanceof Error ? e : new Error('スケジュール用の認証に失敗しました。');
   }
 

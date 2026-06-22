@@ -244,18 +244,25 @@ export async function fetchTodayStaffByStatus(): Promise<Record<StatusType, stri
   const monthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
   const dayIndex = now.getDate() - 1;
   try {
+    await ensureAnonymousExAuth();
     const snap = await getDoc(doc(exDb, 'months', monthKey));
     if (!snap.exists()) return null;
-    const schedule = snap.data().schedule as Record<string, { type: string }[]> | undefined;
+    const schedule = snap.data().schedule as Record<string, unknown[]> | undefined;
     if (!schedule) return null;
     const result: Record<StatusType, string[]> = {
       normal: [], request: [], training: [], dispatch: [], standby: [],
       event: [], office: [], absence: [], other: [], rest: [], carry: [],
     };
     for (const [name, days] of Object.entries(schedule)) {
-      const entry = days?.[dayIndex];
+      if (!Array.isArray(days)) continue;
+      const entry = days[dayIndex];
       if (!entry) continue;
-      const type = (entry.type ?? 'rest') as StatusType;
+      const type: StatusType =
+        typeof entry === 'string'
+          ? getType(entry)
+          : typeof entry === 'object' && entry !== null && typeof (entry as { type?: string }).type === 'string'
+            ? ((entry as { type: string }).type as StatusType) || 'rest'
+            : 'rest';
       if (result[type]) result[type].push(name);
       else result.other.push(name);
     }

@@ -329,7 +329,7 @@ export default function FishListView({ events, canEdit, isActive = true, initial
                     <div className="text-center py-16 text-slate-500">
                       <Fish size={32} className="mx-auto mb-3 opacity-50" />
                       <div className="text-sm">観賞魚が登録されていません</div>
-                      {canEdit && <div className="text-xs mt-1 text-slate-400">左のフォームから追加してください</div>}
+                      {canEdit && <div className="text-xs mt-1 text-slate-400">フォームから追加してください</div>}
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">

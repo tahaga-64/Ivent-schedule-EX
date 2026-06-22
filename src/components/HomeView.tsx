@@ -216,13 +216,17 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
     let cancelled = false;
     const autoComplete = async () => {
       const toComplete: { eventId: string; itemId: string }[] = [];
-      for (const ev of activeEvents) {
-        const snap = await getDocs(collection(db, `events/${ev.id}/preparationItems`));
+      const snapshots = await Promise.all(
+        activeEvents.map(ev =>
+          getDocs(collection(db, `events/${ev.id}/preparationItems`)).then(snap => ({ eventId: ev.id, snap }))
+        )
+      );
+      for (const { eventId, snap } of snapshots) {
         snap.docs.forEach(d => {
           const data = d.data() as PreparationItem;
           if (data.name?.trim() && data.arrivalDestination === '長南' &&
               data.arrivalDate && data.arrivalDate <= today && data.orderStatus !== 'completed') {
-            toComplete.push({ eventId: ev.id, itemId: d.id });
+            toComplete.push({ eventId, itemId: d.id });
           }
         });
       }
@@ -421,7 +425,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
                         <div className="bg-slate-900 text-white text-[11px] font-medium rounded-xl px-3 py-2 shadow-xl text-left">
                           <div className="font-black mb-1 text-[10px] uppercase tracking-widest text-slate-300">{label}（{names.length}名）</div>
                           <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-                            {names.map(n => <span key={n}>{n}</span>)}
+                            {names.map((n, i) => <span key={i}>{n}</span>)}
                           </div>
                         </div>
                       </div>

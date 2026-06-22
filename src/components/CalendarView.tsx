@@ -203,7 +203,7 @@ export function HoverCard({ event, pos, prepStats }: {
       style={{ left, top }}
     >
       <div className="flex items-start gap-2 mb-3">
-        <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full border border-slate-900/15" style={{ backgroundColor: ts(event.type || '').border }} aria-hidden />
+        <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full border border-slate-900/15" style={{ backgroundColor: rs(event.region || '').dot }} aria-hidden />
         <div className="min-w-0">
           <div className="font-black text-sm text-slate-900 leading-tight truncate">{event.venue}</div>
           <div className="text-[10px] font-bold text-slate-600 mt-0.5">{buildEventOptionalCaption(event) || (event.type || 'その他')}</div>

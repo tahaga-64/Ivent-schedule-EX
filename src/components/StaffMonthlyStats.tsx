@@ -62,7 +62,7 @@ export default function StaffMonthlyStats({ monthData, allEvents, year, month }:
           // メインDBの会場名と部分一致すれば地域色を補完
           const match = memberEvents.find(ev =>
             detail && (ev.venue?.includes(detail) || detail.includes(ev.venue || '')) ||
-            ev.start === `${monthPrefix}-${String(i + 1).padStart(2, '0')}`
+            ev.start?.startsWith(`${monthPrefix}-${String(i + 1).padStart(2, '0')}`)
           );
           eventDays.push({
             day: i + 1,
