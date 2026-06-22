@@ -1,4 +1,12 @@
-import { GoogleAuthProvider, signInWithPopup, signInWithCredential, signOut } from 'firebase/auth';
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signInWithCredential,
+  signOut,
+  type UserCredential,
+} from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { auth, ensureAnonymousAuth } from './firebase';
 import { exAuth, ensureAnonymousExAuth } from './exSchedule';
@@ -10,31 +18,59 @@ function isEventEditorEmail(email: string | null | undefined): boolean {
   return !!email && EVENT_EDITOR_EMAILS.includes(email);
 }
 
-/**
- * モバイル管理者ログイン: メイン auth と EX-schedule exAuth の両方で Google サインイン。
- * EVENT_EDITOR_EMAILS に無いアカウントは即サインアウトしてエラーを返す。
- */
-export async function signInAsAdmin(): Promise<User> {
-  const mainResult = await signInWithPopup(auth, provider);
-  const user = mainResult.user;
+const isMobileBrowser = () =>
+  typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+async function completeAdminSignIn(result: UserCredential): Promise<User> {
+  const user = result.user;
 
   if (!isEventEditorEmail(user.email)) {
     await signOutAdmin();
     throw new Error('編集権限がありません。登録済みの管理者アカウントでログインしてください。');
   }
 
-  try {
-    const credential = GoogleAuthProvider.credentialFromResult(mainResult);
-    if (!credential) {
-      throw new Error('Google 認証情報の取得に失敗しました。');
-    }
-    await signInWithCredential(exAuth, credential);
-  } catch (e) {
-    await signOutAdmin().catch(() => {});
-    throw e instanceof Error ? e : new Error('スケジュール用の認証に失敗しました。');
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  if (credential) {
+    await signInWithCredential(exAuth, credential).catch(() => {
+      // exAuth sign-in failure is non-fatal; schedule may be read-only
+    });
   }
 
   return user;
+}
+
+/**
+ * モバイル: Google リダイレクトでサインイン（ページリロード後に getAdminRedirectResult で完了）
+ * PC: ポップアップでサインイン
+ */
+export async function signInAsAdmin(): Promise<User> {
+  if (isMobileBrowser()) {
+    await signInWithRedirect(auth, provider);
+    // リダイレクト後はページリロードのためここには到達しない
+    throw new Error('リダイレクト中...');
+  }
+
+  try {
+    const result = await signInWithPopup(auth, provider);
+    return completeAdminSignIn(result);
+  } catch (e: any) {
+    if (e?.code === 'auth/popup-blocked' || e?.code === 'auth/popup-closed-by-user') {
+      // ポップアップが閉じられた/ブロックされた場合はリダイレクトにフォールバック
+      await signInWithRedirect(auth, provider);
+      throw new Error('リダイレクト中...');
+    }
+    throw e instanceof Error ? e : new Error('ログインに失敗しました。');
+  }
+}
+
+/**
+ * ページ読み込み時にリダイレクト結果を確認してサインインを完了する。
+ * リダイレクト結果がない場合は null を返す。
+ */
+export async function getAdminRedirectResult(): Promise<User | null> {
+  const result = await getRedirectResult(auth).catch(() => null);
+  if (!result) return null;
+  return completeAdminSignIn(result);
 }
 
 /** 管理者ログアウト → 匿名閲覧モードに復帰 */
