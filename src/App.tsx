@@ -26,7 +26,7 @@ import {
   canEditPreparationList as computeCanEditPreparationList,
   canEditFishList as computeCanEditFishList,
 } from './lib/permissions';
-import { signInAsAdmin, signOutAdmin, isMobileAdminUser } from './lib/adminAuth';
+import { signInAsAdmin, signOutAdmin, isMobileAdminUser, getAdminRedirectResult } from './lib/adminAuth';
 import HelpModal from './components/HelpModal';
 import StaffEmailPicker from './components/StaffEmailPicker';
 import AppSidebar from './components/AppSidebar';
@@ -387,6 +387,15 @@ export default function App() {
     } finally {
       setAdminAuthBusy(false);
     }
+  }, []);
+
+  // モバイルリダイレクト後のサインイン完了処理
+  useEffect(() => {
+    getAdminRedirectResult().catch((e) => {
+      if (e instanceof Error && e.message !== 'リダイレクト中...') {
+        setAdminAuthError(e.message);
+      }
+    });
   }, []);
 
   // Firestoreから書き換えられたイベントデータを購読
