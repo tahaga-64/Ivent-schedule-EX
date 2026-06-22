@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ChevronRight, AlertTriangle } from 'lucide-react';
+import { X, ChevronRight, CalendarDays } from 'lucide-react';
 import { MEMBERS, TYPE_LABEL, TYPE_CLASS, getDaysInMonth } from '../lib/exScheduleConstants';
 import type { StatusType } from '../lib/exScheduleConstants';
 import type { Event } from '../types';
@@ -17,83 +17,77 @@ interface Props {
   month: number; // 0-based
 }
 
+interface EventDay {
+  day: number;
+  label: string;       // スケジュール全体表示に記載されたイベント名（detail）
+  venue?: string;      // メインDBで一致したイベントの会場名
+  region?: string;
+}
+
 interface MemberStats {
   name: string;
   counts: Record<StatusType, number>;
   eventCount: number;
-  workDays: number;
-  weekdays: number;
-  events: Event[];
+  eventDays: EventDay[];
 }
 
-const WORK_STATUSES: StatusType[] = ['event', 'office', 'dispatch', 'training', 'standby', 'other'];
-const STAT_ORDER: StatusType[] = ['event', 'office', 'dispatch', 'training', 'standby', 'normal', 'request', 'absence', 'other'];
-
-function countWeekdays(year: number, month: number): number {
-  const days = getDaysInMonth(year, month);
-  let count = 0;
-  for (let d = 1; d <= days; d++) {
-    const dow = new Date(year, month, d).getDay();
-    if (dow !== 0 && dow !== 6) count++;
-  }
-  return count;
-}
+const STAT_ORDER: StatusType[] = ['event', 'carry', 'office', 'dispatch', 'training', 'standby', 'normal', 'request', 'absence', 'other'];
+const DOW_JP = ['日', '月', '火', '水', '木', '金', '土'];
 
 export default function StaffMonthlyStats({ monthData, allEvents, year, month }: Props) {
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
 
   const daysInMonth = getDaysInMonth(year, month);
-  const weekdays = useMemo(() => countWeekdays(year, month), [year, month]);
-
   const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
 
   const stats = useMemo<MemberStats[]>(() => {
     return MEMBERS.map(name => {
       const sched = monthData?.schedule[name] ?? [];
       const counts: Record<StatusType, number> = {
-        normal: 0, request: 0, training: 0, dispatch: 0,
-        standby: 0, event: 0, office: 0, absence: 0, other: 0, rest: 0,
+        normal: 0, request: 0, training: 0, dispatch: 0, standby: 0,
+        event: 0, office: 0, absence: 0, other: 0, rest: 0, carry: 0,
       };
-      for (let i = 0; i < daysInMonth; i++) {
-        const entry = sched[i];
-        const type: StatusType = (entry && typeof entry === 'object' ? entry.type : 'rest') || 'rest';
-        counts[type] = (counts[type] ?? 0) + 1;
-      }
-      const workDays = WORK_STATUSES.reduce((s, t) => s + (counts[t] ?? 0), 0);
+      const eventDays: EventDay[] = [];
+      // メインDBで当月かつこのメンバーが担当のイベント（会場名・地域の補完用）
       const memberEvents = allEvents.filter(ev =>
         ev.assignees?.includes(name) &&
         (ev.start?.startsWith(monthPrefix) || ev.end?.startsWith(monthPrefix))
       );
-      return { name, counts, eventCount: counts.event, workDays, weekdays, events: memberEvents };
-    }).sort((a, b) => b.eventCount - a.eventCount);
-  }, [monthData, allEvents, daysInMonth, monthPrefix, weekdays]);
-
-  const unassignedEvents = useMemo(() =>
-    allEvents.filter(ev =>
-      (!ev.assignees || ev.assignees.length === 0) &&
-      (ev.start?.startsWith(monthPrefix) || ev.end?.startsWith(monthPrefix)) &&
-      ev.status !== 'cancelled'
-    ), [allEvents, monthPrefix]);
+      for (let i = 0; i < daysInMonth; i++) {
+        const entry = sched[i];
+        const type: StatusType = (entry && typeof entry === 'object' ? entry.type : 'rest') || 'rest';
+        counts[type] = (counts[type] ?? 0) + 1;
+        if (type === 'event') {
+          const detail = (entry?.detail || '').trim();
+          // メインDBの会場名と部分一致すれば地域色を補完
+          const match = memberEvents.find(ev =>
+            detail && (ev.venue?.includes(detail) || detail.includes(ev.venue || '')) ||
+            ev.start?.startsWith(`${monthPrefix}-${String(i + 1).padStart(2, '0')}`)
+          );
+          eventDays.push({
+            day: i + 1,
+            label: detail || match?.venue || 'イベント',
+            venue: match?.venue,
+            region: match?.region,
+          });
+        }
+      }
+      return { name, counts, eventCount: counts.event, eventDays };
+    }).sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  }, [monthData, allEvents, daysInMonth, monthPrefix]);
 
   const selected = selectedMember ? stats.find(s => s.name === selectedMember) ?? null : null;
 
   return (
     <div className="space-y-4">
-      {/* 未担当アラートバナー */}
-      {unassignedEvents.length > 0 && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800">
-          <AlertTriangle size={16} className="shrink-0 text-amber-600" />
-          <span>
-            <span className="font-black">{unassignedEvents.length}件</span>のイベントに担当者が未設定です
-            （{unassignedEvents.slice(0, 3).map(e => e.venue || e.id).join('、')}{unassignedEvents.length > 3 ? '…' : ''}）
-          </span>
-        </div>
-      )}
+      <div className="flex items-center gap-2">
+        <CalendarDays size={15} className="text-indigo-500" />
+        <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{year}年{month + 1}月 記録</p>
+      </div>
 
       {/* メンバーカードグリッド */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
         {stats.map(s => {
-          const util = weekdays > 0 ? Math.round((s.workDays / weekdays) * 100) : 0;
           const dimmed = s.eventCount === 0;
           return (
             <button
@@ -101,44 +95,34 @@ export default function StaffMonthlyStats({ monthData, allEvents, year, month }:
               onClick={() => setSelectedMember(s.name)}
               className={`text-left rounded-2xl border p-4 transition-all active:scale-[0.98] hover:shadow-md ${
                 dimmed
-                  ? 'bg-slate-50 border-slate-200 opacity-60'
+                  ? 'bg-slate-50 border-slate-200'
                   : 'bg-white border-slate-200 hover:border-indigo-300'
               }`}
             >
-              <div className="flex items-start justify-between mb-2">
-                <span className="text-xs font-black text-slate-900 leading-tight">{s.name.replace('　', ' ')}</span>
-                <ChevronRight size={12} className="text-slate-400 mt-0.5 shrink-0" />
+              <div className="flex items-start justify-between mb-3">
+                <span className="text-sm font-black text-slate-900 leading-tight">{s.name.replace('　', ' ')}</span>
+                <ChevronRight size={14} className="text-slate-400 mt-0.5 shrink-0" />
               </div>
-              <div className="flex items-baseline gap-1.5 mb-2">
-                <span className="text-2xl font-black text-indigo-600">{s.eventCount}</span>
-                <span className="text-[10px] font-bold text-slate-500">イベント日</span>
+              <div className="flex items-baseline gap-1.5 mb-3">
+                <span className="text-3xl font-black text-indigo-600 leading-none">{s.eventCount}</span>
+                <span className="text-[11px] font-bold text-slate-500">イベント日</span>
               </div>
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className="text-[10px] text-slate-500">本社</span>
-                <span className="text-xs font-bold text-emerald-600">{s.counts.office}日</span>
-                <span className="text-slate-300">|</span>
-                <span className="text-[10px] text-slate-500">外出</span>
-                <span className="text-xs font-bold text-orange-500">{s.counts.dispatch}日</span>
-              </div>
-              {/* 稼働率バー */}
-              <div className="mt-2">
-                <div className="flex justify-between items-center mb-0.5">
-                  <span className="text-[9px] text-slate-400 font-bold">稼働率</span>
-                  <span className="text-[9px] font-black text-slate-500">{util}%</span>
-                </div>
-                <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-indigo-400 rounded-full transition-all"
-                    style={{ width: `${Math.min(util, 100)}%` }}
-                  />
-                </div>
+              <div className="flex flex-wrap gap-1.5">
+                {([['office', s.counts.office], ['carry', s.counts.carry], ['dispatch', s.counts.dispatch]] as [StatusType, number][]).map(([t, n]) =>
+                  n > 0 ? (
+                    <span key={t} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold ${TYPE_CLASS[t]}`}>
+                      {TYPE_LABEL[t].split('(')[0]}
+                      <span className="font-black">{n}</span>
+                    </span>
+                  ) : null
+                )}
               </div>
             </button>
           );
         })}
       </div>
 
-      {/* メンバー詳細ドロワー */}
+      {/* メンバー詳細モーダル */}
       <AnimatePresence>
         {selected && (
           <>
@@ -149,18 +133,20 @@ export default function StaffMonthlyStats({ monthData, allEvents, year, month }:
               exit={{ opacity: 0 }}
               onClick={() => setSelectedMember(null)}
             />
+            {/* モバイル: 下からスライド / PC: 中央モーダル */}
             <motion.div
-              className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl shadow-2xl max-h-[85dvh] flex flex-col md:inset-y-4 md:right-4 md:left-auto md:w-[480px] md:rounded-3xl"
+              className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl shadow-2xl max-h-[88dvh] flex flex-col
+                         md:inset-0 md:m-auto md:h-fit md:max-h-[85vh] md:w-[min(880px,92vw)] md:rounded-3xl"
               initial={{ y: '100%', opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: '100%', opacity: 0 }}
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
-              {/* ドロワーヘッダー */}
-              <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0 border-b border-slate-100">
+              {/* ヘッダー */}
+              <div className="flex items-center justify-between px-6 pt-5 pb-4 shrink-0 border-b border-slate-100">
                 <div>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-0.5">{year}年{month + 1}月</p>
-                  <h2 className="text-lg font-black text-slate-900">{selected.name.replace('　', ' ')}</h2>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-0.5">{year}年{month + 1}月の記録</p>
+                  <h2 className="text-xl font-black text-slate-900">{selected.name.replace('　', ' ')}</h2>
                 </div>
                 <button
                   onClick={() => setSelectedMember(null)}
@@ -170,75 +156,75 @@ export default function StaffMonthlyStats({ monthData, allEvents, year, month }:
                 </button>
               </div>
 
-              <div className="overflow-y-auto flex-1 px-5 pb-6 space-y-5 pt-4">
-                {/* ステータス内訳チップ */}
-                <div>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">ステータス内訳</p>
-                  <div className="flex flex-wrap gap-2">
-                    {STAT_ORDER.map(type => {
-                      const count = selected.counts[type] ?? 0;
-                      if (count === 0) return null;
-                      return (
-                        <span key={type} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold ${TYPE_CLASS[type]}`}>
-                          {TYPE_LABEL[type]}
-                          <span className="font-black">{count}</span>
-                        </span>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-3 flex items-center gap-2">
-                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-indigo-400 rounded-full"
-                        style={{ width: `${weekdays > 0 ? Math.min(Math.round((selected.workDays / weekdays) * 100), 100) : 0}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-black text-slate-600">
-                      稼働{selected.workDays}日 / 平日{weekdays}日
-                    </span>
-                  </div>
-                </div>
-
-                {/* ミニカレンダー */}
-                <div>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">日別ステータス</p>
-                  <MiniCalendar
-                    year={year}
-                    month={month}
-                    schedule={monthData?.schedule[selected.name] ?? []}
-                    daysInMonth={daysInMonth}
-                  />
-                </div>
-
-                {/* 参加イベント一覧 */}
-                {selected.events.length > 0 && (
+              {/* 本文: PCは2カラム */}
+              <div className="overflow-y-auto flex-1 px-6 pb-6 pt-5 grid gap-6 md:grid-cols-2">
+                {/* 左カラム: ステータス内訳 + ミニカレンダー */}
+                <div className="space-y-5">
                   <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-                      参加イベント（{selected.events.length}件）
-                    </p>
-                    <div className="space-y-2">
-                      {selected.events.map(ev => {
-                        const regionStyle = rs(ev.region || '');
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">ステータス内訳</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {STAT_ORDER.map(type => {
+                        const count = selected.counts[type] ?? 0;
+                        if (count === 0) return null;
                         return (
-                          <div
-                            key={ev.id}
-                            className="flex items-center gap-3 bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100"
-                          >
-                            <div className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: regionStyle.dot }} />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-black text-slate-900 truncate">{ev.venue || ev.type}</p>
-                              <p className="text-[11px] text-slate-500">{ev.start}{ev.end && ev.end !== ev.start ? ` - ${ev.end}` : ''}</p>
-                            </div>
-                            <span className="text-[10px] font-bold text-slate-400 shrink-0">{ev.region}</span>
+                          <div key={type} className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
+                            <span className={`inline-flex px-2 py-0.5 rounded-lg text-[11px] font-bold ${TYPE_CLASS[type]}`}>
+                              {TYPE_LABEL[type].split('(')[0]}
+                            </span>
+                            <span className="text-sm font-black text-slate-800">{count}<span className="text-[10px] font-bold text-slate-400 ml-0.5">日</span></span>
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                )}
-                {selected.events.length === 0 && (
-                  <p className="text-sm text-slate-400 text-center py-2">今月の参加イベントなし</p>
-                )}
+
+                  <div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">日別ステータス</p>
+                    <MiniCalendar
+                      year={year}
+                      month={month}
+                      schedule={monthData?.schedule[selected.name] ?? []}
+                      daysInMonth={daysInMonth}
+                    />
+                  </div>
+                </div>
+
+                {/* 右カラム: 参加イベント */}
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                    参加イベント（{selected.eventDays.length}日）
+                  </p>
+                  {selected.eventDays.length > 0 ? (
+                    <div className="space-y-2">
+                      {selected.eventDays.map(ed => {
+                        const dow = DOW_JP[new Date(year, month, ed.day).getDay()];
+                        const regionStyle = ed.region ? rs(ed.region) : null;
+                        return (
+                          <div
+                            key={ed.day}
+                            className="flex items-center gap-3 bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100"
+                          >
+                            <div
+                              className="w-9 h-9 rounded-lg shrink-0 flex flex-col items-center justify-center bg-red-50 text-red-600"
+                            >
+                              <span className="text-sm font-black leading-none">{ed.day}</span>
+                              <span className="text-[8px] font-bold leading-none mt-0.5">{dow}</span>
+                            </div>
+                            {regionStyle && (
+                              <div className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: regionStyle.dot }} />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-black text-slate-900 truncate">{ed.label}</p>
+                              {ed.region && <p className="text-[11px] text-slate-500">{ed.region}</p>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400 text-center py-6">今月の参加イベントなし</p>
+                  )}
+                </div>
               </div>
             </motion.div>
           </>
@@ -265,7 +251,7 @@ function MiniCalendar({ year, month, schedule, daysInMonth }: {
   return (
     <div>
       <div className="grid grid-cols-7 gap-0.5 mb-1">
-        {['日', '月', '火', '水', '木', '金', '土'].map(d => (
+        {DOW_JP.map(d => (
           <div key={d} className="text-center text-[9px] font-bold text-slate-400">{d}</div>
         ))}
       </div>
