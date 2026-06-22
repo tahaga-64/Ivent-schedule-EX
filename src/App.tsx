@@ -947,7 +947,12 @@ export default function App() {
     runWithGuard(closeEventModal);
   }, [runWithGuard, closeEventModal]);
 
-  const handleEventHover = (ev: Event, e: ReactMouseEvent<HTMLElement>) => {
+  const handleEventHoverEnd = useCallback(() => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    setHoveredEvent(null);
+  }, []);
+
+  const handleEventHover = useCallback((ev: Event, e: ReactMouseEvent<HTMLElement>) => {
     if (ev.id.startsWith("__cal_preview_")) return;
     if (window.innerWidth < 1024) return;
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
@@ -956,18 +961,14 @@ export default function App() {
       setHoverPos({ x: clientX, y: clientY });
       setHoveredEvent(ev);
     }, 300);
-  };
+  }, []);
 
-  const handleEventHoverEnd = () => {
+  const handleEventSelect = useCallback((ev: Event) => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
     setHoveredEvent(null);
-  };
-
-  const handleEventSelect = (ev: Event) => {
-    handleEventHoverEnd();
     if (ev.id.startsWith("__cal_preview_")) return;
     runWithGuard(() => setSelected(ev));
-  };
+  }, [runWithGuard]);
 
   const handleOpenDayDetail = useCallback((ctx: { year: number; month: number; day: number; events: Event[] }) => {
     handleEventHoverEnd();

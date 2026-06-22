@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Calendar } from 'lucide-react';
 import { Event } from '../types';
@@ -29,7 +30,7 @@ interface CalendarViewProps {
   prepProgressMap?: Record<string, { total: number; done: number }>;
 }
 
-export function CalendarView({
+export const CalendarView = memo(function CalendarView({
   events, year, month, setYear, setMonth,
   onSelect, onHover, onHoverEnd, onCreateEvent, onOpenDayDetail,
   narrowViewport, densityPreview, prepProgressMap = {},
@@ -186,7 +187,7 @@ export function CalendarView({
       </div>
     </div>
   );
-}
+});
 
 export function HoverCard({ event, pos, prepStats }: {
   event: Event;
