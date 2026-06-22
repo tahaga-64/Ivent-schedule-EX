@@ -31,20 +31,20 @@ interface AppHeaderProps {
 // ナビを論理グループに分割（グループ間に区切り線を表示して視認性を上げる）
 const desktopNavGroups: { id: ViewMode; icon: React.ReactNode; label: string }[][] = [
   [
-    { id: 'home', icon: <Home size={17} />, label: 'ホーム' },
-    { id: 'calendar', icon: <Calendar size={17} />, label: 'カレンダー' },
-    { id: 'schedule', icon: <CalendarDays size={17} />, label: 'スケジュール' },
+    { id: 'home', icon: <Home size={14} />, label: 'ホーム' },
+    { id: 'calendar', icon: <Calendar size={14} />, label: 'カレンダー' },
+    { id: 'schedule', icon: <CalendarDays size={14} />, label: 'スケジュール' },
   ],
   [
-    { id: 'prep', icon: <ClipboardList size={17} />, label: '準備物' },
-    { id: 'master', icon: <Package size={17} />, label: '備品' },
-    { id: 'archive', icon: <Archive size={17} />, label: 'アーカイブ' },
+    { id: 'prep', icon: <ClipboardList size={14} />, label: '準備物' },
+    { id: 'master', icon: <Package size={14} />, label: '備品' },
+    { id: 'archive', icon: <Archive size={14} />, label: 'アーカイブ' },
   ],
   [
-    { id: 'fish', icon: <Fish size={17} />, label: '魚リスト' },
-    { id: 'layout', icon: <LayoutGrid size={17} />, label: 'レイアウト' },
-    { id: 'album', icon: <Images size={17} />, label: 'アルバム' },
-    { id: 'container', icon: <Boxes size={17} />, label: 'コンテナ' },
+    { id: 'fish', icon: <Fish size={14} />, label: '魚リスト' },
+    { id: 'layout', icon: <LayoutGrid size={14} />, label: 'レイアウト' },
+    { id: 'album', icon: <Images size={14} />, label: 'アルバム' },
+    { id: 'container', icon: <Boxes size={14} />, label: 'コンテナ' },
   ],
 ];
 
@@ -104,17 +104,17 @@ export default function AppHeader({
             </div>
           </div>
 
-          <nav className="hidden lg:flex flex-1 items-center justify-center gap-1.5 min-w-0 px-1">
+          <nav className="hidden lg:flex flex-1 items-center justify-center gap-0.5 min-w-0 px-1">
             {desktopNavGroups.map((group, gi) => (
-              <div key={gi} className="flex items-center gap-1">
-                {gi > 0 && <div className="h-5 w-px bg-slate-200 mx-1 shrink-0" aria-hidden />}
+              <div key={gi} className="flex items-center gap-0.5">
+                {gi > 0 && <div className="h-5 w-px bg-slate-200 mx-0.5 shrink-0" aria-hidden />}
                 {group.map(v => (
                   <button
                     key={v.id}
                     onClick={() => onSetView(v.id)}
                     title={v.label}
                     className={`
-                      flex items-center gap-1.5 px-2.5 xl:px-3 py-2 rounded-xl text-sm font-bold transition-all shrink-0 whitespace-nowrap
+                      flex items-center gap-1 px-2 xl:px-2.5 py-1.5 rounded-xl text-sm font-bold transition-all shrink-0 whitespace-nowrap
                       ${view === v.id
                         ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}

@@ -1,4 +1,3 @@
-import { useState, useMemo, useEffect, useCallback, useRef, Suspense, type MouseEvent as ReactMouseEvent } from 'react';
 import { lazyWithRetry } from './lib/lazyWithRetry';
 import { db, auth, ensureAnonymousAuth, firebaseConfigError } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -532,7 +531,11 @@ export default function App() {
       return true;
     });
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(ev => (ev.status ?? 'scheduled') === statusFilter);
+      filtered = filtered.filter(ev => {
+        const s = ev.status ?? 'scheduled';
+        if (statusFilter === 'decided') return s === 'decided' || s === 'in_progress' || s === 'waiting' || s === 'ready';
+        return s === statusFilter;
+      });
     }
     return filtered.sort((a, b) => (a.start || "9999") < (b.start || "9999") ? -1 : 1);
   }, [allEvents, regionFilter, typeFilter, monthFilter, searchQuery, statusFilter]);

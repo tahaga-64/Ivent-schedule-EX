@@ -1,7 +1,6 @@
 import { collection, getDocs, addDoc, doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import type { PreparationItem } from '../types';
-import { normalizeOrderStatus } from './orderStatus';
 
 /** 名前比較用の正規化（前後・内部の空白を無視） */
 function normalizeName(name: string): string {
@@ -10,13 +9,13 @@ function normalizeName(name: string): string {
 
 /**
  * 備品マスター（masterItems）をアプリの在庫DBとして扱う同期処理。
- * 準備物リストの保存時に「orderStatus が 'ordered' に遷移したアイテム」を対象に：
+ * 準備物リストの保存時に「orderStatus が 'arrived'（着荷）に遷移したアイテム」を対象に：
  *   - マスターに同名（空白無視で比較）が既にある場合 → その個数（defaultQuantity）を追加分だけ加算
  *   - マスターに無い新規アイテムの場合 → 新しくマスターへ登録
  *
- * 対象は「前回保存時に 'ordered' ではなかった（または存在しなかった）が、
- * 今回の保存後に 'ordered' になったアイテム」のみ。
- * 既に 'ordered' だったアイテムの数量編集では二重加算しない。
+ * 対象は「前回保存時に 'arrived' ではなかった（または存在しなかった）が、
+ * 今回の保存後に 'arrived' になったアイテム」のみ。
+ * 既に 'arrived' だったアイテムの数量編集では二重加算しない。
  */
 export async function syncNewPrepItemsToMaster(
   saved: PreparationItem[],
@@ -28,15 +27,16 @@ export async function syncNewPrepItemsToMaster(
     prevStatusById.set(item.id, item.orderStatus);
   }
 
-  // 'ordered' への遷移アイテムを抽出
-  // - 新規アイテム（previous に id が無い）かつ orderStatus === 'ordered'
-  // - 既存アイテムで前回が 'ordered' 以外 かつ 今回が 'ordered'
+  // 'arrived'（着荷）への遷移アイテムを抽出
+  // - 新規アイテム（previous に id が無い）かつ orderStatus === 'arrived'
+  // - 既存アイテムで前回が 'arrived' 以外 かつ 今回が 'arrived'
   const candidates = saved.filter(i => {
     const n = normalizeName(i.name);
     if (n === '') return false;
-    if (normalizeOrderStatus(i.orderStatus) !== 'ordered') return false;
+    if (i.orderStatus !== 'arrived') return false;
     const prevStatus = prevStatusById.get(i.id);
-    return normalizeOrderStatus(prevStatus) !== 'ordered';
+    // 前回スナップショットに存在しなかった（新規）場合は prevStatus === undefined
+    return prevStatus !== 'arrived';
   });
 
   if (candidates.length === 0) return;

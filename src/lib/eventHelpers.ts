@@ -102,11 +102,12 @@ export function prepEventUrgency(start: string, end: string): {
 
 export function statusStyle(status?: string): { label: string; bg: string; text: string; dot: string } {
   switch (status) {
-    case 'in_progress': return { label: '準備中',    bg: 'bg-amber-50',   text: 'text-amber-600',  dot: '#f59e0b' };
-    case 'waiting':     return { label: '入荷待ち',  bg: 'bg-blue-50',    text: 'text-blue-600',   dot: '#3b82f6' };
-    case 'ready':       return { label: '準備完了',  bg: 'bg-emerald-50', text: 'text-emerald-600',dot: '#10b981' };
+    case 'decided':
+    case 'in_progress':
+    case 'waiting':
+    case 'ready':       return { label: '開催決定',  bg: 'bg-indigo-50',  text: 'text-indigo-600', dot: '#6366f1' };
     case 'completed':   return { label: '終了',      bg: 'bg-orange-500', text: 'text-white',      dot: '#f97316' };
-    case 'cancelled':   return { label: 'キャンセル',bg: 'bg-red-50',     text: 'text-red-500',    dot: '#ef4444' };
+    case 'cancelled':   return { label: '予定',      bg: 'bg-slate-50',   text: 'text-slate-400',  dot: '#cbd5e1' };
     default:            return { label: '予定',      bg: 'bg-slate-50',   text: 'text-slate-400',  dot: '#cbd5e1' };
   }
 }
@@ -114,11 +115,12 @@ export function statusStyle(status?: string): { label: string; bg: string; text:
 /** カレンダー（暗色背景）向けステータス色 */
 export function calStatusStyle(status?: string): { bg: string; hoverBg: string; border: string } {
   switch (status) {
-    case 'in_progress': return { bg: 'rgba(245,158,11,0.50)', hoverBg: 'rgba(245,158,11,0.62)', border: '#fbbf24' };
-    case 'waiting':     return { bg: 'rgba(59,130,246,0.50)', hoverBg: 'rgba(59,130,246,0.62)', border: '#60a5fa' };
-    case 'ready':       return { bg: 'rgba(16,185,129,0.50)', hoverBg: 'rgba(16,185,129,0.62)', border: '#34d399' };
+    case 'decided':
+    case 'in_progress':
+    case 'waiting':
+    case 'ready':       return { bg: 'rgba(99,102,241,0.50)', hoverBg: 'rgba(99,102,241,0.62)', border: '#818cf8' };
     case 'completed':   return { bg: 'rgba(100,116,139,0.42)', hoverBg: 'rgba(100,116,139,0.54)', border: '#94a3b8' };
-    case 'cancelled':   return { bg: 'rgba(239,68,68,0.45)', hoverBg: 'rgba(239,68,68,0.57)', border: '#f87171' };
+    case 'cancelled':   return { bg: 'rgba(71,85,105,0.52)', hoverBg: 'rgba(71,85,105,0.64)', border: '#94a3b8' };
     default:            return { bg: 'rgba(71,85,105,0.52)', hoverBg: 'rgba(71,85,105,0.64)', border: '#94a3b8' };
   }
 }

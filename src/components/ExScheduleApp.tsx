@@ -1579,6 +1579,31 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
         </AnimatePresence>
       </main>
 
+      {/* 記録 — フルスクリーン独立ページ */}
+      {activeTab === 'stats' && (
+        <div className="fixed inset-0 z-50 bg-[var(--bg-app)] overflow-y-auto flex flex-col">
+          <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-200 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setActiveTab('schedule')}
+              className="flex items-center gap-1 text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              <ChevronLeft size={18} />
+              スケジュールに戻る
+            </button>
+            <span className="font-black text-lg text-slate-900">記録</span>
+          </div>
+          <div className="flex-1">
+            <StaffMonthlyStats
+              monthData={currentMonthData as any}
+              allEvents={allEvents}
+              year={currentYear}
+              month={currentMonth}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Footer Info */}
       <footer className="bg-white border-t border-border p-4 text-center">
         <div className="flex items-center justify-center gap-2 text-[10px] text-text3">
