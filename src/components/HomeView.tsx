@@ -444,7 +444,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
         {/* 連絡事項（掲示板）— 本日のイベント・来週のイベントの上部 */}
         <motion.div {...sectionAnim(2.5)}>
-          <NoticeBoard canEdit={canEditEvent} user={user} />
+          <NoticeBoard canEdit={true} user={user} />
         </motion.div>
 
         <motion.div {...sectionAnim(3)} className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { EVENT_EDITOR_EMAILS } from '../lib/permissions';
 
 export type UserRole = 'admin' | 'event_editor' | 'viewer';
 
@@ -53,6 +54,7 @@ export function useRoles() {
   function isEventEditor(email: string | null | undefined): boolean {
     if (!email) return false;
     if (email === SUPER_ADMIN) return true;
+    if (EVENT_EDITOR_EMAILS.includes(email)) return true;
     const entry = roles.find(r => r.email === email);
     return entry?.role === 'event_editor' || entry?.role === 'admin';
   }
