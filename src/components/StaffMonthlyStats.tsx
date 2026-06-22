@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ChevronRight, AlertTriangle } from 'lucide-react';
+import { X, ChevronRight, AlertTriangle, Download } from 'lucide-react';
 import { MEMBERS, TYPE_LABEL, TYPE_CLASS, getDaysInMonth } from '../lib/exScheduleConstants';
 import type { StatusType } from '../lib/exScheduleConstants';
 import type { Event } from '../types';
@@ -37,6 +37,37 @@ function countWeekdays(year: number, month: number): number {
     if (dow !== 0 && dow !== 6) count++;
   }
   return count;
+}
+
+function downloadCSV(stats: MemberStats[], weekdays: number, year: number, month: number) {
+  const header = ['名前', 'イベント日数', '本社出勤日数', '外出日数', '研修日数', '待機日数', '公休日数', '希望休日数', '欠勤日数', 'その他日数', '稼働日数', `稼働率(平日${weekdays}日)`, '参加イベント件数'];
+  const rows = stats.map(s => {
+    const util = weekdays > 0 ? Math.round((s.workDays / weekdays) * 100) : 0;
+    return [
+      s.name,
+      s.counts.event,
+      s.counts.office,
+      s.counts.dispatch,
+      s.counts.training,
+      s.counts.standby,
+      s.counts.normal,
+      s.counts.request,
+      s.counts.absence,
+      s.counts.other,
+      s.workDays,
+      `${util}%`,
+      s.events.length,
+    ];
+  });
+  const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+  const bom = '﻿';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `月次実績_${year}年${month + 1}月.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function StaffMonthlyStats({ monthData, allEvents, year, month }: Props) {
@@ -79,6 +110,18 @@ export default function StaffMonthlyStats({ monthData, allEvents, year, month }:
 
   return (
     <div className="space-y-4">
+      {/* ヘッダー行: タイトル + CSV出力 */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{year}年{month + 1}月 実績</p>
+        <button
+          onClick={() => downloadCSV(stats, weekdays, year, month)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-colors"
+        >
+          <Download size={13} />
+          CSV出力
+        </button>
+      </div>
+
       {/* 未担当アラートバナー */}
       {unassignedEvents.length > 0 && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800">
@@ -94,20 +137,26 @@ export default function StaffMonthlyStats({ monthData, allEvents, year, month }:
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
         {stats.map(s => {
           const util = weekdays > 0 ? Math.round((s.workDays / weekdays) * 100) : 0;
-          const dimmed = s.eventCount === 0;
+          const overloaded = util > 100;
+          const dimmed = s.eventCount === 0 && !overloaded;
           return (
             <button
               key={s.name}
               onClick={() => setSelectedMember(s.name)}
               className={`text-left rounded-2xl border p-4 transition-all active:scale-[0.98] hover:shadow-md ${
-                dimmed
+                overloaded
+                  ? 'bg-red-50 border-red-300 hover:border-red-400'
+                  : dimmed
                   ? 'bg-slate-50 border-slate-200 opacity-60'
                   : 'bg-white border-slate-200 hover:border-indigo-300'
               }`}
             >
               <div className="flex items-start justify-between mb-2">
                 <span className="text-xs font-black text-slate-900 leading-tight">{s.name.replace('　', ' ')}</span>
-                <ChevronRight size={12} className="text-slate-400 mt-0.5 shrink-0" />
+                {overloaded
+                  ? <AlertTriangle size={12} className="text-red-500 mt-0.5 shrink-0" />
+                  : <ChevronRight size={12} className="text-slate-400 mt-0.5 shrink-0" />
+                }
               </div>
               <div className="flex items-baseline gap-1.5 mb-2">
                 <span className="text-2xl font-black text-indigo-600">{s.eventCount}</span>
@@ -124,11 +173,11 @@ export default function StaffMonthlyStats({ monthData, allEvents, year, month }:
               <div className="mt-2">
                 <div className="flex justify-between items-center mb-0.5">
                   <span className="text-[9px] text-slate-400 font-bold">稼働率</span>
-                  <span className="text-[9px] font-black text-slate-500">{util}%</span>
+                  <span className={`text-[9px] font-black ${overloaded ? 'text-red-600' : 'text-slate-500'}`}>{util}%</span>
                 </div>
                 <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-indigo-400 rounded-full transition-all"
+                    className={`h-full rounded-full transition-all ${overloaded ? 'bg-red-400' : 'bg-indigo-400'}`}
                     style={{ width: `${Math.min(util, 100)}%` }}
                   />
                 </div>
@@ -186,17 +235,24 @@ export default function StaffMonthlyStats({ monthData, allEvents, year, month }:
                       );
                     })}
                   </div>
-                  <div className="mt-3 flex items-center gap-2">
-                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-indigo-400 rounded-full"
-                        style={{ width: `${weekdays > 0 ? Math.min(Math.round((selected.workDays / weekdays) * 100), 100) : 0}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-black text-slate-600">
-                      稼働{selected.workDays}日 / 平日{weekdays}日
-                    </span>
-                  </div>
+                  {(() => {
+                    const util = weekdays > 0 ? Math.round((selected.workDays / weekdays) * 100) : 0;
+                    const overloaded = util > 100;
+                    return (
+                      <div className="mt-3 flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${overloaded ? 'bg-red-400' : 'bg-indigo-400'}`}
+                            style={{ width: `${Math.min(util, 100)}%` }}
+                          />
+                        </div>
+                        <span className={`text-xs font-black ${overloaded ? 'text-red-600' : 'text-slate-600'}`}>
+                          稼働{selected.workDays}日 / 平日{weekdays}日 ({util}%)
+                          {overloaded && ' ⚠'}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* ミニカレンダー */}
