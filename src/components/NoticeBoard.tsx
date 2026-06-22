@@ -48,8 +48,7 @@ export default function NoticeBoard({ canEdit, user }: Props) {
     }
   };
 
-  // 連絡事項が無く、編集権限も無い場合は何も表示しない
-  if (!loading && notices.length === 0 && !canEdit) return null;
+  if (loading) return null;
 
   return (
     <div className="tank-card rounded-2xl p-4 border border-amber-200/60 bg-amber-50/40">

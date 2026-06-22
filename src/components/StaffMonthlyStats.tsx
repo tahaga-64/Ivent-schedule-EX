@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronRight, CalendarDays } from 'lucide-react';
-import { MEMBERS, TYPE_LABEL, TYPE_CLASS, getDaysInMonth } from '../lib/exScheduleConstants';
+import { MEMBERS, MEMBER_READINGS, TYPE_LABEL, TYPE_CLASS, getDaysInMonth } from '../lib/exScheduleConstants';
 import type { StatusType } from '../lib/exScheduleConstants';
 import type { Event } from '../types';
 import { rs } from '../lib/eventHelpers';
@@ -73,7 +73,11 @@ export default function StaffMonthlyStats({ monthData, allEvents, year, month }:
         }
       }
       return { name, counts, eventCount: counts.event, eventDays };
-    }).sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+    }).sort((a, b) => {
+      const ra = MEMBER_READINGS[a.name] ?? a.name;
+      const rb = MEMBER_READINGS[b.name] ?? b.name;
+      return ra.localeCompare(rb, 'ja');
+    });
   }, [monthData, allEvents, daysInMonth, monthPrefix]);
 
   const selected = selectedMember ? stats.find(s => s.name === selectedMember) ?? null : null;
