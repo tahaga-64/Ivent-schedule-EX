@@ -37,6 +37,7 @@ import MobileBottomNav from './components/MobileBottomNav';
 import MobileMonthNav from './components/MobileMonthNav';
 import MigrationBanner from './components/MigrationBanner';
 import LoadingSplash from './components/LoadingSplash';
+import LoginScreen from './components/LoginScreen';
 import ViewLoadingFallback from './components/ViewLoadingFallback';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from './contexts/UnsavedChangesContext';
 import { getViewDir, viewVariants } from './lib/viewTransitions';
@@ -195,6 +196,7 @@ export default function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [adminAuthBusy, setAdminAuthBusy] = useState(false);
   const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
+  const [loginScreenDismissed, setLoginScreenDismissed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [prepEvent, setPrepEvent] = useState<Event | null>(null);
   // イベント詳細から魚リスト / レイアウトを開いたときに最初に表示するイベント
@@ -369,8 +371,12 @@ export default function App() {
     setAdminAuthError(null);
     try {
       await signInAsAdmin();
+      setLoginScreenDismissed(true);
     } catch (e) {
-      setAdminAuthError(e instanceof Error ? e.message : 'ログインに失敗しました');
+      const msg = e instanceof Error ? e.message : 'ログインに失敗しました';
+      if (msg !== 'リダイレクト中...') {
+        setAdminAuthError(msg);
+      }
     } finally {
       setAdminAuthBusy(false);
     }
@@ -1042,6 +1048,17 @@ VITE_FIREBASE_DATABASE_ID`}
           再読み込み
         </button>
       </div>
+    );
+  }
+
+  if (user.isAnonymous && !loginScreenDismissed) {
+    return (
+      <LoginScreen
+        onSignIn={handleAdminSignIn}
+        onSkip={() => setLoginScreenDismissed(true)}
+        loading={adminAuthBusy}
+        error={adminAuthError}
+      />
     );
   }
 
