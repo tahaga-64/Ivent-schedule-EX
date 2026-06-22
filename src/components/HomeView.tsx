@@ -3,11 +3,14 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronRight, ExternalLink, X, ArrowRight } from 'lucide-react';
 import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
+import type { User } from 'firebase/auth';
 import { db } from '../lib/firebase';
 import type { Event, PreparationItem } from '../types';
 import UndeliveredModal from './UndeliveredModal';
+import NoticeBoard from './NoticeBoard';
 import { rs, ts, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
-import { fetchTodayStaffBreakdown, type StaffBreakdown } from '../lib/exSchedule';
+import { fetchTodayStaffBreakdown, fetchTodayStaffByStatus, type StaffBreakdown } from '../lib/exSchedule';
+import type { StatusType } from '../lib/exScheduleConstants';
 import EXBadge from './EXBadge';
 import SwipeActionCard from './fx/SwipeActionCard';
 import RippleButton from './fx/RippleButton';
@@ -22,6 +25,7 @@ interface Props {
   onOpenSchedule: () => void;
   onNavigateCalendar: () => void;
   canEditEvent: boolean;
+  user: User | null;
 }
 
 function AnalogClock() {
@@ -179,11 +183,13 @@ function SectionEmpty({ label }: { label: string }) {
   );
 }
 
-export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, onNavigateCalendar, canEditEvent }: Props) {
+export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, onNavigateCalendar, canEditEvent, user }: Props) {
   const [showEventPicker, setShowEventPicker] = useState(false);
   const [showPermissionToast, setShowPermissionToast] = useState(false);
   const [showUndelivered, setShowUndelivered] = useState(false);
+  const [showNextPicker, setShowNextPicker] = useState(false);
   const [staffBreakdown, setStaffBreakdown] = useState<StaffBreakdown | null>(null);
+  const [staffByStatus, setStaffByStatus] = useState<Record<StatusType, string[]> | null>(null);
   const [staffLoading, setStaffLoading] = useState(true);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -195,8 +201,11 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
   useEffect(() => {
     setStaffLoading(true);
-    fetchTodayStaffBreakdown()
-      .then(bd => setStaffBreakdown(bd))
+    Promise.all([fetchTodayStaffBreakdown(), fetchTodayStaffByStatus()])
+      .then(([bd, byStatus]) => {
+        setStaffBreakdown(bd);
+        setStaffByStatus(byStatus);
+      })
       .finally(() => setStaffLoading(false));
   }, [today]);
 
@@ -273,6 +282,22 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
     return { thisMonthCount: thisMonth.length, daysToNext, nextVenue: nextEvent?.venue ?? null };
   }, [events, today]);
 
+  // 次回イベント（同日複数対応）— 最も近い開催日の全イベント
+  const nextEvents = useMemo(() => {
+    const upcoming = events
+      .filter(e => e.status !== 'cancelled' && e.start >= today)
+      .sort((a, b) => a.start.localeCompare(b.start));
+    if (upcoming.length === 0) return [];
+    const nearestDate = upcoming[0].start;
+    return upcoming.filter(e => e.start === nearestDate);
+  }, [events, today]);
+
+  const handleOpenNext = () => {
+    if (nextEvents.length === 0) return;
+    if (nextEvents.length === 1) onSelectEvent(nextEvents[0]);
+    else setShowNextPicker(true);
+  };
+
   const sectionAnim = (i: number) => ({
     initial: { opacity: 0, y: 10 },
     animate: { opacity: 1, y: 0 },
@@ -332,7 +357,10 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             </span>
           </button>
 
-          <div className="tank-card rounded-2xl p-3 flex flex-col">
+          <button
+            onClick={onOpenSchedule}
+            className="tank-card rounded-2xl p-3 flex flex-col text-left hover:brightness-[1.03] transition-all"
+          >
             <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">本日稼働</div>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-black text-slate-900 leading-none">
@@ -342,10 +370,16 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
                 <span className="text-xs font-bold text-slate-500">人</span>
               )}
             </div>
-            <span className="mt-auto pt-2 text-[10px] font-bold text-slate-400">出勤中</span>
-          </div>
+            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[10px] font-black text-indigo-600">
+              スケジュールを表示 <ArrowRight size={10} />
+            </span>
+          </button>
 
-          <div className="tank-card rounded-2xl p-3 flex flex-col">
+          <button
+            onClick={handleOpenNext}
+            disabled={nextEvents.length === 0}
+            className="tank-card rounded-2xl p-3 flex flex-col text-left hover:brightness-[1.03] transition-all disabled:cursor-default"
+          >
             <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">次イベント</div>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-black text-slate-900 leading-none">
@@ -355,29 +389,46 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
                 <span className="text-xs font-bold text-slate-500">日後</span>
               )}
             </div>
-            <span className="mt-auto pt-2 text-[10px] font-bold text-slate-400 truncate">
-              {stats.nextVenue || '予定なし'}
+            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[10px] font-bold text-slate-400 truncate">
+              {nextEvents.length > 1
+                ? <span className="font-black text-indigo-600">{nextEvents.length}件を見る</span>
+                : (stats.nextVenue || '予定なし')}
             </span>
-          </div>
+          </button>
         </motion.div>
 
-        {/* 稼働内訳 — 本社/イベント/外出/公休/希望休/その他 を横並び */}
+        {/* 稼働内訳 — 本社/イベント/外出/公休/希望休/その他 を横並び（PCはホバーで氏名表示） */}
         {!staffLoading && staffBreakdown !== null && (
           <motion.div {...sectionAnim(2)} className="tank-card rounded-2xl p-3">
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
               {([
-                { label: '本社',   value: staffBreakdown.office,   bg: 'bg-blue-50 border-blue-200',   text: 'text-blue-800' },
-                { label: 'イベント', value: staffBreakdown.event,    bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-800' },
-                { label: '外出',   value: staffBreakdown.dispatch, bg: 'bg-amber-50 border-amber-200', text: 'text-amber-800' },
-                { label: '公休',   value: staffBreakdown.rest,     bg: 'bg-violet-50 border-violet-200', text: 'text-violet-800' },
-                { label: '希望休', value: staffBreakdown.request,  bg: 'bg-pink-50 border-pink-200',   text: 'text-pink-800' },
-                { label: 'その他', value: staffBreakdown.other,    bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700' },
-              ] as const).map(({ label, value, bg, text }) => (
-                <div key={label} className={`text-center rounded-lg py-1.5 border ${bg}`}>
-                  <div className={`font-black leading-none text-lg ${text}`}>{value}</div>
-                  <div className="text-[9px] text-slate-600 mt-0.5 font-bold">{label}</div>
-                </div>
-              ))}
+                { label: '本社',   value: staffBreakdown.office,   statuses: ['office'],              bg: 'bg-blue-50 border-blue-200',   text: 'text-blue-800' },
+                { label: 'イベント', value: staffBreakdown.event,    statuses: ['event'],               bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-800' },
+                { label: '外出',   value: staffBreakdown.dispatch, statuses: ['dispatch', 'standby'], bg: 'bg-amber-50 border-amber-200', text: 'text-amber-800' },
+                { label: '公休',   value: staffBreakdown.rest,     statuses: ['rest', 'normal'],      bg: 'bg-violet-50 border-violet-200', text: 'text-violet-800' },
+                { label: '希望休', value: staffBreakdown.request,  statuses: ['request'],             bg: 'bg-pink-50 border-pink-200',   text: 'text-pink-800' },
+                { label: 'その他', value: staffBreakdown.other,    statuses: ['other', 'training', 'carry', 'absence'], bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700' },
+              ] as { label: string; value: number; statuses: StatusType[]; bg: string; text: string }[]).map(({ label, value, statuses, bg, text }) => {
+                const names = staffByStatus
+                  ? statuses.flatMap(s => staffByStatus[s] ?? []).map(n => n.replace('　', ' '))
+                  : [];
+                return (
+                  <div key={label} className={`group relative text-center rounded-lg py-1.5 border ${bg}`}>
+                    <div className={`font-black leading-none text-lg ${text}`}>{value}</div>
+                    <div className="text-[9px] text-slate-600 mt-0.5 font-bold">{label}</div>
+                    {names.length > 0 && (
+                      <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-30 hidden md:group-hover:block w-max max-w-[220px]">
+                        <div className="bg-slate-900 text-white text-[11px] font-medium rounded-xl px-3 py-2 shadow-xl text-left">
+                          <div className="font-black mb-1 text-[10px] uppercase tracking-widest text-slate-300">{label}（{names.length}名）</div>
+                          <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                            {names.map(n => <span key={n}>{n}</span>)}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </motion.div>
         )}
@@ -386,6 +437,11 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
             稼働データを取得できませんでした
           </div>
         )}
+
+        {/* 連絡事項（掲示板）— 本日のイベント・来週のイベントの上部 */}
+        <motion.div {...sectionAnim(2.5)}>
+          <NoticeBoard canEdit={canEditEvent} user={user} />
+        </motion.div>
 
         <motion.div {...sectionAnim(3)} className="md:grid md:grid-cols-2 md:gap-6 xl:gap-8">
         {/* 本日のイベント */}
@@ -431,28 +487,21 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
           <RippleButton
             onClick={() => setShowUndelivered(true)}
-            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
+            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-3.5 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
           >
             未着一覧
           </RippleButton>
 
           <RippleButton
-            onClick={() => setShowEventPicker(true)}
-            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
-          >
-            準備物リスト
-          </RippleButton>
-
-          <RippleButton
             onClick={() => { if (canEditEvent) { onCreateEvent(); } else { setShowPermissionToast(true); } }}
-            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
+            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-3.5 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
           >
             新規イベントを追加する
           </RippleButton>
 
           <RippleButton
             onClick={onOpenSchedule}
-            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-4 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
+            className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-3.5 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full"
           >
             スケジュール
           </RippleButton>
@@ -584,6 +633,66 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
       {showUndelivered && (
         <UndeliveredModal events={events} onClose={() => setShowUndelivered(false)} />
       )}
+
+      {/* 次回イベント選択（同日複数件） — portal */}
+      {createPortal(
+      <AnimatePresence>
+        {showNextPicker && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowNextPicker(false)}
+            />
+            <motion.div
+              className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl max-h-[80dvh] flex flex-col overflow-hidden border-t border-slate-200 shadow-2xl md:inset-0 md:m-auto md:h-fit md:max-h-[80vh] md:w-[min(520px,92vw)] md:rounded-3xl"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="flex items-center justify-between px-5 pt-4 pb-3 shrink-0 border-b border-slate-100">
+                <div>
+                  <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-0.5">次回イベント</div>
+                  <h2 className="text-base font-black text-slate-900">どのイベントを開きますか？</h2>
+                </div>
+                <button
+                  onClick={() => setShowNextPicker(false)}
+                  className="p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-500"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="overflow-y-auto px-4 py-3 flex-1 space-y-2">
+                {nextEvents.map(ev => {
+                  const regionColor = rs(ev.region || '').dot;
+                  return (
+                    <button
+                      key={ev.id}
+                      onClick={() => { setShowNextPicker(false); onSelectEvent(ev); }}
+                      className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-sm flex items-stretch overflow-hidden hover:bg-slate-50 active:scale-[0.99] transition-all group"
+                    >
+                      <div className="w-1 shrink-0" style={{ background: regionColor }} />
+                      <div className="flex-1 min-w-0 p-3.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black text-slate-900 truncate flex-1">{ev.venue || ev.type}</span>
+                          <ChevronRight size={15} className="text-slate-400 group-hover:text-slate-600 shrink-0" />
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          {fmtDateRange(ev.start, ev.end)}{ev.client ? ` · ${ev.client}` : ''}{ev.region ? ` · ${ev.region}` : ''}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+      , document.body)}
 
       {/* Permission toast — portal to escape carousel transform */}
       {createPortal(

@@ -23,9 +23,8 @@ export default function UndeliveredModal({ events, onClose }: Props) {
 
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
-    const activeEvents = events.filter(
-      e => e.status !== 'cancelled' && e.status !== 'completed',
-    );
+    // キャンセル以外の全イベントを対象（完了イベントでも未着の新宿着があれば表示）
+    const activeEvents = events.filter(e => e.status !== 'cancelled');
     let cancelled = false;
 
     const load = async () => {
@@ -45,9 +44,10 @@ export default function UndeliveredModal({ events, onClose }: Props) {
               } as UndeliveredItem))
               .filter(item =>
                 item.name?.trim() &&
-                item.orderStatus !== 'completed' &&
                 item.arrivalDestination === '新宿' &&
-                (!item.arrivalDate || item.arrivalDate <= today),
+                item.orderStatus === 'ordered' &&
+                !!item.arrivalDate &&
+                item.arrivalDate <= today,
               );
           }),
         );
@@ -147,7 +147,7 @@ export default function UndeliveredModal({ events, onClose }: Props) {
                 )}
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                到着予定日を過ぎた・または未設定の準備物（新宿着）
+                発注済みで到着予定日を過ぎた準備物（新宿着）
               </p>
             </div>
             <button

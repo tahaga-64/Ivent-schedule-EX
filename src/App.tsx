@@ -1137,6 +1137,7 @@ VITE_FIREBASE_DATABASE_ID`}
           onOpenSchedule={() => applySetView('schedule')}
           onNavigateCalendar={() => applySetView('calendar')}
           canEditEvent={canEditEvent}
+          user={user ?? null}
         />
       )}
       {v === "master" && (
@@ -1155,7 +1156,7 @@ VITE_FIREBASE_DATABASE_ID`}
         <AlbumView />
       )}
       {v === "schedule" && (
-        <ScheduleView currentUser={user} allEvents={allEvents} />
+        <ScheduleView currentUser={user} allEvents={allEvents} isAdmin={canEditEvent} />
       )}
       {(v === "prep" || v === "archive") && prepEvent ? (
         <PreparationList
