@@ -21,10 +21,10 @@ import { applyEventSnapshotChanges } from './lib/firestoreSnapshot';
 import { Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePhotos } from './hooks/usePhotos';
-import { useRoles } from './hooks/useRoles';
 import {
   canEditPreparationList as computeCanEditPreparationList,
   canEditFishList as computeCanEditFishList,
+  EVENT_EDITOR_EMAILS,
 } from './lib/permissions';
 import { signInAsAdmin, signOutAdmin, isMobileAdminUser, getAdminRedirectResult } from './lib/adminAuth';
 import HelpModal from './components/HelpModal';
@@ -358,9 +358,8 @@ export default function App() {
     return () => mq.removeEventListener("change", apply);
   }, []);
 
-  const { isEventEditor } = useRoles();
   const isMobileAdmin = isMobileAdminUser(user);
-  const canEditEvent = !!user && isEventEditor(user.email);
+  const canEditEvent = !!user && !user.isAnonymous && EVENT_EDITOR_EMAILS.includes(user.email ?? '');
   const canEditPreparationList = computeCanEditPreparationList(user);
   const canEditFishList = computeCanEditFishList(user);
   const canUploadPhoto = !!user;
