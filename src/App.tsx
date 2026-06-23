@@ -196,7 +196,7 @@ export default function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [adminAuthBusy, setAdminAuthBusy] = useState(false);
   const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
-  const [loginScreenDismissed, setLoginScreenDismissed] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [prepEvent, setPrepEvent] = useState<Event | null>(null);
   // イベント詳細から魚リスト / レイアウトを開いたときに最初に表示するイベント
@@ -371,7 +371,7 @@ export default function App() {
     setAdminAuthError(null);
     try {
       await signInAsAdmin();
-      setLoginScreenDismissed(true);
+      setShowLoginModal(false);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'ログインに失敗しました';
       if (msg !== 'リダイレクト中...') {
@@ -1051,17 +1051,6 @@ VITE_FIREBASE_DATABASE_ID`}
     );
   }
 
-  if (user.isAnonymous && !loginScreenDismissed) {
-    return (
-      <LoginScreen
-        onSignIn={handleAdminSignIn}
-        onSkip={() => setLoginScreenDismissed(true)}
-        loading={adminAuthBusy}
-        error={adminAuthError}
-      />
-    );
-  }
-
   const renderView = (v: ViewMode) => (
     <>
       {/* Desktop: Calendar grid / Mobile: Timeline list */}
@@ -1222,7 +1211,7 @@ VITE_FIREBASE_DATABASE_ID`}
         onCreateEvent={() => handleCreateEvent()}
         onShowHelp={() => setShowHelp(true)}
         isMobileAdmin={isMobileAdmin}
-        onAdminSignIn={handleAdminSignIn}
+        onAdminSignIn={() => { setAdminAuthError(null); setShowLoginModal(true); }}
         onAdminSignOut={handleAdminSignOut}
         adminAuthBusy={adminAuthBusy}
         adminAuthError={adminAuthError}
@@ -1436,6 +1425,16 @@ VITE_FIREBASE_DATABASE_ID`}
 
       {/* Global bubble burst FX portal */}
       <BubbleBurstPortal />
+
+      {/* 管理者ログインモーダル */}
+      {showLoginModal && user.isAnonymous && (
+        <LoginScreen
+          onSignIn={handleAdminSignIn}
+          onSkip={() => { setShowLoginModal(false); setAdminAuthError(null); }}
+          loading={adminAuthBusy}
+          error={adminAuthError}
+        />
+      )}
     </div>
   );
 }

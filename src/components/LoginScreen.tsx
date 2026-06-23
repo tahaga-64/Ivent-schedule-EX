@@ -44,7 +44,7 @@ export default function LoginScreen({ onSignIn, onSkip, loading, error }: Props)
             disabled={loading}
             className="w-full px-4 py-2 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100 text-sm font-bold transition-colors disabled:opacity-40"
           >
-            ログインせずに続ける
+            キャンセル
           </button>
         </div>
       </div>
