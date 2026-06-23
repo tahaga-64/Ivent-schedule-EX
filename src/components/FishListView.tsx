@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -12,7 +12,6 @@ interface Props {
   events: Event[];
   canEdit: boolean;
   isActive?: boolean;
-  /** イベント詳細から開いたとき最初に表示するイベントID */
   initialEventId?: string | null;
 }
 
@@ -30,6 +29,172 @@ function isEventPast(ev: Event): boolean {
   const endDate = ev.end || ev.start;
   return !!endDate && endDate < today;
 }
+
+// ── PC spreadsheet components ────────────────────────────────────────────────
+
+interface SpreadsheetRowProps {
+  item: FishItem;
+  index: number;
+  canEdit: boolean;
+  onNameSave: (id: string, name: string) => void;
+  onCountChange: (item: FishItem, count: number) => void;
+  onNoteSave: (id: string, note: string) => void;
+  onDelete: (id: string) => void;
+}
+
+function SpreadsheetRow({ item, index, canEdit, onNameSave, onCountChange, onNoteSave, onDelete }: SpreadsheetRowProps) {
+  const [name, setName] = useState(item.name);
+  const [note, setNote] = useState(item.note ?? '');
+  const countRef = useRef<HTMLInputElement>(null);
+  const noteRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setName(item.name); }, [item.name]);
+  useEffect(() => { setNote(item.note ?? ''); }, [item.note]);
+
+  const cellCls = 'w-full px-2 py-1 text-sm bg-transparent border border-transparent rounded-lg focus:border-indigo-300 focus:bg-white focus:outline-none transition-all';
+
+  return (
+    <tr className="group border-b border-slate-100 hover:bg-indigo-50/20 transition-colors">
+      <td className="px-3 py-0.5 text-[11px] text-slate-300 tabular-nums select-none w-10 text-right shrink-0">
+        {index + 1}
+      </td>
+      <td className="px-1 py-0.5">
+        {canEdit ? (
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onBlur={() => { const t = name.trim(); if (t && t !== item.name) onNameSave(item.id, t); else setName(item.name); }}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); countRef.current?.focus(); } }}
+            className={`${cellCls} font-medium text-slate-900`}
+          />
+        ) : (
+          <span className="px-2 py-1 text-sm font-medium text-slate-900">{item.name}</span>
+        )}
+      </td>
+      <td className="px-1 py-0.5 w-28">
+        <div className="flex items-center gap-0.5">
+          {canEdit ? (
+            <input
+              ref={countRef}
+              type="number"
+              min={0}
+              value={item.count}
+              onChange={e => onCountChange(item, Number(e.target.value))}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); noteRef.current?.focus(); } }}
+              className={`${cellCls} w-16 text-center font-black tabular-nums text-slate-900`}
+            />
+          ) : (
+            <span className="px-2 py-1 text-sm font-black tabular-nums text-slate-900">{item.count}</span>
+          )}
+          <span className="text-xs text-slate-400 shrink-0">匹</span>
+        </div>
+      </td>
+      <td className="px-1 py-0.5">
+        {canEdit ? (
+          <input
+            ref={noteRef}
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            onBlur={() => { if (note !== (item.note ?? '')) onNoteSave(item.id, note); }}
+            placeholder="メモ"
+            className={`${cellCls} text-slate-500 placeholder-slate-300`}
+          />
+        ) : (
+          <span className="px-2 py-1 text-sm text-slate-500">{item.note}</span>
+        )}
+      </td>
+      {canEdit && (
+        <td className="px-2 py-0.5 w-10">
+          <button
+            onClick={() => onDelete(item.id)}
+            className="p-1 rounded text-slate-200 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+          >
+            <Trash2 size={13} />
+          </button>
+        </td>
+      )}
+    </tr>
+  );
+}
+
+interface NewSpreadsheetRowProps {
+  onAdd: (name: string, count: number, note: string) => Promise<void>;
+  disabled?: boolean;
+}
+
+function NewSpreadsheetRow({ onAdd, disabled }: NewSpreadsheetRowProps) {
+  const [name, setName] = useState('');
+  const [count, setCount] = useState(1);
+  const [note, setNote] = useState('');
+  const nameRef = useRef<HTMLInputElement>(null);
+  const countRef = useRef<HTMLInputElement>(null);
+  const noteRef = useRef<HTMLInputElement>(null);
+
+  const doAdd = async () => {
+    if (!name.trim()) return;
+    await onAdd(name.trim(), count, note.trim());
+    setName(''); setCount(1); setNote('');
+    setTimeout(() => nameRef.current?.focus(), 30);
+  };
+
+  const cellCls = 'w-full px-2 py-1 text-sm bg-transparent border border-transparent rounded-lg focus:border-indigo-300 focus:bg-white focus:outline-none transition-all placeholder-slate-300';
+
+  return (
+    <tr className="border-b border-dashed border-slate-100 bg-slate-50/30">
+      <td className="px-3 py-1 text-[11px] text-slate-300 select-none text-right w-10">
+        <Plus size={11} className="ml-auto" />
+      </td>
+      <td className="px-1 py-1">
+        <input
+          ref={nameRef}
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); countRef.current?.focus(); } }}
+          placeholder="新しい魚を追加..."
+          disabled={disabled}
+          className={`${cellCls} text-slate-700`}
+        />
+      </td>
+      <td className="px-1 py-1 w-28">
+        <div className="flex items-center gap-0.5">
+          <input
+            ref={countRef}
+            type="number"
+            min={0}
+            value={count}
+            onChange={e => setCount(Number(e.target.value))}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); noteRef.current?.focus(); } }}
+            disabled={disabled}
+            className={`${cellCls} w-16 text-center font-black tabular-nums text-slate-700`}
+          />
+          <span className="text-xs text-slate-400 shrink-0">匹</span>
+        </div>
+      </td>
+      <td className="px-1 py-1">
+        <input
+          ref={noteRef}
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); doAdd(); } }}
+          placeholder="メモ（任意）"
+          disabled={disabled}
+          className={`${cellCls} text-slate-500`}
+        />
+      </td>
+      <td className="px-2 py-1 w-10">
+        <button
+          onClick={doAdd}
+          disabled={!name.trim() || disabled}
+          className="p-1 rounded text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-30 transition-colors"
+        >
+          <Plus size={13} />
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function FishListView({ events, canEdit, isActive = true, initialEventId }: Props) {
   const aquariumEvents = useMemo(
@@ -144,6 +309,8 @@ export default function FishListView({ events, canEdit, isActive = true, initial
     return unsub;
   }, [isActive, selectedEventId]);
 
+  // ── Data mutation handlers ────────────────────────────────────────────────
+
   async function handleAdd() {
     if (!newName.trim() || !selectedEventId) return;
     setSaving(true);
@@ -171,6 +338,25 @@ export default function FishListView({ events, canEdit, isActive = true, initial
     }
   }
 
+  async function handleAddItem(name: string, count: number, note: string) {
+    if (!name.trim() || !selectedEventId) return;
+    try {
+      const id = crypto.randomUUID();
+      const item: FishItem = {
+        id,
+        name: name.trim(),
+        count: Number.isFinite(count) ? count : 0,
+        order: fishItems.length,
+      };
+      if (note.trim()) item.note = note.trim();
+      await setDoc(doc(db, 'events', selectedEventId, 'fishItems', id), item);
+      notifyFishAdded(item.name, item.count);
+    } catch (err) {
+      console.error('fishItems add error:', err);
+      setError('保存に失敗しました。権限またはネットワークを確認してください。');
+    }
+  }
+
   async function handleDelete(itemId: string) {
     if (!selectedEventId) return;
     try {
@@ -189,6 +375,26 @@ export default function FishListView({ events, canEdit, isActive = true, initial
       console.error('fishItems update error:', err);
     }
   }
+
+  async function handleNameSave(itemId: string, name: string) {
+    if (!selectedEventId || !name.trim()) return;
+    try {
+      await updateDoc(doc(db, 'events', selectedEventId, 'fishItems', itemId), { name: name.trim() });
+    } catch (err) {
+      console.error('fishItems name update error:', err);
+    }
+  }
+
+  async function handleNoteSave(itemId: string, note: string) {
+    if (!selectedEventId) return;
+    try {
+      await updateDoc(doc(db, 'events', selectedEventId, 'fishItems', itemId), { note: note });
+    } catch (err) {
+      console.error('fishItems note update error:', err);
+    }
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-app)' }}>
@@ -246,148 +452,210 @@ export default function FishListView({ events, canEdit, isActive = true, initial
             </div>
 
             {selectedEvent && (
-              <div className="md:grid md:grid-cols-[minmax(260px,340px)_1fr] md:gap-6 xl:gap-8 md:items-start">
-                <div className="md:sticky md:top-4 space-y-4">
-                  {/* 合計バッジ */}
-                  {fishItems.length > 0 && (
-                    <div className="flex items-center gap-3 rounded-2xl px-4 py-3 bg-white border border-slate-200 shadow-sm">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-slate-50">
-                        <Fish size={18} className="text-slate-500" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-black text-slate-900 text-sm truncate">{selectedEvent.venue}</div>
-                        <div className="text-xs text-slate-500">
-                          {selectedEvent.start ? fmtDateRange(selectedEvent.start, selectedEvent.end || selectedEvent.start) : '日程未定'}
-                        </div>
-                      </div>
-                      <span className="ml-auto shrink-0 text-xs font-black text-slate-700 bg-slate-100 px-3 py-1 rounded-full">
-                        {fishItems.length}種 / {totalFishCount}匹
-                      </span>
-                    </div>
-                  )}
+              <>
+                {error && (
+                  <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-2 text-xs text-red-800 font-bold">
+                    {error}
+                  </div>
+                )}
 
-                  {canEdit && (
-                    <div className="rounded-2xl p-4 bg-white border border-slate-200 shadow-sm">
-                      <div className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">観賞魚を追加</div>
-                      <div className="flex flex-col gap-2">
-                        <input
-                          type="text"
-                          placeholder="魚の名前（例：ネオンテトラ）"
-                          value={newName}
-                          onChange={e => { setNewName(e.target.value); setError(null); }}
-                          onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                          className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
-                        />
-                        <div className="flex gap-2 overflow-hidden">
-                          <input
-                            type="number"
-                            min={0}
-                            value={newCount}
-                            onChange={e => setNewCount(Number(e.target.value))}
-                            className="w-24 shrink-0 rounded-xl border border-slate-200 bg-white text-slate-900 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-slate-300"
-                          />
-                          <span className="flex items-center text-sm text-slate-500 shrink-0">匹</span>
-                          <input
-                            type="text"
-                            placeholder="メモ（任意）"
-                            value={newNote}
-                            onChange={e => setNewNote(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                            className="flex-1 min-w-0 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
-                          />
-                        </div>
-                        <button
-                          onClick={handleAdd}
-                          disabled={!newName.trim() || saving}
-                          className="flex items-center justify-center gap-2 w-full rounded-xl bg-slate-900 hover:bg-slate-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-black text-sm py-2.5 transition-colors"
-                        >
-                          <Plus size={14} />
-                          {saving ? '追加中...' : '追加'}
-                        </button>
-                      </div>
+                {/* PC: スプレッドシートテーブル */}
+                <div className="hidden md:block rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+                  {/* ヘッダー */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+                    <div className="flex items-center gap-2">
+                      <Fish size={14} className="text-slate-400" />
+                      <span className="text-sm font-black text-slate-900">{selectedEvent.venue}</span>
+                      {selectedEvent.start && (
+                        <span className="text-xs text-slate-400">
+                          {fmtDateRange(selectedEvent.start, selectedEvent.end || selectedEvent.start)}
+                        </span>
+                      )}
                     </div>
-                  )}
-                </div>
-
-                <div className="min-w-0 mt-4 md:mt-0">
-                  {error && (
-                    <div className="mb-3 bg-red-50 border border-red-200 rounded-xl px-4 py-2 text-xs text-red-800 font-bold">
-                      {error}
-                    </div>
-                  )}
-
-                  {fishItems.length > 0 && (
-                    <div className="mb-3 flex items-center justify-between gap-3 rounded-xl px-4 py-2.5 border border-slate-200 bg-slate-50">
-                      <span className="text-xs font-black uppercase tracking-widest text-slate-500">登録一覧</span>
-                      <span className="text-sm font-black tabular-nums text-slate-800">
+                    {fishItems.length > 0 && (
+                      <span className="text-xs font-black text-slate-500 tabular-nums">
                         {fishItems.length}種 / 合計 {totalFishCount}匹
                       </span>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
-                  {fishItems.length === 0 ? (
-                    <div className="text-center py-16 text-slate-500">
-                      <Fish size={32} className="mx-auto mb-3 opacity-50" />
-                      <div className="text-sm">観賞魚が登録されていません</div>
-                      {canEdit && <div className="text-xs mt-1 text-slate-400">フォームから追加してください</div>}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      <AnimatePresence initial={false}>
-                        {fishItems.map((item, index) => (
-                          <motion.div
-                            key={item.id}
-                            layout
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            transition={{ duration: 0.15 }}
-                            className="rounded-2xl p-4 transition-colors group relative bg-white border border-slate-200 hover:border-slate-300 shadow-sm"
-                          >
-                            <div className="absolute top-2.5 left-3 text-[10px] font-black text-slate-300 tabular-nums">
-                              #{index + 1}
-                            </div>
-                            {canEdit && (
-                              <button
-                                onClick={() => handleDelete(item.id)}
-                                aria-label={`${item.name}を削除`}
-                                className="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            )}
-                            <div className="mt-3 mb-2">
-                              <div className="font-black text-sm text-slate-900 leading-snug pr-4">{item.name}</div>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              {canEdit ? (
-                                <>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    value={item.count}
-                                    onChange={e => handleCountChange(item, Number(e.target.value))}
-                                    aria-label={`${item.name}の匹数`}
-                                    className="w-16 text-center rounded-lg border border-slate-200 px-2 py-1 text-xs font-black tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                                  />
-                                  <span className="text-xs text-slate-500">匹</span>
-                                </>
-                              ) : (
-                                <span className="font-bold tabular-nums text-sm text-slate-900">{item.count}<span className="text-xs text-slate-500 ml-0.5">匹</span></span>
-                              )}
-                            </div>
-                            {item.note && (
-                              <div className="mt-2 text-xs text-slate-400 bg-slate-50 rounded-lg px-2 py-1 leading-snug">
-                                {item.note}
-                              </div>
-                            )}
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                    </div>
-                  )}
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50/30">
+                        <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right w-10">#</th>
+                        <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">魚の名前</th>
+                        <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left w-28">匹数</th>
+                        <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">メモ</th>
+                        {canEdit && <th className="w-10" />}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fishItems.length === 0 && !canEdit && (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-12 text-center text-sm text-slate-400">
+                            <Fish size={28} className="mx-auto mb-2 opacity-30" />
+                            観賞魚が登録されていません
+                          </td>
+                        </tr>
+                      )}
+                      {fishItems.map((item, index) => (
+                        <SpreadsheetRow
+                          key={item.id}
+                          item={item}
+                          index={index}
+                          canEdit={canEdit}
+                          onNameSave={handleNameSave}
+                          onCountChange={handleCountChange}
+                          onNoteSave={handleNoteSave}
+                          onDelete={handleDelete}
+                        />
+                      ))}
+                      {canEdit && (
+                        <NewSpreadsheetRow onAdd={handleAddItem} disabled={saving} />
+                      )}
+                    </tbody>
+                    {fishItems.length > 0 && (
+                      <tfoot>
+                        <tr className="border-t border-slate-100 bg-slate-50/50">
+                          <td colSpan={canEdit ? 5 : 4} className="px-4 py-2 text-right text-xs font-black text-slate-500 tabular-nums">
+                            合計 {totalFishCount}匹
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
                 </div>
-              </div>
+
+                {/* モバイル: カードグリッド */}
+                <div className="block md:hidden">
+                  <div className="md:grid md:grid-cols-[minmax(260px,340px)_1fr] md:gap-6 xl:gap-8 md:items-start">
+                    <div className="space-y-4">
+                      {fishItems.length > 0 && (
+                        <div className="flex items-center gap-3 rounded-2xl px-4 py-3 bg-white border border-slate-200 shadow-sm">
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-slate-50">
+                            <Fish size={18} className="text-slate-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-black text-slate-900 text-sm truncate">{selectedEvent.venue}</div>
+                            <div className="text-xs text-slate-500">
+                              {selectedEvent.start ? fmtDateRange(selectedEvent.start, selectedEvent.end || selectedEvent.start) : '日程未定'}
+                            </div>
+                          </div>
+                          <span className="ml-auto shrink-0 text-xs font-black text-slate-700 bg-slate-100 px-3 py-1 rounded-full">
+                            {fishItems.length}種 / {totalFishCount}匹
+                          </span>
+                        </div>
+                      )}
+
+                      {canEdit && (
+                        <div className="rounded-2xl p-4 bg-white border border-slate-200 shadow-sm">
+                          <div className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">観賞魚を追加</div>
+                          <div className="flex flex-col gap-2">
+                            <input
+                              type="text"
+                              placeholder="魚の名前（例：ネオンテトラ）"
+                              value={newName}
+                              onChange={e => { setNewName(e.target.value); setError(null); }}
+                              onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                              className="w-full rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                            />
+                            <div className="flex gap-2 overflow-hidden">
+                              <input
+                                type="number"
+                                min={0}
+                                value={newCount}
+                                onChange={e => setNewCount(Number(e.target.value))}
+                                className="w-24 shrink-0 rounded-xl border border-slate-200 bg-white text-slate-900 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-slate-300"
+                              />
+                              <span className="flex items-center text-sm text-slate-500 shrink-0">匹</span>
+                              <input
+                                type="text"
+                                placeholder="メモ（任意）"
+                                value={newNote}
+                                onChange={e => setNewNote(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                                className="flex-1 min-w-0 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                              />
+                            </div>
+                            <button
+                              onClick={handleAdd}
+                              disabled={!newName.trim() || saving}
+                              className="flex items-center justify-center gap-2 w-full rounded-xl bg-slate-900 hover:bg-slate-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-black text-sm py-2.5 transition-colors"
+                            >
+                              <Plus size={14} />
+                              {saving ? '追加中...' : '追加'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 mt-4">
+                      {fishItems.length === 0 ? (
+                        <div className="text-center py-16 text-slate-500">
+                          <Fish size={32} className="mx-auto mb-3 opacity-50" />
+                          <div className="text-sm">観賞魚が登録されていません</div>
+                          {canEdit && <div className="text-xs mt-1 text-slate-400">フォームから追加してください</div>}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
+                          <AnimatePresence initial={false}>
+                            {fishItems.map((item, index) => (
+                              <motion.div
+                                key={item.id}
+                                layout
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ duration: 0.15 }}
+                                className="rounded-2xl p-4 transition-colors group relative bg-white border border-slate-200 hover:border-slate-300 shadow-sm"
+                              >
+                                <div className="absolute top-2.5 left-3 text-[10px] font-black text-slate-300 tabular-nums">
+                                  #{index + 1}
+                                </div>
+                                {canEdit && (
+                                  <button
+                                    onClick={() => handleDelete(item.id)}
+                                    aria-label={`${item.name}を削除`}
+                                    className="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                )}
+                                <div className="mt-3 mb-2">
+                                  <div className="font-black text-sm text-slate-900 leading-snug pr-4">{item.name}</div>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {canEdit ? (
+                                    <>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={item.count}
+                                        onChange={e => handleCountChange(item, Number(e.target.value))}
+                                        aria-label={`${item.name}の匹数`}
+                                        className="w-16 text-center rounded-lg border border-slate-200 px-2 py-1 text-xs font-black tabular-nums text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                                      />
+                                      <span className="text-xs text-slate-500">匹</span>
+                                    </>
+                                  ) : (
+                                    <span className="font-bold tabular-nums text-sm text-slate-900">{item.count}<span className="text-xs text-slate-500 ml-0.5">匹</span></span>
+                                  )}
+                                </div>
+                                {item.note && (
+                                  <div className="mt-2 text-xs text-slate-400 bg-slate-50 rounded-lg px-2 py-1 leading-snug">
+                                    {item.note}
+                                  </div>
+                                )}
+                              </motion.div>
+                            ))}
+                          </AnimatePresence>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
           </>
         )}

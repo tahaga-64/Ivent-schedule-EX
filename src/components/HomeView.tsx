@@ -24,6 +24,7 @@ interface Props {
   onCreateEvent: () => void;
   onOpenSchedule: () => void;
   onNavigateCalendar: () => void;
+  onSelectEventForPhotos?: (event: Event) => void;
   canEditEvent: boolean;
   user: User | null;
 }
@@ -183,11 +184,12 @@ function SectionEmpty({ label }: { label: string }) {
   );
 }
 
-export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, onNavigateCalendar, canEditEvent, user }: Props) {
+export default function HomeView({ events, prepProgressMap, onSelectEvent, onSelectPrepEvent, onCreateEvent, onOpenSchedule, onNavigateCalendar, onSelectEventForPhotos, canEditEvent, user }: Props) {
   const [showEventPicker, setShowEventPicker] = useState(false);
   const [showPermissionToast, setShowPermissionToast] = useState(false);
   const [showUndelivered, setShowUndelivered] = useState(false);
   const [showNextPicker, setShowNextPicker] = useState(false);
+  const [showPhotoPicker, setShowPhotoPicker] = useState(false);
   const [staffBreakdown, setStaffBreakdown] = useState<StaffBreakdown | null>(null);
   const [staffByStatus, setStaffByStatus] = useState<Record<StatusType, string[]> | null>(null);
   const [staffLoading, setStaffLoading] = useState(true);
@@ -504,10 +506,10 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
           </RippleButton>
 
           <RippleButton
-            onClick={onOpenSchedule}
+            onClick={() => setShowPhotoPicker(true)}
             className="flex items-center gap-3 tank-card text-slate-900 rounded-2xl px-5 py-3.5 font-black text-sm hover:brightness-[1.03] active:scale-[0.98] transition-all w-full min-h-[64px]"
           >
-            スケジュール
+            写真を追加
           </RippleButton>
 
         </div>
@@ -691,6 +693,102 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
                     </button>
                   );
                 })}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+      , document.body)}
+
+      {/* 写真追加イベント選択 — portal */}
+      {createPortal(
+      <AnimatePresence>
+        {showPhotoPicker && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowPhotoPicker(false)}
+            />
+            <motion.div
+              className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl max-h-[80dvh] flex flex-col overflow-hidden border-t border-slate-200 shadow-2xl md:inset-0 md:m-auto md:h-fit md:max-h-[80vh] md:w-[min(520px,92vw)] md:rounded-3xl"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="flex justify-center pt-3 pb-1 shrink-0 md:hidden">
+                <div className="w-9 h-1 bg-slate-200 rounded-full" />
+              </div>
+              <div className="flex items-center justify-between px-5 pt-2 pb-3 shrink-0 border-b border-slate-200">
+                <div>
+                  <div className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-0.5">写真を追加</div>
+                  <h2 className="text-base font-black text-slate-900">どのイベントに追加しますか？</h2>
+                </div>
+                <button
+                  onClick={() => setShowPhotoPicker(false)}
+                  className="p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-500"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="overflow-y-auto px-4 pt-3 pb-10 space-y-4">
+                {pickerEvents.length === 0 ? (
+                  <div className="py-12 text-center text-sm text-slate-400">進行中のイベントがありません</div>
+                ) : (
+                  pickerGroups.map(({ month, events: evs }) => (
+                    <div key={month}>
+                      <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest px-1 mb-2">{month}</div>
+                      <div className="flex flex-col gap-2">
+                        {evs.map(ev => {
+                          const s = fmtDateJP(ev.start);
+                          const until = daysUntil(ev.start, today);
+                          const isToday = until === 0;
+                          const isSoon = until > 0 && until <= 7;
+                          const isOngoing = until < 0 && (ev.end || ev.start) >= today;
+                          const urgencyBadge = isToday
+                            ? { label: '今日', cls: 'bg-red-500 text-white' }
+                            : isOngoing
+                            ? { label: '開催中', cls: 'bg-emerald-500 text-white' }
+                            : isSoon
+                            ? { label: `${until}日後`, cls: 'bg-amber-400 text-white' }
+                            : null;
+                          const badgeBg = isToday || isOngoing ? '#ef4444' : isSoon ? '#f59e0b' : '#6366f1';
+                          return (
+                            <button
+                              key={ev.id}
+                              onClick={() => { setShowPhotoPicker(false); onSelectEventForPhotos?.(ev); }}
+                              className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-sm flex items-stretch overflow-hidden hover:bg-slate-50 active:scale-[0.98] transition-all"
+                            >
+                              <div
+                                className="flex flex-col items-center justify-center px-3 py-3 min-w-[52px] shrink-0"
+                                style={{ background: badgeBg }}
+                              >
+                                <span className="text-[10px] font-black text-white/70 leading-none">{s.month}月</span>
+                                <span className="text-xl font-black text-white leading-none mt-0.5">{s.day}</span>
+                                <span className="text-[10px] font-black text-white/80 leading-none mt-0.5">{s.dow}</span>
+                              </div>
+                              <div className="flex-1 min-w-0 px-3 py-3 flex flex-col justify-center">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="font-bold text-slate-900 text-sm truncate">{ev.venue}</span>
+                                  {urgencyBadge && (
+                                    <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full ${urgencyBadge.cls}`}>{urgencyBadge.label}</span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-slate-500 truncate">{fmtDateRange(ev.start, ev.end)}</div>
+                              </div>
+                              <div className="flex items-center pr-3">
+                                <ChevronRight size={16} className="text-slate-400 shrink-0" />
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </motion.div>
           </>
