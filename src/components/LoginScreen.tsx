@@ -10,7 +10,7 @@ interface Props {
 
 export default function LoginScreen({ onSignIn, onSkip, loading, error }: Props) {
   return (
-    <div className="fixed inset-0 overflow-hidden">
+    <div className="fixed inset-0 overflow-hidden z-[200]">
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: 'url(/mercury-office.webp)' }}
