@@ -1,6 +1,6 @@
 import { initializeApp, FirebaseApp } from "firebase/app";
 import { getAuth, signInAnonymously, Auth } from "firebase/auth";
-import { getFirestore, doc, getDocFromServer, Firestore } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, doc, getDocFromServer, Firestore } from "firebase/firestore";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
 const viteEnv = import.meta.env as Record<string, string | undefined>;
@@ -42,7 +42,7 @@ let auth!: Auth;
 if (!_configError) {
   try {
     app = initializeApp(firebaseConfig);
-    db = getFirestore(app, firestoreDatabaseId);
+    db = initializeFirestore(app, { localCache: persistentLocalCache() }, firestoreDatabaseId);
     auth = getAuth(app);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

@@ -316,6 +316,16 @@ export default function AppWrapper({ currentUser, allEvents = [], isAdmin = fals
 function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; allEvents: Event[]; isAdmin: boolean }) {
   const [activeTab, setActiveTab] = useState<'schedule' | 'overall' | 'stats'>('schedule');
   const lastScheduleNotifyRef = useRef(0);
+
+  // iOS PWA: stats オーバーレイ表示中は history entry を積み、
+  // 端末のスワイプバック / Safari の「戻る」でも schedule に戻れるようにする
+  React.useEffect(() => {
+    if (activeTab !== 'stats') return;
+    history.pushState({ statsOverlay: true }, '');
+    const handler = () => { setActiveTab('schedule'); };
+    window.addEventListener('popstate', handler);
+    return () => { window.removeEventListener('popstate', handler); };
+  }, [activeTab]);
   const [myName, setMyName] = useState<string>(() => localStorage.getItem('ex_schedule_my_name') || '');
   // 担当者(名前)設定は管理者のみ。未設定でも一般ユーザーには初期モーダルを出さない
   const [showNamePicker, setShowNamePicker] = useState(() => isAdmin && !localStorage.getItem('ex_schedule_my_name'));
@@ -1566,11 +1576,11 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
 
       {/* 記録 — フルスクリーン独立ページ */}
       {activeTab === 'stats' && (
-        <div className="fixed inset-0 z-50 bg-[var(--bg-app)] overflow-y-auto flex flex-col">
+        <div className="fixed inset-0 z-50 bg-[var(--bg-app)] overflow-y-auto flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-200 shadow-sm">
             <button
               type="button"
-              onClick={() => setActiveTab('schedule')}
+              onClick={() => history.back()}
               className="flex items-center gap-1 text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors"
             >
               <ChevronLeft size={18} />

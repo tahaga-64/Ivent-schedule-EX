@@ -568,10 +568,7 @@ export default function App() {
     );
   }, [filtered, calendarDensityPreview, calYear, calMonth, regionFilter, typeFilter]);
 
-  const mobileCalendarEvents = useMemo(() => {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    return filtered.filter(ev => (ev.end || ev.start || '') >= todayStr);
-  }, [filtered]);
+  const mobileCalendarEvents = useMemo(() => filtered, [filtered]);
 
   const {
     uploading: photoUploading,
