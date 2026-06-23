@@ -104,7 +104,7 @@ export default function AppHeader({
             </div>
           </div>
 
-          <nav className="hidden lg:flex flex-1 items-center justify-center gap-0.5 min-w-0 px-1">
+          <nav className="hidden lg:flex flex-1 items-center justify-center gap-0.5 min-w-0 px-1 overflow-hidden">
             {desktopNavGroups.map((group, gi) => (
               <div key={gi} className="flex items-center gap-0.5">
                 {gi > 0 && <div className="h-5 w-px bg-slate-200 mx-0.5 shrink-0" aria-hidden />}
@@ -114,14 +114,14 @@ export default function AppHeader({
                     onClick={() => onSetView(v.id)}
                     title={v.label}
                     className={`
-                      flex items-center gap-1 px-2 xl:px-2.5 py-1.5 rounded-xl text-sm font-bold transition-all shrink-0 whitespace-nowrap
+                      flex items-center gap-1 px-2 2xl:px-2.5 py-1.5 rounded-xl text-sm font-bold transition-all shrink-0 whitespace-nowrap
                       ${view === v.id
                         ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}
                     `}
                   >
                     {v.icon}
-                    <span className="hidden xl:inline">{v.label}</span>
+                    <span className="hidden 2xl:inline">{v.label}</span>
                   </button>
                 ))}
               </div>
