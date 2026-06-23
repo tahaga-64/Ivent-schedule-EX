@@ -420,6 +420,8 @@ export default function Layout3DViewer({ items }: Props) {
       camera.position.x = radius * Math.sin(s.rotY) * Math.cos(s.rotX);
       camera.position.y = radius * Math.sin(s.rotX) + 4;
       camera.position.z = radius * Math.cos(s.rotY) * Math.cos(s.rotX);
+      // 縦方向に1回転（360°）しても上下が破綻しないよう、極を越えたら up を反転
+      camera.up.set(0, Math.cos(s.rotX) >= 0 ? 1 : -1, 0);
       camera.lookAt(0, 1.5, 0);
     }
     updateCamera();
@@ -474,7 +476,8 @@ export default function Layout3DViewer({ items }: Props) {
       const dx = p.clientX - stateRef.current.lastX;
       const dy = p.clientY - stateRef.current.lastY;
       stateRef.current.rotY += dx * 0.008;
-      stateRef.current.rotX = Math.max(-0.05, Math.min(1.45, stateRef.current.rotX + dy * 0.006));
+      // 縦方向も制限なしで360°自由に回転できるようにする
+      stateRef.current.rotX += dy * 0.006;
       stateRef.current.lastX = p.clientX;
       stateRef.current.lastY = p.clientY;
       updateCamera();
