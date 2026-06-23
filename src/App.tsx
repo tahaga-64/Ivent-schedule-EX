@@ -1193,7 +1193,34 @@ VITE_FIREBASE_DATABASE_ID`}
   );
 
   return (
-    <div className="relative isolate flex flex-col h-dvh min-h-dvh overflow-hidden bg-[var(--bg-app)]">
+    <div className="relative isolate flex h-dvh min-h-dvh overflow-hidden bg-[var(--bg-app)]">
+
+      {/* Sidebar — フルハイト左カラム（PCは常時表示。ヘッダーと領域を分離して重なりを防止） */}
+      <AppSidebar
+        open={sideOpen}
+        onClose={() => setSideOpen(false)}
+        stats={stats}
+        regionFilter={regionFilter}
+        setRegionFilter={setRegionFilter}
+        typeFilter={typeFilter}
+        setTypeFilter={setTypeFilter}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        setMonthFilter={setMonthFilter}
+        sidebarTypes={sidebarTypes}
+        setSidebarTypes={setSidebarTypes}
+        staffList={staffList}
+        staffExpanded={staffExpanded}
+        setStaffExpanded={setStaffExpanded}
+        canEditEvent={canEditEvent}
+        onAddStaff={handleAddStaff}
+        onDeleteStaff={handleDeleteStaff}
+        onEditStaffEmail={handleEditStaffEmail}
+        onDeleteType={handleDeleteType}
+      />
+
+      {/* 右カラム: ヘッダー + メインコンテンツ */}
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
 
       {/* Header */}
       <AppHeader
@@ -1217,17 +1244,6 @@ VITE_FIREBASE_DATABASE_ID`}
         adminAuthError={adminAuthError}
       />
 
-      <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
-
-      {emailPickerStaff && (
-        <StaffEmailPicker
-          staff={emailPickerStaff}
-          knownUsers={knownUsers}
-          onSave={saveStaffEmail}
-          onClose={() => setEmailPickerStaff(null)}
-        />
-      )}
-
       {/* 初期データ移行バナー（編集者のみ・未移行時） */}
       {canEditEvent && !eventsMigrated && (
         <MigrationBanner
@@ -1236,31 +1252,6 @@ VITE_FIREBASE_DATABASE_ID`}
           onSeed={handleSeedEvents}
         />
       )}
-
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Sidebar */}
-        <AppSidebar
-            open={sideOpen}
-            onClose={() => setSideOpen(false)}
-            stats={stats}
-            regionFilter={regionFilter}
-            setRegionFilter={setRegionFilter}
-            typeFilter={typeFilter}
-            setTypeFilter={setTypeFilter}
-            statusFilter={statusFilter}
-            setStatusFilter={setStatusFilter}
-            setMonthFilter={setMonthFilter}
-            sidebarTypes={sidebarTypes}
-            setSidebarTypes={setSidebarTypes}
-            staffList={staffList}
-            staffExpanded={staffExpanded}
-            setStaffExpanded={setStaffExpanded}
-            canEditEvent={canEditEvent}
-            onAddStaff={handleAddStaff}
-            onDeleteStaff={handleDeleteStaff}
-            onEditStaffEmail={handleEditStaffEmail}
-            onDeleteType={handleDeleteType}
-          />
 
         {/* Main Content */}
         <main className="flex-1 relative overflow-hidden flex flex-col">
@@ -1291,6 +1282,17 @@ VITE_FIREBASE_DATABASE_ID`}
           </div>
         </main>
       </div>
+
+      <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
+
+      {emailPickerStaff && (
+        <StaffEmailPicker
+          staff={emailPickerStaff}
+          knownUsers={knownUsers}
+          onSave={saveStaffEmail}
+          onClose={() => setEmailPickerStaff(null)}
+        />
+      )}
 
       {/* Modals */}
       <AnimatePresence>
