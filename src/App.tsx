@@ -37,6 +37,7 @@ import MobileBottomNav from './components/MobileBottomNav';
 import MobileMonthNav from './components/MobileMonthNav';
 import MigrationBanner from './components/MigrationBanner';
 import LoadingSplash from './components/LoadingSplash';
+import LoginScreen from './components/LoginScreen';
 import ViewLoadingFallback from './components/ViewLoadingFallback';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from './contexts/UnsavedChangesContext';
 import { getViewDir, viewVariants } from './lib/viewTransitions';
@@ -195,6 +196,7 @@ export default function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [adminAuthBusy, setAdminAuthBusy] = useState(false);
   const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [prepEvent, setPrepEvent] = useState<Event | null>(null);
   // イベント詳細から魚リスト / レイアウトを開いたときに最初に表示するイベント
@@ -369,8 +371,12 @@ export default function App() {
     setAdminAuthError(null);
     try {
       await signInAsAdmin();
+      setShowLoginModal(false);
     } catch (e) {
-      setAdminAuthError(e instanceof Error ? e.message : 'ログインに失敗しました');
+      const msg = e instanceof Error ? e.message : 'ログインに失敗しました';
+      if (msg !== 'リダイレクト中...') {
+        setAdminAuthError(msg);
+      }
     } finally {
       setAdminAuthBusy(false);
     }
@@ -1205,7 +1211,7 @@ VITE_FIREBASE_DATABASE_ID`}
         onCreateEvent={() => handleCreateEvent()}
         onShowHelp={() => setShowHelp(true)}
         isMobileAdmin={isMobileAdmin}
-        onAdminSignIn={handleAdminSignIn}
+        onAdminSignIn={() => { setAdminAuthError(null); setShowLoginModal(true); }}
         onAdminSignOut={handleAdminSignOut}
         adminAuthBusy={adminAuthBusy}
         adminAuthError={adminAuthError}
@@ -1419,6 +1425,16 @@ VITE_FIREBASE_DATABASE_ID`}
 
       {/* Global bubble burst FX portal */}
       <BubbleBurstPortal />
+
+      {/* 管理者ログインモーダル */}
+      {showLoginModal && user.isAnonymous && (
+        <LoginScreen
+          onSignIn={handleAdminSignIn}
+          onSkip={() => { setShowLoginModal(false); setAdminAuthError(null); }}
+          loading={adminAuthBusy}
+          error={adminAuthError}
+        />
+      )}
     </div>
   );
 }
