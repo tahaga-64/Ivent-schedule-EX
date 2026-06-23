@@ -1185,7 +1185,7 @@ VITE_FIREBASE_DATABASE_ID`}
       ) : v === "prep" ? (
         <PrepEventList events={allEvents} onSelectEvent={handleSetPrepEvent} />
       ) : v === "archive" ? (
-        <ArchiveView events={allEvents} onSelectEvent={handleSetPrepEvent} />
+        <ArchiveView events={allEvents} onSelectEvent={handleEventSelect} />
       ) : null}
     </>
   );
