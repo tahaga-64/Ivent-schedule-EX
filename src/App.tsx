@@ -64,7 +64,7 @@ const MobileDayAgendaView = lazyWithRetry(() => import('./components/CalendarCom
 const EventDetailModal = lazyWithRetry(() => import('./components/EventDetailModal'));
 
 type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container";
-type ModalTab = "detail" | "photos" | "financial";
+type ModalTab = "detail" | "photos";
 
 // 安全なlocalStorage読み込み
 function safeGetItem<T>(key: string, fallback: T): T {
@@ -1392,7 +1392,6 @@ VITE_FIREBASE_DATABASE_ID`}
             isNewEvent={pendingNewEventId !== null && selected?.id === pendingNewEventId}
             onCancelNew={handleCancelNewEvent}
             onDuplicate={handleDuplicateEvent}
-            hideFinancialTab={isMobile}
           />
           </Suspense>
         )}

@@ -674,47 +674,50 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
                 </div>
               </div>
             </div>
-            {/* Row 5: 備考 (shown if has content or canEdit) */}
-            {(item.note || canEdit) && (
-              <div className="border-t border-slate-200 px-3 md:px-4 py-2">
-                <div className={PREP_LABEL}>備考</div>
-                <PreparationNoteField value={item.note || ''} readOnly={!canEdit} onChange={note => updateItem(item.id, { note })} />
-                {item.noteUpdatedAt && (
-                  <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
-                    {[item.noteUpdatedByName || item.noteUpdatedByEmail, formatNoteDate(item.noteUpdatedAt)].filter(Boolean).join(' · ')}
-                  </p>
-                )}
-              </div>
-            )}
-            {/* Row 6: URL (shown if has content or canEdit) */}
-            {(item.url || canEdit) && (
-              <div className="border-t border-slate-200 px-3 md:px-4 py-2">
-                <div className={PREP_LABEL}>URL</div>
-                {canEdit ? (
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="text"
-                      value={item.url || ''}
-                      onChange={e => updateItem(item.id, { url: e.target.value })}
-                      placeholder="https://..."
-                      className={`flex-1 text-sm min-w-0 placeholder:text-slate-400 ${PREP_INPUT} py-2`}
-                    />
-                    {item.url && (
-                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-slate-500 hover:text-indigo-600">
-                        <ExternalLink size={14} />
-                      </a>
+            {/* Row 5/6: 備考 + URL（PCでは横並びにして1アイテムの高さを抑え、スクロール不要に） */}
+            {(item.note || item.url || canEdit) && (
+              <div className="grid lg:grid-cols-2 border-t border-slate-200 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+                {(item.note || canEdit) && (
+                  <div className="px-3 md:px-4 py-2">
+                    <div className={PREP_LABEL}>備考</div>
+                    <PreparationNoteField value={item.note || ''} readOnly={!canEdit} onChange={note => updateItem(item.id, { note })} />
+                    {item.noteUpdatedAt && (
+                      <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                        {[item.noteUpdatedByName || item.noteUpdatedByEmail, formatNoteDate(item.noteUpdatedAt)].filter(Boolean).join(' · ')}
+                      </p>
                     )}
                   </div>
-                ) : item.url ? (
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-indigo-600 underline underline-offset-2 break-all"
-                  >
-                    {item.url}
-                  </a>
-                ) : null}
+                )}
+                {(item.url || canEdit) && (
+                  <div className="px-3 md:px-4 py-2">
+                    <div className={PREP_LABEL}>URL</div>
+                    {canEdit ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={item.url || ''}
+                          onChange={e => updateItem(item.id, { url: e.target.value })}
+                          placeholder="https://..."
+                          className={`flex-1 text-sm min-w-0 placeholder:text-slate-400 ${PREP_INPUT} py-2`}
+                        />
+                        {item.url && (
+                          <a href={item.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-slate-500 hover:text-indigo-600">
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
+                      </div>
+                    ) : item.url ? (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-indigo-600 underline underline-offset-2 break-all"
+                      >
+                        {item.url}
+                      </a>
+                    ) : null}
+                  </div>
+                )}
               </div>
             )}
           </div>

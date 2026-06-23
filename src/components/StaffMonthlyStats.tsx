@@ -108,7 +108,7 @@ export default function StaffMonthlyStats({ monthData, allEvents, year, month }:
                 <ChevronRight size={14} className="text-slate-400 mt-0.5 shrink-0" />
               </div>
               <div className="flex items-baseline gap-1.5 mb-3">
-                <span className="text-3xl font-black text-indigo-600 leading-none">{s.eventCount}</span>
+                <span className="text-3xl font-black text-red-600 leading-none">{s.eventCount}</span>
                 <span className="text-[11px] font-bold text-slate-500">イベント日</span>
               </div>
               <div className="flex flex-wrap gap-1.5">

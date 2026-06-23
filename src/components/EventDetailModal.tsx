@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { X, Save, Trash2, ClipboardList, Copy, MapPin, Navigation, Fish, LayoutGrid } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User } from 'firebase/auth';
@@ -9,7 +9,6 @@ import { type StaffMember } from '../types';
 import PhotoUpload from './photos/PhotoUpload';
 import PhotoGallery from './photos/PhotoGallery';
 import { MAX_PHOTOS } from '../lib/photoStorage';
-import FinancialTab from './FinancialTab';
 
 // ── フィールド帰属 ─────────────────────────────────────────────────────────
 
@@ -40,7 +39,7 @@ function formatAttributionLine(meta: FieldAuthorAttribution | undefined): string
 
 // ── 型 ────────────────────────────────────────────────────────────────────
 
-type ModalTab = 'detail' | 'photos' | 'financial';
+type ModalTab = 'detail' | 'photos';
 
 export interface EventDetailModalProps {
   selected: Event;
@@ -74,8 +73,6 @@ export interface EventDetailModalProps {
   isNewEvent?: boolean;
   onCancelNew?: () => void;
   onDuplicate?: () => void;
-  /** true のとき財務タブを非表示（モバイル向け） */
-  hideFinancialTab?: boolean;
 }
 
 // ── コンポーネント ─────────────────────────────────────────────────────────
@@ -112,24 +109,11 @@ export default function EventDetailModal({
   isNewEvent,
   onCancelNew,
   onDuplicate,
-  hideFinancialTab = false,
 }: EventDetailModalProps) {
-  const modalTabs = useMemo(() => {
-    const tabs: { id: ModalTab; label: string }[] = [
-      { id: 'detail', label: '詳細' },
-      { id: 'photos', label: `写真${selected.photos?.length ? ` (${selected.photos.length})` : ''}` },
-    ];
-    if (!hideFinancialTab) {
-      tabs.push({ id: 'financial', label: '💰 財務' });
-    }
-    return tabs;
-  }, [hideFinancialTab, selected.photos?.length]);
-
-  useEffect(() => {
-    if (hideFinancialTab && modalTab === 'financial') {
-      setModalTab('detail');
-    }
-  }, [hideFinancialTab, modalTab, setModalTab]);
+  const modalTabs = useMemo(() => ([
+    { id: 'detail' as ModalTab, label: '詳細' },
+    { id: 'photos' as ModalTab, label: `写真${selected.photos?.length ? ` (${selected.photos.length})` : ''}` },
+  ]), [selected.photos?.length]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center md:p-4">
@@ -229,15 +213,6 @@ export default function EventDetailModal({
               </button>
             ))}
           </div>
-
-          {/* 財務タブ */}
-          {!hideFinancialTab && modalTab === 'financial' && (
-            <FinancialTab
-              event={selected}
-              canEdit={canEditEvent}
-              onUpdate={(updates) => onUpdate(selected.id, updates)}
-            />
-          )}
 
           {/* 写真タブ */}
           {modalTab === 'photos' && (
@@ -351,22 +326,6 @@ export default function EventDetailModal({
                 disabled={!canEditEvent}
                 onChange={e => onUpdate(selected.id, { client: e.target.value })}
               />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">予算（備品・ノベルティ）</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">¥</span>
-                <input
-                  type="number"
-                  min="0"
-                  className="w-full border border-gray-200 rounded-xl pl-7 pr-4 py-3 text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
-                  value={selected.prepBudget ?? ''}
-                  placeholder="0"
-                  disabled={!canEditEvent}
-                  onChange={e => onUpdate(selected.id, { prepBudget: parseInt(e.target.value) || undefined })}
-                />
-              </div>
             </div>
 
             <div>
