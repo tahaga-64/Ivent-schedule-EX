@@ -1155,6 +1155,7 @@ VITE_FIREBASE_DATABASE_ID`}
           onCreateEvent={() => handleCreateEvent()}
           onOpenSchedule={() => applySetView('schedule')}
           onNavigateCalendar={() => applySetView('calendar')}
+          onSelectEventForPhotos={(ev) => { runWithGuard(() => { setSelected(ev); setModalTab('photos'); }); }}
           canEditEvent={canEditEvent}
           user={user ?? null}
         />
