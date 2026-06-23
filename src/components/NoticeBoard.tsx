@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Megaphone, Plus, Trash2, X } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import { subscribeNoticesByDate, addNotice, deleteNotice, type Notice } from '../lib/notices';
+import { notifyPush, isPushNotificationConfigured } from '../lib/pushNotifications';
 
 interface Props {
   canEdit: boolean;
@@ -31,6 +32,15 @@ export default function NoticeBoard({ canEdit, user }: Props) {
     setSaving(true);
     try {
       await addNotice(today, text, user ?? {});
+      if (isPushNotificationConfigured()) {
+        const author = user?.displayName || user?.email?.split('@')[0] || 'スタッフ';
+        const preview = text.length > 60 ? text.slice(0, 60) + '…' : text;
+        notifyPush({
+          type: 'notice_added',
+          title: '連絡事項が投稿されました',
+          message: `${author}：${preview}`,
+        });
+      }
       setDraft('');
       setAdding(false);
     } catch (err) {
