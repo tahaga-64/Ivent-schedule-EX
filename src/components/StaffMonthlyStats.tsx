@@ -24,11 +24,21 @@ interface EventDay {
   region?: string;
 }
 
+interface EventGroup {
+  label: string;       // イベント名（detail、なければ venue）
+  startDay: number;    // 開始日
+  endDay: number;      // 終了日（単日なら startDay と同じ）
+  days: number[];      // 含まれる日のリスト
+  venue?: string;
+  region?: string;
+}
+
 interface MemberStats {
   name: string;
   counts: Record<StatusType, number>;
-  eventCount: number;
-  eventDays: EventDay[];
+  eventCount: number;        // = counts.event（日数・既存のまま維持）
+  eventDays: EventDay[];     // 既存のまま維持
+  eventGroups: EventGroup[]; // 連続日＋同名でまとめたイベント
 }
 
 const STAT_ORDER: StatusType[] = ['event', 'carry', 'office', 'dispatch', 'training', 'standby', 'normal', 'request', 'absence', 'other'];
@@ -72,7 +82,25 @@ export default function StaffMonthlyStats({ monthData, allEvents, year, month }:
           });
         }
       }
-      return { name, counts, eventCount: counts.event, eventDays };
+      // 連続日＋同名のイベント日を1イベントにまとめる
+      const eventGroups: EventGroup[] = [];
+      for (const ed of eventDays) {
+        const prev = eventGroups[eventGroups.length - 1];
+        if (prev && ed.day === prev.endDay + 1 && ed.label === prev.label) {
+          prev.endDay = ed.day;
+          prev.days.push(ed.day);
+        } else {
+          eventGroups.push({
+            label: ed.label,
+            startDay: ed.day,
+            endDay: ed.day,
+            days: [ed.day],
+            venue: ed.venue,
+            region: ed.region,
+          });
+        }
+      }
+      return { name, counts, eventCount: counts.event, eventDays, eventGroups };
     }).sort((a, b) => {
       const ra = MEMBER_READINGS[a.name] ?? a.name;
       const rb = MEMBER_READINGS[b.name] ?? b.name;
@@ -107,9 +135,10 @@ export default function StaffMonthlyStats({ monthData, allEvents, year, month }:
                 <span className="text-sm font-black text-slate-900 leading-tight">{s.name.replace('　', ' ')}</span>
                 <ChevronRight size={14} className="text-slate-400 mt-0.5 shrink-0" />
               </div>
-              <div className="flex items-baseline gap-1.5 mb-3">
-                <span className="text-3xl font-black text-red-600 leading-none">{s.eventCount}</span>
-                <span className="text-[11px] font-bold text-slate-500">イベント日</span>
+              <div className="flex items-baseline gap-1 mb-3">
+                <span className="text-3xl font-black text-red-600 leading-none">{s.eventGroups.length}</span>
+                <span className="text-[11px] font-bold text-slate-500">件</span>
+                <span className="text-[11px] font-bold text-slate-400 ml-0.5">（{s.eventCount}日）</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {([['office', s.counts.office], ['carry', s.counts.carry], ['dispatch', s.counts.dispatch]] as [StatusType, number][]).map(([t, n]) =>
@@ -196,30 +225,39 @@ export default function StaffMonthlyStats({ monthData, allEvents, year, month }:
                 {/* 右カラム: 参加イベント */}
                 <div>
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-                    参加イベント（{selected.eventDays.length}日）
+                    参加イベント（{selected.eventGroups.length}件・{selected.eventDays.length}日）
                   </p>
-                  {selected.eventDays.length > 0 ? (
+                  {selected.eventGroups.length > 0 ? (
                     <div className="space-y-2">
-                      {selected.eventDays.map(ed => {
-                        const dow = DOW_JP[new Date(year, month, ed.day).getDay()];
-                        const regionStyle = ed.region ? rs(ed.region) : null;
+                      {selected.eventGroups.map(eg => {
+                        const isMultiDay = eg.endDay > eg.startDay;
+                        const dow = DOW_JP[new Date(year, month, eg.startDay).getDay()];
+                        const regionStyle = eg.region ? rs(eg.region) : null;
                         return (
                           <div
-                            key={ed.day}
+                            key={`${eg.startDay}-${eg.label}`}
                             className="flex items-center gap-3 bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100"
                           >
                             <div
                               className="w-9 h-9 rounded-lg shrink-0 flex flex-col items-center justify-center bg-red-50 text-red-600"
                             >
-                              <span className="text-sm font-black leading-none">{ed.day}</span>
-                              <span className="text-[8px] font-bold leading-none mt-0.5">{dow}</span>
+                              {isMultiDay ? (
+                                <span className="text-[11px] font-black leading-none">{eg.startDay}〜{eg.endDay}</span>
+                              ) : (
+                                <>
+                                  <span className="text-sm font-black leading-none">{eg.startDay}</span>
+                                  <span className="text-[8px] font-bold leading-none mt-0.5">{dow}</span>
+                                </>
+                              )}
                             </div>
                             {regionStyle && (
                               <div className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: regionStyle.dot }} />
                             )}
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-black text-slate-900 truncate">{ed.label}</p>
-                              {ed.region && <p className="text-[11px] text-slate-500">{ed.region}</p>}
+                              <p className="text-sm font-black text-slate-900 truncate">{eg.label}</p>
+                              <p className="text-[11px] text-slate-500">
+                                {[eg.region, isMultiDay ? `${eg.days.length}日間` : null].filter(Boolean).join('・') || `${month + 1}/${eg.startDay}`}
+                              </p>
                             </div>
                           </div>
                         );
