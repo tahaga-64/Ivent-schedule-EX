@@ -1,9 +1,16 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import {
+  useState, useEffect, useMemo, useCallback, useRef,
+  forwardRef, useImperativeHandle,
+} from 'react';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import { db } from '../lib/firebase';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import {
+  collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, writeBatch,
+} from 'firebase/firestore';
 import type { Event, FishItem } from '../types';
-import { Fish, Plus, Trash2 } from 'lucide-react';
+import {
+  Fish, Plus, Trash2, GripVertical, Download, ChevronUp, ChevronDown, ChevronsUpDown,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { notifyPush, isPushNotificationConfigured } from '../lib/pushNotifications';
 import { fmtDateJPFull } from '../lib/eventHelpers';
@@ -30,7 +37,13 @@ function isEventPast(ev: Event): boolean {
   return !!endDate && endDate < today;
 }
 
-// ── PC spreadsheet components ────────────────────────────────────────────────
+// ── PC spreadsheet components ─────────────────────────────────────────────────
+
+interface SpreadsheetRowRef {
+  focusName: () => void;
+  focusCount: () => void;
+  focusNote: () => void;
+}
 
 interface SpreadsheetRowProps {
   item: FishItem;
@@ -40,161 +53,243 @@ interface SpreadsheetRowProps {
   onCountChange: (item: FishItem, count: number) => void;
   onNoteSave: (id: string, note: string) => void;
   onDelete: (id: string) => void;
+  onNavigate: (dir: 'tab' | 'shift-tab' | 'up' | 'down', col: 'name' | 'count' | 'note') => void;
+  onDragStart: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: () => void;
+  isDragOver: boolean;
 }
 
-function SpreadsheetRow({ item, index, canEdit, onNameSave, onCountChange, onNoteSave, onDelete }: SpreadsheetRowProps) {
-  const [name, setName] = useState(item.name);
-  const [note, setNote] = useState(item.note ?? '');
-  const countRef = useRef<HTMLInputElement>(null);
-  const noteRef = useRef<HTMLInputElement>(null);
+const SpreadsheetRow = forwardRef<SpreadsheetRowRef, SpreadsheetRowProps>(
+  function SpreadsheetRow(
+    { item, index, canEdit, onNameSave, onCountChange, onNoteSave, onDelete, onNavigate, onDragStart, onDragOver, onDrop, isDragOver },
+    ref,
+  ) {
+    const [name, setName] = useState(item.name);
+    const [note, setNote] = useState(item.note ?? '');
+    const nameRef = useRef<HTMLInputElement>(null);
+    const countRef = useRef<HTMLInputElement>(null);
+    const noteRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { setName(item.name); }, [item.name]);
-  useEffect(() => { setNote(item.note ?? ''); }, [item.note]);
+    useEffect(() => { setName(item.name); }, [item.name]);
+    useEffect(() => { setNote(item.note ?? ''); }, [item.note]);
 
-  const cellCls = 'w-full px-2 py-1 text-sm bg-transparent border border-transparent rounded-lg focus:border-indigo-300 focus:bg-white focus:outline-none transition-all';
+    useImperativeHandle(ref, () => ({
+      focusName: () => nameRef.current?.focus(),
+      focusCount: () => countRef.current?.focus(),
+      focusNote: () => noteRef.current?.focus(),
+    }));
 
-  return (
-    <tr className="group border-b border-slate-100 hover:bg-indigo-50/20 transition-colors">
-      <td className="px-3 py-0.5 text-[11px] text-slate-300 tabular-nums select-none w-10 text-right shrink-0">
-        {index + 1}
-      </td>
-      <td className="px-1 py-0.5">
-        {canEdit ? (
-          <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            onBlur={() => { const t = name.trim(); if (t && t !== item.name) onNameSave(item.id, t); else setName(item.name); }}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); countRef.current?.focus(); } }}
-            className={`${cellCls} font-medium text-slate-900`}
-          />
-        ) : (
-          <span className="px-2 py-1 text-sm font-medium text-slate-900">{item.name}</span>
+    const cellCls = 'w-full px-2 py-1 text-sm bg-transparent border border-transparent rounded-lg focus:border-indigo-300 focus:bg-white focus:outline-none transition-all';
+
+    function handleTabKey(e: React.KeyboardEvent, col: 'name' | 'count' | 'note') {
+      if (e.key !== 'Tab') return;
+      e.preventDefault();
+      onNavigate(e.shiftKey ? 'shift-tab' : 'tab', col);
+    }
+
+    function handleArrowKey(e: React.KeyboardEvent, col: 'name' | 'count' | 'note') {
+      if (e.key === 'ArrowDown') { e.preventDefault(); onNavigate('down', col); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); onNavigate('up', col); }
+    }
+
+    return (
+      <tr
+        className={`group border-b transition-colors ${
+          isDragOver ? 'bg-indigo-100 border-b-indigo-400' : 'border-slate-100 hover:bg-indigo-50/20'
+        }`}
+        draggable={canEdit}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+      >
+        {canEdit && (
+          <td className="pl-2 pr-0 py-0.5 w-7 cursor-grab active:cursor-grabbing">
+            <GripVertical size={14} className="text-slate-300 group-hover:text-slate-400 transition-colors" />
+          </td>
         )}
-      </td>
-      <td className="px-1 py-0.5 w-28">
-        <div className="flex items-center gap-0.5">
+        <td className="px-3 py-0.5 text-[11px] text-slate-300 tabular-nums select-none w-10 text-right shrink-0">
+          {index + 1}
+        </td>
+        <td className="px-1 py-0.5">
           {canEdit ? (
             <input
-              ref={countRef}
-              type="number"
-              min={0}
-              value={item.count}
-              onChange={e => onCountChange(item, Number(e.target.value))}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); noteRef.current?.focus(); } }}
-              className={`${cellCls} w-16 text-center font-black tabular-nums text-slate-900`}
+              ref={nameRef}
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onBlur={() => { const t = name.trim(); if (t && t !== item.name) onNameSave(item.id, t); else setName(item.name); }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); countRef.current?.focus(); return; }
+                handleTabKey(e, 'name');
+                handleArrowKey(e, 'name');
+              }}
+              className={`${cellCls} font-medium text-slate-900`}
             />
           ) : (
-            <span className="px-2 py-1 text-sm font-black tabular-nums text-slate-900">{item.count}</span>
+            <span className="px-2 py-1 text-sm font-medium text-slate-900">{item.name}</span>
           )}
-          <span className="text-xs text-slate-400 shrink-0">匹</span>
-        </div>
-      </td>
-      <td className="px-1 py-0.5">
-        {canEdit ? (
-          <input
-            ref={noteRef}
-            value={note}
-            onChange={e => setNote(e.target.value)}
-            onBlur={() => { if (note !== (item.note ?? '')) onNoteSave(item.id, note); }}
-            placeholder="メモ"
-            className={`${cellCls} text-slate-500 placeholder-slate-300`}
-          />
-        ) : (
-          <span className="px-2 py-1 text-sm text-slate-500">{item.note}</span>
-        )}
-      </td>
-      {canEdit && (
-        <td className="px-2 py-0.5 w-10">
-          <button
-            onClick={() => onDelete(item.id)}
-            className="p-1 rounded text-slate-200 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
-          >
-            <Trash2 size={13} />
-          </button>
         </td>
-      )}
-    </tr>
-  );
+        <td className="px-1 py-0.5 w-28">
+          <div className="flex items-center gap-0.5">
+            {canEdit ? (
+              <input
+                ref={countRef}
+                type="number"
+                min={0}
+                value={item.count}
+                onChange={e => onCountChange(item, Number(e.target.value))}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); noteRef.current?.focus(); return; }
+                  handleTabKey(e, 'count');
+                  handleArrowKey(e, 'count');
+                }}
+                className={`${cellCls} w-16 text-center font-black tabular-nums text-slate-900`}
+              />
+            ) : (
+              <span className="px-2 py-1 text-sm font-black tabular-nums text-slate-900">{item.count}</span>
+            )}
+            <span className="text-xs text-slate-400 shrink-0">匹</span>
+          </div>
+        </td>
+        <td className="px-1 py-0.5">
+          {canEdit ? (
+            <input
+              ref={noteRef}
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              onBlur={() => { if (note !== (item.note ?? '')) onNoteSave(item.id, note); }}
+              placeholder="メモ"
+              onKeyDown={e => {
+                handleTabKey(e, 'note');
+                handleArrowKey(e, 'note');
+              }}
+              className={`${cellCls} text-slate-500 placeholder-slate-300`}
+            />
+          ) : (
+            <span className="px-2 py-1 text-sm text-slate-500">{item.note}</span>
+          )}
+        </td>
+        {canEdit && (
+          <td className="px-2 py-0.5 w-12">
+            <button
+              onClick={() => onDelete(item.id)}
+              className="p-1.5 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+              title="削除"
+            >
+              <Trash2 size={13} />
+            </button>
+          </td>
+        )}
+      </tr>
+    );
+  }
+);
+
+interface NewSpreadsheetRowRef {
+  focusName: () => void;
 }
 
 interface NewSpreadsheetRowProps {
   onAdd: (name: string, count: number, note: string) => Promise<void>;
   disabled?: boolean;
+  onShiftTabFromName?: () => void;
 }
 
-function NewSpreadsheetRow({ onAdd, disabled }: NewSpreadsheetRowProps) {
-  const [name, setName] = useState('');
-  const [count, setCount] = useState(1);
-  const [note, setNote] = useState('');
-  const nameRef = useRef<HTMLInputElement>(null);
-  const countRef = useRef<HTMLInputElement>(null);
-  const noteRef = useRef<HTMLInputElement>(null);
+const NewSpreadsheetRow = forwardRef<NewSpreadsheetRowRef, NewSpreadsheetRowProps>(
+  function NewSpreadsheetRow({ onAdd, disabled, onShiftTabFromName }, ref) {
+    const [name, setName] = useState('');
+    const [count, setCount] = useState(1);
+    const [note, setNote] = useState('');
+    const nameRef = useRef<HTMLInputElement>(null);
+    const countRef = useRef<HTMLInputElement>(null);
+    const noteRef = useRef<HTMLInputElement>(null);
 
-  const doAdd = async () => {
-    if (!name.trim()) return;
-    await onAdd(name.trim(), count, note.trim());
-    setName(''); setCount(1); setNote('');
-    setTimeout(() => nameRef.current?.focus(), 30);
-  };
+    useImperativeHandle(ref, () => ({
+      focusName: () => nameRef.current?.focus(),
+    }));
 
-  const cellCls = 'w-full px-2 py-1 text-sm bg-transparent border border-transparent rounded-lg focus:border-indigo-300 focus:bg-white focus:outline-none transition-all placeholder-slate-300';
+    const doAdd = async () => {
+      if (!name.trim()) return;
+      await onAdd(name.trim(), count, note.trim());
+      setName(''); setCount(1); setNote('');
+      setTimeout(() => nameRef.current?.focus(), 30);
+    };
 
-  return (
-    <tr className="border-b border-dashed border-slate-100 bg-slate-50/30">
-      <td className="px-3 py-1 text-[11px] text-slate-300 select-none text-right w-10">
-        <Plus size={11} className="ml-auto" />
-      </td>
-      <td className="px-1 py-1">
-        <input
-          ref={nameRef}
-          value={name}
-          onChange={e => setName(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); countRef.current?.focus(); } }}
-          placeholder="新しい魚を追加..."
-          disabled={disabled}
-          className={`${cellCls} text-slate-700`}
-        />
-      </td>
-      <td className="px-1 py-1 w-28">
-        <div className="flex items-center gap-0.5">
+    const cellCls = 'w-full px-2 py-1 text-sm bg-transparent border border-transparent rounded-lg focus:border-indigo-300 focus:bg-white focus:outline-none transition-all placeholder-slate-300';
+
+    return (
+      <tr className="border-b border-dashed border-slate-100 bg-slate-50/30">
+        <td className="pl-2 pr-0 py-1 w-7" />
+        <td className="px-3 py-1 text-[11px] text-slate-300 select-none text-right w-10">
+          <Plus size={11} className="ml-auto" />
+        </td>
+        <td className="px-1 py-1">
           <input
-            ref={countRef}
-            type="number"
-            min={0}
-            value={count}
-            onChange={e => setCount(Number(e.target.value))}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); noteRef.current?.focus(); } }}
+            ref={nameRef}
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); countRef.current?.focus(); return; }
+              if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); countRef.current?.focus(); return; }
+              if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); onShiftTabFromName?.(); return; }
+            }}
+            placeholder="新しい魚を追加..."
             disabled={disabled}
-            className={`${cellCls} w-16 text-center font-black tabular-nums text-slate-700`}
+            className={`${cellCls} text-slate-700`}
           />
-          <span className="text-xs text-slate-400 shrink-0">匹</span>
-        </div>
-      </td>
-      <td className="px-1 py-1">
-        <input
-          ref={noteRef}
-          value={note}
-          onChange={e => setNote(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); doAdd(); } }}
-          placeholder="メモ（任意）"
-          disabled={disabled}
-          className={`${cellCls} text-slate-500`}
-        />
-      </td>
-      <td className="px-2 py-1 w-10">
-        <button
-          onClick={doAdd}
-          disabled={!name.trim() || disabled}
-          className="p-1 rounded text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-30 transition-colors"
-        >
-          <Plus size={13} />
-        </button>
-      </td>
-    </tr>
-  );
-}
+        </td>
+        <td className="px-1 py-1 w-28">
+          <div className="flex items-center gap-0.5">
+            <input
+              ref={countRef}
+              type="number"
+              min={0}
+              value={count}
+              onChange={e => setCount(Number(e.target.value))}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); noteRef.current?.focus(); return; }
+                if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); noteRef.current?.focus(); return; }
+                if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); nameRef.current?.focus(); return; }
+              }}
+              disabled={disabled}
+              className={`${cellCls} w-16 text-center font-black tabular-nums text-slate-700`}
+            />
+            <span className="text-xs text-slate-400 shrink-0">匹</span>
+          </div>
+        </td>
+        <td className="px-1 py-1">
+          <input
+            ref={noteRef}
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); doAdd(); return; }
+              if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); doAdd(); return; }
+              if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); countRef.current?.focus(); return; }
+            }}
+            placeholder="メモ（任意）"
+            disabled={disabled}
+            className={`${cellCls} text-slate-500`}
+          />
+        </td>
+        <td className="px-2 py-1 w-12">
+          <button
+            onClick={doAdd}
+            disabled={!name.trim() || disabled}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-100 disabled:text-slate-400 text-white text-xs font-black transition-colors"
+          >
+            <Plus size={11} />
+            追加
+          </button>
+        </td>
+      </tr>
+    );
+  }
+);
 
 // ── Main component ────────────────────────────────────────────────────────────
+
+type SortKey = 'default' | 'name' | 'count';
 
 export default function FishListView({ events, canEdit, isActive = true, initialEventId }: Props) {
   const aquariumEvents = useMemo(
@@ -215,6 +310,18 @@ export default function FishListView({ events, canEdit, isActive = true, initial
   const [error, setError] = useState<string | null>(null);
   const { runWithGuard } = useUnsavedChanges();
 
+  // Sort
+  const [sortKey, setSortKey] = useState<SortKey>('default');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  // Drag-and-drop
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dropIdx, setDropIdx] = useState<number | null>(null);
+
+  // Row refs for keyboard navigation
+  const rowRefs = useRef<(SpreadsheetRowRef | null)[]>([]);
+  const newRowRef = useRef<NewSpreadsheetRowRef | null>(null);
+
   const selectedEvent = aquariumEvents.find(ev => ev.id === selectedEventId);
 
   const totalFishCount = useMemo(
@@ -233,6 +340,33 @@ export default function FishListView({ events, canEdit, isActive = true, initial
     setNewNote('');
     setError(null);
   }, []);
+
+  // Sorted items for display
+  const sortedItems = useMemo(() => {
+    if (sortKey === 'default') return fishItems;
+    const copy = [...fishItems];
+    copy.sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'name') cmp = a.name.localeCompare(b.name, 'ja');
+      if (sortKey === 'count') cmp = a.count - b.count;
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return copy;
+  }, [fishItems, sortKey, sortDir]);
+
+  function handleSortClick(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  }
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <ChevronsUpDown size={11} className="opacity-40" />;
+    return sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />;
+  }
 
   const notifyFishAdded = useCallback((name: string, count: number) => {
     if (!selectedEvent || !isPushNotificationConfigured()) return;
@@ -276,7 +410,7 @@ export default function FishListView({ events, canEdit, isActive = true, initial
     } finally {
       setSaving(false);
     }
-  }, [newName, newNote, newCount, selectedEventId, fishItems.length, clearDraft]);
+  }, [newName, newNote, newCount, selectedEventId, fishItems.length, clearDraft, notifyFishAdded]);
 
   useRegisterUnsavedGuard(`fish-draft-${selectedEventId}`, {
     enabled: canEdit && !!selectedEventId,
@@ -309,7 +443,41 @@ export default function FishListView({ events, canEdit, isActive = true, initial
     return unsub;
   }, [isActive, selectedEventId]);
 
-  // ── Data mutation handlers ────────────────────────────────────────────────
+  // ── Keyboard navigation ───────────────────────────────────────────────────
+
+  function makeNavigationHandler(rowIdx: number) {
+    return (dir: 'tab' | 'shift-tab' | 'up' | 'down', col: 'name' | 'count' | 'note') => {
+      const cols = ['name', 'count', 'note'] as const;
+      const colIdx = cols.indexOf(col);
+      const focusMethods = ['focusName', 'focusCount', 'focusNote'] as const;
+
+      if (dir === 'tab') {
+        if (colIdx < 2) {
+          rowRefs.current[rowIdx]?.[focusMethods[colIdx + 1]]();
+        } else if (rowIdx + 1 < sortedItems.length) {
+          rowRefs.current[rowIdx + 1]?.focusName();
+        } else {
+          newRowRef.current?.focusName();
+        }
+      } else if (dir === 'shift-tab') {
+        if (colIdx > 0) {
+          rowRefs.current[rowIdx]?.[focusMethods[colIdx - 1]]();
+        } else if (rowIdx > 0) {
+          rowRefs.current[rowIdx - 1]?.focusNote();
+        }
+      } else if (dir === 'up' && rowIdx > 0) {
+        rowRefs.current[rowIdx - 1]?.[focusMethods[colIdx]]();
+      } else if (dir === 'down') {
+        if (rowIdx + 1 < sortedItems.length) {
+          rowRefs.current[rowIdx + 1]?.[focusMethods[colIdx]]();
+        } else {
+          newRowRef.current?.focusName();
+        }
+      }
+    };
+  }
+
+  // ── Data mutation handlers ─────────────────────────────────────────────────
 
   async function handleAdd() {
     if (!newName.trim() || !selectedEventId) return;
@@ -394,6 +562,55 @@ export default function FishListView({ events, canEdit, isActive = true, initial
     }
   }
 
+  // ── Drag-and-drop reorder ─────────────────────────────────────────────────
+
+  async function handleDrop(dropIndex: number) {
+    if (dragIdx === null || dragIdx === dropIndex || !selectedEventId) {
+      setDragIdx(null);
+      setDropIdx(null);
+      return;
+    }
+    const newItems = [...sortedItems];
+    const [moved] = newItems.splice(dragIdx, 1);
+    newItems.splice(dropIndex, 0, moved);
+
+    // Reset sort to default when manually reordering
+    setSortKey('default');
+
+    const batch = writeBatch(db);
+    newItems.forEach((item, i) => {
+      batch.update(doc(db, 'events', selectedEventId, 'fishItems', item.id), { order: i });
+    });
+    try {
+      await batch.commit();
+    } catch (err) {
+      console.error('fishItems reorder error:', err);
+    }
+    setDragIdx(null);
+    setDropIdx(null);
+  }
+
+  // ── CSV export ────────────────────────────────────────────────────────────
+
+  function handleExportCSV() {
+    const rows: string[][] = [['#', '魚の名前', '匹数', 'メモ']];
+    sortedItems.forEach((item, i) => {
+      rows.push([(i + 1).toString(), item.name, item.count.toString(), item.note ?? '']);
+    });
+    const csv = rows
+      .map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `魚リスト_${selectedEvent?.venue ?? 'export'}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -472,58 +689,107 @@ export default function FishListView({ events, canEdit, isActive = true, initial
                         </span>
                       )}
                     </div>
-                    {fishItems.length > 0 && (
-                      <span className="text-xs font-black text-slate-500 tabular-nums">
-                        {fishItems.length}種 / 合計 {totalFishCount}匹
-                      </span>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {fishItems.length > 0 && (
+                        <span className="text-xs font-black text-slate-500 tabular-nums">
+                          {fishItems.length}種 / 合計 {totalFishCount}匹
+                        </span>
+                      )}
+                      {fishItems.length > 0 && (
+                        <button
+                          onClick={handleExportCSV}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 text-xs font-bold transition-colors"
+                          title="CSVでダウンロード"
+                        >
+                          <Download size={12} />
+                          CSV
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50/30">
-                        <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right w-10">#</th>
-                        <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">魚の名前</th>
-                        <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left w-28">匹数</th>
-                        <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">メモ</th>
-                        {canEdit && <th className="w-10" />}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {fishItems.length === 0 && !canEdit && (
-                        <tr>
-                          <td colSpan={4} className="px-4 py-12 text-center text-sm text-slate-400">
-                            <Fish size={28} className="mx-auto mb-2 opacity-30" />
-                            観賞魚が登録されていません
-                          </td>
+                  {/* テーブル（スティッキーヘッダー付き） */}
+                  <div
+                    className="overflow-auto"
+                    style={{ maxHeight: 'calc(100vh - 280px)' }}
+                    onDragOver={e => e.preventDefault()}
+                  >
+                    <table className="w-full border-collapse">
+                      <thead className="sticky top-0 z-10 bg-white">
+                        <tr className="border-b border-slate-200 bg-slate-50">
+                          {canEdit && <th className="w-7" />}
+                          <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right w-10">#</th>
+                          <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">
+                            <button
+                              className="flex items-center gap-1 hover:text-slate-600 transition-colors"
+                              onClick={() => handleSortClick('name')}
+                            >
+                              魚の名前 <SortIcon col="name" />
+                            </button>
+                          </th>
+                          <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left w-28">
+                            <button
+                              className="flex items-center gap-1 hover:text-slate-600 transition-colors"
+                              onClick={() => handleSortClick('count')}
+                            >
+                              匹数 <SortIcon col="count" />
+                            </button>
+                          </th>
+                          <th className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">メモ</th>
+                          {canEdit && <th className="w-12" />}
                         </tr>
+                      </thead>
+                      <tbody>
+                        {sortedItems.length === 0 && !canEdit && (
+                          <tr>
+                            <td colSpan={canEdit ? 6 : 4} className="px-4 py-12 text-center text-sm text-slate-400">
+                              <Fish size={28} className="mx-auto mb-2 opacity-30" />
+                              観賞魚が登録されていません
+                            </td>
+                          </tr>
+                        )}
+                        {sortedItems.map((item, index) => (
+                          <SpreadsheetRow
+                            key={item.id}
+                            ref={el => { rowRefs.current[index] = el; }}
+                            item={item}
+                            index={index}
+                            canEdit={canEdit}
+                            onNameSave={handleNameSave}
+                            onCountChange={handleCountChange}
+                            onNoteSave={handleNoteSave}
+                            onDelete={handleDelete}
+                            onNavigate={makeNavigationHandler(index)}
+                            onDragStart={() => setDragIdx(index)}
+                            onDragOver={e => { e.preventDefault(); setDropIdx(index); }}
+                            onDrop={() => handleDrop(index)}
+                            isDragOver={dropIdx === index && dragIdx !== index}
+                          />
+                        ))}
+                        {canEdit && (
+                          <NewSpreadsheetRow
+                            ref={newRowRef}
+                            onAdd={handleAddItem}
+                            disabled={saving}
+                            onShiftTabFromName={() => {
+                              if (sortedItems.length > 0) {
+                                rowRefs.current[sortedItems.length - 1]?.focusNote();
+                              }
+                            }}
+                          />
+                        )}
+                      </tbody>
+                      {sortedItems.length > 0 && (
+                        <tfoot>
+                          <tr className="border-t border-slate-100 bg-slate-50/50 sticky bottom-0">
+                            <td colSpan={canEdit ? 6 : 4} className="px-4 py-2 text-right text-xs font-black text-slate-500 tabular-nums">
+                              {sortedItems.length}種 / 合計 {totalFishCount}匹
+                            </td>
+                          </tr>
+                        </tfoot>
                       )}
-                      {fishItems.map((item, index) => (
-                        <SpreadsheetRow
-                          key={item.id}
-                          item={item}
-                          index={index}
-                          canEdit={canEdit}
-                          onNameSave={handleNameSave}
-                          onCountChange={handleCountChange}
-                          onNoteSave={handleNoteSave}
-                          onDelete={handleDelete}
-                        />
-                      ))}
-                      {canEdit && (
-                        <NewSpreadsheetRow onAdd={handleAddItem} disabled={saving} />
-                      )}
-                    </tbody>
-                    {fishItems.length > 0 && (
-                      <tfoot>
-                        <tr className="border-t border-slate-100 bg-slate-50/50">
-                          <td colSpan={canEdit ? 5 : 4} className="px-4 py-2 text-right text-xs font-black text-slate-500 tabular-nums">
-                            合計 {totalFishCount}匹
-                          </td>
-                        </tr>
-                      </tfoot>
-                    )}
-                  </table>
+                    </table>
+                  </div>
                 </div>
 
                 {/* モバイル: カードグリッド */}
@@ -617,7 +883,7 @@ export default function FishListView({ events, canEdit, isActive = true, initial
                                   <button
                                     onClick={() => handleDelete(item.id)}
                                     aria-label={`${item.name}を削除`}
-                                    className="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+                                    className="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"
                                   >
                                     <Trash2 size={12} />
                                   </button>
