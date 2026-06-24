@@ -249,12 +249,10 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     registerPushServiceWorker();
-    if (isMobile) {
-      syncPushSubscriptionIfGranted(user).catch(() => {});
-    }
+    syncPushSubscriptionIfGranted(user).catch(() => {});
 
     const onVisible = () => {
-      if (document.visibilityState === 'visible' && isMobile) {
+      if (document.visibilityState === 'visible') {
         syncPushSubscriptionIfGranted(user).catch(() => {});
       }
     };
