@@ -205,6 +205,8 @@ export default function App() {
   const [modalTab, setModalTab] = useState<ModalTab>('detail');
   const [eventStats, setEventStats] = useState({ itemCount: 0, preparedCount: 0, budget: 0 });
   const [dbEvents, setDbEvents] = useState<Record<string, Event>>({});
+  const dbEventsRef = useRef<Record<string, Event>>({});
+  useEffect(() => { dbEventsRef.current = dbEvents; }, [dbEvents]);
   const [eventsMigrated, setEventsMigrated] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedError, setSeedError] = useState<string | null>(null);
@@ -260,7 +262,7 @@ export default function App() {
 
     const openEventFromMessage = (eventId: string | null | undefined) => {
       if (!eventId) return;
-      const ev = dbEvents[eventId];
+      const ev = dbEventsRef.current[eventId];
       if (ev) runWithGuard(() => setSelected(ev));
     };
 
@@ -280,7 +282,7 @@ export default function App() {
       navigator.serviceWorker?.removeEventListener('message', swHandler);
       stopForeground();
     };
-  }, [user, dbEvents, runWithGuard, isMobile]);
+  }, [user, runWithGuard]);
 
   // 通知 deep link: /?event=<id>
   useEffect(() => {
@@ -327,8 +329,8 @@ export default function App() {
 
   // スタッフリスト購読
   useEffect(() => {
+    const collator = new Intl.Collator('ja', { sensitivity: 'base' });
     const unsubscribe = onSnapshot(collection(db, 'staff'), (snap) => {
-      const collator = new Intl.Collator('ja', { sensitivity: 'base' });
       const list: StaffMember[] = snap.docs.map(d => ({ id: d.id, name: d.data().name as string, email: d.data().email as string | undefined }));
       list.sort((a, b) => collator.compare(a.name, b.name));
       setStaffList(list);
@@ -519,15 +521,20 @@ export default function App() {
 
   const prepProgressMap = useMemo(() => buildPrepProgressMap(allEvents), [allEvents]);
 
-  // 日付が過ぎたイベントを自動的に「完了」にする
+  // 日付が過ぎたイベントを自動的に「完了」にする（同一セッション内で重複実行しない）
+  const autoCompletedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
     const toComplete = allEvents.filter(ev =>
       ev.status !== 'completed' &&
       ev.status !== 'cancelled' &&
-      (ev.end || ev.start) < today
+      (ev.end || ev.start) < today &&
+      !autoCompletedRef.current.has(ev.id)
     );
-    toComplete.forEach(ev => handleUpdateEventStatus(ev.id, 'completed'));
+    toComplete.forEach(ev => {
+      autoCompletedRef.current.add(ev.id);
+      handleUpdateEventStatus(ev.id, 'completed');
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allEvents]);
 
@@ -566,7 +573,18 @@ export default function App() {
     );
   }, [filtered, calendarDensityPreview, calYear, calMonth, regionFilter, typeFilter]);
 
-  const mobileCalendarEvents = useMemo(() => filtered, [filtered]);
+  const mobileCalendarEvents = useMemo(() => {
+    const yearStr = String(calYear);
+    const monthStr = String(calMonth).padStart(2, '0');
+    const firstDay = `${yearStr}-${monthStr}-01`;
+    const lastDayNum = new Date(calYear, calMonth, 0).getDate();
+    const lastDay = `${yearStr}-${monthStr}-${String(lastDayNum).padStart(2, '0')}`;
+    return filtered.filter(ev => {
+      const start = ev.start || '';
+      const end = ev.end || ev.start || '';
+      return start <= lastDay && end >= firstDay;
+    });
+  }, [filtered, calYear, calMonth]);
 
   const {
     uploading: photoUploading,
