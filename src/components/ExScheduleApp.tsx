@@ -1377,7 +1377,8 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
                 </div>
 
                 {/* 縦スクロールもコンテナ内で行うことで、日付ヘッダー（sticky top-0）が下スクロールに追従する */}
-                <div ref={overallTableRef} className="overflow-auto max-h-[calc(100dvh-10rem)] relative border-b border-border w-full">
+                {/* モバイルは外側スクロールに任せるため max-h を外す */}
+                <div ref={overallTableRef} className={`overflow-auto relative border-b border-border w-full ${isMobile ? '' : 'max-h-[calc(100dvh-10rem)]'}`}>
                   <table className="w-full text-[9px] border-separate border-spacing-0 min-w-[max-content]">
                     <thead className="relative z-30">
                       <tr className="bg-slate-100 text-slate-900">
