@@ -566,7 +566,18 @@ export default function App() {
     );
   }, [filtered, calendarDensityPreview, calYear, calMonth, regionFilter, typeFilter]);
 
-  const mobileCalendarEvents = useMemo(() => filtered, [filtered]);
+  const mobileCalendarEvents = useMemo(() => {
+    const yearStr = String(calYear);
+    const monthStr = String(calMonth).padStart(2, '0');
+    const firstDay = `${yearStr}-${monthStr}-01`;
+    const lastDayNum = new Date(calYear, calMonth, 0).getDate();
+    const lastDay = `${yearStr}-${monthStr}-${String(lastDayNum).padStart(2, '0')}`;
+    return filtered.filter(ev => {
+      const start = ev.start || '';
+      const end = ev.end || ev.start || '';
+      return start <= lastDay && end >= firstDay;
+    });
+  }, [filtered, calYear, calMonth]);
 
   const {
     uploading: photoUploading,
