@@ -582,6 +582,7 @@ export default function App() {
     return filtered.filter(ev => {
       const start = ev.start || '';
       const end = ev.end || ev.start || '';
+      if (!start) return true; // 日付未定は月に関係なく表示
       return start <= lastDay && end >= firstDay;
     });
   }, [filtered, calYear, calMonth]);
