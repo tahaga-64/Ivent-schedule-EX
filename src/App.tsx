@@ -299,6 +299,7 @@ export default function App() {
 
   // 匿名認証で全員アクセス可（編集者メール等の役割判定は permissions / useRoles のまま）
   useEffect(() => {
+    if (!auth) return;
     let cancelled = false;
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (cancelled) return;
@@ -329,6 +330,7 @@ export default function App() {
 
   // スタッフリスト購読
   useEffect(() => {
+    if (!db) return;
     const collator = new Intl.Collator('ja', { sensitivity: 'base' });
     const unsubscribe = onSnapshot(collection(db, 'staff'), (snap) => {
       const list: StaffMember[] = snap.docs.map(d => ({ id: d.id, name: d.data().name as string, email: d.data().email as string | undefined }));
@@ -340,6 +342,7 @@ export default function App() {
 
   // ログイン実績ユーザー購読（スタッフの email 連携ピッカー用）
   useEffect(() => {
+    if (!db) return;
     const unsubscribe = onSnapshot(collection(db, 'userProfiles'), (snap) => {
       const list = snap.docs
         .map(d => ({ email: (d.data().email as string) ?? '', displayName: (d.data().displayName as string) ?? '' }))
@@ -405,6 +408,7 @@ export default function App() {
 
   // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {
+    if (!db) return;
     const unsubscribe = onSnapshot(collection(db, "events"), (snapshot) => {
       setDbEvents(prev => applyEventSnapshotChanges(prev, snapshot) ?? prev);
     });
@@ -413,6 +417,7 @@ export default function App() {
 
   // 静的DATA→Firestore 移行フラグを購読（appConfig/eventsMigration）
   useEffect(() => {
+    if (!db) return;
     const unsubscribe = onSnapshot(
       doc(db, 'appConfig', 'eventsMigration'),
       (snap) => setEventsMigrated(snap.exists() && snap.data()?.done === true),
@@ -461,7 +466,7 @@ export default function App() {
 
   // 選択イベントの準備物統計をリアルタイム購読
   useEffect(() => {
-    if (!selected) {
+    if (!selected || !db) {
       setEventStats({ itemCount: 0, preparedCount: 0, budget: 0 });
       return;
     }

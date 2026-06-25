@@ -1,9 +1,71 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from '../contexts/UnsavedChangesContext';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { Plus, Pencil, Trash2, ExternalLink, Package } from 'lucide-react';
+import { Plus, Pencil, Trash2, ExternalLink, Package, Search, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+
+// ── 検索エンジン ──────────────────────────────────────────────────────────────
+
+function normalizeForSearch(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/　/g, ' ')
+    .replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+}
+
+function getTokens(query: string): string[] {
+  return normalizeForSearch(query).split(/\s+/).filter(Boolean);
+}
+
+function scoreItem(item: MasterItem, tokens: string[]): number {
+  if (!tokens.length) return 1;
+  const name = normalizeForSearch(item.name);
+  const note = normalizeForSearch(item.note ?? '');
+  let score = 0;
+  for (const token of tokens) {
+    const ni = name.indexOf(token);
+    const oi = note.indexOf(token);
+    if (ni === -1 && oi === -1) return -1;
+    if (name === token) score += 20;
+    else if (ni === 0) score += 12;
+    else if (ni > -1) score += 6;
+    if (oi > -1) score += 3;
+  }
+  return score;
+}
+
+function highlight(text: string, tokens: string[]): ReactNode {
+  if (!tokens.length || !text) return text;
+  const normalized = normalizeForSearch(text);
+  const regions: [number, number][] = [];
+  for (const token of tokens) {
+    let pos = 0, idx: number;
+    while ((idx = normalized.indexOf(token, pos)) !== -1) {
+      regions.push([idx, idx + token.length]);
+      pos = idx + 1;
+    }
+  }
+  if (!regions.length) return text;
+  regions.sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  for (const r of regions) {
+    const last = merged[merged.length - 1];
+    if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
+    else merged.push([r[0], r[1]]);
+  }
+  const parts: ReactNode[] = [];
+  let cur = 0;
+  for (const [s, e] of merged) {
+    if (cur < s) parts.push(text.slice(cur, s));
+    parts.push(<mark key={s} className="bg-yellow-200 text-yellow-900 rounded-[2px] not-italic">{text.slice(s, e)}</mark>);
+    cur = e;
+  }
+  if (cur < text.length) parts.push(text.slice(cur));
+  return <>{parts}</>;
+}
 
 export interface MasterItem {
   id: string;
@@ -26,6 +88,8 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
   const [editing, setEditing] = useState<MasterItem | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [query, setQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
   const { runWithGuard } = useUnsavedChanges();
 
   const isFormDirty = useMemo(() => {
@@ -53,6 +117,34 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
     setEditing(null);
     setForm(EMPTY_FORM);
   }, []);
+
+  const tokens = useMemo(() => getTokens(query), [query]);
+
+  const filteredItems = useMemo(() => {
+    if (!tokens.length) return items;
+    const scored = items
+      .map(item => ({ item, score: scoreItem(item, tokens) }))
+      .filter(({ score }) => score >= 0);
+    scored.sort((a, b) => b.score - a.score);
+    return scored.map(({ item }) => item);
+  }, [items, tokens]);
+
+  useEffect(() => {
+    if (!isActive) return;
+    const handler = (e: KeyboardEvent) => {
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if (e.key === 'Escape' && document.activeElement === searchRef.current) {
+        setQuery('');
+        searchRef.current?.blur();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [isActive]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -124,20 +216,51 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
     <div className="relative flex flex-col min-h-full bg-[var(--bg-app)]">
 
       {/* Sticky header */}
-      <div className="relative z-10 flex items-center justify-between px-4 py-4 border-b border-slate-200 bg-white sticky top-0">
-        <div>
-          <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">MASTER</div>
-          <h2 className="text-2xl font-black text-slate-900">備品マスター</h2>
+      <div className="relative z-10 flex flex-col border-b border-slate-200 bg-white sticky top-0">
+        <div className="flex items-center justify-between px-4 pt-4 pb-2">
+          <div>
+            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">MASTER</div>
+            <h2 className="text-2xl font-black text-slate-900">備品マスター</h2>
+          </div>
+          {canEdit && (
+            <button
+              onClick={openAdd}
+              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black transition-colors shadow-indigo-200 shadow-md"
+            >
+              <Plus size={14} strokeWidth={3} />
+              追加
+            </button>
+          )}
         </div>
-        {canEdit && (
-          <button
-            onClick={openAdd}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black transition-colors shadow-indigo-200 shadow-md"
-          >
-            <Plus size={14} strokeWidth={3} />
-            追加
-          </button>
-        )}
+        <div className="px-4 pb-3">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              ref={searchRef}
+              type="search"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="品名・メモで検索… （/ キーでフォーカス）"
+              className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:border-indigo-400 focus:bg-white transition-all placeholder:text-slate-400"
+              style={{ fontSize: '16px' }}
+            />
+            {query && (
+              <button
+                onClick={() => { setQuery(''); searchRef.current?.focus(); }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          {query && (
+            <div className="text-[11px] text-slate-500 mt-1.5 px-1">
+              {filteredItems.length === 0
+                ? `「${query}」に一致する備品がありません`
+                : `${items.length}件中 ${filteredItems.length}件`}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* List */}
@@ -148,16 +271,24 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
             <div className="text-sm">マスターアイテムがありません</div>
             {canEdit && <div className="text-xs mt-1 text-slate-400">「追加」から登録してください</div>}
           </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="text-center py-16 text-slate-500">
+            <Search size={32} className="mx-auto mb-3 opacity-30" />
+            <div className="text-sm font-bold">「{query}」に一致する備品がありません</div>
+            <div className="text-xs mt-1 text-slate-400">別のキーワードで試してください</div>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-5xl mx-auto">
-            {items.map(item => (
+            {filteredItems.map(item => (
               <motion.div
                 key={item.id}
                 layout
                 className="bg-white border border-slate-200 rounded-2xl p-4 hover:border-slate-300 transition-colors group shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="font-black text-sm text-slate-900 leading-snug">{item.name}</div>
+                  <div className="font-black text-sm text-slate-900 leading-snug">
+                    {highlight(item.name, tokens)}
+                  </div>
                   {canEdit && (
                     <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
                       <button
@@ -178,7 +309,11 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                 <div className="text-xs text-slate-500 mb-1">
                   ¥{item.unitPrice.toLocaleString()} · デフォルト {item.defaultQuantity}個
                 </div>
-                {item.note && <div className="text-xs text-slate-400 mb-1">{item.note}</div>}
+                {item.note && (
+                  <div className="text-xs text-slate-400 mb-1">
+                    {highlight(item.note, tokens)}
+                  </div>
+                )}
                 {item.url && (
                   <a
                     href={item.url}
