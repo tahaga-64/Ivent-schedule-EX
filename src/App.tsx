@@ -1286,7 +1286,7 @@ VITE_FIREBASE_DATABASE_ID`}
               <motion.div
                 key={view === 'prep' || view === 'archive' ? `${view}-${prepEvent?.id ?? 'list'}` : view}
                 custom={viewDir}
-                className={`absolute inset-0 overflow-y-auto w-full max-w-none overscroll-contain ${
+                className={`absolute inset-0 overflow-y-auto w-full max-w-none bg-[var(--bg-app)] ${isMobile ? 'overscroll-none' : 'overscroll-contain'} ${
                   isMobile ? 'p-3 sm:p-4 pb-[calc(3.75rem+env(safe-area-inset-bottom))]' : 'p-4 md:p-6 lg:p-8 pb-20 md:pb-8'
                 }`}
                 variants={viewVariants}
