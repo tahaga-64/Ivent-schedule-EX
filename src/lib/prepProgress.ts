@@ -5,6 +5,12 @@ export function effectiveArrived(item: PreparationItem): boolean {
   return item.arrived;
 }
 
+export function isPrepItemCompleted(item: PreparationItem): boolean {
+  const s = item.orderStatus;
+  if (s !== undefined) return s === 'arrived' || s === 'completed';
+  return item.arrived;
+}
+
 export function isEmptyPrepItem(item: PreparationItem): boolean {
   return (
     !item.name?.trim() &&
@@ -28,7 +34,7 @@ export function computePrepProgressFields(items: PreparationItem[]): {
   const filled = items.filter(i => !isEmptyPrepItem(i));
   return {
     prepItemTotal: filled.length,
-    prepItemDone: filled.filter(i => effectiveArrived(i)).length,
+    prepItemDone: filled.filter(i => isPrepItemCompleted(i)).length,
   };
 }
 
