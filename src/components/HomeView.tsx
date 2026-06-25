@@ -193,6 +193,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
   const [staffBreakdown, setStaffBreakdown] = useState<StaffBreakdown | null>(null);
   const [staffByStatus, setStaffByStatus] = useState<Record<StatusType, string[]> | null>(null);
   const [staffLoading, setStaffLoading] = useState(true);
+  const [openStaffTip, setOpenStaffTip] = useState<string | null>(null);
   const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
@@ -406,6 +407,10 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
         {/* 稼働内訳 — 本社/イベント/外出/公休/希望休/その他 を横並び（PCはホバーで氏名表示） */}
         {!staffLoading && staffBreakdown !== null && (
           <motion.div {...sectionAnim(2)} className="tank-card rounded-2xl p-3">
+            {/* モバイル: タップして名前リストを閉じるオーバーレイ */}
+            {openStaffTip && (
+              <div className="fixed inset-0 z-20 md:hidden" onClick={() => setOpenStaffTip(null)} />
+            )}
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-1">
               {([
                 { label: '本社',   value: staffBreakdown.office,   statuses: ['office'],              bg: 'bg-blue-50 border-blue-200',   text: 'text-blue-800' },
@@ -414,16 +419,27 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
                 { label: '公休',   value: staffBreakdown.rest,     statuses: ['rest', 'normal'],      bg: 'bg-violet-50 border-violet-200', text: 'text-violet-800' },
                 { label: '希望休', value: staffBreakdown.request,  statuses: ['request'],             bg: 'bg-pink-50 border-pink-200',   text: 'text-pink-800' },
                 { label: 'その他', value: staffBreakdown.other,    statuses: ['other', 'training', 'carry', 'absence'], bg: 'bg-slate-50 border-slate-200', text: 'text-slate-700' },
-              ] as { label: string; value: number; statuses: StatusType[]; bg: string; text: string }[]).map(({ label, value, statuses, bg, text }) => {
+              ] as { label: string; value: number; statuses: StatusType[]; bg: string; text: string }[]).map(({ label, value, statuses, bg, text }, idx) => {
                 const names = staffByStatus
                   ? statuses.flatMap(s => staffByStatus[s] ?? []).map(n => n.replace('　', ' '))
                   : [];
+                const isOpen = openStaffTip === label;
+                // グリッド3列でエッジの吹き出しが画面外に出ないよう位置調整
+                const tipAlign = idx % 3 === 0
+                  ? 'left-0 -translate-x-0'
+                  : idx % 3 === 2
+                    ? 'right-0 translate-x-0'
+                    : 'left-1/2 -translate-x-1/2';
                 return (
-                  <div key={label} className={`group relative text-center rounded-lg py-1.5 border ${bg}`}>
+                  <div
+                    key={label}
+                    className={`group relative text-center rounded-lg py-1.5 border ${bg} ${names.length > 0 ? 'cursor-pointer md:cursor-default select-none' : ''}`}
+                    onClick={() => names.length > 0 && setOpenStaffTip(isOpen ? null : label)}
+                  >
                     <div className={`font-black leading-none text-lg ${text}`}>{value}</div>
                     <div className="text-[9px] text-slate-600 mt-0.5 font-bold">{label}</div>
                     {names.length > 0 && (
-                      <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-30 hidden md:group-hover:block w-max max-w-[220px]">
+                      <div className={`pointer-events-none absolute ${tipAlign} bottom-full mb-2 z-30 w-max max-w-[200px] ${isOpen ? 'block' : 'hidden md:group-hover:block'}`}>
                         <div className="bg-slate-900 text-white text-[11px] font-medium rounded-xl px-3 py-2 shadow-xl text-left">
                           <div className="font-black mb-1 text-[10px] uppercase tracking-widest text-slate-300">{label}（{names.length}名）</div>
                           <div className="flex flex-wrap gap-x-2 gap-y-0.5">
