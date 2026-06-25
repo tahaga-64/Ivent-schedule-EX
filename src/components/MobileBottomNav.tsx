@@ -60,7 +60,6 @@ export default function MobileBottomNav({ view, onSetView }: MobileBottomNavProp
     <>
       <nav
         className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white/95 backdrop-blur-md z-20 md:hidden"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex items-stretch justify-around px-1">
           {PRIMARY_TABS.map(tab => {
