@@ -1,8 +1,11 @@
 import type { Event, PreparationItem } from '../types';
 
+/**
+ * 準備物が「完了（着荷/完了）」状態か。取り消し線・カード色・preparedCount の表示判定に使用。
+ * 新3段階モデルの 'completed' も完了として扱うため isPrepItemCompleted に委譲する。
+ */
 export function effectiveArrived(item: PreparationItem): boolean {
-  if (item.orderStatus !== undefined) return item.orderStatus === 'arrived';
-  return item.arrived;
+  return isPrepItemCompleted(item);
 }
 
 export function isPrepItemCompleted(item: PreparationItem): boolean {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeOrderStatus, ORDER_STATUS_LABELS } from '../lib/orderStatus';
-import { computePrepProgressFields, isPrepItemCompleted } from '../lib/prepProgress';
+import { computePrepProgressFields, isPrepItemCompleted, effectiveArrived } from '../lib/prepProgress';
 import type { PreparationItem } from '../types';
 
 function makeItem(overrides: Partial<PreparationItem> = {}): PreparationItem {
@@ -53,5 +53,9 @@ describe('prep progress', () => {
     expect(progress.prepItemDone).toBe(2);
     expect(isPrepItemCompleted(makeItem({ orderStatus: 'completed' }))).toBe(true);
     expect(isPrepItemCompleted(makeItem({ orderStatus: 'arrived' }))).toBe(true);
+    // 表示判定 effectiveArrived も 'completed'/'arrived' を完了扱い（isPrepItemCompleted と一致）
+    expect(effectiveArrived(makeItem({ orderStatus: 'completed' }))).toBe(true);
+    expect(effectiveArrived(makeItem({ orderStatus: 'arrived' }))).toBe(true);
+    expect(effectiveArrived(makeItem({ orderStatus: 'ordered' }))).toBe(false);
   });
 });
