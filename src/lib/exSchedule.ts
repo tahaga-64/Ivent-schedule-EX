@@ -244,7 +244,7 @@ export async function fetchTodayStaffByStatus(): Promise<Record<StatusType, stri
   const monthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
   const dayIndex = now.getDate() - 1;
   try {
-    await ensureAnonymousExAuth();
+    await ensureAnonymousExAuth().catch(() => {});
     const snap = await getDoc(doc(exDb, 'months', monthKey));
     if (!snap.exists()) return null;
     const schedule = snap.data().schedule as Record<string, unknown[]> | undefined;
