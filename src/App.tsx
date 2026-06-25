@@ -24,9 +24,9 @@ import { usePhotos } from './hooks/usePhotos';
 import {
   canEditPreparationList as computeCanEditPreparationList,
   canEditFishList as computeCanEditFishList,
-  EVENT_EDITOR_EMAILS,
 } from './lib/permissions';
-import { signInAsAdmin, signOutAdmin, isMobileAdminUser, getAdminRedirectResult } from './lib/adminAuth';
+import { useUserName } from './hooks/useUserName';
+import NamePrompt from './components/NamePrompt';
 import HelpModal from './components/HelpModal';
 import StaffEmailPicker from './components/StaffEmailPicker';
 import AppSidebar from './components/AppSidebar';
@@ -37,7 +37,6 @@ import MobileBottomNav from './components/MobileBottomNav';
 import MobileMonthNav from './components/MobileMonthNav';
 import MigrationBanner from './components/MigrationBanner';
 import LoadingSplash from './components/LoadingSplash';
-import LoginScreen from './components/LoginScreen';
 import ViewLoadingFallback from './components/ViewLoadingFallback';
 import { useRegisterUnsavedGuard, useUnsavedChanges } from './contexts/UnsavedChangesContext';
 import { getViewDir, viewVariants } from './lib/viewTransitions';
@@ -194,9 +193,8 @@ export default function App() {
     typeof window !== 'undefined' ? window.innerWidth >= 768 : true
   );
   const [showHelp, setShowHelp] = useState(false);
-  const [adminAuthBusy, setAdminAuthBusy] = useState(false);
-  const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
-  const [showLoginModal, setShowLoginModal] = useState(false);
+  const { name: userName, setName: setUserName, hasName } = useUserName();
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [prepEvent, setPrepEvent] = useState<Event | null>(null);
   // イベント詳細から魚リスト / レイアウトを開いたときに最初に表示するイベント
@@ -363,48 +361,11 @@ export default function App() {
     return () => mq.removeEventListener("change", apply);
   }, []);
 
-  const isMobileAdmin = isMobileAdminUser(user);
-  const canEditEvent = !!user && !user.isAnonymous && EVENT_EDITOR_EMAILS.includes(user.email ?? '');
+  // ログイン廃止: 認証済み（匿名含む）なら全員が編集可
+  const canEditEvent = !!user;
   const canEditPreparationList = computeCanEditPreparationList(user);
   const canEditFishList = computeCanEditFishList(user);
   const canUploadPhoto = !!user;
-
-  const handleAdminSignIn = useCallback(async () => {
-    setAdminAuthBusy(true);
-    setAdminAuthError(null);
-    try {
-      await signInAsAdmin();
-      setShowLoginModal(false);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'ログインに失敗しました';
-      if (msg !== 'リダイレクト中...') {
-        setAdminAuthError(msg);
-      }
-    } finally {
-      setAdminAuthBusy(false);
-    }
-  }, []);
-
-  const handleAdminSignOut = useCallback(async () => {
-    setAdminAuthBusy(true);
-    setAdminAuthError(null);
-    try {
-      await signOutAdmin();
-    } catch (e) {
-      setAdminAuthError(e instanceof Error ? e.message : 'ログアウトに失敗しました');
-    } finally {
-      setAdminAuthBusy(false);
-    }
-  }, []);
-
-  // モバイルリダイレクト後のサインイン完了処理
-  useEffect(() => {
-    getAdminRedirectResult().catch((e) => {
-      if (e instanceof Error && e.message !== 'リダイレクト中...') {
-        setAdminAuthError(e.message);
-      }
-    });
-  }, []);
 
   // Firestoreから書き換えられたイベントデータを購読
   useEffect(() => {
@@ -1257,11 +1218,8 @@ VITE_FIREBASE_DATABASE_ID`}
         onSelectEvent={handleEventSelect}
         onCreateEvent={() => handleCreateEvent()}
         onShowHelp={() => setShowHelp(true)}
-        isMobileAdmin={isMobileAdmin}
-        onAdminSignIn={() => { setAdminAuthError(null); setShowLoginModal(true); }}
-        onAdminSignOut={handleAdminSignOut}
-        adminAuthBusy={adminAuthBusy}
-        adminAuthError={adminAuthError}
+        userName={userName}
+        onChangeName={() => setShowNamePrompt(true)}
       />
 
       {/* 初期データ移行バナー（編集者のみ・未移行時） */}
@@ -1447,15 +1405,15 @@ VITE_FIREBASE_DATABASE_ID`}
       {/* Global bubble burst FX portal */}
       <BubbleBurstPortal />
 
-      {/* 管理者ログインモーダル */}
-      {showLoginModal && user.isAnonymous && (
-        <LoginScreen
-          onSignIn={handleAdminSignIn}
-          onSkip={() => { setShowLoginModal(false); setAdminAuthError(null); }}
-          loading={adminAuthBusy}
-          error={adminAuthError}
-        />
-      )}
+      {/* 名前入力（ログインの代わり・変更履歴用） */}
+      <NamePrompt
+        open={!hasName || showNamePrompt}
+        required={!hasName}
+        initial={userName}
+        staffNames={staffList.map(s => s.name)}
+        onSubmit={(n) => { setUserName(n); setShowNamePrompt(false); }}
+        onClose={() => setShowNamePrompt(false)}
+      />
     </div>
   );
 }

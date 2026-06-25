@@ -2,175 +2,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    // イベント本体の編集者（permissions.ts の EVENT_EDITOR_EMAILS と一致）
-    function isEventEditor() {
-      return request.auth != null
-          && request.auth.token.email in [
-               'taoki0183@gmail.com',
-               'haruhito3901@gmail.com',
-               'm.takada.kp@gmail.com',
-               'pupupuon03nov1120@gmail.com',
-             ];
-    }
-
-    function isSuperAdmin() {
-      return request.auth != null && request.auth.token.email == 'taoki0183@gmail.com';
-    }
-
-    function isAdminUser() {
-      return isSuperAdmin()
-          || (isAuthenticated()
-              && exists(/databases/$(database)/documents/userRoles/$(request.auth.token.email))
-              && get(/databases/$(database)/documents/userRoles/$(request.auth.token.email)).data.role == 'admin');
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    function isValidEvent() {
-      let data = request.resource.data;
-      return data.keys().hasAll(['id', 'venue', 'start', 'region', 'type'])
-          && data.venue is string && data.venue.size() > 0 && data.venue.size() <= 500
-          && data.region is string
-          && data.type is string;
-    }
-
-    match /events/{eventId} {
-      allow read:  if isAuthenticated();
-      // isValidEvent() = フル作成, photos-only = 静的データのイベントへの写真追加（全員可）
-      // __proposal__ = 常駐の提案用リスト（ログイン済み全員が作成・会場名変更可）
-      allow create: if (isEventEditor() && isValidEvent())
-          || (isAuthenticated() && request.resource.data.keys().hasOnly(['photos']))
-          || (isAuthenticated() && eventId == '__proposal__');
-      // 写真のみの変更は全員可、提案用の会場名・進捗フィールドは全員可、それ以外は編集者のみ
-      allow update: if isEventEditor()
-          || (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photos']))
-          || (isAuthenticated() && eventId == '__proposal__'
-              && request.resource.data.diff(resource.data).affectedKeys()
-                  .hasOnly(['venue', 'prepBudgetTotal', 'prepItemTotal', 'prepItemDone', 'isSystemEvent', 'type', 'start', 'end', 'region', 'dept', 'client', 'note', 'status', 'id']));
-      allow delete: if isEventEditor() && eventId != '__proposal__';
-
-      // 準備物: ログイン済みユーザー全員が編集可（canEditPreparationList と一致）
-      match /preparationItems/{itemId} {
-        allow read:  if isAuthenticated();
-        allow create, update, delete: if isAuthenticated() && isValidId(itemId);
-      }
-
-      match /prepItems/{itemId} {
-        allow read: if isAuthenticated();
-        allow create, update, delete: if isAuthenticated() && isValidId(itemId);
-      }
-
-      // コンテナボックス: ログイン済みユーザー全員が編集可
-      match /containerItems/{itemId} {
-        allow read: if isAuthenticated();
-        allow create, update, delete: if isAuthenticated();
-      }
-
-      // イベント終了時の在庫精算
-      match /inventorySettlements/{itemId} {
-        allow read: if isAuthenticated();
-        allow create, update, delete: if isAuthenticated();
-      }
-    }
-
-    match /staff/{staffId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isEventEditor();
-    }
-
-    // 魚リスト（ログイン済みユーザー全員が編集可。PC限定編集は UI 側 canEditFishList で制御）
-    match /events/{eventId}/fishItems/{itemId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // フロアレイアウト: 共有リンク(/?layout=ID)用に読み取りは公開。書き込みはログイン済みのみ。
-    match /layouts/{layoutId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
-    }
-
-    // 備品マスター（ログイン済みユーザー全員が編集可）
-    match /masterItems/{itemId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated()
-          && request.auth.uid == userId
-          && request.resource.data.uid == userId;
-
-      match /notifications/{notificationId} {
-        allow read: if isAuthenticated() && request.auth.uid == userId;
-        allow create: if isAuthenticated()
-            && request.resource.data.actorUid == request.auth.uid;
-        allow update: if isAuthenticated()
-            && request.auth.uid == userId
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-        allow delete: if isAuthenticated()
-            && (request.auth.uid == userId || isEventEditor());
-      }
-    }
-
-    match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isEventEditor();
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-    }
-
-    match /userRoles/{email} {
-      allow read: if isAuthenticated();
-      allow write: if isAdminUser();
-    }
-
-    match /allowedUsers/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdminUser();
-    }
-
-    // アプリ設定（静的DATA→Firestore 移行フラグ等）。編集者のみ書き込み可
-    match /appConfig/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isEventEditor();
-    }
-
-    match /userProfiles/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && request.auth.uid == userId;
-    }
-
-    // 連絡事項（掲示板）: ログイン済みユーザー全員が読み書き可
-    match /notices/{noticeId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated()
-          && request.resource.data.keys().hasAll(['content', 'date'])
-          && request.resource.data.content is string
-          && request.resource.data.content.size() > 0
-          && request.resource.data.date is string;
-      allow delete: if isAuthenticated()
-          && (resource.data.createdByEmail == request.auth.token.email || isEventEditor());
-      allow update: if isEventEditor();
-    }
-
-    // スケジュール（メインDB）: 月別シフトデータ。読みは認証済み全員、書き込みは編集者のみ。
-    // ExScheduleApp の readOnly=!isAdmin（isAdmin=canEditEvent=編集者）と一致。
-    // ※ exSchedule.ts 側の months は別 Firebase プロジェクト(exDb)で、このルール対象外。
-    match /months/{monthId} {
-      allow read:  if isAuthenticated();
-      allow write: if isEventEditor();
-    }
-
-    // スケジュールの全体設定（settings/global: 担当ステーション等）。書き込みは編集者のみ。
-    match /settings/{docId} {
-      allow read:  if isAuthenticated();
-      allow write: if isEventEditor();
+    // ───────────────────────────────────────────────────────────────────────
+    // ログイン廃止モデル（2026-06-25〜）
+    // アプリは起動時に自動で匿名サインインする。ログイン画面・管理者権限は無し。
+    // 「匿名認証済み（＝アプリ利用者）なら全コレクションを読み書き可」とする。
+    // 「誰が変更したか」はログインではなく、各ドキュメントに記録する自己申告の名前
+    // （changedByName 等）で表現する（変更履歴機能）。
+    //
+    // 注意: APIキーはクライアントに公開されるため、これは「URL/キーを知る全員が
+    // 読み書き可」に等しい。社内向けの割り切り。完全公開(if true)ではなく、
+    // 最低限 Firebase 匿名認証を要求する。
+    // ───────────────────────────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }

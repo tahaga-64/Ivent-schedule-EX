@@ -1,5 +1,5 @@
 import { User } from 'firebase/auth';
-import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Images, Plus, HelpCircle, CalendarDays, Boxes } from 'lucide-react';
+import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Images, Plus, HelpCircle, CalendarDays, Boxes, UserRound } from 'lucide-react';
 import PushNotificationButton from './PushNotificationButton';
 import AppSearch from './AppSearch';
 import { Event } from '../types';
@@ -21,11 +21,8 @@ interface AppHeaderProps {
   onSelectEvent: (ev: Event) => void;
   onCreateEvent: () => void;
   onShowHelp: () => void;
-  isMobileAdmin?: boolean;
-  onAdminSignIn?: () => void;
-  onAdminSignOut?: () => void;
-  adminAuthBusy?: boolean;
-  adminAuthError?: string | null;
+  userName?: string;
+  onChangeName?: () => void;
 }
 
 // ナビを論理グループに分割（グループ間に区切り線を表示して視認性を上げる）
@@ -62,11 +59,8 @@ export default function AppHeader({
   onSelectEvent,
   onCreateEvent,
   onShowHelp,
-  isMobileAdmin = false,
-  onAdminSignIn,
-  onAdminSignOut,
-  adminAuthBusy = false,
-  adminAuthError = null,
+  userName = '',
+  onChangeName,
 }: AppHeaderProps) {
   const viewLabel =
     view === 'home' ? 'ホーム' :
@@ -129,92 +123,26 @@ export default function AppHeader({
           </nav>
 
           <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0 ml-auto">
-            {narrowViewport && (
-              <div className="flex flex-col items-end gap-0.5">
-                {isMobileAdmin ? (
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] font-bold text-indigo-700 max-w-[88px] truncate">
-                      {user.email?.split('@')[0]}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={onAdminSignOut}
-                      disabled={adminAuthBusy}
-                      className="px-2 py-1 rounded-lg text-[10px] font-black text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 transition-colors whitespace-nowrap"
-                    >
-                      ログアウト
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={onAdminSignIn}
-                    disabled={adminAuthBusy}
-                    className="px-2 py-1 rounded-lg text-[10px] font-black text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-colors whitespace-nowrap"
-                  >
-                    {adminAuthBusy ? '認証中…' : '管理者ログイン'}
-                  </button>
-                )}
-                {adminAuthError && (
-                  <span className="text-[9px] font-bold text-red-600 max-w-[140px] text-right leading-tight">
-                    {adminAuthError}
-                  </span>
-                )}
-              </div>
-            )}
-            {narrowViewport && isMobileAdmin && (
-              <button
-                type="button"
-                onClick={onCreateEvent}
-                className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-black transition-all shadow-md shadow-indigo-200 whitespace-nowrap"
-                aria-label="新規イベント作成"
-              >
-                <Plus size={15} strokeWidth={3} />
-                新規
-              </button>
-            )}
-            {!narrowViewport && (
-              <>
-                <div className="flex flex-col items-end gap-0.5">
-                  {user.isAnonymous ? (
-                    <button
-                      type="button"
-                      onClick={onAdminSignIn}
-                      disabled={adminAuthBusy}
-                      className="px-2.5 py-1.5 rounded-lg text-xs font-black text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 transition-colors whitespace-nowrap"
-                    >
-                      {adminAuthBusy ? '認証中…' : '管理者ログイン'}
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-indigo-700 max-w-[120px] truncate hidden xl:block">
-                        {user.email?.split('@')[0]}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={onAdminSignOut}
-                        disabled={adminAuthBusy}
-                        className="px-2.5 py-1.5 rounded-lg text-xs font-black text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 transition-colors whitespace-nowrap"
-                      >
-                        {adminAuthBusy ? '処理中…' : 'ログアウト'}
-                      </button>
-                    </div>
-                  )}
-                  {adminAuthError && (
-                    <span className="text-[10px] font-bold text-red-600 max-w-[160px] text-right leading-tight">
-                      {adminAuthError}
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={onCreateEvent}
-                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all shadow-indigo-200 shadow-md"
-                >
-                  <Plus size={16} strokeWidth={3} />
-                  <span className="hidden sm:inline">新規</span>
-                </button>
-              </>
-            )}
+            {/* 名前（ログインの代わり・タップで変更） */}
+            <button
+              type="button"
+              onClick={onChangeName}
+              title="名前を変更"
+              className="flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-black text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors max-w-[110px] sm:max-w-[140px]"
+            >
+              <UserRound size={14} className="shrink-0" />
+              <span className="truncate">{userName || '名前未設定'}</span>
+            </button>
+            {/* 新規イベント作成（全員可） */}
+            <button
+              type="button"
+              onClick={onCreateEvent}
+              className="flex items-center gap-1 sm:gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-black transition-all shadow-md shadow-indigo-200 whitespace-nowrap"
+              aria-label="新規イベント作成"
+            >
+              <Plus size={15} strokeWidth={3} />
+              新規
+            </button>
             <PushNotificationButton user={user} />
             <button
               onClick={onShowHelp}
@@ -223,15 +151,6 @@ export default function AppHeader({
             >
               <HelpCircle size={18} />
             </button>
-            {!user.isAnonymous && (
-              user.photoURL ? (
-                <img src={user.photoURL} alt="avatar" className="w-8 h-8 rounded-full ring-2 ring-slate-200 hidden sm:block" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-amber-200 hidden sm:flex items-center justify-center text-amber-700 font-bold text-xs ring-2 ring-slate-200">
-                  {user.displayName?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
-                </div>
-              )
-            )}
           </div>
         </div>
 
