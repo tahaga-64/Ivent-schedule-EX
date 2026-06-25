@@ -129,7 +129,7 @@ export default function AppHeader({
           </nav>
 
           <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0 ml-auto">
-            {narrowViewport && view === 'schedule' && (
+            {narrowViewport && (
               <div className="flex flex-col items-end gap-0.5">
                 {isMobileAdmin ? (
                   <div className="flex items-center gap-1">

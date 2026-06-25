@@ -930,6 +930,12 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const startOffset = getStartOffset(currentYear, currentMonth);
+  const todayColIdx = (() => {
+    const _t = new Date();
+    return _t.getFullYear() === currentYear && _t.getMonth() === currentMonth
+      ? _t.getDate() - 1
+      : -1;
+  })();
 
   if (isLoading) {
     return (
@@ -1378,7 +1384,7 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
 
                 {/* 縦スクロールもコンテナ内で行うことで、日付ヘッダー（sticky top-0）が下スクロールに追従する */}
                 {/* モバイルは外側スクロールに任せるため max-h を外す */}
-                <div ref={overallTableRef} className={`overflow-auto relative border-b border-border w-full ${isMobile ? '' : 'max-h-[calc(100dvh-10rem)]'}`}>
+                <div ref={overallTableRef} className={`relative border-b border-border w-full ${isMobile ? 'overflow-x-auto' : 'overflow-auto max-h-[calc(100dvh-10rem)]'}`}>
                   <table className="w-full text-[9px] border-separate border-spacing-0 min-w-[max-content]">
                     <thead className="relative z-30">
                       <tr className="bg-slate-100 text-slate-900">
@@ -1394,9 +1400,10 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
                           const isToday = currentYear === _t.getFullYear() && currentMonth === _t.getMonth() && day === _t.getDate();
                           return (
                             <th key={day} data-today={isToday ? 'true' : undefined} className={`p-0.5 border font-bold text-center min-w-[1.75rem] sm:min-w-[26px] text-[9px] sticky top-0 z-30 ${
-                              isToday ? 'border-indigo-400 ring-1 ring-indigo-400' : 'border-border'
-                            } ${
-                              isSun ? 'text-red-600 bg-red-50' : isSat ? 'text-blue-600 bg-blue-50' : 'bg-slate-100 text-slate-900'
+                              isToday ? 'border-indigo-500 bg-indigo-500 text-white' :
+                              isSun ? 'border-border text-red-600 bg-red-50' :
+                              isSat ? 'border-border text-blue-600 bg-blue-50' :
+                              'border-border bg-slate-100 text-slate-900'
                             }`}>
                               <span className="block font-mono leading-none">{day}</span>
                               <span className="block text-[7px] leading-none opacity-80">{['月','火','水','木','金','土','日'][dow]}</span>
@@ -1412,7 +1419,7 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
                           場所
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
-                          <td key={i} className="p-0.5 border border-border min-w-[1.75rem] sm:min-w-[26px]">
+                          <td key={i} className={`p-0.5 border min-w-[1.75rem] sm:min-w-[26px] ${todayColIdx === i ? 'border-indigo-300 bg-indigo-50' : 'border-border'}`}>
                             <LocalInput
                               className="w-full px-0.5 py-0 rounded border border-orange-200 text-[8px] outline-none focus:border-orange-400 bg-white focus:bg-white h-[18px] text-center font-bold text-orange-800"
                               size={8}
@@ -1431,7 +1438,7 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
                           時間
                         </td>
                         {Array.from({ length: daysInMonth }).map((_, i) => (
-                          <td key={i} className="p-0.5 border border-border min-w-[1.75rem] sm:min-w-[26px]">
+                          <td key={i} className={`p-0.5 border min-w-[1.75rem] sm:min-w-[26px] ${todayColIdx === i ? 'border-indigo-300 bg-indigo-50' : 'border-border'}`}>
                             <LocalInput
                               className="w-full px-0.5 py-0 rounded border border-blue-200 text-[8px] outline-none focus:border-blue-400 bg-white focus:bg-white h-[18px] text-center font-bold text-blue-800"
                               size={8}
@@ -1458,7 +1465,7 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
                             }
                           });
                           return (
-                            <td key={i} className="p-0.5 border border-border text-center font-bold text-text text-[8px] min-w-[1.75rem] sm:min-w-[26px]">
+                            <td key={i} className={`p-0.5 border text-center font-bold text-text text-[8px] min-w-[1.75rem] sm:min-w-[26px] ${todayColIdx === i ? 'border-indigo-300 bg-indigo-50' : 'border-border'}`}>
                               {count}人
                             </td>
                           );
@@ -1497,7 +1504,7 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
                             {Array.from({ length: daysInMonth }).map((_, i) => {
                               const item = currentMonthData.schedule[name]?.[i] || { type: 'rest', detail: '' };
                               return (
-                                <td key={i} className="p-[1px] border border-border min-w-[1.75rem] sm:min-w-[26px]">
+                                <td key={i} className={`p-[1px] border min-w-[1.75rem] sm:min-w-[26px] ${todayColIdx === i ? 'border-indigo-300 bg-indigo-100/50' : 'border-border'}`}>
                                   <div className="flex flex-col gap-0.5 text-center justify-center mx-auto">
                                     <select
                                       className={`w-full px-0.5 py-0.5 rounded-full text-[8px] font-bold outline-none border border-transparent focus:border-accent/30 transition-all disabled:opacity-100 ${TYPE_CLASS[item.type]}`}
