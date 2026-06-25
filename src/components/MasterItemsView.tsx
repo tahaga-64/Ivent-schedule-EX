@@ -23,15 +23,18 @@ function getTokens(query: string): string[] {
 function scoreItem(item: MasterItem, tokens: string[]): number {
   if (!tokens.length) return 1;
   const name = normalizeForSearch(item.name);
+  const yomi = normalizeForSearch(item.yomi ?? '');
   const note = normalizeForSearch(item.note ?? '');
   let score = 0;
   for (const token of tokens) {
     const ni = name.indexOf(token);
+    const yi = yomi.indexOf(token);
     const oi = note.indexOf(token);
-    if (ni === -1 && oi === -1) return -1;
+    if (ni === -1 && yi === -1 && oi === -1) return -1;
     if (name === token) score += 20;
     else if (ni === 0) score += 12;
     else if (ni > -1) score += 6;
+    if (yi > -1) score += 8;
     if (oi > -1) score += 3;
   }
   return score;
@@ -70,6 +73,7 @@ function highlight(text: string, tokens: string[]): ReactNode {
 export interface MasterItem {
   id: string;
   name: string;
+  yomi?: string;
   unitPrice: number;
   defaultQuantity: number;
   note: string;
@@ -81,7 +85,7 @@ interface Props {
   isActive?: boolean;
 }
 
-const EMPTY_FORM = { name: '', unitPrice: '', defaultQuantity: '1', note: '', url: '' };
+const EMPTY_FORM = { name: '', yomi: '', unitPrice: '', defaultQuantity: '1', note: '', url: '' };
 
 export default function MasterItemsView({ canEdit, isActive = true }: Props) {
   const [items, setItems] = useState<MasterItem[]>([]);
@@ -97,6 +101,7 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
     if (editing) {
       return (
         form.name.trim() !== editing.name ||
+        form.yomi.trim() !== (editing.yomi ?? '') ||
         (parseInt(form.unitPrice) || 0) !== editing.unitPrice ||
         (parseInt(form.defaultQuantity) || 1) !== editing.defaultQuantity ||
         form.note.trim() !== (editing.note ?? '') ||
@@ -105,6 +110,7 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
     }
     return !!(
       form.name.trim() ||
+      form.yomi.trim() ||
       form.unitPrice ||
       form.note.trim() ||
       form.url.trim() ||
@@ -166,6 +172,7 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
     setEditing(item);
     setForm({
       name: item.name,
+      yomi: item.yomi ?? '',
       unitPrice: String(item.unitPrice),
       defaultQuantity: String(item.defaultQuantity),
       note: item.note ?? '',
@@ -179,6 +186,7 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
     if (!trimmed) return false;
     const data = {
       name: trimmed,
+      yomi: form.yomi.trim(),
       unitPrice: parseInt(form.unitPrice) || 0,
       defaultQuantity: parseInt(form.defaultQuantity) || 1,
       note: form.note.trim(),
@@ -286,8 +294,15 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                 className="bg-white border border-slate-200 rounded-2xl p-4 hover:border-slate-300 transition-colors group shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="font-black text-sm text-slate-900 leading-snug">
-                    {highlight(item.name, tokens)}
+                  <div>
+                    <div className="font-black text-sm text-slate-900 leading-snug">
+                      {highlight(item.name, tokens)}
+                    </div>
+                    {item.yomi && tokens.length > 0 && (
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {highlight(item.yomi, tokens)}
+                      </div>
+                    )}
                   </div>
                   {canEdit && (
                     <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
@@ -356,9 +371,20 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                     onKeyDown={e => e.key === 'Enter' && handleSave()}
                     className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
                     style={{ fontSize: '16px' }}
-                    placeholder="テーブルクロス"
+                    placeholder="人工芝"
                     autoFocus
                   />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-[var(--text-secondary)] mb-1 block">フリガナ（読み検索用）</label>
+                  <input
+                    value={form.yomi}
+                    onChange={e => setForm(v => ({ ...v, yomi: e.target.value }))}
+                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
+                    style={{ fontSize: '16px' }}
+                    placeholder="じんこうしば"
+                  />
+                  <div className="text-[10px] text-slate-400 mt-0.5">ひらがなで入力すると読み仮名でも検索できます</div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
