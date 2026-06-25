@@ -5,6 +5,7 @@ import { db } from '../lib/firebase';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { Plus, Pencil, Trash2, ExternalLink, Package, Search, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAutoKana } from '../hooks/useAutoKana';
 
 // ── 検索エンジン ──────────────────────────────────────────────────────────────
 
@@ -95,6 +96,12 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const { runWithGuard } = useUnsavedChanges();
+  const autoKana = useAutoKana();
+
+  // 品名のIME入力から取得した読みを yomi へ自動反映（手入力時は上書きしない）
+  useEffect(() => {
+    setForm(v => (v.yomi === autoKana.reading ? v : { ...v, yomi: autoKana.reading }));
+  }, [autoKana.reading]);
 
   const isFormDirty = useMemo(() => {
     if (!showForm) return false;
@@ -122,7 +129,8 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
     setShowForm(false);
     setEditing(null);
     setForm(EMPTY_FORM);
-  }, []);
+    autoKana.reset();
+  }, [autoKana.reset]);
 
   const tokens = useMemo(() => getTokens(query), [query]);
 
@@ -165,6 +173,7 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
   function openAdd() {
     setEditing(null);
     setForm(EMPTY_FORM);
+    autoKana.reset('');
     setShowForm(true);
   }
 
@@ -178,6 +187,7 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
       note: item.note ?? '',
       url: item.url ?? '',
     });
+    autoKana.reset(item.yomi ?? '');
     setShowForm(true);
   }
 
@@ -368,7 +378,8 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                   <input
                     value={form.name}
                     onChange={e => setForm(v => ({ ...v, name: e.target.value }))}
-                    onKeyDown={e => e.key === 'Enter' && handleSave()}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave(); }}
+                    {...autoKana.bind}
                     className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
                     style={{ fontSize: '16px' }}
                     placeholder="人工芝"
@@ -376,15 +387,15 @@ export default function MasterItemsView({ canEdit, isActive = true }: Props) {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-[var(--text-secondary)] mb-1 block">フリガナ（読み検索用）</label>
+                  <label className="text-xs font-bold text-[var(--text-secondary)] mb-1 block">フリガナ（自動・編集可）</label>
                   <input
                     value={form.yomi}
-                    onChange={e => setForm(v => ({ ...v, yomi: e.target.value }))}
+                    onChange={e => { setForm(v => ({ ...v, yomi: e.target.value })); autoKana.setReading(e.target.value); }}
                     className="w-full px-3 py-2.5 rounded-xl border border-[var(--border)] bg-white outline-none focus:border-indigo-400 transition-colors text-[var(--text-primary)]"
                     style={{ fontSize: '16px' }}
-                    placeholder="じんこうしば"
+                    placeholder="じんこうしば（品名入力で自動）"
                   />
-                  <div className="text-[10px] text-slate-400 mt-0.5">ひらがなで入力すると読み仮名でも検索できます</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">品名を入力すると自動で読みが入ります。違っていれば修正してください。</div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
