@@ -158,5 +158,19 @@ service cloud.firestore {
           && (resource.data.createdByEmail == request.auth.token.email || isEventEditor());
       allow update: if isEventEditor();
     }
+
+    // スケジュール（メインDB）: 月別シフトデータ。読みは認証済み全員、書き込みは編集者のみ。
+    // ExScheduleApp の readOnly=!isAdmin（isAdmin=canEditEvent=編集者）と一致。
+    // ※ exSchedule.ts 側の months は別 Firebase プロジェクト(exDb)で、このルール対象外。
+    match /months/{monthId} {
+      allow read:  if isAuthenticated();
+      allow write: if isEventEditor();
+    }
+
+    // スケジュールの全体設定（settings/global: 担当ステーション等）。書き込みは編集者のみ。
+    match /settings/{docId} {
+      allow read:  if isAuthenticated();
+      allow write: if isEventEditor();
+    }
   }
 }
