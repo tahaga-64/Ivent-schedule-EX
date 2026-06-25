@@ -45,7 +45,11 @@ export function usePushSetup(user: User | null | undefined) {
       setState(await getPushSetupState());
     } catch (e) {
       setError(e instanceof Error ? e.message : '通知の有効化に失敗しました。');
-      setState(await getPushSetupState());
+      // Worker登録に失敗してもブラウザのローカル購読は残るため getPushSetupState() が
+      // 'subscribed' を返し、バナーが消えてエラーが隠れてしまう（KVには未登録のまま）。
+      // 登録未完了として扱い、バナーとエラーを表示し続ける。
+      const s = await getPushSetupState();
+      setState(s === 'subscribed' ? 'permission_only' : s);
     } finally {
       setBusy(false);
     }

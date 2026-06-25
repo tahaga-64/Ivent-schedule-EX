@@ -162,6 +162,17 @@ export default function AppHeader({
                 )}
               </div>
             )}
+            {narrowViewport && isMobileAdmin && (
+              <button
+                type="button"
+                onClick={onCreateEvent}
+                className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-black transition-all shadow-md shadow-indigo-200 whitespace-nowrap"
+                aria-label="新規イベント作成"
+              >
+                <Plus size={15} strokeWidth={3} />
+                新規
+              </button>
+            )}
             {!narrowViewport && (
               <>
                 <div className="flex flex-col items-end gap-0.5">
