@@ -1,11 +1,12 @@
 import { User } from 'firebase/auth';
-import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Images, Plus, HelpCircle, CalendarDays, Boxes } from 'lucide-react';
+import { Calendar, Menu, ClipboardList, Archive, Home, Package, Fish, LayoutGrid, Images, Plus, HelpCircle, CalendarDays, Boxes, Truck } from 'lucide-react';
 import PushNotificationButton from './PushNotificationButton';
 import AppSearch from './AppSearch';
 import { Event } from '../types';
 import type { AppViewMode } from '../lib/appSearch';
 
-type ViewMode = AppViewMode;
+// 発注・郵送ビューは appSearch の AppViewMode に含まれないためここで合流させる
+type ViewMode = AppViewMode | 'shipping';
 
 interface AppHeaderProps {
   user: User;
@@ -37,6 +38,7 @@ const desktopNavGroups: { id: ViewMode; icon: React.ReactNode; label: string }[]
   ],
   [
     { id: 'prep', icon: <ClipboardList size={20} />, label: '準備物' },
+    { id: 'shipping', icon: <Truck size={20} />, label: '発注・郵送' },
     { id: 'master', icon: <Package size={20} />, label: '備品' },
     { id: 'archive', icon: <Archive size={20} />, label: 'アーカイブ' },
   ],
@@ -72,6 +74,7 @@ export default function AppHeader({
     view === 'home' ? 'ホーム' :
     view === 'calendar' ? 'カレンダー' :
     view === 'prep' ? '準備物リスト' :
+    view === 'shipping' ? '発注・郵送' :
     view === 'archive' ? 'アーカイブ' :
     view === 'master' ? '備品マスター' :
     view === 'fish' ? '魚リスト' :

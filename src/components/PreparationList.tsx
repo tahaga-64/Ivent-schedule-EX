@@ -579,17 +579,19 @@ export default function PreparationList({ event, onBack, canEdit, user }: Props)
               </div>
               <div>
                 <div className={PREP_LABEL}>到着先</div>
-                <select
+                <input
+                  list="prep-arrival-dest-list"
                   disabled={!canEdit}
                   value={item.arrivalDestination ?? ''}
-                  onChange={e => updateItem(item.id, { arrivalDestination: e.target.value as '新宿' | '長南' | '' })}
+                  onChange={e => updateItem(item.id, { arrivalDestination: e.target.value })}
+                  placeholder="—"
                   className={`w-full text-sm font-bold ${PREP_INPUT} py-1.5 disabled:opacity-60`}
-                >
-                  <option value="">—</option>
+                />
+                <datalist id="prep-arrival-dest-list">
                   {ARRIVAL_DESTINATIONS.map(d => (
-                    <option key={d} value={d}>{d}</option>
+                    <option key={d} value={d} />
                   ))}
-                </select>
+                </datalist>
               </div>
               <div className="col-span-2">
                 <div className={PREP_LABEL}>発注状況</div>
