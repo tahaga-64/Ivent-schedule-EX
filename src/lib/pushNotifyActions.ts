@@ -42,6 +42,22 @@ export function detectPrepOrderStatusChanges(
   return changes;
 }
 
+/** 新たに「着荷」(orderStatus === 'arrived') になった準備物の名前を検出 */
+export function detectNewlyArrivedItems(
+  previous: PreparationItem[],
+  current: PreparationItem[],
+): string[] {
+  const prevById = new Map(previous.map(i => [i.id, i.orderStatus]));
+  const arrived: string[] = [];
+  for (const item of current) {
+    if (!item.name?.trim()) continue;
+    if (item.orderStatus === 'arrived' && prevById.get(item.id) !== 'arrived') {
+      arrived.push(item.name.trim());
+    }
+  }
+  return arrived;
+}
+
 export function notifyPrepListSaved(
   event: Pick<Event, 'id' | 'venue'>,
   previous: PreparationItem[],
@@ -49,6 +65,22 @@ export function notifyPrepListSaved(
   progress: { prepItemDone: number; prepItemTotal: number },
   lastNotifyAtRef: { current: number },
 ): void {
+  // 着荷（到着）したアイテムは専用の通知を優先して送る
+  const arrived = detectNewlyArrivedItems(previous, current);
+  if (arrived.length > 0) {
+    const detail = arrived.length === 1
+      ? `「${arrived[0]}」が着荷しました`
+      : `${arrived.length}件が着荷しました（${arrived[0]} 他）`;
+    notifyPush({
+      type: 'prep_updated',
+      title: '荷物が着荷しました',
+      message: `${event.venue}：${detail}`,
+      eventId: event.id,
+    });
+    lastNotifyAtRef.current = Date.now();
+    return;
+  }
+
   const orderChanges = detectPrepOrderStatusChanges(previous, current);
 
   if (orderChanges.length > 0) {

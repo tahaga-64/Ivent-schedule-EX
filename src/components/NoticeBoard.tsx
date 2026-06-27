@@ -55,6 +55,7 @@ export default function NoticeBoard({ canEdit, user }: Props) {
       await deleteNotice(id);
     } catch (err) {
       console.error('連絡事項の削除に失敗:', err);
+      alert('連絡事項の削除に失敗しました。通信状況を確認してもう一度お試しください。');
     }
   };
 

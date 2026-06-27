@@ -154,8 +154,7 @@ service cloud.firestore {
           && request.resource.data.content is string
           && request.resource.data.content.size() > 0
           && request.resource.data.date is string;
-      allow delete: if isAuthenticated()
-          && (resource.data.createdByEmail == request.auth.token.email || isEventEditor());
+      allow delete: if isAuthenticated();
       allow update: if isEventEditor();
     }
 
