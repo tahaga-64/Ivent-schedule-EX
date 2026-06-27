@@ -12,7 +12,7 @@ describe('push worker permission rules', () => {
   });
 
   it('event_created 等は認証済みユーザー全員が送信可（匿名 PWA 含む）', () => {
-    for (const type of ['event_created', 'event_updated', 'event_deleted', 'event_status_updated', 'fish_added', 'photo_added', 'schedule_updated', 'prep_updated', 'container_updated'] as const) {
+    for (const type of ['event_created', 'event_updated', 'event_deleted', 'event_status_updated', 'fish_added', 'photo_added', 'schedule_updated', 'prep_updated', 'container_updated', 'notice_added'] as const) {
       expect(canSendPushNotificationType(type, undefined, editors)).toBe(true);
       expect(canSendPushNotificationType(type, 'anyone@example.com', editors)).toBe(true);
     }

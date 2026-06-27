@@ -132,6 +132,17 @@ export default function EventDetailModal({
         className="bg-white rounded-t-3xl md:rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col border border-gray-100 w-full md:max-w-3xl lg:max-w-4xl xl:max-w-5xl max-h-[92dvh] md:max-h-[90vh]"
       >
         <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-slate-200 md:hidden" aria-hidden />
+        <div className="md:hidden flex items-center justify-between px-4 pt-2 pb-2 border-b border-slate-100">
+          <span className="text-sm font-bold text-slate-700 truncate flex-1 min-w-0 pr-2">{selected.venue || 'イベント詳細'}</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 p-1.5 -mr-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            aria-label="閉じる"
+          >
+            <X size={20} />
+          </button>
+        </div>
         {selected.status === 'completed' && (
           <div className="flex items-center gap-2 px-4 py-3 bg-orange-500 border-b border-orange-600">
             <span className="text-white">⚑</span>
