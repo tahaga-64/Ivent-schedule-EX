@@ -18,7 +18,11 @@
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { LayoutItemData, CustomCatalogItem } from './LayoutView';
+
+/** 高品質モード（PC/大画面のみ透過ガラス等の重い表現を有効化。モバイルは反射のみで軽量化） */
+const HIGH_QUALITY = typeof window !== 'undefined' && window.innerWidth >= 820;
 
 interface Props {
   items: LayoutItemData[];
@@ -54,9 +58,45 @@ function lambert(color: number, opts: { transparent?: boolean; opacity?: number 
 
 function standard(
   color: number,
-  opts: { transparent?: boolean; opacity?: number; roughness?: number; metalness?: number; emissive?: number; emissiveIntensity?: number } = {},
+  opts: { transparent?: boolean; opacity?: number; roughness?: number; metalness?: number; emissive?: number; emissiveIntensity?: number; envMapIntensity?: number } = {},
 ) {
-  return new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.08, ...opts });
+  return new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.08, envMapIntensity: 1.0, ...opts });
+}
+
+/** ガラス（高品質: 物理ベースの透過＋クリアコート / 軽量: 環境反射する半透明） */
+function glassMaterial(): THREE.Material {
+  if (HIGH_QUALITY) {
+    return new THREE.MeshPhysicalMaterial({
+      color: 0xecf7ff, metalness: 0, roughness: 0.04,
+      transmission: 1, thickness: 0.6, ior: 1.5,
+      transparent: true, opacity: 1,
+      clearcoat: 1, clearcoatRoughness: 0.04,
+      envMapIntensity: 1.5,
+    });
+  }
+  return new THREE.MeshStandardMaterial({
+    color: 0xbfdbfe, transparent: true, opacity: 0.24,
+    roughness: 0.05, metalness: 0.1, envMapIntensity: 1.6,
+  });
+}
+
+/** 水（高品質: 透過＋屈折＋クリアコート / 軽量: 光沢のある半透明） */
+function waterMaterial(deep = true): THREE.Material {
+  const color = deep ? 0x0ea5e9 : 0x38bdf8;
+  if (HIGH_QUALITY) {
+    return new THREE.MeshPhysicalMaterial({
+      color, metalness: 0, roughness: 0.08,
+      transmission: 0.55, thickness: 1.4, ior: 1.33,
+      transparent: true, opacity: 0.92,
+      clearcoat: 0.7, clearcoatRoughness: 0.08,
+      emissive: 0x0369a1, emissiveIntensity: 0.08,
+      envMapIntensity: 1.3,
+    });
+  }
+  return new THREE.MeshStandardMaterial({
+    color, transparent: true, opacity: 0.78, roughness: 0.12, metalness: 0.05,
+    emissive: 0x0369a1, emissiveIntensity: 0.12, envMapIntensity: 1.2,
+  });
 }
 
 function addMesh(
@@ -109,13 +149,13 @@ function buildFishTank(w: number, d: number): THREE.Group {
   // ガラス
   addMesh(
     g, new THREE.BoxGeometry(w * 0.96, tankH, d * 0.9),
-    standard(COLOR.glass, { transparent: true, opacity: 0.22, roughness: 0.05, metalness: 0.1 }),
+    glassMaterial(),
     0, standH + tankH / 2, 0,
   );
   // 水
   addMesh(
     g, new THREE.BoxGeometry(w * 0.9, tankH * 0.72, d * 0.82),
-    standard(COLOR.waterDeep, { transparent: true, opacity: 0.72, roughness: 0.15, metalness: 0.05, emissive: 0x0369a1, emissiveIntensity: 0.15 }),
+    waterMaterial(true),
     0, standH + tankH * 0.4, 0,
   );
   // 上部フレーム
@@ -129,12 +169,12 @@ function buildTouchTank(w: number, d: number): THREE.Group {
   const tankH = 0.8;
   addMesh(
     g, new THREE.BoxGeometry(w, tankH, d),
-    lambert(COLOR.glass, { transparent: true, opacity: 0.3 }),
+    glassMaterial(),
     0, tankH / 2, 0,
   );
   addMesh(
     g, new THREE.BoxGeometry(w * 0.94, 0.5, d * 0.94),
-    lambert(COLOR.water, { transparent: true, opacity: 0.7 }),
+    waterMaterial(false),
     0, 0.3, 0,
   );
   addMesh(g, new THREE.BoxGeometry(w * 1.02, 0.07, d * 1.02), lambert(COLOR.tankStand), 0, tankH + 0.035, 0);
@@ -178,7 +218,7 @@ function buildPool(w: number, d: number): THREE.Group {
   // 水面
   const water = addMesh(
     g, new THREE.CylinderGeometry(0.44, 0.44, 0.05, 32),
-    lambert(COLOR.water, { transparent: true, opacity: 0.8 }),
+    waterMaterial(false),
     0, wallH - 0.18, 0,
   );
   water.scale.set(w, 1, d);
@@ -332,19 +372,26 @@ export default function Layout3DViewer({ items }: Props) {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.12;
+    renderer.toneMappingExposure = 1.0;
     renderer.setClearColor(0xdce5ee);
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     scene.fog = new THREE.Fog(0xdce5ee, 85, 165);
 
+    // ─── 環境マップ（IBL）— ガラス/水/金属にリアルな反射を与える ──────────────
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    pmrem.compileEquirectangularShader();
+    const roomEnv = new RoomEnvironment();
+    const envRT = pmrem.fromScene(roomEnv, 0.04);
+    scene.environment = envRT.texture;
+
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 280);
 
-    // ─── Lighting（明るい屋内モール風・多光源） ─────────────────────────────
-    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x8fa3b8, 0.95));
-    const sun = new THREE.DirectionalLight(0xfff7ed, 1.35);
+    // ─── Lighting（IBL を主体に、直接光で陰影とハイライトを補強） ─────────────
+    scene.add(new THREE.AmbientLight(0xffffff, 0.16));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8fa3b8, 0.45));
+    const sun = new THREE.DirectionalLight(0xfff7ed, 1.25);
     sun.position.set(14, 28, 12);
     sun.castShadow = true;
     sun.shadow.mapSize.set(4096, 4096);
@@ -356,6 +403,7 @@ export default function Layout3DViewer({ items }: Props) {
     sun.shadow.camera.right = 32;
     sun.shadow.camera.top = 32;
     sun.shadow.camera.bottom = -32;
+    sun.shadow.radius = 4; // 影のエッジを柔らかく
     scene.add(sun);
     const fill = new THREE.DirectionalLight(0xc7d2fe, 0.45);
     fill.position.set(-10, 12, -8);
@@ -364,10 +412,10 @@ export default function Layout3DViewer({ items }: Props) {
     rim.position.set(0, 8, -18);
     scene.add(rim);
 
-    // ─── Floor（明るいタイル床） ─────────────────────────────────────────────
+    // ─── Floor（環境反射でわずかに磨きのあるタイル床） ───────────────────────
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(52, 52),
-      standard(0xe7ecf2, { roughness: 0.82, metalness: 0.04 }),
+      standard(0xe7ecf2, { roughness: 0.62, metalness: 0.12, envMapIntensity: 0.7 }),
     );
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
@@ -527,6 +575,10 @@ export default function Layout3DViewer({ items }: Props) {
           obj.material.dispose();
         }
       });
+      // 環境マップ（IBL）リソースの解放
+      scene.environment = null;
+      envRT.dispose();
+      pmrem.dispose();
       renderer.dispose();
       if (container.contains(el)) container.removeChild(el);
     };
