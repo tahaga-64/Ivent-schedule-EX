@@ -165,6 +165,54 @@ describe('pushNotifyActions', () => {
     expect(body.title).toBe('準備物リストが更新されました');
   });
 
+  it('detectNewlyArrivedItems detects items newly set to arrived', async () => {
+    const { detectNewlyArrivedItems } = await import('../lib/pushNotifyActions');
+    const previous: PreparationItem[] = [
+      { id: 'a', name: 'ポンプ', quantity: 1, unitPrice: 0, amount: 0, shippingFee: 0, arrived: false, prepared: false, note: '', orderStatus: 'shipping', order: 0 },
+      { id: 'b', name: 'ケーブル', quantity: 1, unitPrice: 0, amount: 0, shippingFee: 0, arrived: false, prepared: false, note: '', orderStatus: 'arrived', order: 1 },
+    ];
+    const current: PreparationItem[] = [
+      { ...previous[0], orderStatus: 'arrived' }, // 新規着荷
+      { ...previous[1] },                         // 既に着荷（変化なし）
+    ];
+    expect(detectNewlyArrivedItems(previous, current)).toEqual(['ポンプ']);
+  });
+
+  it('detectNewlyArrivedItems ignores empty-name items', async () => {
+    const { detectNewlyArrivedItems } = await import('../lib/pushNotifyActions');
+    const previous: PreparationItem[] = [
+      { id: 'a', name: '  ', quantity: 1, unitPrice: 0, amount: 0, shippingFee: 0, arrived: false, prepared: false, note: '', orderStatus: 'shipping', order: 0 },
+    ];
+    const current: PreparationItem[] = [{ ...previous[0], orderStatus: 'arrived' }];
+    expect(detectNewlyArrivedItems(previous, current)).toEqual([]);
+  });
+
+  it('notifyPrepListSaved sends a dedicated 着荷 notification when an item arrives', async () => {
+    vi.stubEnv('VITE_PUSH_WORKER_URL', 'https://example.workers.dev');
+    vi.stubEnv('VITE_WEB_PUSH_PUBLIC_KEY', 'key');
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.doMock('../lib/firebase', () => ({ auth: { currentUser: { getIdToken: async () => 'token' } } }));
+
+    const { notifyPrepListSaved } = await import('../lib/pushNotifyActions');
+    const previous: PreparationItem[] = [
+      { id: 'a', name: 'ポンプ', quantity: 1, unitPrice: 0, amount: 0, shippingFee: 0, arrived: false, prepared: false, note: '', orderStatus: 'shipping', order: 0 },
+    ];
+    const current: PreparationItem[] = [{ ...previous[0], orderStatus: 'arrived' }];
+    const ref = { current: 0 };
+
+    notifyPrepListSaved({ id: 'ev1', venue: 'テスト会場' }, previous, current, { prepItemDone: 1, prepItemTotal: 1 }, ref);
+    await new Promise(r => setTimeout(r, 0));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.type).toBe('prep_updated');
+    expect(body.title).toBe('荷物が着荷しました');
+    expect(body.message).toContain('ポンプ');
+    expect(body.message).toContain('着荷');
+    expect(body.eventId).toBe('ev1');
+  });
+
   it('formatEventSummary joins venue, date, and region', async () => {
     const { formatEventSummary } = await import('../lib/pushNotifyActions');
     const summary = formatEventSummary({

@@ -9,6 +9,7 @@ import type { Event, PreparationItem } from '../types';
 import UndeliveredModal from './UndeliveredModal';
 import NoticeBoard from './NoticeBoard';
 import { rs, ts, fmtDateJP, fmtDateRange } from '../lib/eventHelpers';
+import { summarizeNextEvents } from '../lib/nextEvents';
 import { fetchTodayStaffBreakdown, fetchTodayStaffByStatus, type StaffBreakdown } from '../lib/exSchedule';
 import type { StatusType } from '../lib/exScheduleConstants';
 import EXBadge from './EXBadge';
@@ -280,13 +281,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
   const stats = useMemo(() => {
     const thisMonth = events.filter(e => e.status !== 'cancelled' && e.start?.startsWith(today.slice(0, 7)));
-    const nextEvent = events
-      .filter(e => e.status !== 'cancelled' && e.start >= today)
-      .sort((a, b) => a.start.localeCompare(b.start))[0];
-    const daysToNext = nextEvent
-      ? Math.ceil((new Date(nextEvent.start + 'T00:00:00').getTime() - new Date(today + 'T00:00:00').getTime()) / 86400000)
-      : null;
-    return { thisMonthCount: thisMonth.length, daysToNext, nextVenue: nextEvent?.venue ?? null };
+    return { thisMonthCount: thisMonth.length };
   }, [events, today]);
 
   // 次回イベント（同日複数対応）— 最も近い開催日の全イベント
@@ -298,6 +293,9 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
     const nearestDate = upcoming[0].start;
     return upcoming.filter(e => e.start === nearestDate);
   }, [events, today]);
+
+  // 次イベントカード表示用サマリ（会場名・日数・複数件の開催地）
+  const next = useMemo(() => summarizeNextEvents(events, today), [events, today]);
 
   const handleOpenNext = () => {
     if (nextEvents.length === 0) return;
@@ -384,22 +382,42 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
 
           <button
             onClick={handleOpenNext}
-            disabled={nextEvents.length === 0}
-            className="tank-card rounded-2xl p-3 flex flex-col text-left hover:brightness-[1.03] transition-all disabled:cursor-default"
+            disabled={next.count === 0}
+            className="group relative tank-card rounded-2xl p-3 flex flex-col text-left hover:brightness-[1.03] transition-all disabled:cursor-default"
           >
             <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">次イベント</div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-black text-slate-900 leading-none">
-                {stats.daysToNext === null ? '—' : stats.daysToNext === 0 ? '今日' : stats.daysToNext}
-              </span>
-              {stats.daysToNext !== null && stats.daysToNext > 0 && (
-                <span className="text-xs font-bold text-slate-500">日後</span>
-              )}
-            </div>
-            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[10px] font-bold text-slate-400 truncate">
-              {nextEvents.length > 1
-                ? <span className="font-black text-indigo-600">{nextEvents.length}件を見る</span>
-                : (stats.nextVenue || '予定なし')}
+            {next.count === 0 ? (
+              <div className="text-base font-black text-slate-400 leading-tight">予定なし</div>
+            ) : (
+              <>
+                <div className="flex items-start gap-1">
+                  <span className="text-base font-black text-slate-900 leading-tight line-clamp-2 break-words">
+                    {next.primaryVenue}
+                  </span>
+                  {next.count > 1 && (
+                    <span className="shrink-0 text-[10px] font-black text-indigo-600 mt-0.5">他{next.count - 1}件</span>
+                  )}
+                </div>
+                <span className="mt-1 inline-flex w-fit items-center px-1.5 py-0.5 rounded-full text-[9px] font-black bg-slate-100 text-slate-600">
+                  {next.dayLabel}
+                </span>
+                {/* 複数開催: PCはホバー、モバイルはタップ（カード→ピッカー）で開催地を表示 */}
+                {next.count > 1 && (
+                  <div className="pointer-events-none absolute left-2 right-2 top-full mt-1 z-30 hidden md:group-hover:block">
+                    <div className="bg-slate-900 text-white rounded-xl px-3 py-2 shadow-xl text-left">
+                      <div className="font-black mb-1 text-[10px] uppercase tracking-widest text-slate-300">開催地（{next.count}件）</div>
+                      <div className="flex flex-col gap-0.5">
+                        {next.venues.map((v, i) => (
+                          <span key={i} className="text-[11px] font-medium truncate">{v}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            <span className="mt-auto pt-2 flex items-center gap-0.5 text-[10px] font-black text-indigo-600">
+              詳しくみる <ArrowRight size={10} />
             </span>
           </button>
         </motion.div>

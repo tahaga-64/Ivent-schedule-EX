@@ -5,6 +5,7 @@ import { X, CheckCircle, Truck } from 'lucide-react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { normalizeOrderStatus } from '../lib/orderStatus';
+import { isUnarrivedShinjukuItem } from '../lib/undelivered';
 import { notifyPush } from '../lib/pushNotifications';
 import type { Event, PreparationItem } from '../types';
 
@@ -45,13 +46,7 @@ export default function UndeliveredModal({ events, onClose }: Props) {
                 eventVenue: ev.venue,
                 ...d.data(),
               } as UndeliveredItem))
-              .filter(item =>
-                item.name?.trim() &&
-                item.arrivalDestination === '新宿' &&
-                normalizeOrderStatus(item.orderStatus) === 'ordered' &&
-                !!item.arrivalDate &&
-                item.arrivalDate <= today,
-              );
+              .filter(item => isUnarrivedShinjukuItem(item, today));
           }),
         );
 
@@ -90,7 +85,7 @@ export default function UndeliveredModal({ events, onClose }: Props) {
           prev.filter(i => !(i.id === item.id && i.eventId === item.eventId)),
         );
         notifyPush({
-          type: 'prep_arrived',
+          type: 'prep_updated',
           title: '配達完了',
           message: `「${item.name}」が届きました（${item.eventVenue}）`,
           eventId: item.eventId,
@@ -155,7 +150,7 @@ export default function UndeliveredModal({ events, onClose }: Props) {
                 )}
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                発注済みで到着予定日を過ぎた準備物（新宿着）
+                到着予定日を過ぎた未着の準備物（新宿着）
               </p>
             </div>
             <button
