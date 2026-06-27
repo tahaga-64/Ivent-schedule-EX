@@ -18,7 +18,11 @@
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { LayoutItemData, CustomCatalogItem } from './LayoutView';
+
+/** 高品質モード（PC/大画面のみ透過ガラス等の重い表現を有効化。モバイルは反射のみで軽量化） */
+const HIGH_QUALITY = typeof window !== 'undefined' && window.innerWidth >= 820;
 
 interface Props {
   items: LayoutItemData[];
@@ -54,9 +58,45 @@ function lambert(color: number, opts: { transparent?: boolean; opacity?: number 
 
 function standard(
   color: number,
-  opts: { transparent?: boolean; opacity?: number; roughness?: number; metalness?: number; emissive?: number; emissiveIntensity?: number } = {},
+  opts: { transparent?: boolean; opacity?: number; roughness?: number; metalness?: number; emissive?: number; emissiveIntensity?: number; envMapIntensity?: number } = {},
 ) {
-  return new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.08, ...opts });
+  return new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.08, envMapIntensity: 1.0, ...opts });
+}
+
+/** ガラス（高品質: 物理ベースの透過＋クリアコート / 軽量: 環境反射する半透明） */
+function glassMaterial(): THREE.Material {
+  if (HIGH_QUALITY) {
+    return new THREE.MeshPhysicalMaterial({
+      color: 0xecf7ff, metalness: 0, roughness: 0.04,
+      transmission: 1, thickness: 0.6, ior: 1.5,
+      transparent: true, opacity: 1,
+      clearcoat: 1, clearcoatRoughness: 0.04,
+      envMapIntensity: 1.5,
+    });
+  }
+  return new THREE.MeshStandardMaterial({
+    color: 0xbfdbfe, transparent: true, opacity: 0.24,
+    roughness: 0.05, metalness: 0.1, envMapIntensity: 1.6,
+  });
+}
+
+/** 水（高品質: 透過＋屈折＋クリアコート / 軽量: 光沢のある半透明） */
+function waterMaterial(deep = true): THREE.Material {
+  const color = deep ? 0x0ea5e9 : 0x38bdf8;
+  if (HIGH_QUALITY) {
+    return new THREE.MeshPhysicalMaterial({
+      color, metalness: 0, roughness: 0.08,
+      transmission: 0.55, thickness: 1.4, ior: 1.33,
+      transparent: true, opacity: 0.92,
+      clearcoat: 0.7, clearcoatRoughness: 0.08,
+      emissive: 0x0369a1, emissiveIntensity: 0.08,
+      envMapIntensity: 1.3,
+    });
+  }
+  return new THREE.MeshStandardMaterial({
+    color, transparent: true, opacity: 0.78, roughness: 0.12, metalness: 0.05,
+    emissive: 0x0369a1, emissiveIntensity: 0.12, envMapIntensity: 1.2,
+  });
 }
 
 function addMesh(
@@ -109,13 +149,13 @@ function buildFishTank(w: number, d: number): THREE.Group {
   // ガラス
   addMesh(
     g, new THREE.BoxGeometry(w * 0.96, tankH, d * 0.9),
-    standard(COLOR.glass, { transparent: true, opacity: 0.22, roughness: 0.05, metalness: 0.1 }),
+    glassMaterial(),
     0, standH + tankH / 2, 0,
   );
   // 水
   addMesh(
     g, new THREE.BoxGeometry(w * 0.9, tankH * 0.72, d * 0.82),
-    standard(COLOR.waterDeep, { transparent: true, opacity: 0.72, roughness: 0.15, metalness: 0.05, emissive: 0x0369a1, emissiveIntensity: 0.15 }),
+    waterMaterial(true),
     0, standH + tankH * 0.4, 0,
   );
   // 上部フレーム
@@ -129,12 +169,12 @@ function buildTouchTank(w: number, d: number): THREE.Group {
   const tankH = 0.8;
   addMesh(
     g, new THREE.BoxGeometry(w, tankH, d),
-    lambert(COLOR.glass, { transparent: true, opacity: 0.3 }),
+    glassMaterial(),
     0, tankH / 2, 0,
   );
   addMesh(
     g, new THREE.BoxGeometry(w * 0.94, 0.5, d * 0.94),
-    lambert(COLOR.water, { transparent: true, opacity: 0.7 }),
+    waterMaterial(false),
     0, 0.3, 0,
   );
   addMesh(g, new THREE.BoxGeometry(w * 1.02, 0.07, d * 1.02), lambert(COLOR.tankStand), 0, tankH + 0.035, 0);
@@ -178,7 +218,7 @@ function buildPool(w: number, d: number): THREE.Group {
   // 水面
   const water = addMesh(
     g, new THREE.CylinderGeometry(0.44, 0.44, 0.05, 32),
-    lambert(COLOR.water, { transparent: true, opacity: 0.8 }),
+    waterMaterial(false),
     0, wallH - 0.18, 0,
   );
   water.scale.set(w, 1, d);
@@ -304,16 +344,54 @@ function makeLabelSprite(text: string): THREE.Sprite {
   return sprite;
 }
 
+// ─── 方角バッジ（北東南西。会場に対して固定） ────────────────────────────────
+function makeDirectionSprite(text: string, bg: string): THREE.Sprite {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2 - 7, 0, Math.PI * 2);
+  ctx.fillStyle = bg;
+  ctx.fill();
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+  ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 72px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, size / 2, size / 2 + 4);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 8;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false }));
+  sprite.scale.set(2.4, 2.4, 1);
+  return sprite;
+}
+
 // ─── メインコンポーネント ─────────────────────────────────────────────────
 export default function Layout3DViewer({ items }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({
     isDragging: false,
+    panning: false,
     lastX: 0,
     lastY: 0,
+    // 目標値（入力で更新）
     rotX: 0.5,   // 初期チルト
     rotY: 0.6,
     zoom: 1,
+    panX: 0,
+    panZ: 0,
+    // 表示値（毎フレーム目標値へ補間＝慣性スムージング）
+    curRotX: 0.5,
+    curRotY: 0.6,
+    curZoom: 1,
+    curPanX: 0,
+    curPanZ: 0,
     pinchDist: 0,
   });
 
@@ -332,19 +410,26 @@ export default function Layout3DViewer({ items }: Props) {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.12;
+    renderer.toneMappingExposure = 1.0;
     renderer.setClearColor(0xdce5ee);
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     scene.fog = new THREE.Fog(0xdce5ee, 85, 165);
 
+    // ─── 環境マップ（IBL）— ガラス/水/金属にリアルな反射を与える ──────────────
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    pmrem.compileEquirectangularShader();
+    const roomEnv = new RoomEnvironment();
+    const envRT = pmrem.fromScene(roomEnv, 0.04);
+    scene.environment = envRT.texture;
+
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 280);
 
-    // ─── Lighting（明るい屋内モール風・多光源） ─────────────────────────────
-    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x8fa3b8, 0.95));
-    const sun = new THREE.DirectionalLight(0xfff7ed, 1.35);
+    // ─── Lighting（IBL を主体に、直接光で陰影とハイライトを補強） ─────────────
+    scene.add(new THREE.AmbientLight(0xffffff, 0.16));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8fa3b8, 0.45));
+    const sun = new THREE.DirectionalLight(0xfff7ed, 1.25);
     sun.position.set(14, 28, 12);
     sun.castShadow = true;
     sun.shadow.mapSize.set(4096, 4096);
@@ -356,6 +441,7 @@ export default function Layout3DViewer({ items }: Props) {
     sun.shadow.camera.right = 32;
     sun.shadow.camera.top = 32;
     sun.shadow.camera.bottom = -32;
+    sun.shadow.radius = 4; // 影のエッジを柔らかく
     scene.add(sun);
     const fill = new THREE.DirectionalLight(0xc7d2fe, 0.45);
     fill.position.set(-10, 12, -8);
@@ -364,10 +450,10 @@ export default function Layout3DViewer({ items }: Props) {
     rim.position.set(0, 8, -18);
     scene.add(rim);
 
-    // ─── Floor（明るいタイル床） ─────────────────────────────────────────────
+    // ─── Floor（環境反射でわずかに磨きのあるタイル床） ───────────────────────
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(52, 52),
-      standard(0xe7ecf2, { roughness: 0.82, metalness: 0.04 }),
+      standard(0xe7ecf2, { roughness: 0.62, metalness: 0.12, envMapIntensity: 0.7 }),
     );
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
@@ -395,6 +481,18 @@ export default function Layout3DViewer({ items }: Props) {
       scene.add(wall);
     });
 
+    // ─── 方角（会場に対して固定。-Z=北 / +X=東 / +Z=南 / -X=西） ──────────────
+    ([
+      { t: '北', x: 0, z: -24.5, c: '#dc2626' },
+      { t: '東', x: 24.5, z: 0, c: '#0f172a' },
+      { t: '南', x: 0, z: 24.5, c: '#0f172a' },
+      { t: '西', x: -24.5, z: 0, c: '#0f172a' },
+    ] as { t: string; x: number; z: number; c: string }[]).forEach(({ t, x, z, c }) => {
+      const badge = makeDirectionSprite(t, c);
+      badge.position.set(x, 2.2, z);
+      scene.add(badge);
+    });
+
     // ─── アイテム配置 ─────────────────────────────────────────────────────
     // 2Dキャンバスの 0–100% を world の -24..+24 にマップ
     const toWorld = (pct: number, range = 48) => (pct / 100) * range - range / 2;
@@ -416,13 +514,14 @@ export default function Layout3DViewer({ items }: Props) {
     // ─── カメラ操作（原点を中心に回転） ────────────────────────────────────
     function updateCamera() {
       const s = stateRef.current;
-      const radius = 36 / s.zoom;
-      camera.position.x = radius * Math.sin(s.rotY) * Math.cos(s.rotX);
-      camera.position.y = radius * Math.sin(s.rotX) + 4;
-      camera.position.z = radius * Math.cos(s.rotY) * Math.cos(s.rotX);
+      const radius = 36 / s.curZoom;
+      const tx = s.curPanX, ty = 1.5, tz = s.curPanZ;
+      camera.position.x = tx + radius * Math.sin(s.curRotY) * Math.cos(s.curRotX);
+      camera.position.y = ty + radius * Math.sin(s.curRotX) + 4;
+      camera.position.z = tz + radius * Math.cos(s.curRotY) * Math.cos(s.curRotX);
       // 縦方向に1回転（360°）しても上下が破綻しないよう、極を越えたら up を反転
-      camera.up.set(0, Math.cos(s.rotX) >= 0 ? 1 : -1, 0);
-      camera.lookAt(0, 1.5, 0);
+      camera.up.set(0, Math.cos(s.curRotX) >= 0 ? 1 : -1, 0);
+      camera.lookAt(tx, ty, tz);
     }
     updateCamera();
 
@@ -443,6 +542,15 @@ export default function Layout3DViewer({ items }: Props) {
     let animId = 0;
     function animate() {
       animId = requestAnimationFrame(animate);
+      // 目標値へ補間（慣性スムージング）
+      const s = stateRef.current;
+      const e = 0.2;
+      s.curRotX += (s.rotX - s.curRotX) * e;
+      s.curRotY += (s.rotY - s.curRotY) * e;
+      s.curZoom += (s.zoom - s.curZoom) * e;
+      s.curPanX += (s.panX - s.curPanX) * e;
+      s.curPanZ += (s.panZ - s.curPanZ) * e;
+      updateCamera();
       renderer.render(scene, camera);
     }
     animate();
@@ -450,58 +558,109 @@ export default function Layout3DViewer({ items }: Props) {
     // ─── Mouse / Touch interaction ────────────────────────────────────────
     const el = renderer.domElement;
 
+    const ZOOM_MIN = 0.3, ZOOM_MAX = 5;
+    const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+    const clampPan = (v: number) => Math.max(-24, Math.min(24, v));
+    const resetView = () => {
+      const s = stateRef.current;
+      s.rotX = 0.5; s.rotY = 0.6; s.zoom = 1; s.panX = 0; s.panZ = 0;
+    };
+
+    el.style.cursor = 'grab';
+
     function onPointerDown(e: MouseEvent | TouchEvent) {
-      stateRef.current.isDragging = true;
+      const s = stateRef.current;
+      s.isDragging = true;
+      // PC: 右/中ボタン または Shift 押下でパン、それ以外は回転
+      s.panning = ('button' in e && (e.button === 1 || e.button === 2)) || ('shiftKey' in e && e.shiftKey);
       const p = 'touches' in e ? e.touches[0] : e;
-      stateRef.current.lastX = p.clientX;
-      stateRef.current.lastY = p.clientY;
+      s.lastX = p.clientX;
+      s.lastY = p.clientY;
+      if (!('touches' in e)) el.style.cursor = s.panning ? 'move' : 'grabbing';
+      container.focus();
     }
 
     function onPointerMove(e: MouseEvent | TouchEvent) {
+      const s = stateRef.current;
       if ('touches' in e && e.touches.length === 2) {
         const d = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY,
         );
-        if (stateRef.current.pinchDist > 0) {
-          stateRef.current.zoom = Math.max(0.3, Math.min(5, stateRef.current.zoom * (d / stateRef.current.pinchDist)));
-        }
-        stateRef.current.pinchDist = d;
-        updateCamera();
+        if (s.pinchDist > 0) s.zoom = clampZoom(s.zoom * (d / s.pinchDist));
+        s.pinchDist = d;
         return;
       }
-      stateRef.current.pinchDist = 0;
-      if (!stateRef.current.isDragging) return;
+      s.pinchDist = 0;
+      if (!s.isDragging) return;
       const p = 'touches' in e ? e.touches[0] : e;
-      const dx = p.clientX - stateRef.current.lastX;
-      const dy = p.clientY - stateRef.current.lastY;
-      stateRef.current.rotY += dx * 0.008;
-      // 縦方向も制限なしで360°自由に回転できるようにする
-      stateRef.current.rotX += dy * 0.006;
-      stateRef.current.lastX = p.clientX;
-      stateRef.current.lastY = p.clientY;
-      updateCamera();
+      const dx = p.clientX - s.lastX;
+      const dy = p.clientY - s.lastY;
+      if (s.panning) {
+        // 画面ドラッグを地面（XZ平面）の平行移動に変換。ズーム量に応じて移動量を調整
+        const k = (36 / s.curZoom) * 0.0022;
+        const cy = Math.cos(s.curRotY), sy = Math.sin(s.curRotY);
+        s.panX = clampPan(s.panX - (dx * cy + dy * sy) * k);
+        s.panZ = clampPan(s.panZ - (-dx * sy + dy * cy) * k);
+      } else {
+        s.rotY += dx * 0.008;
+        // 縦方向も制限なしで360°自由に回転できるようにする
+        s.rotX += dy * 0.006;
+      }
+      s.lastX = p.clientX;
+      s.lastY = p.clientY;
     }
 
     function onPointerUp() {
       stateRef.current.isDragging = false;
+      stateRef.current.panning = false;
       stateRef.current.pinchDist = 0;
+      el.style.cursor = 'grab';
     }
 
     function onWheel(e: WheelEvent) {
       e.preventDefault();
-      stateRef.current.zoom = Math.max(0.3, Math.min(5, stateRef.current.zoom * (e.deltaY > 0 ? 0.93 : 1.07)));
-      updateCamera();
+      stateRef.current.zoom = clampZoom(stateRef.current.zoom * (e.deltaY > 0 ? 0.9 : 1.1));
     }
+
+    function onContextMenu(e: Event) {
+      e.preventDefault(); // 右ドラッグでパンするためメニューを抑制
+    }
+
+    function onDblClick() {
+      resetView(); // ダブルクリックで視点をリセット
+    }
+
+    function onKeyDown(e: KeyboardEvent) {
+      const s = stateRef.current;
+      let used = true;
+      switch (e.key) {
+        case 'ArrowLeft':  s.rotY -= 0.12; break;
+        case 'ArrowRight': s.rotY += 0.12; break;
+        case 'ArrowUp':    s.rotX += 0.08; break;
+        case 'ArrowDown':  s.rotX -= 0.08; break;
+        case '+': case '=': s.zoom = clampZoom(s.zoom * 1.1); break;
+        case '-': case '_': s.zoom = clampZoom(s.zoom / 1.1); break;
+        case 'r': case 'R': resetView(); break;
+        default: used = false;
+      }
+      if (used) e.preventDefault();
+    }
+
+    container.tabIndex = 0;
+    container.style.outline = 'none';
 
     el.addEventListener('mousedown', onPointerDown);
     el.addEventListener('mousemove', onPointerMove);
     el.addEventListener('mouseup', onPointerUp);
     el.addEventListener('mouseleave', onPointerUp);
+    el.addEventListener('dblclick', onDblClick);
+    el.addEventListener('contextmenu', onContextMenu);
     el.addEventListener('touchstart', onPointerDown, { passive: true });
     el.addEventListener('touchmove', onPointerMove, { passive: true });
     el.addEventListener('touchend', onPointerUp);
     el.addEventListener('wheel', onWheel, { passive: false });
+    container.addEventListener('keydown', onKeyDown);
 
     return () => {
       cancelAnimationFrame(animId);
@@ -510,10 +669,13 @@ export default function Layout3DViewer({ items }: Props) {
       el.removeEventListener('mousemove', onPointerMove);
       el.removeEventListener('mouseup', onPointerUp);
       el.removeEventListener('mouseleave', onPointerUp);
+      el.removeEventListener('dblclick', onDblClick);
+      el.removeEventListener('contextmenu', onContextMenu);
       el.removeEventListener('touchstart', onPointerDown);
       el.removeEventListener('touchmove', onPointerMove);
       el.removeEventListener('touchend', onPointerUp);
       el.removeEventListener('wheel', onWheel);
+      container.removeEventListener('keydown', onKeyDown);
       // ジオメトリ/マテリアル/テクスチャを解放
       scene.traverse(obj => {
         if (obj instanceof THREE.Mesh) {
@@ -527,10 +689,22 @@ export default function Layout3DViewer({ items }: Props) {
           obj.material.dispose();
         }
       });
+      // 環境マップ（IBL）リソースの解放
+      scene.environment = null;
+      envRT.dispose();
+      pmrem.dispose();
       renderer.dispose();
       if (container.contains(el)) container.removeChild(el);
     };
   }, [items]);
 
-  return <div ref={canvasRef} className="w-full h-full" style={{ touchAction: 'none' }} />;
+  return (
+    <div className="relative w-full h-full">
+      <div ref={canvasRef} className="w-full h-full" style={{ touchAction: 'none' }} />
+      {/* PC操作ヒント */}
+      <div className="hidden md:block absolute bottom-2 left-2 pointer-events-none select-none rounded-lg bg-slate-900/55 backdrop-blur-sm px-2.5 py-1.5 text-[10px] font-bold leading-relaxed text-white/90">
+        ドラッグ: 回転 ／ 右ドラッグ・Shift+ドラッグ: 移動 ／ ホイール: ズーム ／ ダブルクリック: リセット ／ 矢印キー・R 対応
+      </div>
+    </div>
+  );
 }

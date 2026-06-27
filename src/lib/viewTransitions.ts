@@ -6,14 +6,15 @@ const VIEW_ORDER: Record<string, number> = {
   home:      0,
   calendar:  1,
   prep:      2,
-  schedule:  3,
-  master:    4,
-  fish:      5,
-  layout:    6,
-  container: 7,
-  album:     8,
-  archive:   9,
-  kanban:    10,
+  shipping:  3,
+  schedule:  4,
+  master:    5,
+  fish:      6,
+  layout:    7,
+  container: 8,
+  album:     9,
+  archive:   10,
+  kanban:    11,
 };
 
 /** 2つのビュー名から遷移方向を返す: 1=右→左(前進) / -1=左→右(後退) / 0=同一 */

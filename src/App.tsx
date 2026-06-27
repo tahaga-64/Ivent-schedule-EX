@@ -62,8 +62,9 @@ const MobileTimelineView = lazyWithRetry(() => import('./components/CalendarComp
 const MobileWeekStrip = lazyWithRetry(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileWeekStrip })));
 const MobileDayAgendaView = lazyWithRetry(() => import('./components/CalendarComponents').then(m => ({ default: m.MobileDayAgendaView })));
 const EventDetailModal = lazyWithRetry(() => import('./components/EventDetailModal'));
+const ShippingView = lazyWithRetry(() => import('./components/ShippingView'));
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container" | "shipping";
 type ModalTab = "detail" | "photos";
 
 // 安全なlocalStorage読み込み
@@ -149,7 +150,7 @@ export default function App() {
   }, []);
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('viewMode');
-    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout', 'album', 'schedule', 'container'];
+    const valid: ViewMode[] = ['calendar', 'prep', 'archive', 'home', 'master', 'fish', 'layout', 'album', 'schedule', 'container', 'shipping'];
     return valid.includes(saved as ViewMode) ? saved as ViewMode : 'home';
   });
   // 遷移方向を計算するために直前のビューを追跡
@@ -1190,6 +1191,9 @@ VITE_FIREBASE_DATABASE_ID`}
       )}
       {v === "container" && (
         <ContainerBoxView events={allEvents} canEdit={canEditPreparationList} />
+      )}
+      {v === "shipping" && (
+        <ShippingView events={allEvents} canEdit={canEditPreparationList} user={user ?? null} />
       )}
       {v === "album" && (
         <AlbumView />

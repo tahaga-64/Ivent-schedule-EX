@@ -383,7 +383,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
           <button
             onClick={handleOpenNext}
             disabled={next.count === 0}
-            className="group relative tank-card rounded-2xl p-3 flex flex-col text-left hover:brightness-[1.03] transition-all disabled:cursor-default"
+            className="group relative z-0 hover:z-30 tank-card rounded-2xl p-3 flex flex-col text-left hover:brightness-[1.03] transition-all disabled:cursor-default"
           >
             <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">次イベント</div>
             {next.count === 0 ? (
@@ -403,7 +403,7 @@ export default function HomeView({ events, prepProgressMap, onSelectEvent, onSel
                 </span>
                 {/* 複数開催: PCはホバー、モバイルはタップ（カード→ピッカー）で開催地を表示 */}
                 {next.count > 1 && (
-                  <div className="pointer-events-none absolute left-2 right-2 top-full mt-1 z-30 hidden md:group-hover:block">
+                  <div className="pointer-events-none absolute right-0 bottom-full mb-2 z-50 w-max max-w-[240px] hidden md:group-hover:block">
                     <div className="bg-slate-900 text-white rounded-xl px-3 py-2 shadow-xl text-left">
                       <div className="font-black mb-1 text-[10px] uppercase tracking-widest text-slate-300">開催地（{next.count}件）</div>
                       <div className="flex flex-col gap-0.5">
