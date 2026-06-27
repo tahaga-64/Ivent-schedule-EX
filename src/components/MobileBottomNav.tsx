@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid, Images, Archive, MoreHorizontal, X, CalendarDays, Boxes } from 'lucide-react';
+import { Calendar, ClipboardList, Home, Package, Fish, LayoutGrid, Images, Archive, MoreHorizontal, X, CalendarDays, Boxes, Truck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { burstAt } from '../lib/fx';
 
-type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container";
+type ViewMode = "calendar" | "prep" | "archive" | "home" | "master" | "fish" | "layout" | "album" | "schedule" | "container" | "shipping";
 
 interface MobileBottomNavProps {
   view: ViewMode;
@@ -20,6 +20,7 @@ const PRIMARY_TABS: { id: ViewMode | 'more'; icon: React.ReactNode; label: strin
 
 const MORE_ITEMS: { id: ViewMode; icon: React.ReactNode; label: string; sub: string }[] = [
   { id: "schedule", icon: <CalendarDays size={22} />, label: "スケジュール",  sub: "スタッフ予定表" },
+  { id: "shipping", icon: <Truck size={22} />,     label: "発注・郵送",   sub: "届け先ごとの発注管理" },
   { id: "master",  icon: <Package size={22} />,    label: "備品マスター", sub: "備品の登録・管理" },
   { id: "fish",    icon: <Fish size={22} />,       label: "魚リスト",     sub: "水族館イベント用" },
   { id: "layout",  icon: <LayoutGrid size={22} />, label: "レイアウト",   sub: "会場配置図" },
