@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Trash2, ChevronLeft, ChevronRight, Edit3, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { EventPhoto } from '../../types';
+import { photoDisplayUrl } from '../../lib/photoStorage';
 import GoogleDriveSaveLink from './GoogleDriveSaveLink';
 
 interface Props {
@@ -69,9 +70,10 @@ export default function PhotoGallery({ photos, onDelete, onUpdateCaption, canEdi
             {/* 画像エリア */}
             <div className="relative aspect-video bg-slate-100">
               <img
-                src={photo.thumbnailUrl || photo.url}
+                src={photoDisplayUrl(photo, 'thumb')}
                 alt={photo.caption || `イベント写真 ${i + 1}`}
                 className="w-full h-full object-cover cursor-pointer"
+                loading="lazy"
                 onClick={() => openLightbox(i)}
               />
 
@@ -186,7 +188,7 @@ export default function PhotoGallery({ photos, onDelete, onUpdateCaption, canEdi
               </button>
               {photos[lightbox] && (
                 <img
-                  src={photos[lightbox].url}
+                  src={photoDisplayUrl(photos[lightbox], 'full')}
                   alt={photos[lightbox].caption || `イベント写真 ${lightbox + 1}`}
                   className="max-w-full max-h-full object-contain rounded-xl"
                   style={{ maxHeight: 'calc(100vh - 180px)' }}

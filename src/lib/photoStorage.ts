@@ -53,6 +53,17 @@ export async function uploadEventPhoto(eventId: string, file: File): Promise<Eve
   };
 }
 
+/** Drive 画像をプロキシ配信する表示URL（/api/driveImage） */
+export function driveImageUrl(fileId: string, size: 'thumb' | 'full' = 'full'): string {
+  return `/api/driveImage?id=${encodeURIComponent(fileId)}&size=${size}`;
+}
+
+/** EventPhoto の表示URL（Drive 優先・無ければ従来 Cloudinary にフォールバック＝ハイブリッド） */
+export function photoDisplayUrl(photo: EventPhoto, size: 'thumb' | 'full' = 'full'): string {
+  if (photo.driveFileId) return driveImageUrl(photo.driveFileId, size);
+  return size === 'thumb' ? (photo.thumbnailUrl || photo.url) : photo.url;
+}
+
 export async function deleteStoredPhoto(photo: EventPhoto): Promise<void> {
   if (!photo.storagePath) return;
   try {
@@ -197,6 +208,51 @@ export async function uploadToDriveFile(params: {
 
   const data = await res.json() as { fileId: string; webViewLink?: string; folderId: string };
   return { fileId: data.fileId, webViewLink: data.webViewLink, folderId: data.folderId };
+}
+
+export interface DriveFile {
+  id: string;
+  name: string;
+  mimeType: string;
+  modifiedTime: string;
+  width: number | null;
+  height: number | null;
+}
+
+/** フォルダ直下の画像ファイル一覧（アルバムの Drive ミラー用） */
+export async function listDriveFiles(
+  folderId?: string,
+  pageToken?: string,
+): Promise<{ folderId: string; files: DriveFile[]; nextPageToken: string | null }> {
+  const headers = await authHeaders();
+  const params = new URLSearchParams();
+  if (folderId) params.set('folderId', folderId);
+  if (pageToken) params.set('pageToken', pageToken);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(`/api/listDriveFiles${qs}`, { headers });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? '画像一覧の取得に失敗しました');
+  }
+  return res.json();
+}
+
+/** Google Drive へ直接アップロードして EventPhoto を作成（Cloudinary 不使用・新方式） */
+export async function uploadEventPhotoToDrive(
+  eventId: string,
+  file: File,
+  targetFolderId: string,
+): Promise<EventPhoto> {
+  const result = await uploadToDriveFile({ eventId, file, targetFolderId });
+  return {
+    id: crypto.randomUUID(),
+    url: driveImageUrl(result.fileId, 'full'),
+    thumbnailUrl: driveImageUrl(result.fileId, 'thumb'),
+    uploadedAt: new Date().toISOString(),
+    driveFileId: result.fileId,
+    driveFolderId: result.folderId,
+    driveViewUrl: result.webViewLink,
+  };
 }
 
 export async function deleteDriveFile(driveFileId: string): Promise<void> {
