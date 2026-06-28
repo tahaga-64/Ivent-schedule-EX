@@ -94,7 +94,7 @@ export default function PhotoUpload({ onUpload, uploading, uploadProgress, curre
           <div className="text-center">
             <p className="text-sm font-bold text-slate-600">クリックまたはドラッグ＆ドロップ</p>
           <p className="text-xs text-slate-400 mt-0.5">
-            Google Drive に保存 · あと{remaining}枚追加可能
+            写真を保存 · あと{remaining}枚追加可能
           </p>
           </div>
         </div>
