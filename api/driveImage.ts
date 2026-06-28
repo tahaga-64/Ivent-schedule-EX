@@ -16,10 +16,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const size = (req.query.size as string) === 'thumb' ? 'thumb' : 'full';
   if (!id) return res.status(400).json({ error: 'missing id' });
 
-  const drive = await getDriveClient();
-  if (!drive) return res.status(503).json({ error: 'Google Drive is not configured' });
-
   try {
+    const drive = await getDriveClient();
+    if (!drive) return res.status(503).json({ error: 'Google Drive is not configured' });
+
     const meta = await drive.files.get({
       fileId: id,
       fields: 'id,mimeType,thumbnailLink,trashed',

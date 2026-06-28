@@ -7,18 +7,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
     return res.status(503).json({ error: 'Authentication is not configured' });
   }
-  if (!(await isAuthenticated(req))) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const drive = await getDriveClient();
-  if (!drive) {
-    return res.status(503).json({ error: 'Google Drive is not configured' });
-  }
-
-  const parentId = (req.query.parentId as string) || process.env.GOOGLE_DRIVE_FOLDER_ID || DEFAULT_DRIVE_FOLDER_ID;
 
   try {
+    if (!(await isAuthenticated(req))) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const drive = await getDriveClient();
+    if (!drive) {
+      return res.status(503).json({ error: 'Google Drive is not configured' });
+    }
+
+    const parentId = (req.query.parentId as string) || process.env.GOOGLE_DRIVE_FOLDER_ID || DEFAULT_DRIVE_FOLDER_ID;
     const q = `'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
     const list = await drive.files.list({
       q,
