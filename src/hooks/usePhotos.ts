@@ -4,7 +4,7 @@ import { db } from '../lib/firebase';
 import {
   deleteDriveFile,
   deleteStoredPhoto,
-  uploadEventPhotoToDrive,
+  uploadEventPhoto,
   validateImageFile,
 } from '../lib/photoStorage';
 import { EventPhoto } from '../types';
@@ -32,14 +32,19 @@ export function usePhotos(eventId: string) {
     let uploadedPhoto: EventPhoto | null = null;
     try {
       setUploadProgress(30);
-      // Google Drive へ直接アップロード（Cloudinary は使わない）
-      uploadedPhoto = await uploadEventPhotoToDrive(eventId, file, opts.targetFolderId);
+      // 個人Driveではサービスアカウント直アップロードが不可のため、表示用は Cloudinary に保存
+      uploadedPhoto = await uploadEventPhoto(eventId, file);
       setUploadProgress(80);
       await setDoc(doc(db, 'events', eventId), { photos: arrayUnion(uploadedPhoto) }, { merge: true });
       setUploadProgress(100);
       return uploadedPhoto;
     } catch (e) {
       console.error('Photo upload failed:', e);
+      if (uploadedPhoto) {
+        deleteStoredPhoto(uploadedPhoto).catch(err => {
+          console.error('Uploaded photo cleanup failed:', err);
+        });
+      }
       if (uploadedPhoto?.driveFileId) {
         deleteDriveFile(uploadedPhoto.driveFileId).catch(err => {
           console.error('Drive cleanup failed:', err);
