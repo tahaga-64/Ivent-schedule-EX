@@ -97,6 +97,18 @@ export interface DriveUploadResult {
   folderId: string;
 }
 
+/** fetch 失敗時に「(HTTP xxx) 詳細」形式の診断メッセージを作る */
+async function describeFetchError(res: Response, fallback: string): Promise<string> {
+  let detail = '';
+  try {
+    const body = await res.clone().json();
+    detail = (body as { error?: string }).error ?? '';
+  } catch {
+    detail = (await res.text().catch(() => '')).slice(0, 140);
+  }
+  return `(HTTP ${res.status}) ${detail || fallback}`;
+}
+
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await auth?.currentUser?.getIdToken();
   if (!token) throw new Error('ログインが必要です');
@@ -110,10 +122,7 @@ export async function listDriveFolders(parentId?: string): Promise<{ parentId: s
   const headers = await authHeaders();
   const qs = parentId ? `?parentId=${encodeURIComponent(parentId)}` : '';
   const res = await fetch(`/api/listDriveFolders${qs}`, { headers });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error ?? 'フォルダ一覧の取得に失敗しました');
-  }
+  if (!res.ok) throw new Error(await describeFetchError(res, 'フォルダ一覧の取得に失敗しました'));
   return res.json();
 }
 
@@ -230,10 +239,7 @@ export async function listDriveFiles(
   if (pageToken) params.set('pageToken', pageToken);
   const qs = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`/api/listDriveFiles${qs}`, { headers });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error ?? '画像一覧の取得に失敗しました');
-  }
+  if (!res.ok) throw new Error(await describeFetchError(res, '画像一覧の取得に失敗しました'));
   return res.json();
 }
 
