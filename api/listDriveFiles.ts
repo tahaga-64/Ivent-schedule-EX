@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { DEFAULT_DRIVE_FOLDER_ID, getDriveClient, isAuthenticated } from './lib/driveAuth';
+
+// コールドスタート（googleapis/firebase-admin の読込）で 10秒既定を超えないよう上限を拡大
+export const config = { maxDuration: 30 };
 
 /**
  * 指定フォルダ直下の画像ファイル一覧を返す（アルバムのDriveミラー表示用）。
@@ -13,6 +15,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const { DEFAULT_DRIVE_FOLDER_ID, getDriveClient, isAuthenticated } = await import('./lib/driveAuth');
+
     if (!(await isAuthenticated(req))) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
