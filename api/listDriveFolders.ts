@@ -3,6 +3,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // コールドスタート（googleapis/firebase-admin の読込）で 10秒既定を超えないよう上限を拡大
 export const config = { maxDuration: 30 };
 
+// コールドスタート（googleapis/firebase-admin の読込）で 10秒既定を超えないよう上限を拡大
+export const config = { maxDuration: 30 };
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
 

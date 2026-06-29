@@ -3,6 +3,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // コールドスタート（googleapis/firebase-admin の読込）で 10秒既定を超えないよう上限を拡大
 export const config = { maxDuration: 30 };
 
+// コールドスタート（googleapis/firebase-admin の読込）で 10秒既定を超えないよう上限を拡大
+export const config = { maxDuration: 30 };
+
 /**
  * 指定フォルダ直下の画像ファイル一覧を返す（アルバムのDriveミラー表示用）。
  * GET /api/listDriveFiles?folderId=...&pageToken=...

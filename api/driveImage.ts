@@ -3,6 +3,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // コールドスタート（googleapis の読込）で 10秒既定を超えないよう上限を拡大
 export const config = { maxDuration: 30 };
 
+// コールドスタート（googleapis の読込）で 10秒既定を超えないよう上限を拡大
+export const config = { maxDuration: 30 };
+
 /**
  * Drive 画像をサーバー（サービスアカウント）経由で配信するプロキシ。
  * GET /api/driveImage?id=<fileId>&size=thumb|full
