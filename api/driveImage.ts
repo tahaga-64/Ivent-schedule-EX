@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getDriveClient } from './lib/driveAuth';
 
 // コールドスタート（googleapis の読込）で 10秒既定を超えないよう上限を拡大
 export const config = { maxDuration: 30 };
@@ -19,7 +20,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!id) return res.status(400).json({ error: 'missing id' });
 
   try {
-    const { getDriveClient } = await import('./lib/driveAuth');
     const drive = await getDriveClient();
     if (!drive) return res.status(503).json({ error: 'Google Drive is not configured' });
 
