@@ -26,7 +26,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const drive = await getDrive();
     if (!drive) return res.status(503).json({ error: 'Google Drive is not configured' });
 
-    const parentId = (req.query.parentId as string) || DEFAULT_FOLDER;
+    // 入力（公開）をクエリに直接埋め込むため、Drive ID 形式のみ許可（クエリ混入防止）
+    const rawParentId = Array.isArray(req.query.parentId) ? req.query.parentId[0] : req.query.parentId;
+    const parentId = rawParentId || DEFAULT_FOLDER;
+    if (!/^[A-Za-z0-9_-]+$/.test(parentId)) {
+      return res.status(400).json({ error: 'invalid parentId' });
+    }
     const q = `'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
     const list = await drive.files.list({
       q,
