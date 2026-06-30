@@ -1,16 +1,25 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDriveClient } from './lib/driveAuth';
 
-// コールドスタート（googleapis 読込）でタイムアウトしないよう上限を拡大
+// 自己完結（./lib/driveAuth を import すると Vercel で解決失敗し関数が落ちるため、
+// 診断エンドポイントと同じく googleapis をこのファイル内で直接読み込む）。
 export const config = { maxDuration: 30 };
+
+async function getDrive() {
+  const raw = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON ?? process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!raw) return null;
+  const { google } = await import('googleapis');
+  const auth = new google.auth.GoogleAuth({
+    credentials: JSON.parse(raw),
+    scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+  });
+  const client = await auth.getClient();
+  return google.drive({ version: 'v3', auth: client as never });
+}
 
 /**
  * Drive 画像をサーバー（サービスアカウント）経由で配信するプロキシ。
  * GET /api/driveImage?id=<fileId>&size=thumb|full
- *
- * 注: <img src> から読み込むため Firebase トークン認証は付けられない。
- * その代わり「画像 MIME のファイルのみ」に限定し、内容不変なので強キャッシュする。
- * Drive のファイルID自体が高エントロピーで推測困難（現行 Cloudinary の公開URLと同等のモデル）。
+ * 内容不変なので強キャッシュ。<img src> から読むため認証は付けない（画像MIMEのみ許可）。
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -20,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!id) return res.status(400).json({ error: 'missing id' });
 
   try {
-    const drive = await getDriveClient();
+    const drive = await getDrive();
     if (!drive) return res.status(503).json({ error: 'Google Drive is not configured' });
 
     const meta = await drive.files.get({
@@ -35,7 +44,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const cache = 'public, max-age=31536000, immutable';
 
-    // サムネイル: Drive の thumbnailLink をサイズ指定して取得（軽量）
     if (size === 'thumb' && file.thumbnailLink) {
       const thumbUrl = file.thumbnailLink
         .replace(/=s\d+$/, '=s800')
@@ -49,7 +57,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // 原本: alt=media でバイト列を取得（サービスアカウントで確実に読める）
     const media = await drive.files.get(
       { fileId: id, alt: 'media', supportsAllDrives: true },
       { responseType: 'arraybuffer' },
@@ -60,7 +67,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.send(buf);
   } catch (e) {
     console.error('driveImage error:', e);
-    const msg = e instanceof Error ? e.message : String(e);
-    return res.status(500).json({ error: msg });
+    return res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
   }
 }

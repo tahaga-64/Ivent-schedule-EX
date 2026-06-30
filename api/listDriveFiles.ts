@@ -1,26 +1,36 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { DEFAULT_DRIVE_FOLDER_ID, getDriveClient } from './lib/driveAuth';
 
-// コールドスタート（googleapis 読込）でタイムアウトしないよう上限を拡大
+// 自己完結（./lib/driveAuth を import すると Vercel で解決失敗し関数が落ちるため、
+// 診断エンドポイントと同じく googleapis をこのファイル内で直接読み込む）。
 export const config = { maxDuration: 30 };
+
+const DEFAULT_FOLDER = process.env.GOOGLE_DRIVE_FOLDER_ID || '1CsKYdRqSYrf5XzHsX4hqAalg5JFc3ieZ';
+
+async function getDrive() {
+  const raw = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON ?? process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!raw) return null;
+  const { google } = await import('googleapis');
+  const auth = new google.auth.GoogleAuth({
+    credentials: JSON.parse(raw),
+    scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+  });
+  const client = await auth.getClient();
+  return google.drive({ version: 'v3', auth: client as never });
+}
 
 /**
  * 指定フォルダ直下の画像ファイル一覧を返す（アルバムのDriveミラー表示用）。
  * GET /api/listDriveFiles?folderId=...&pageToken=...
- *
- * 注: 読み取り専用かつフォルダIDは公開のため、driveImage プロキシと同様に
- * firebase-admin によるトークン検証は行わない。
+ * 注: 読み取り専用かつフォルダIDは公開のため firebase-admin 認証は行わない。
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
 
   try {
-    const drive = await getDriveClient();
-    if (!drive) {
-      return res.status(503).json({ error: 'Google Drive is not configured' });
-    }
+    const drive = await getDrive();
+    if (!drive) return res.status(503).json({ error: 'Google Drive is not configured' });
 
-    const folderId = (req.query.folderId as string) || process.env.GOOGLE_DRIVE_FOLDER_ID || DEFAULT_DRIVE_FOLDER_ID;
+    const folderId = (req.query.folderId as string) || DEFAULT_FOLDER;
     const pageToken = (req.query.pageToken as string) || undefined;
 
     const q = `'${folderId}' in parents and mimeType contains 'image/' and trashed=false`;
@@ -46,7 +56,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.json({ folderId, files, nextPageToken: list.data.nextPageToken ?? null });
   } catch (e) {
     console.error('listDriveFiles error:', e);
-    const msg = e instanceof Error ? e.message : String(e);
-    return res.status(500).json({ error: msg });
+    return res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
   }
 }
