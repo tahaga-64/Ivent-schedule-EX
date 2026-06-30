@@ -31,7 +31,8 @@ import {
   GoalRow,
   INITIAL_SCHEDULE_DATA,
   getDaysInMonth,
-  getStartOffset
+  getStartOffset,
+  isJapaneseHoliday
 } from '../lib/exScheduleConstants';
 import type { Event } from '../types';
 import StaffMonthlyStats from './StaffMonthlyStats';
@@ -1150,7 +1151,7 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
                         const detail = item.detail;
                         const memo = currentMonthData.memos[currentSchedMember]?.[day] || '';
                         const isSat = dow === 5;
-                        const isSun = dow === 6;
+                        const isSun = dow === 6 || isJapaneseHoliday(currentYear, currentMonth, day);
                         const dowLabel = ['月', '火', '水', '木', '金', '土', '日'][dow];
                         const _today = new Date();
                         const isToday = currentYear === _today.getFullYear() && currentMonth === _today.getMonth() && day === _today.getDate();
@@ -1256,7 +1257,7 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
                             const detail = item.detail;
                             const memo = currentMonthData.memos[currentSchedMember]?.[day] || '';
                             const isSat = dow === 5;
-                            const isSun = dow === 6;
+                            const isSun = dow === 6 || isJapaneseHoliday(currentYear, currentMonth, day);
                             const _today = new Date();
                             const isToday = currentYear === _today.getFullYear() && currentMonth === _today.getMonth() && day === _today.getDate();
 
@@ -1395,7 +1396,7 @@ function App({ currentUser, allEvents, isAdmin }: { currentUser: User | null; al
                           const day = i + 1;
                           const dow = getDow(currentYear, currentMonth, day);
                           const isSat = dow === 5;
-                          const isSun = dow === 6;
+                          const isSun = dow === 6 || isJapaneseHoliday(currentYear, currentMonth, day);
                           const _t = new Date();
                           const isToday = currentYear === _t.getFullYear() && currentMonth === _t.getMonth() && day === _t.getDate();
                           return (

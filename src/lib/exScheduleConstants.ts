@@ -78,6 +78,20 @@ export const getStartOffset = (year: number, month: number) => {
   return (day + 6) % 7;
 };
 
+// 2026年の国民の祝日（振替休日・国民の休日を含む）。将来の年は追記すれば拡張可能。
+const JP_HOLIDAYS = new Set<string>([
+  '2026-01-01', '2026-01-12', '2026-02-11', '2026-02-23', '2026-03-20',
+  '2026-04-29', '2026-05-03', '2026-05-04', '2026-05-05', '2026-05-06',
+  '2026-07-20', '2026-08-11', '2026-09-21', '2026-09-22', '2026-09-23',
+  '2026-10-12', '2026-11-03', '2026-11-23',
+]);
+
+/** 日本の祝日かどうか（month は new Date と同じ 0 始まり） */
+export const isJapaneseHoliday = (year: number, month: number, day: number): boolean => {
+  const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  return JP_HOLIDAYS.has(key);
+};
+
 export type StatusType = 'normal' | 'request' | 'training' | 'dispatch' | 'standby' | 'event' | 'office' | 'absence' | 'other' | 'rest' | 'carry';
 
 export const TYPE_LABEL: Record<StatusType, string> = {
