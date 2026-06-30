@@ -1,29 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { DEFAULT_DRIVE_FOLDER_ID, getDriveClient } from './lib/driveAuth';
 
-// コールドスタート（googleapis/firebase-admin の読込）で 10秒既定を超えないよう上限を拡大
+// コールドスタート（googleapis 読込）でタイムアウトしないよう上限を拡大
 export const config = { maxDuration: 30 };
 
-// コールドスタート（googleapis/firebase-admin の読込）で 10秒既定を超えないよう上限を拡大
-export const config = { maxDuration: 30 };
-
-// コールドスタート（googleapis/firebase-admin の読込）で 10秒既定を超えないよう上限を拡大
-export const config = { maxDuration: 30 };
-
+// 注: 読み取り専用かつフォルダIDは公開（フロントに埋め込み済み）のため、
+// driveImage プロキシと同様に firebase-admin によるトークン検証は行わない。
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
 
-  if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    return res.status(503).json({ error: 'Authentication is not configured' });
-  }
-
   try {
-    // 重い依存は動的 import（読込時の例外もここで捕捉して可読化する）
-    const { DEFAULT_DRIVE_FOLDER_ID, getDriveClient, isAuthenticated } = await import('./lib/driveAuth');
-
-    if (!(await isAuthenticated(req))) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
     const drive = await getDriveClient();
     if (!drive) {
       return res.status(503).json({ error: 'Google Drive is not configured' });
@@ -36,6 +22,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       fields: 'files(id,name,modifiedTime)',
       orderBy: 'name',
       pageSize: 200,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
     });
 
     const folders = (list.data.files ?? []).map(f => ({
