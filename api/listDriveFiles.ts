@@ -1,32 +1,20 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { DEFAULT_DRIVE_FOLDER_ID, getDriveClient } from './lib/driveAuth';
 
-// コールドスタート（googleapis/firebase-admin の読込）で 10秒既定を超えないよう上限を拡大
-export const config = { maxDuration: 30 };
-
-// コールドスタート（googleapis/firebase-admin の読込）で 10秒既定を超えないよう上限を拡大
-export const config = { maxDuration: 30 };
-
-// コールドスタート（googleapis/firebase-admin の読込）で 10秒既定を超えないよう上限を拡大
+// コールドスタート（googleapis 読込）でタイムアウトしないよう上限を拡大
 export const config = { maxDuration: 30 };
 
 /**
  * 指定フォルダ直下の画像ファイル一覧を返す（アルバムのDriveミラー表示用）。
  * GET /api/listDriveFiles?folderId=...&pageToken=...
+ *
+ * 注: 読み取り専用かつフォルダIDは公開のため、driveImage プロキシと同様に
+ * firebase-admin によるトークン検証は行わない。
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
 
-  if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    return res.status(503).json({ error: 'Authentication is not configured' });
-  }
-
   try {
-    const { DEFAULT_DRIVE_FOLDER_ID, getDriveClient, isAuthenticated } = await import('./lib/driveAuth');
-
-    if (!(await isAuthenticated(req))) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
     const drive = await getDriveClient();
     if (!drive) {
       return res.status(503).json({ error: 'Google Drive is not configured' });
@@ -42,6 +30,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       orderBy: 'modifiedTime desc',
       pageSize: 200,
       pageToken,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
     });
 
     const files = (list.data.files ?? []).map(f => ({

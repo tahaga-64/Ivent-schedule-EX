@@ -1,12 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getDriveClient } from './lib/driveAuth';
 
-// コールドスタート（googleapis の読込）で 10秒既定を超えないよう上限を拡大
-export const config = { maxDuration: 30 };
-
-// コールドスタート（googleapis の読込）で 10秒既定を超えないよう上限を拡大
-export const config = { maxDuration: 30 };
-
-// コールドスタート（googleapis の読込）で 10秒既定を超えないよう上限を拡大
+// コールドスタート（googleapis 読込）でタイムアウトしないよう上限を拡大
 export const config = { maxDuration: 30 };
 
 /**
@@ -25,13 +20,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!id) return res.status(400).json({ error: 'missing id' });
 
   try {
-    const { getDriveClient } = await import('./lib/driveAuth');
     const drive = await getDriveClient();
     if (!drive) return res.status(503).json({ error: 'Google Drive is not configured' });
 
     const meta = await drive.files.get({
       fileId: id,
       fields: 'id,mimeType,thumbnailLink,trashed',
+      supportsAllDrives: true,
     });
     const file = meta.data;
     if (!file || file.trashed) return res.status(404).end();
@@ -52,12 +47,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.setHeader('Cache-Control', cache);
         return res.send(buf);
       }
-      // サムネ取得に失敗したら原本にフォールバック
     }
 
     // 原本: alt=media でバイト列を取得（サービスアカウントで確実に読める）
     const media = await drive.files.get(
-      { fileId: id, alt: 'media' },
+      { fileId: id, alt: 'media', supportsAllDrives: true },
       { responseType: 'arraybuffer' },
     );
     const buf = Buffer.from(media.data as ArrayBuffer);
