@@ -1,21 +1,37 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { DEFAULT_DRIVE_FOLDER_ID, getDriveClient } from './lib/driveAuth';
 
-// コールドスタート（googleapis 読込）でタイムアウトしないよう上限を拡大
+// 自己完結（./lib/driveAuth を import すると Vercel で解決失敗し関数が落ちるため、
+// 診断エンドポイントと同じく googleapis をこのファイル内で直接読み込む）。
 export const config = { maxDuration: 30 };
 
-// 注: 読み取り専用かつフォルダIDは公開（フロントに埋め込み済み）のため、
-// driveImage プロキシと同様に firebase-admin によるトークン検証は行わない。
+const DEFAULT_FOLDER = process.env.GOOGLE_DRIVE_FOLDER_ID || '1CsKYdRqSYrf5XzHsX4hqAalg5JFc3ieZ';
+
+async function getDrive() {
+  const raw = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON ?? process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!raw) return null;
+  const { google } = await import('googleapis');
+  const auth = new google.auth.GoogleAuth({
+    credentials: JSON.parse(raw),
+    scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+  });
+  const client = await auth.getClient();
+  return google.drive({ version: 'v3', auth: client as never });
+}
+
+// 注: 読み取り専用かつフォルダIDは公開のため firebase-admin 認証は行わない。
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end();
 
   try {
-    const drive = await getDriveClient();
-    if (!drive) {
-      return res.status(503).json({ error: 'Google Drive is not configured' });
-    }
+    const drive = await getDrive();
+    if (!drive) return res.status(503).json({ error: 'Google Drive is not configured' });
 
-    const parentId = (req.query.parentId as string) || process.env.GOOGLE_DRIVE_FOLDER_ID || DEFAULT_DRIVE_FOLDER_ID;
+    // 入力（公開）をクエリに直接埋め込むため、Drive ID 形式のみ許可（クエリ混入防止）
+    const rawParentId = Array.isArray(req.query.parentId) ? req.query.parentId[0] : req.query.parentId;
+    const parentId = rawParentId || DEFAULT_FOLDER;
+    if (!/^[A-Za-z0-9_-]+$/.test(parentId)) {
+      return res.status(400).json({ error: 'invalid parentId' });
+    }
     const q = `'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
     const list = await drive.files.list({
       q,
@@ -35,7 +51,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.json({ parentId, folders });
   } catch (e) {
     console.error('listDriveFolders error:', e);
-    const msg = e instanceof Error ? e.message : String(e);
-    return res.status(500).json({ error: msg });
+    return res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
   }
 }
