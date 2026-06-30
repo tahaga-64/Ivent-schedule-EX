@@ -53,9 +53,15 @@ export async function uploadEventPhoto(eventId: string, file: File): Promise<Eve
   };
 }
 
-/** Drive 画像をプロキシ配信する表示URL（/api/driveImage） */
+/**
+ * Drive 画像の表示URL。
+ * フォルダがリンク共有（公開）されている前提で、Google のCDNを直接参照する
+ * （Vercelプロキシを経由しないため高速・キャッシュも効く）。
+ * 万一フォルダが非公開だと表示できないが、その場合は /api/driveImage プロキシに戻す。
+ */
 export function driveImageUrl(fileId: string, size: 'thumb' | 'full' = 'full'): string {
-  return `/api/driveImage?id=${encodeURIComponent(fileId)}&size=${size}`;
+  const w = size === 'thumb' ? 500 : 1600;
+  return `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w${w}`;
 }
 
 /** EventPhoto の表示URL（Drive 優先・無ければ従来 Cloudinary にフォールバック＝ハイブリッド） */
