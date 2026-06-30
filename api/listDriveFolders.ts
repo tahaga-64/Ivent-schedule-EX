@@ -6,7 +6,13 @@ export const config = { maxDuration: 30 };
 
 const DEFAULT_FOLDER = process.env.GOOGLE_DRIVE_FOLDER_ID || '1CsKYdRqSYrf5XzHsX4hqAalg5JFc3ieZ';
 
-async function getDrive() {
+// Drive クライアントは関数インスタンス内で再利用（毎リクエストの認証を省略し高速化）
+let _drivePromise: ReturnType<typeof buildDrive> | null = null;
+function getDrive() {
+  if (!_drivePromise) _drivePromise = buildDrive().catch(e => { _drivePromise = null; throw e; });
+  return _drivePromise;
+}
+async function buildDrive() {
   const raw = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON ?? process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (!raw) return null;
   const { google } = await import('googleapis');

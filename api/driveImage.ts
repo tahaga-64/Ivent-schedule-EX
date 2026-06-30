@@ -4,7 +4,13 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // 診断エンドポイントと同じく googleapis をこのファイル内で直接読み込む）。
 export const config = { maxDuration: 30 };
 
-async function getDrive() {
+// Drive クライアントは関数インスタンス内で再利用（毎リクエストの認証を省略し高速化）
+let _drivePromise: ReturnType<typeof buildDrive> | null = null;
+function getDrive() {
+  if (!_drivePromise) _drivePromise = buildDrive().catch(e => { _drivePromise = null; throw e; });
+  return _drivePromise;
+}
+async function buildDrive() {
   const raw = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON ?? process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (!raw) return null;
   const { google } = await import('googleapis');
@@ -45,9 +51,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cache = 'public, max-age=31536000, immutable';
 
     if (size === 'thumb' && file.thumbnailLink) {
+      // グリッド用サムネは小さめ（=s400）で軽量・高速に
       const thumbUrl = file.thumbnailLink
-        .replace(/=s\d+$/, '=s800')
-        .replace(/=w\d+-h\d+(-[a-z]+)?$/, '=s800');
+        .replace(/=s\d+$/, '=s400')
+        .replace(/=w\d+-h\d+(-[a-z]+)?$/, '=s400');
       const r = await fetch(thumbUrl);
       if (r.ok) {
         const buf = Buffer.from(await r.arrayBuffer());

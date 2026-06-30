@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Images, ExternalLink, Folder, ChevronRight, ChevronLeft, X, RefreshCw, FolderOpen } from 'lucide-react';
@@ -29,33 +29,55 @@ export default function AlbumView() {
   const [reloadKey, setReloadKey] = useState(0);
 
   const current = trail[trail.length - 1];
+  const loadTokenRef = useRef(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
+  // silent=true は自動更新用（スピナーを出さず、失敗しても既存表示を消さない）
+  const load = useCallback(async (folderId: string, silent: boolean) => {
+    const token = ++loadTokenRef.current;
+    if (!silent) {
       setLoading(true);
       setError(null);
-      try {
-        const [folderRes, fileRes] = await Promise.all([
-          listDriveFolders(current.id),
-          listDriveFiles(current.id),
-        ]);
-        if (cancelled) return;
-        setFolders(folderRes.folders);
-        setFiles(fileRes.files);
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : '読み込みに失敗しました');
-          setFolders([]);
-          setFiles([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+    }
+    try {
+      const [folderRes, fileRes] = await Promise.all([
+        listDriveFolders(folderId),
+        listDriveFiles(folderId),
+      ]);
+      if (token !== loadTokenRef.current) return; // 古い（フォルダ移動前の）結果は破棄
+      setFolders(folderRes.folders);
+      setFiles(fileRes.files);
+      setError(null);
+    } catch (e) {
+      if (token !== loadTokenRef.current) return;
+      if (!silent) {
+        setError(e instanceof Error ? e.message : '読み込みに失敗しました');
+        setFolders([]);
+        setFiles([]);
       }
+    } finally {
+      if (token === loadTokenRef.current && !silent) setLoading(false);
+    }
+  }, []);
+
+  // 初期表示・フォルダ移動・手動更新
+  useEffect(() => {
+    load(current.id, false);
+  }, [current.id, reloadKey, load]);
+
+  // リアルタイム同期: アプリに戻った時＋表示中は定期的に、サイレント自動更新
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') load(current.id, true);
     };
-    load();
-    return () => { cancelled = true; };
-  }, [current.id, reloadKey]);
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    const timer = setInterval(refresh, 30000);
+    return () => {
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+      clearInterval(timer);
+    };
+  }, [current.id, load]);
 
   const openFolder = useCallback((f: DriveFolder) => {
     setTrail(prev => [...prev, { id: f.id, name: f.name }]);
