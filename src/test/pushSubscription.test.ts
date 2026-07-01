@@ -27,8 +27,10 @@ function setupPushEnv(opts: {
   permission?: NotificationPermission;
   existingSub?: SubStub | null;
   freshSub?: SubStub;
+  requestPermissionResult?: NotificationPermission;
+  registerImpl?: ReturnType<typeof vi.fn>;
 } = {}) {
-  const { permission = 'granted', existingSub = null, freshSub } = opts;
+  const { permission = 'granted', existingSub = null, freshSub, requestPermissionResult, registerImpl } = opts;
 
   const newSub: SubStub = freshSub ?? { endpoint: 'https://push/fresh', unsubscribe: vi.fn() };
 
@@ -39,7 +41,7 @@ function setupPushEnv(opts: {
   const registration = { pushManager };
 
   const serviceWorker = {
-    register: vi.fn(async () => registration),
+    register: registerImpl ?? vi.fn(async () => registration),
     ready: Promise.resolve(registration),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
@@ -57,10 +59,19 @@ function setupPushEnv(opts: {
     },
   }));
   vi.stubGlobal('PushManager', class {});
-  vi.stubGlobal('Notification', { permission });
-  vi.stubGlobal('window', { ...globalThis, atob: (s: string) => Buffer.from(s, 'base64').toString('binary'), PushManager: class {}, Notification: { permission } });
+  // 実ブラウザでは requestPermission() の解決後に Notification.permission 自体も更新されるため再現する
+  const notificationStub: { permission: NotificationPermission; requestPermission: ReturnType<typeof vi.fn> } = {
+    permission,
+    requestPermission: vi.fn(async () => {
+      notificationStub.permission = requestPermissionResult ?? permission;
+      return notificationStub.permission;
+    }),
+  };
+  const requestPermission = notificationStub.requestPermission;
+  vi.stubGlobal('Notification', notificationStub);
+  vi.stubGlobal('window', { ...globalThis, atob: (s: string) => Buffer.from(s, 'base64').toString('binary'), PushManager: class {}, Notification: notificationStub });
 
-  return { registration, pushManager, serviceWorker, newSub };
+  return { registration, pushManager, serviceWorker, newSub, requestPermission };
 }
 
 beforeEach(() => {
@@ -211,5 +222,93 @@ describe('listenForForegroundPushMessages', () => {
 
     unsubscribe();
     expect(serviceWorker.removeEventListener).toHaveBeenCalledWith('message', handler);
+  });
+});
+
+describe('registerPushServiceWorker', () => {
+  it('Push未設定なら register を呼ばず null を返す', async () => {
+    vi.stubEnv('VITE_PUSH_WORKER_URL', '');
+    vi.stubEnv('VITE_WEB_PUSH_PUBLIC_KEY', '');
+    const { serviceWorker } = setupPushEnv();
+    const { registerPushServiceWorker } = await import('../lib/pushNotifications');
+
+    await expect(registerPushServiceWorker()).resolves.toBeNull();
+    expect(serviceWorker.register).not.toHaveBeenCalled();
+  });
+
+  it('serviceWorker 非対応ブラウザなら null を返す', async () => {
+    // setupPushEnv を呼ばない = jsdom のデフォルト（serviceWorker 無し）のまま
+    const { registerPushServiceWorker } = await import('../lib/pushNotifications');
+    await expect(registerPushServiceWorker()).resolves.toBeNull();
+  });
+
+  it('register が成功すれば registration を返す', async () => {
+    const { registration, serviceWorker } = setupPushEnv();
+    const { registerPushServiceWorker } = await import('../lib/pushNotifications');
+
+    await expect(registerPushServiceWorker()).resolves.toBe(registration);
+    expect(serviceWorker.register).toHaveBeenCalledWith('/push-sw.js', { scope: '/', updateViaCache: 'none' });
+  });
+
+  it('register が例外を投げたら握り潰して null を返す', async () => {
+    const registerImpl = vi.fn().mockRejectedValue(new Error('register failed'));
+    setupPushEnv({ registerImpl });
+    const { registerPushServiceWorker } = await import('../lib/pushNotifications');
+
+    await expect(registerPushServiceWorker()).resolves.toBeNull();
+    expect(registerImpl).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('enablePushNotifications', () => {
+  it('Push未設定なら例外を投げる', async () => {
+    vi.stubEnv('VITE_PUSH_WORKER_URL', '');
+    vi.stubEnv('VITE_WEB_PUSH_PUBLIC_KEY', '');
+    const { enablePushNotifications } = await import('../lib/pushNotifications');
+
+    await expect(enablePushNotifications(fakeUser)).rejects.toThrow('設定されていません');
+  });
+
+  it('ブラウザが Push通知に非対応なら例外を投げる', async () => {
+    // setupPushEnv を呼ばない = serviceWorker/PushManager/Notification が無い状態
+    const { enablePushNotifications } = await import('../lib/pushNotifications');
+
+    await expect(enablePushNotifications(fakeUser)).rejects.toThrow('対応していません');
+  });
+
+  it('通知許可を求めて拒否されたら例外を投げる', async () => {
+    const { requestPermission } = setupPushEnv({ permission: 'default', requestPermissionResult: 'denied' });
+    const { enablePushNotifications } = await import('../lib/pushNotifications');
+
+    await expect(enablePushNotifications(fakeUser)).rejects.toThrow('通知許可が必要');
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+  });
+
+  it('既に許可済みなら requestPermission を呼ばずに購読まで完了する', async () => {
+    const { requestPermission, pushManager } = setupPushEnv({ permission: 'granted', existingSub: null });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
+    const { enablePushNotifications } = await import('../lib/pushNotifications');
+
+    const sub = await enablePushNotifications(fakeUser);
+
+    expect(requestPermission).not.toHaveBeenCalled();
+    expect(pushManager.subscribe).toHaveBeenCalledTimes(1);
+    expect(sub.endpoint).toBe('https://push/fresh');
+  });
+
+  it('未許可（default）から許可を得たら購読まで完了する', async () => {
+    const { requestPermission, pushManager } = setupPushEnv({
+      permission: 'default',
+      requestPermissionResult: 'granted',
+      existingSub: null,
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
+    const { enablePushNotifications } = await import('../lib/pushNotifications');
+
+    const sub = await enablePushNotifications(fakeUser);
+
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+    expect(pushManager.subscribe).toHaveBeenCalledTimes(1);
+    expect(sub.endpoint).toBe('https://push/fresh');
   });
 });
